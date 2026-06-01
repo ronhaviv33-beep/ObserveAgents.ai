@@ -19,6 +19,7 @@ class AskResponse(BaseModel):
     latency_ms: float
     cost_usd: float
     telemetry_id: int
+    budget_warnings: list[dict] = []
 
 
 class TelemetryRecord(BaseModel):
@@ -45,3 +46,35 @@ class TelemetrySummary(BaseModel):
     avg_latency_ms: float
     models_used: list[str]
     teams: list[str]
+
+
+class BudgetRuleCreate(BaseModel):
+    team: str = Field(..., examples=["SOC"])
+    agent: str | None = Field(default=None, examples=["IR-Agent"])
+    limit_usd: float = Field(..., gt=0, examples=[10.0])
+    period: str = Field(default="monthly", pattern="^(daily|monthly)$")
+    action: str = Field(default="alert", pattern="^(alert|block)$")
+
+
+class BudgetRuleOut(BaseModel):
+    id: int
+    team: str
+    agent: str | None
+    limit_usd: float
+    period: str
+    action: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class BudgetStatusItem(BaseModel):
+    id: int
+    team: str
+    agent: str | None
+    limit_usd: float
+    spend_usd: float
+    pct: float
+    period: str
+    action: str
+    status: str  # "ok" | "warning" | "blocked"

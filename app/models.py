@@ -37,6 +37,20 @@ def calculate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> fl
     return round(prompt_cost + completion_cost, 8)
 
 
+class BudgetRule(Base):
+    __tablename__ = "budget_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    team: Mapped[str] = mapped_column(String(128))           # team name or "*" for global
+    agent: Mapped[str | None] = mapped_column(String(128), nullable=True)  # None = team-wide
+    limit_usd: Mapped[float] = mapped_column(Float)
+    period: Mapped[str] = mapped_column(String(16))          # "daily" | "monthly"
+    action: Mapped[str] = mapped_column(String(16))          # "alert" | "block"
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class Telemetry(Base):
     __tablename__ = "telemetry"
 
