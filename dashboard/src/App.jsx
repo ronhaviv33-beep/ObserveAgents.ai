@@ -1762,7 +1762,14 @@ function ChatPage() {
           </button>
 
           <div style={{ marginLeft:"auto", display:"flex", gap:12, fontFamily:FONT_MONO, fontSize:11, color:T.textDim, alignItems:"center" }}>
-            {sessionUuid && <span style={{ color:T.textMute, fontSize:10 }}>ID: {sessionUuid.slice(0,8)}…</span>}
+            {sessionUuid && (
+              <button
+                title="Click to copy session_uuid — use it in /ask requests to attach them to this chat"
+                onClick={() => navigator.clipboard.writeText(sessionUuid)}
+                style={{ background:T.panelHi, border:`1px solid ${T.border}`, color:T.textMute, borderRadius:4, padding:"3px 8px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ color:T.accentDim }}>⚡</span> ID: {sessionUuid.slice(0,8)}… <span style={{ fontSize:9, opacity:0.6 }}>copy</span>
+              </button>
+            )}
             <span>Tokens: <span style={{ color:T.text }}>{totalTokens.toLocaleString()}</span></span>
             <span>Cost: <span style={{ color:T.accent }}>${totalCost.toFixed(6)}</span></span>
             <button onClick={() => setShowSessions(s => !s)}

@@ -8,6 +8,7 @@ class AskRequest(BaseModel):
     prompt: str = Field(..., examples=["Analyze this phishing email"])
     model: str = Field(default="gpt-4o-mini", examples=["gpt-4o-mini"])
     system_prompt: str | None = Field(default=None)
+    session_uuid: str | None = Field(default=None, description="Attach this call to an existing chat session")
 
 
 class AskResponse(BaseModel):

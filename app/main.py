@@ -96,6 +96,20 @@ async def ask(req: AskRequest, db: Session = Depends(get_db)):
         sensitive=scan_result.is_sensitive, sensitive_findings=findings_list,
     )
 
+    # 6. Attach to session if session_uuid provided
+    if req.session_uuid:
+        s = sess.get_session(db, req.session_uuid)
+        if s and s.is_active:
+            sess.add_message(db, session_uuid=req.session_uuid,
+                             role="user", content=req.prompt)
+            sess.add_message(db, session_uuid=req.session_uuid,
+                             role="assistant", content=result.content,
+                             prompt_tokens=result.prompt_tokens,
+                             completion_tokens=result.completion_tokens,
+                             cost_usd=record.cost_usd, latency_ms=result.latency_ms,
+                             security_findings=findings_list,
+                             budget_warnings=budget_check["warnings"])
+
     return AskResponse(
         response=result.content,
         model=result.model,
