@@ -1410,12 +1410,19 @@ function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ── Poll active sessions every 10s ──
+  const [sessionTab, setSessionTab] = useState("active"); // "active" | "recent"
+  const [allSessions, setAllSessions] = useState([]);
+
+  // ── Poll sessions every 10s ──
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        const r = await fetch("/api/sessions");
-        if (r.ok) setActiveSessions(await r.json());
+        const [activeR, allR] = await Promise.all([
+          fetch("/api/sessions?active_only=true"),
+          fetch("/api/sessions?active_only=false"),
+        ]);
+        if (activeR.ok) setActiveSessions(await activeR.json());
+        if (allR.ok)    setAllSessions(await allR.json());
       } catch { /* ignore */ }
     };
     fetchSessions();
@@ -1517,6 +1524,64 @@ function ChatPage() {
     resetTimer();
   };
 
+  const resumeSession = async (s) => {
+    // Load history from old session, create a fresh active session, restore messages
+    try {
+      const r = await fetch(`/api/sessions/${s.session_uuid}/messages`);
+      if (!r.ok) throw new Error("Could not load messages");
+      const msgs = await r.json();
+
+      // Close current session if one is open
+      if (sessionUuid) {
+        await fetch(`/api/sessions/${sessionUuid}`, { method: "DELETE" }).catch(() => {});
+      }
+
+      // Create a new session inheriting the old config
+      const nr = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_name: user?.name || "Unknown",
+          user_role: user?.role || "analyst",
+          team: s.team, agent: s.agent, model: s.model,
+        }),
+      });
+      if (!nr.ok) throw new Error("Could not create session");
+      const newSession = await nr.json();
+
+      // Rebuild message display from stored history
+      const rebuilt = msgs.map(m => ({
+        role: m.role,
+        content: m.content,
+        ...(m.role === "assistant" ? {
+          meta: {
+            model: s.model,
+            tokens: m.prompt_tokens + m.completion_tokens,
+            cost: m.cost_usd,
+            latency: m.latency_ms,
+            findings: JSON.parse(m.security_findings || "[]"),
+            warnings: JSON.parse(m.budget_warnings   || "[]"),
+          }
+        } : {}),
+      }));
+
+      const totalC = msgs.filter(m => m.role==="assistant").reduce((a, m) => a + m.cost_usd, 0);
+      const totalT = msgs.reduce((a, m) => a + m.prompt_tokens + m.completion_tokens, 0);
+
+      setTeam(s.team); setAgent(s.agent); setModel(s.model);
+      setMessages(rebuilt);
+      setTotalCost(totalC);
+      setTotalTokens(totalT);
+      setSessionUuid(newSession.session_uuid);
+      setSessionClosed(false);
+      setError(null);
+      resetTimer();
+      setSessionTab("active");
+    } catch (e) {
+      setError(`Resume failed: ${e.message}`);
+    }
+  };
+
   const LabelSelect = ({ label, value, onChange, options, disabled }) => (
     <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
       <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>{label}</label>
@@ -1533,42 +1598,110 @@ function ChatPage() {
   return (
     <div style={{ display:"flex", gap:16, height:"calc(100vh - 120px)" }}>
 
-      {/* ── Active Sessions Panel ── */}
+      {/* ── Sessions Panel ── */}
       {showSessions && (
-        <div style={{ width:260, background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, display:"flex", flexDirection:"column", flexShrink:0, overflow:"hidden" }}>
-          <div style={{ padding:"12px 14px", borderBottom:`1px solid ${T.border}`, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-            <span style={{ fontSize:11, fontFamily:FONT_MONO, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textMute }}>Active Sessions</span>
-            <span style={{ fontSize:10, fontFamily:FONT_MONO, background:T.panelHi, color:T.accent, padding:"2px 7px", borderRadius:10 }}>{activeSessions.length}</span>
+        <div style={{ width:270, background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, display:"flex", flexDirection:"column", flexShrink:0, overflow:"hidden" }}>
+          {/* Tab bar */}
+          <div style={{ display:"flex", borderBottom:`1px solid ${T.border}` }}>
+            {[["active","Active"], ["recent","Recent"]].map(([tab, label]) => (
+              <button key={tab} onClick={() => setSessionTab(tab)}
+                style={{ flex:1, padding:"10px 0", background: sessionTab===tab ? T.panelHi : "transparent",
+                  border:"none", borderBottom: sessionTab===tab ? `2px solid ${T.accent}` : "2px solid transparent",
+                  color: sessionTab===tab ? T.text : T.textDim, fontSize:11, fontFamily:FONT_MONO,
+                  letterSpacing:"0.08em", textTransform:"uppercase", cursor:"pointer" }}>
+                {label}
+                {tab==="active" && activeSessions.length > 0 &&
+                  <span style={{ marginLeft:6, background:T.accent, color:T.bg, fontSize:9, padding:"1px 5px", borderRadius:8 }}>{activeSessions.length}</span>}
+              </button>
+            ))}
           </div>
+
           <div style={{ flex:1, overflow:"auto", padding:10, display:"flex", flexDirection:"column", gap:8 }}>
-            {activeSessions.length === 0 && (
-              <div style={{ color:T.textMute, fontSize:11, fontFamily:FONT_MONO, textAlign:"center", marginTop:20 }}>No active sessions</div>
-            )}
-            {activeSessions.map(s => {
-              const isMe = s.session_uuid === sessionUuid;
-              const idleMins = Math.floor((Date.now() - new Date(s.last_activity_at).getTime()) / 60000);
-              const rc = ROLES[s.user_role]?.color ?? T.textDim;
-              return (
-                <div key={s.session_uuid}
-                  style={{ background: isMe ? `${T.accent}10` : T.panelHi, border:`1px solid ${isMe ? T.accent+"44" : T.border}`, borderRadius:6, padding:"10px 12px", display:"flex", flexDirection:"column", gap:5 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <div style={{ width:7, height:7, borderRadius:"50%", background:T.accent, flexShrink:0 }}/>
-                    <span style={{ fontSize:12, fontWeight:500, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.user_name}</span>
-                    <span style={{ fontSize:9, fontFamily:FONT_MONO, color:rc, background:`${rc}18`, padding:"1px 5px", borderRadius:3 }}>{s.user_role}</span>
-                  </div>
-                  <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, display:"flex", flexDirection:"column", gap:2 }}>
-                    <span>{s.team} / {s.agent}</span>
-                    <span style={{ color:T.textMute }}>{s.model}</span>
-                    <div style={{ display:"flex", gap:8, marginTop:2 }}>
-                      <span style={{ color:T.accent }}>${s.total_cost_usd.toFixed(5)}</span>
-                      <span>{s.message_count} msg{s.message_count!==1?"s":""}</span>
-                      <span style={{ color: idleMins > 20 ? T.warn : T.textMute }}>idle {idleMins}m</span>
+            {sessionTab === "active" && (
+              <>
+                {activeSessions.length === 0 && (
+                  <div style={{ color:T.textMute, fontSize:11, fontFamily:FONT_MONO, textAlign:"center", marginTop:20 }}>No active sessions</div>
+                )}
+                {activeSessions.map(s => {
+                  const isMe = s.session_uuid === sessionUuid;
+                  const idleMins = Math.floor((Date.now() - new Date(s.last_activity_at).getTime()) / 60000);
+                  const rc = ROLES[s.user_role]?.color ?? T.textDim;
+                  return (
+                    <div key={s.session_uuid}
+                      style={{ background: isMe ? `${T.accent}10` : T.panelHi, border:`1px solid ${isMe ? T.accent+"44" : T.border}`, borderRadius:6, padding:"10px 12px", display:"flex", flexDirection:"column", gap:5 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        <div style={{ width:7, height:7, borderRadius:"50%", background:T.accent, flexShrink:0 }}/>
+                        <span style={{ fontSize:12, fontWeight:500, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.user_name}</span>
+                        <span style={{ fontSize:9, fontFamily:FONT_MONO, color:rc, background:`${rc}18`, padding:"1px 5px", borderRadius:3 }}>{s.user_role}</span>
+                      </div>
+                      <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, display:"flex", flexDirection:"column", gap:2 }}>
+                        <span>{s.team} / {s.agent}</span>
+                        <span>{s.model}</span>
+                        <div style={{ display:"flex", gap:8, marginTop:2 }}>
+                          <span style={{ color:T.accent }}>${s.total_cost_usd.toFixed(5)}</span>
+                          <span>{s.message_count} msg{s.message_count!==1?"s":""}</span>
+                          <span style={{ color: idleMins > 20 ? T.warn : T.textMute }}>idle {idleMins}m</span>
+                        </div>
+                      </div>
+                      {isMe
+                        ? <div style={{ fontSize:9, fontFamily:FONT_MONO, color:T.accent }}>← your session</div>
+                        : <button onClick={() => resumeSession(s)}
+                            style={{ marginTop:2, background:`${T.info}18`, border:`1px solid ${T.info}44`, color:T.info, borderRadius:4, padding:"4px 0", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                            ↩ Resume
+                          </button>
+                      }
                     </div>
-                  </div>
-                  {isMe && <div style={{ fontSize:9, fontFamily:FONT_MONO, color:T.accent }}>← your session</div>}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </>
+            )}
+
+            {sessionTab === "recent" && (
+              <>
+                {allSessions.length === 0 && (
+                  <div style={{ color:T.textMute, fontSize:11, fontFamily:FONT_MONO, textAlign:"center", marginTop:20 }}>No sessions yet</div>
+                )}
+                {allSessions.map(s => {
+                  const isActive = s.is_active;
+                  const isMe = s.session_uuid === sessionUuid;
+                  const rc = ROLES[s.user_role]?.color ?? T.textDim;
+                  const when = new Date(s.last_activity_at);
+                  const timeAgo = (() => {
+                    const diff = (Date.now() - when.getTime()) / 1000;
+                    if (diff < 60)   return `${Math.floor(diff)}s ago`;
+                    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+                    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+                    return when.toLocaleDateString();
+                  })();
+                  return (
+                    <div key={s.session_uuid}
+                      style={{ background: isMe ? `${T.accent}10` : T.panelHi, border:`1px solid ${isMe ? T.accent+"44" : T.border}`, borderRadius:6, padding:"10px 12px", display:"flex", flexDirection:"column", gap:5, opacity: isActive ? 1 : 0.75 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        <div style={{ width:7, height:7, borderRadius:"50%", background: isActive ? T.accent : T.textMute, flexShrink:0 }}/>
+                        <span style={{ fontSize:12, fontWeight:500, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.user_name}</span>
+                        <span style={{ fontSize:9, fontFamily:FONT_MONO, color:rc, background:`${rc}18`, padding:"1px 5px", borderRadius:3 }}>{s.user_role}</span>
+                      </div>
+                      <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, display:"flex", flexDirection:"column", gap:2 }}>
+                        <span>{s.team} / {s.agent}</span>
+                        <span>{s.model}</span>
+                        <div style={{ display:"flex", gap:8, marginTop:2 }}>
+                          <span style={{ color:T.accent }}>${s.total_cost_usd.toFixed(5)}</span>
+                          <span>{s.message_count} msg{s.message_count!==1?"s":""}</span>
+                          <span style={{ color:T.textMute }}>{timeAgo}</span>
+                        </div>
+                      </div>
+                      {!isMe && s.message_count > 0 && (
+                        <button onClick={() => resumeSession(s)}
+                          style={{ marginTop:2, background:`${T.info}18`, border:`1px solid ${T.info}44`, color:T.info, borderRadius:4, padding:"4px 0", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                          ↩ Resume
+                        </button>
+                      )}
+                      {isMe && <div style={{ fontSize:9, fontFamily:FONT_MONO, color:T.accent }}>← current session</div>}
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </div>
         </div>
       )}
