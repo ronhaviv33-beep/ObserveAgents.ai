@@ -20,6 +20,7 @@ class AskResponse(BaseModel):
     latency_ms: float
     cost_usd: float
     telemetry_id: int
+    session_uuid: str | None = None
     budget_warnings: list[dict] = []
     security_findings: list[dict] = []
 

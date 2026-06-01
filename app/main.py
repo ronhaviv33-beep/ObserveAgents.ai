@@ -96,19 +96,29 @@ async def ask(req: AskRequest, db: Session = Depends(get_db)):
         sensitive=scan_result.is_sensitive, sensitive_findings=findings_list,
     )
 
-    # 6. Attach to session if session_uuid provided
-    if req.session_uuid:
-        s = sess.get_session(db, req.session_uuid)
-        if s and s.is_active:
-            sess.add_message(db, session_uuid=req.session_uuid,
-                             role="user", content=req.prompt)
-            sess.add_message(db, session_uuid=req.session_uuid,
-                             role="assistant", content=result.content,
-                             prompt_tokens=result.prompt_tokens,
-                             completion_tokens=result.completion_tokens,
-                             cost_usd=record.cost_usd, latency_ms=result.latency_ms,
-                             security_findings=findings_list,
-                             budget_warnings=budget_check["warnings"])
+    # 6. Attach to existing session or auto-create one
+    target_uuid = req.session_uuid
+    if target_uuid:
+        s = sess.get_session(db, target_uuid)
+        if not (s and s.is_active):
+            target_uuid = None  # session gone — fall through to auto-create
+
+    if not target_uuid:
+        new_session = sess.create_session(
+            db, user_name=req.agent, user_role="analyst",
+            team=req.team, agent=req.agent, model=req.model,
+        )
+        target_uuid = new_session.session_uuid
+
+    sess.add_message(db, session_uuid=target_uuid,
+                     role="user", content=req.prompt)
+    sess.add_message(db, session_uuid=target_uuid,
+                     role="assistant", content=result.content,
+                     prompt_tokens=result.prompt_tokens,
+                     completion_tokens=result.completion_tokens,
+                     cost_usd=record.cost_usd, latency_ms=result.latency_ms,
+                     security_findings=findings_list,
+                     budget_warnings=budget_check["warnings"])
 
     return AskResponse(
         response=result.content,
@@ -119,6 +129,7 @@ async def ask(req: AskRequest, db: Session = Depends(get_db)):
         latency_ms=result.latency_ms,
         cost_usd=record.cost_usd,
         telemetry_id=record.id,
+        session_uuid=target_uuid,
         budget_warnings=budget_check["warnings"],
         security_findings=findings_list,
     )
