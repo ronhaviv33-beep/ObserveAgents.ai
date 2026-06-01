@@ -1721,11 +1721,32 @@ function ChatPage() {
                         </div>
                       </div>
                       {isMe
-                        ? <div style={{ fontSize:9, fontFamily:FONT_MONO, color:T.accent }}>← your session</div>
-                        : <button onClick={() => resumeSession(s)}
-                            style={{ marginTop:2, background:`${T.info}18`, border:`1px solid ${T.info}44`, color:T.info, borderRadius:4, padding:"4px 0", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
-                            ↩ Resume
-                          </button>
+                        ? (
+                          <div style={{ display:"flex", gap:6, marginTop:2 }}>
+                            <div style={{ fontSize:9, fontFamily:FONT_MONO, color:T.accent, flex:1, alignSelf:"center" }}>← your session</div>
+                            <button onClick={clearChat}
+                              style={{ background:`${T.crit}15`, border:`1px solid ${T.crit}44`, color:T.crit, borderRadius:4, padding:"4px 10px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                              End
+                            </button>
+                          </div>
+                        )
+                        : (
+                          <div style={{ display:"flex", gap:6, marginTop:2 }}>
+                            <button onClick={() => resumeSession(s)}
+                              style={{ flex:1, background:`${T.info}18`, border:`1px solid ${T.info}44`, color:T.info, borderRadius:4, padding:"4px 0", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                              ↩ Resume
+                            </button>
+                            {(user?.role === "admin" || s.user_name === user?.name) && (
+                              <button onClick={async () => {
+                                await fetch(`/api/sessions/${s.session_uuid}`, { method:"DELETE" }).catch(()=>{});
+                                setActiveSessions(prev => prev.filter(x => x.session_uuid !== s.session_uuid));
+                              }}
+                                style={{ background:`${T.crit}15`, border:`1px solid ${T.crit}44`, color:T.crit, borderRadius:4, padding:"4px 10px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                                End
+                              </button>
+                            )}
+                          </div>
+                        )
                       }
                     </div>
                   );
