@@ -1535,6 +1535,10 @@ function ChatPage() {
       if (sessionUuid) {
         await fetch(`/api/sessions/${sessionUuid}`, { method: "DELETE" }).catch(() => {});
       }
+      // Always close the source session — we continue it in a new one
+      if (s.session_uuid !== sessionUuid) {
+        await fetch(`/api/sessions/${s.session_uuid}`, { method: "DELETE" }).catch(() => {});
+      }
 
       // Create a new session inheriting the old config
       const nr = await fetch("/api/sessions", {
