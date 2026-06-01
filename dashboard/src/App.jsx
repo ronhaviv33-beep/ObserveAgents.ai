@@ -1684,10 +1684,16 @@ function ChatPage() {
           <div style={{ flex:1, overflow:"auto", padding:10, display:"flex", flexDirection:"column", gap:8 }}>
             {sessionTab === "active" && (
               <>
-                {activeSessions.length === 0 && (
-                  <div style={{ color:T.textMute, fontSize:11, fontFamily:FONT_MONO, textAlign:"center", marginTop:20 }}>No active sessions</div>
-                )}
-                {activeSessions.map(s => {
+                {(() => {
+                  const visible = user?.role === "admin"
+                    ? activeSessions
+                    : activeSessions.filter(s => s.user_name === user?.name);
+                  if (visible.length === 0) return (
+                    <div style={{ color:T.textMute, fontSize:11, fontFamily:FONT_MONO, textAlign:"center", marginTop:20 }}>
+                      {user?.role === "admin" ? "No active sessions" : "No active sessions for you"}
+                    </div>
+                  );
+                  return visible.map(s => {
                   const isMe = s.session_uuid === sessionUuid;
                   const idleMins = Math.floor((Date.now() - new Date(s.last_activity_at).getTime()) / 60000);
                   const rc = ROLES[s.user_role]?.color ?? T.textDim;
@@ -1717,16 +1723,21 @@ function ChatPage() {
                       }
                     </div>
                   );
-                })}
+                  })
+                })()}
               </>
             )}
 
             {sessionTab === "recent" && (
               <>
-                {allSessions.length === 0 && (
-                  <div style={{ color:T.textMute, fontSize:11, fontFamily:FONT_MONO, textAlign:"center", marginTop:20 }}>No sessions yet</div>
-                )}
-                {allSessions.map(s => {
+                {(() => {
+                  const visible = user?.role === "admin"
+                    ? allSessions
+                    : allSessions.filter(s => s.user_name === user?.name);
+                  if (visible.length === 0) return (
+                    <div style={{ color:T.textMute, fontSize:11, fontFamily:FONT_MONO, textAlign:"center", marginTop:20 }}>No sessions yet</div>
+                  );
+                  return visible.map(s => {
                   const isActive = s.is_active;
                   const isMe = s.session_uuid === sessionUuid;
                   const rc = ROLES[s.user_role]?.color ?? T.textDim;
@@ -1764,7 +1775,8 @@ function ChatPage() {
                       {isMe && <div style={{ fontSize:9, fontFamily:FONT_MONO, color:T.accent }}>← current session</div>}
                     </div>
                   );
-                })}
+                  })
+                })()}
               </>
             )}
           </div>
@@ -2123,7 +2135,15 @@ export default function App() {
                 <div style={{ fontSize:12, fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.name}</div>
                 <div style={{ fontSize:9, fontFamily:FONT_MONO, color: ROLES[user.role]?.color ?? T.textDim, textTransform:"uppercase", letterSpacing:"0.1em" }}>{user.role} · {user.team}</div>
               </div>
-              <button title="Switch user" onClick={() => { localStorage.removeItem("aifinops_user"); setUser(null); }}
+              <button title="Switch user" onClick={() => {
+                localStorage.removeItem("aifinops_user");
+                setUser(null);
+                // Clear chat state so the new user starts with a blank slate
+                setMessages([]); setTotalCost(0); setTotalTokens(0);
+                setSessionUuid(null); setSessionClosed(false);
+                setTimeoutSecsLeft(null); setError(null);
+                knownMsgCountRef.current = 0;
+              }}
                 style={{ background:"transparent", border:"none", color:T.textMute, fontSize:14, cursor:"pointer", padding:"2px 4px", lineHeight:1 }}>⇄</button>
             </div>
           )}
