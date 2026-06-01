@@ -137,6 +137,61 @@ class ChatResponse(BaseModel):
 
 # ── Security scan ─────────────────────────────────────────────────────────────
 
+# ── Sessions ─────────────────────────────────────────────────────────────────
+
+class SessionCreate(BaseModel):
+    user_name: str = Field(..., examples=["Ron"])
+    user_role: str = Field(..., pattern="^(admin|analyst|viewer)$")
+    team: str = Field(..., examples=["SOC"])
+    agent: str = Field(..., examples=["IR-Agent"])
+    model: str = Field(default="gpt-4o-mini")
+
+
+class SessionOut(BaseModel):
+    session_uuid: str
+    user_name: str
+    user_role: str
+    team: str
+    agent: str
+    model: str
+    created_at: datetime
+    last_activity_at: datetime
+    is_active: bool
+    message_count: int
+    total_cost_usd: float
+    total_tokens: int
+
+    model_config = {"from_attributes": True}
+
+
+class SessionMessageOut(BaseModel):
+    id: int
+    role: str
+    content: str
+    prompt_tokens: int
+    completion_tokens: int
+    cost_usd: float
+    latency_ms: float
+    security_findings: str | None
+    budget_warnings: str | None
+    timestamp: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SessionChatRequest(BaseModel):
+    session_uuid: str
+    user_name: str
+    user_role: str = Field(..., pattern="^(admin|analyst|viewer)$")
+    team: str
+    agent: str
+    model: str = Field(default="gpt-4o-mini")
+    messages: list[ChatMessage]
+    system_prompt: str | None = Field(default=None)
+
+
+# ── Security scan ─────────────────────────────────────────────────────────────
+
 class ScanRequest(BaseModel):
     text: str
 

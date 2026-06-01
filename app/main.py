@@ -11,10 +11,12 @@ from app.schemas import (
     BudgetRuleCreate, BudgetRuleOut, BudgetStatusItem,
     PolicyRuleCreate, PolicyRuleOut,
     ScanRequest, ScanResponse, ScanFinding,
+    SessionCreate, SessionOut, SessionMessageOut, SessionChatRequest,
 )
 from app import telemetry as tel
 from app import budget as bud
 from app import policy as pol
+from app import sessions as sess
 from app.scanner import scan
 from app.openai_client import complete, chat_complete
 
@@ -240,6 +242,110 @@ def delete_budget(rule_id: int, db: Session = Depends(get_db)):
 @app.get("/budgets/status", response_model=list[BudgetStatusItem])
 def budget_status(db: Session = Depends(get_db)):
     return bud.get_status(db)
+
+
+# ─── Chat Sessions ────────────────────────────────────────────────────────────
+
+@app.post("/sessions", response_model=SessionOut, status_code=201)
+def create_session(req: SessionCreate, db: Session = Depends(get_db)):
+    sess.expire_inactive(db)
+    return sess.create_session(
+        db, user_name=req.user_name, user_role=req.user_role,
+        team=req.team, agent=req.agent, model=req.model,
+    )
+
+
+@app.get("/sessions", response_model=list[SessionOut])
+def list_sessions(active_only: bool = Query(default=True), db: Session = Depends(get_db)):
+    sess.expire_inactive(db)
+    return sess.list_sessions(db, active_only=active_only)
+
+
+@app.delete("/sessions/{session_uuid}", status_code=204)
+def close_session(session_uuid: str, db: Session = Depends(get_db)):
+    if not sess.close_session(db, session_uuid):
+        raise HTTPException(status_code=404, detail="Session not found")
+
+
+@app.get("/sessions/{session_uuid}/messages", response_model=list[SessionMessageOut])
+def get_session_messages(session_uuid: str, db: Session = Depends(get_db)):
+    s = sess.get_session(db, session_uuid)
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return sess.get_messages(db, session_uuid)
+
+
+@app.post("/sessions/{session_uuid}/chat", response_model=ChatResponse)
+async def session_chat(session_uuid: str, req: SessionChatRequest, db: Session = Depends(get_db)):
+    # Verify session exists and is active
+    s = sess.get_session(db, session_uuid)
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not s.is_active:
+        raise HTTPException(status_code=410, detail="Session has been closed or timed out")
+
+    # Scan last user message
+    last_user = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
+    scan_result = scan(last_user)
+    findings_list = scan_result.to_dict()
+
+    # Policy check
+    policy_check = pol.check_model(db, team=req.team, model=req.model)
+    if not policy_check["allowed"]:
+        tel.save_blocked(db, team=req.team, agent=req.agent, model=req.model,
+                         prompt=last_user, reason=policy_check["reason"],
+                         sensitive=scan_result.is_sensitive, sensitive_findings=findings_list)
+        raise HTTPException(status_code=403, detail=policy_check["reason"])
+
+    # Budget check
+    budget_check = bud.check(db, team=req.team, agent=req.agent)
+    if not budget_check["allowed"]:
+        blk = budget_check["blocked_by"]
+        reason = (f"Budget limit exceeded for team '{blk['team']}': "
+                  f"${blk['spend']:.4f} of ${blk['limit']:.2f} {blk['period']} limit.")
+        tel.save_blocked(db, team=req.team, agent=req.agent, model=req.model,
+                         prompt=last_user, reason=reason,
+                         sensitive=scan_result.is_sensitive, sensitive_findings=findings_list)
+        raise HTTPException(status_code=429, detail=reason)
+
+    # Build messages list
+    messages = []
+    if req.system_prompt:
+        messages.append({"role": "system", "content": req.system_prompt})
+    messages += [{"role": m.role, "content": m.content} for m in req.messages]
+
+    try:
+        result = await chat_complete(messages=messages, model=req.model)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"LLM error: {exc}")
+
+    record = tel.save(db=db, team=req.team, agent=req.agent, prompt=last_user,
+                      result=result, sensitive=scan_result.is_sensitive,
+                      sensitive_findings=findings_list)
+
+    # Persist user message + assistant reply in session
+    sess.add_message(db, session_uuid=session_uuid, role="user", content=last_user)
+    sess.add_message(
+        db, session_uuid=session_uuid, role="assistant", content=result.content,
+        prompt_tokens=result.prompt_tokens, completion_tokens=result.completion_tokens,
+        cost_usd=record.cost_usd, latency_ms=result.latency_ms,
+        security_findings=findings_list, budget_warnings=budget_check["warnings"],
+    )
+
+    return ChatResponse(
+        reply=result.content,
+        model=result.model,
+        prompt_tokens=result.prompt_tokens,
+        completion_tokens=result.completion_tokens,
+        total_tokens=result.total_tokens,
+        latency_ms=result.latency_ms,
+        cost_usd=record.cost_usd,
+        telemetry_id=record.id,
+        security_findings=findings_list,
+        budget_warnings=budget_check["warnings"],
+    )
 
 
 # ─── Policies ─────────────────────────────────────────────────────────────────

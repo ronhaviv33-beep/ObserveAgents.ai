@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -1286,6 +1286,87 @@ function SecurityPage() {
   );
 }
 
+// ─── User context & RBAC ──────────────────────────────────────────────────────
+const UserContext = createContext(null);
+const useUser = () => useContext(UserContext);
+
+const ROLES = {
+  admin:   { label:"Admin",   color: T.crit,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security"] },
+  analyst: { label:"Analyst", color: T.warn,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","security"] },
+  viewer:  { label:"Viewer",  color: T.info,   pages: ["home","overview","cost","agents","models","workflows","alerts"] },
+};
+
+function canAccess(role, page) {
+  return (ROLES[role]?.pages ?? []).includes(page);
+}
+
+// ─── User Selector Modal ───────────────────────────────────────────────────────
+function UserSelectorModal({ onConfirm }) {
+  const [name, setName]   = useState("");
+  const [role, setRole]   = useState("analyst");
+  const [team, setTeam]   = useState("SOC");
+  const [err,  setErr]    = useState("");
+
+  const confirm = () => {
+    if (!name.trim()) { setErr("Name is required"); return; }
+    onConfirm({ name: name.trim(), role, team: team.trim() || "SOC" });
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999 }}>
+      <div style={{ background:T.panel, border:`1px solid ${T.borderHi}`, borderRadius:12, padding:36, width:400, display:"flex", flexDirection:"column", gap:20 }}>
+        <div>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+            <div style={{ width:20, height:20, background:T.accent, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT_MONO, fontWeight:600, fontSize:11, color:T.bg }}>◆</div>
+            <span style={{ fontSize:14, fontWeight:500 }}>AIFinOps Guard</span>
+          </div>
+          <div style={{ fontSize:13, color:T.textDim }}>Identify yourself to continue</div>
+        </div>
+
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          {[
+            { label:"Your name", val:name, set:setName, placeholder:"e.g. Ron Haviv" },
+            { label:"Team", val:team, set:setTeam, placeholder:"e.g. SOC" },
+          ].map(({ label, val, set, placeholder }) => (
+            <div key={label} style={{ display:"flex", flexDirection:"column", gap:5 }}>
+              <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>{label}</label>
+              <input value={val} onChange={e => set(e.target.value)} placeholder={placeholder}
+                onKeyDown={e => e.key==="Enter" && confirm()}
+                style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, padding:"8px 12px", borderRadius:6, fontSize:13, fontFamily:FONT_UI, outline:"none" }}/>
+            </div>
+          ))}
+
+          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Role</label>
+            <div style={{ display:"flex", gap:8 }}>
+              {Object.entries(ROLES).map(([r, meta]) => (
+                <button key={r} onClick={() => setRole(r)}
+                  style={{ flex:1, padding:"8px 0", borderRadius:6, border:`1px solid ${role===r ? meta.color : T.border}`,
+                    background: role===r ? `${meta.color}18` : "transparent",
+                    color: role===r ? meta.color : T.textDim, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                  {meta.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize:10, color:T.textMute, fontFamily:FONT_MONO, marginTop:2 }}>
+              {role==="admin" && "Full access — chat, budgets, policies, all sessions"}
+              {role==="analyst" && "Can chat, view telemetry, alerts, audit & security"}
+              {role==="viewer" && "Read-only: telemetry and alerts only"}
+            </div>
+          </div>
+        </div>
+
+        {err && <div style={{ fontSize:11, color:T.crit, fontFamily:FONT_MONO }}>{err}</div>}
+
+        <button onClick={confirm}
+          style={{ background:T.accent, color:T.bg, border:"none", padding:"11px 0", borderRadius:7, fontSize:13, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer" }}>
+          Enter Dashboard
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Chat page ────────────────────────────────────────────────────────────────
 const CHAT_MODELS = [
   "gpt-4o-mini","gpt-4o","gpt-4.1","gpt-4.1-mini",
@@ -1293,41 +1374,110 @@ const CHAT_MODELS = [
   "gemini-2.0-pro","gemini-2.0-flash",
 ];
 
+const SESSION_TIMEOUT_MS  = 30 * 60 * 1000;   // 30 minutes
+const SESSION_WARN_MS     = 5  * 60 * 1000;   // warn 5 min before
+
 function ChatPage() {
-  const [messages,     setMessages]     = useState([]);  // {role, content, meta?}
-  const [input,        setInput]        = useState("");
-  const [sending,      setSending]      = useState(false);
-  const [team,         setTeam]         = useState("SOC");
-  const [agent,        setAgent]        = useState("IR-Agent");
-  const [model,        setModel]        = useState("gpt-4o-mini");
-  const [systemPrompt, setSystemPrompt] = useState("");
-  const [showSystem,   setShowSystem]   = useState(false);
-  const [error,        setError]        = useState(null);
-  const [totalCost,    setTotalCost]    = useState(0);
-  const [totalTokens,  setTotalTokens]  = useState(0);
+  const user = useUser();
+
+  const [messages,      setMessages]      = useState([]);
+  const [input,         setInput]         = useState("");
+  const [sending,       setSending]       = useState(false);
+  const [team,          setTeam]          = useState(user?.team || "SOC");
+  const [agent,         setAgent]         = useState("IR-Agent");
+  const [model,         setModel]         = useState("gpt-4o-mini");
+  const [systemPrompt,  setSystemPrompt]  = useState("");
+  const [showSystem,    setShowSystem]    = useState(false);
+  const [error,         setError]         = useState(null);
+  const [totalCost,     setTotalCost]     = useState(0);
+  const [totalTokens,   setTotalTokens]   = useState(0);
+
+  // Session state
+  const [sessionUuid,   setSessionUuid]   = useState(null);
+  const [sessionClosed, setSessionClosed] = useState(false);
+  const [timeoutSecsLeft, setTimeoutSecsLeft] = useState(null);
+  const lastActivityRef  = useRef(Date.now());
+  const timerRef         = useRef(null);
+
+  // Active sessions panel
+  const [activeSessions, setActiveSessions] = useState([]);
+  const [showSessions,   setShowSessions]   = useState(false);
+
   const bottomRef = useRef(null);
 
+  // ── Scroll to bottom on new messages ──
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // ── Poll active sessions every 10s ──
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const r = await fetch("/api/sessions");
+        if (r.ok) setActiveSessions(await r.json());
+      } catch { /* ignore */ }
+    };
+    fetchSessions();
+    const id = setInterval(fetchSessions, 10_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── Inactivity timer ──
+  useEffect(() => {
+    if (!sessionUuid || sessionClosed) return;
+    timerRef.current = setInterval(() => {
+      const idle = Date.now() - lastActivityRef.current;
+      const remaining = SESSION_TIMEOUT_MS - idle;
+      if (remaining <= 0) {
+        clearInterval(timerRef.current);
+        setSessionClosed(true);
+        setTimeoutSecsLeft(0);
+        fetch(`/api/sessions/${sessionUuid}`, { method: "DELETE" }).catch(() => {});
+      } else {
+        setTimeoutSecsLeft(remaining <= SESSION_WARN_MS ? Math.ceil(remaining / 1000) : null);
+      }
+    }, 5000);
+    return () => clearInterval(timerRef.current);
+  }, [sessionUuid, sessionClosed]);
+
+  const resetTimer = () => { lastActivityRef.current = Date.now(); setTimeoutSecsLeft(null); };
+
+  // ── Create or reuse session ──
+  const ensureSession = async () => {
+    if (sessionUuid) return sessionUuid;
+    const r = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_name: user?.name || "Unknown", user_role: user?.role || "analyst", team, agent, model }),
+    });
+    if (!r.ok) throw new Error("Failed to create session");
+    const data = await r.json();
+    setSessionUuid(data.session_uuid);
+    return data.session_uuid;
+  };
+
   const send = async () => {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || sending || sessionClosed) return;
     setInput("");
     setError(null);
+    resetTimer();
 
-    // Add user message to history
-    const userMsg = { role: "user", content: text };
-    const newHistory = [...messages.filter(m => !m.meta), userMsg];
-    setMessages(prev => [...prev, { role: "user", content: text }]);
+    const userMsg   = { role: "user", content: text };
+    const newHistory = [...messages.filter(m => m.role !== "typing"), userMsg];
+    setMessages(prev => [...prev, userMsg]);
     setSending(true);
 
     try {
-      const r = await fetch("/api/chat", {
+      const uuid = await ensureSession();
+      const r = await fetch(`/api/sessions/${uuid}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          session_uuid: uuid,
+          user_name: user?.name || "Unknown",
+          user_role: user?.role || "analyst",
           team, agent, model,
           system_prompt: systemPrompt || null,
           messages: newHistory.map(m => ({ role: m.role, content: m.content })),
@@ -1341,18 +1491,11 @@ function ChatPage() {
 
       const data = await r.json();
       setMessages(prev => [...prev, {
-        role: "assistant",
-        content: data.reply,
-        meta: {
-          model: data.model,
-          tokens: data.total_tokens,
-          cost: data.cost_usd,
-          latency: data.latency_ms,
-          findings: data.security_findings,
-          warnings: data.budget_warnings,
-        },
+        role: "assistant", content: data.reply,
+        meta: { model: data.model, tokens: data.total_tokens, cost: data.cost_usd,
+                latency: data.latency_ms, findings: data.security_findings, warnings: data.budget_warnings },
       }]);
-      setTotalCost(c => c + data.cost_usd);
+      setTotalCost(c  => c + data.cost_usd);
       setTotalTokens(t => t + data.total_tokens);
     } catch (e) {
       setError(e.message);
@@ -1365,152 +1508,226 @@ function ChatPage() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
-  const clearChat = () => {
+  const clearChat = async () => {
+    if (sessionUuid) {
+      await fetch(`/api/sessions/${sessionUuid}`, { method: "DELETE" }).catch(() => {});
+    }
     setMessages([]); setTotalCost(0); setTotalTokens(0); setError(null);
+    setSessionUuid(null); setSessionClosed(false); setTimeoutSecsLeft(null);
+    resetTimer();
   };
 
-  const LabelSelect = ({ label, value, onChange, options }) => (
+  const LabelSelect = ({ label, value, onChange, options, disabled }) => (
     <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
       <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>{label}</label>
-      <select value={value} onChange={e => onChange(e.target.value)}
-        style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, padding:"5px 8px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, minWidth:120 }}>
+      <select value={value} onChange={e => onChange(e.target.value)} disabled={disabled}
+        style={{ background:T.panelHi, color:disabled?T.textMute:T.text, border:`1px solid ${T.border}`, padding:"5px 8px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, minWidth:120, opacity:disabled?0.5:1 }}>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
     </div>
   );
 
+  const fmtSecs = (s) => s >= 60 ? `${Math.floor(s/60)}m ${s%60}s` : `${s}s`;
+  const roleColor = ROLES[user?.role]?.color ?? T.textDim;
+
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"calc(100vh - 120px)", gap:12 }}>
+    <div style={{ display:"flex", gap:16, height:"calc(100vh - 120px)" }}>
 
-      {/* Config bar */}
-      <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:"12px 16px", display:"flex", gap:16, alignItems:"flex-end", flexWrap:"wrap" }}>
-        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-          <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Team</label>
-          <input value={team} onChange={e => setTeam(e.target.value)}
-            style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, padding:"5px 8px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, width:100 }}/>
-        </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-          <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Agent</label>
-          <input value={agent} onChange={e => setAgent(e.target.value)}
-            style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, padding:"5px 8px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, width:110 }}/>
-        </div>
-        <LabelSelect label="Model" value={model} onChange={setModel} options={CHAT_MODELS} />
-        <button onClick={() => setShowSystem(s => !s)}
-          style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"6px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
-          {showSystem ? "Hide system prompt" : "System prompt"}
-        </button>
-        <div style={{ marginLeft:"auto", display:"flex", gap:16, fontFamily:FONT_MONO, fontSize:11, color:T.textDim, alignItems:"center" }}>
-          <span>Tokens: <span style={{ color:T.text }}>{totalTokens.toLocaleString()}</span></span>
-          <span>Cost: <span style={{ color:T.accent }}>${totalCost.toFixed(6)}</span></span>
-          <button onClick={clearChat}
-            style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.crit, padding:"5px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
-            Clear
-          </button>
-        </div>
-      </div>
-
-      {/* System prompt */}
-      {showSystem && (
-        <div style={{ background:T.panel, border:`1px solid ${T.borderHi}`, borderRadius:6, padding:12 }}>
-          <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)}
-            placeholder="System prompt (optional) — e.g. 'You are a SOC analyst specializing in threat intelligence.'"
-            rows={3}
-            style={{ width:"100%", background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, borderRadius:4, padding:"8px 10px", fontSize:12, fontFamily:FONT_MONO, resize:"vertical", boxSizing:"border-box" }}/>
+      {/* ── Active Sessions Panel ── */}
+      {showSessions && (
+        <div style={{ width:260, background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, display:"flex", flexDirection:"column", flexShrink:0, overflow:"hidden" }}>
+          <div style={{ padding:"12px 14px", borderBottom:`1px solid ${T.border}`, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <span style={{ fontSize:11, fontFamily:FONT_MONO, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textMute }}>Active Sessions</span>
+            <span style={{ fontSize:10, fontFamily:FONT_MONO, background:T.panelHi, color:T.accent, padding:"2px 7px", borderRadius:10 }}>{activeSessions.length}</span>
+          </div>
+          <div style={{ flex:1, overflow:"auto", padding:10, display:"flex", flexDirection:"column", gap:8 }}>
+            {activeSessions.length === 0 && (
+              <div style={{ color:T.textMute, fontSize:11, fontFamily:FONT_MONO, textAlign:"center", marginTop:20 }}>No active sessions</div>
+            )}
+            {activeSessions.map(s => {
+              const isMe = s.session_uuid === sessionUuid;
+              const idleMins = Math.floor((Date.now() - new Date(s.last_activity_at).getTime()) / 60000);
+              const rc = ROLES[s.user_role]?.color ?? T.textDim;
+              return (
+                <div key={s.session_uuid}
+                  style={{ background: isMe ? `${T.accent}10` : T.panelHi, border:`1px solid ${isMe ? T.accent+"44" : T.border}`, borderRadius:6, padding:"10px 12px", display:"flex", flexDirection:"column", gap:5 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <div style={{ width:7, height:7, borderRadius:"50%", background:T.accent, flexShrink:0 }}/>
+                    <span style={{ fontSize:12, fontWeight:500, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.user_name}</span>
+                    <span style={{ fontSize:9, fontFamily:FONT_MONO, color:rc, background:`${rc}18`, padding:"1px 5px", borderRadius:3 }}>{s.user_role}</span>
+                  </div>
+                  <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, display:"flex", flexDirection:"column", gap:2 }}>
+                    <span>{s.team} / {s.agent}</span>
+                    <span style={{ color:T.textMute }}>{s.model}</span>
+                    <div style={{ display:"flex", gap:8, marginTop:2 }}>
+                      <span style={{ color:T.accent }}>${s.total_cost_usd.toFixed(5)}</span>
+                      <span>{s.message_count} msg{s.message_count!==1?"s":""}</span>
+                      <span style={{ color: idleMins > 20 ? T.warn : T.textMute }}>idle {idleMins}m</span>
+                    </div>
+                  </div>
+                  {isMe && <div style={{ fontSize:9, fontFamily:FONT_MONO, color:T.accent }}>← your session</div>}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {/* Message thread */}
-      <div style={{ flex:1, overflow:"auto", display:"flex", flexDirection:"column", gap:12, padding:"4px 2px" }}>
-        {messages.length === 0 && (
-          <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", color:T.textMute, fontFamily:FONT_MONO, fontSize:13, gap:8 }}>
-            <div style={{ fontSize:28 }}>◆</div>
-            <div>Start a conversation — all messages route through AIFinOps Guard</div>
-            <div style={{ fontSize:11, color:T.textMute }}>Tokens, cost, and PII scanning on every message</div>
+      {/* ── Main chat area ── */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", gap:12, minWidth:0 }}>
+
+        {/* Timeout warning */}
+        {timeoutSecsLeft !== null && !sessionClosed && (
+          <div style={{ background:`${T.warn}15`, border:`1px solid ${T.warn}44`, borderRadius:6, padding:"9px 14px", display:"flex", alignItems:"center", gap:10, fontFamily:FONT_MONO, fontSize:12 }}>
+            <span style={{ color:T.warn }}>⏱</span>
+            <span style={{ color:T.warn }}>Session closes due to inactivity in <strong>{fmtSecs(timeoutSecsLeft)}</strong> — send a message to keep it alive</span>
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div key={i} style={{ display:"flex", flexDirection:"column", alignItems: msg.role==="user" ? "flex-end" : "flex-start", gap:4 }}>
-            {/* Role label */}
-            <div style={{ fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.1em", textTransform:"uppercase",
-              color: msg.role==="user" ? T.info : T.accent, marginBottom:2,
-              paddingLeft: msg.role==="assistant" ? 4 : 0,
-              paddingRight: msg.role==="user" ? 4 : 0 }}>
-              {msg.role === "user" ? `${team} / ${agent}` : msg.meta?.model || "assistant"}
-            </div>
+        {/* Session closed banner */}
+        {sessionClosed && (
+          <div style={{ background:`${T.crit}15`, border:`1px solid ${T.crit}44`, borderRadius:6, padding:"9px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", fontFamily:FONT_MONO, fontSize:12 }}>
+            <span style={{ color:T.crit }}>⚠ Session closed after 30 min of inactivity</span>
+            <button onClick={clearChat}
+              style={{ background:T.accent, color:T.bg, border:"none", padding:"5px 14px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer" }}>
+              New Session
+            </button>
+          </div>
+        )}
 
-            {/* Bubble */}
-            <div style={{
-              maxWidth:"75%", padding:"12px 16px", borderRadius: msg.role==="user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
-              background: msg.role==="user" ? `${T.info}18` : T.panelHi,
-              border: `1px solid ${msg.role==="user" ? T.info+"33" : T.border}`,
-              fontSize:13, color:T.text, lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-word",
-            }}>
-              {msg.content}
+        {/* Config bar */}
+        <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:"12px 16px", display:"flex", gap:16, alignItems:"flex-end", flexWrap:"wrap" }}>
+          {/* Current user badge */}
+          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>You</label>
+            <div style={{ display:"flex", alignItems:"center", gap:6, background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:4, padding:"5px 10px", height:29 }}>
+              <div style={{ width:7, height:7, borderRadius:"50%", background:roleColor }}/>
+              <span style={{ fontSize:11, fontFamily:FONT_MONO, color:T.text }}>{user?.name}</span>
+              <span style={{ fontSize:9, fontFamily:FONT_MONO, color:roleColor, marginLeft:2 }}>{user?.role}</span>
             </div>
+          </div>
 
-            {/* Meta strip for assistant messages */}
-            {msg.meta && (
-              <div style={{ display:"flex", gap:14, fontSize:10, fontFamily:FONT_MONO, color:T.textMute, paddingLeft:4, flexWrap:"wrap" }}>
-                <span>{msg.meta.tokens.toLocaleString()} tokens</span>
-                <span style={{ color:T.accent }}>${msg.meta.cost.toFixed(6)}</span>
-                <span>{msg.meta.latency.toFixed(0)}ms</span>
-                {msg.meta.findings?.length > 0 && (
-                  <span style={{ color:T.warn }}>⚠ {msg.meta.findings.length} PII finding{msg.meta.findings.length===1?"":"s"}</span>
-                )}
-                {msg.meta.warnings?.length > 0 && (
-                  <span style={{ color:T.warn }}>⚠ Budget {msg.meta.warnings[0].pct}% used</span>
-                )}
+          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Team</label>
+            <input value={team} onChange={e => setTeam(e.target.value)} disabled={!!sessionUuid}
+              style={{ background:T.panelHi, color:sessionUuid?T.textMute:T.text, border:`1px solid ${T.border}`, padding:"5px 8px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, width:100, opacity:sessionUuid?0.5:1 }}/>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Agent</label>
+            <input value={agent} onChange={e => setAgent(e.target.value)} disabled={!!sessionUuid}
+              style={{ background:T.panelHi, color:sessionUuid?T.textMute:T.text, border:`1px solid ${T.border}`, padding:"5px 8px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, width:110, opacity:sessionUuid?0.5:1 }}/>
+          </div>
+          <LabelSelect label="Model" value={model} onChange={setModel} options={CHAT_MODELS} disabled={!!sessionUuid} />
+
+          <button onClick={() => setShowSystem(s => !s)}
+            style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"6px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+            {showSystem ? "Hide system prompt" : "System prompt"}
+          </button>
+
+          <div style={{ marginLeft:"auto", display:"flex", gap:12, fontFamily:FONT_MONO, fontSize:11, color:T.textDim, alignItems:"center" }}>
+            {sessionUuid && <span style={{ color:T.textMute, fontSize:10 }}>ID: {sessionUuid.slice(0,8)}…</span>}
+            <span>Tokens: <span style={{ color:T.text }}>{totalTokens.toLocaleString()}</span></span>
+            <span>Cost: <span style={{ color:T.accent }}>${totalCost.toFixed(6)}</span></span>
+            <button onClick={() => setShowSessions(s => !s)}
+              style={{ background: showSessions ? `${T.info}18` : "transparent", border:`1px solid ${showSessions ? T.info+"44" : T.border}`, color: showSessions ? T.info : T.textDim, padding:"5px 10px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+              Sessions {activeSessions.length > 0 && `(${activeSessions.length})`}
+            </button>
+            <button onClick={clearChat}
+              style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.crit, padding:"5px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+              End
+            </button>
+          </div>
+        </div>
+
+        {/* System prompt */}
+        {showSystem && (
+          <div style={{ background:T.panel, border:`1px solid ${T.borderHi}`, borderRadius:6, padding:12 }}>
+            <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)}
+              placeholder="System prompt (optional) — e.g. 'You are a SOC analyst specializing in threat intelligence.'"
+              rows={3}
+              style={{ width:"100%", background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, borderRadius:4, padding:"8px 10px", fontSize:12, fontFamily:FONT_MONO, resize:"vertical", boxSizing:"border-box" }}/>
+          </div>
+        )}
+
+        {/* Message thread */}
+        <div style={{ flex:1, overflow:"auto", display:"flex", flexDirection:"column", gap:12, padding:"4px 2px" }}>
+          {messages.length === 0 && !sessionClosed && (
+            <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", color:T.textMute, fontFamily:FONT_MONO, fontSize:13, gap:8, paddingTop:60 }}>
+              <div style={{ fontSize:28 }}>◆</div>
+              <div>Start a conversation — all messages route through AIFinOps Guard</div>
+              <div style={{ fontSize:11 }}>PII scan · budget check · policy enforcement · cost tracking</div>
+              <div style={{ fontSize:10, marginTop:4, color:T.textMute }}>Session auto-closes after 30 min of inactivity</div>
+            </div>
+          )}
+
+          {messages.map((msg, i) => (
+            <div key={i} style={{ display:"flex", flexDirection:"column", alignItems: msg.role==="user" ? "flex-end" : "flex-start", gap:4 }}>
+              <div style={{ fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.1em", textTransform:"uppercase",
+                color: msg.role==="user" ? T.info : T.accent, marginBottom:2,
+                paddingLeft: msg.role==="assistant" ? 4 : 0, paddingRight: msg.role==="user" ? 4 : 0 }}>
+                {msg.role === "user" ? `${user?.name || team} / ${agent}` : msg.meta?.model || "assistant"}
               </div>
-            )}
-          </div>
-        ))}
+              <div style={{ maxWidth:"75%", padding:"12px 16px",
+                borderRadius: msg.role==="user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
+                background: msg.role==="user" ? `${T.info}18` : T.panelHi,
+                border: `1px solid ${msg.role==="user" ? T.info+"33" : T.border}`,
+                fontSize:13, color:T.text, lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
+                {msg.content}
+              </div>
+              {msg.meta && (
+                <div style={{ display:"flex", gap:14, fontSize:10, fontFamily:FONT_MONO, color:T.textMute, paddingLeft:4, flexWrap:"wrap" }}>
+                  <span>{msg.meta.tokens.toLocaleString()} tokens</span>
+                  <span style={{ color:T.accent }}>${msg.meta.cost.toFixed(6)}</span>
+                  <span>{msg.meta.latency.toFixed(0)}ms</span>
+                  {msg.meta.findings?.length > 0 && <span style={{ color:T.warn }}>⚠ {msg.meta.findings.length} PII finding{msg.meta.findings.length===1?"":"s"}</span>}
+                  {msg.meta.warnings?.length > 0 && <span style={{ color:T.warn }}>⚠ Budget {msg.meta.warnings[0].pct}% used</span>}
+                </div>
+              )}
+            </div>
+          ))}
 
-        {/* Typing indicator */}
-        {sending && (
-          <div style={{ display:"flex", alignItems:"flex-start", gap:4 }}>
-            <div style={{ padding:"10px 14px", background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:"12px 12px 12px 2px" }}>
-              <div style={{ display:"flex", gap:4 }}>
-                {[0,1,2].map(i => (
-                  <div key={i} style={{ width:6, height:6, borderRadius:"50%", background:T.accent,
-                    animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite`,
-                    opacity:0.6 }}/>
-                ))}
+          {sending && (
+            <div style={{ display:"flex", alignItems:"flex-start" }}>
+              <div style={{ padding:"10px 14px", background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:"12px 12px 12px 2px" }}>
+                <div style={{ display:"flex", gap:4 }}>
+                  {[0,1,2].map(i => (
+                    <div key={i} style={{ width:6, height:6, borderRadius:"50%", background:T.accent, animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite`, opacity:0.6 }}/>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {error && (
-          <div style={{ padding:"10px 14px", background:`${T.crit}10`, border:`1px solid ${T.crit}33`, borderRadius:6, fontSize:12, color:T.crit, fontFamily:FONT_MONO }}>
-            ✗ {error}
-          </div>
-        )}
+          {error && (
+            <div style={{ padding:"10px 14px", background:`${T.crit}10`, border:`1px solid ${T.crit}33`, borderRadius:6, fontSize:12, color:T.crit, fontFamily:FONT_MONO }}>
+              ✗ {error}
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
 
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input area */}
-      <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:12, display:"flex", gap:10, alignItems:"flex-end" }}>
-        <textarea
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={handleKey}
-          placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
-          rows={2}
-          disabled={sending}
-          style={{ flex:1, background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, borderRadius:6, padding:"10px 12px", fontSize:13, fontFamily:FONT_UI, resize:"none", lineHeight:1.5, opacity:sending?0.6:1 }}
-        />
-        <button onClick={send} disabled={sending || !input.trim()}
-          style={{ background:T.accent, color:T.bg, border:"none", padding:"10px 20px", borderRadius:6, fontSize:13, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:(sending||!input.trim())?0.4:1, flexShrink:0 }}>
-          {sending ? "…" : "Send"}
-        </button>
+        {/* Input area */}
+        <div style={{ background:T.panel, border:`1px solid ${sessionClosed ? T.crit+"44" : T.border}`, borderRadius:8, padding:12, display:"flex", gap:10, alignItems:"flex-end" }}>
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder={sessionClosed ? "Session closed — click 'New Session' to start again" : "Type a message… (Enter to send, Shift+Enter for new line)"}
+            rows={2}
+            disabled={sending || sessionClosed}
+            style={{ flex:1, background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, borderRadius:6, padding:"10px 12px", fontSize:13, fontFamily:FONT_UI, resize:"none", lineHeight:1.5, opacity:(sending||sessionClosed)?0.5:1 }}
+          />
+          <button onClick={send} disabled={sending || !input.trim() || sessionClosed}
+            style={{ background:T.accent, color:T.bg, border:"none", padding:"10px 20px", borderRadius:6, fontSize:13, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:(sending||!input.trim()||sessionClosed)?0.4:1, flexShrink:0 }}>
+            {sending ? "…" : "Send"}
+          </button>
+        </div>
       </div>
 
       <style>{`
         @keyframes pulse {
           0%, 100% { transform: scale(1); opacity: 0.4; }
-          50% { transform: scale(1.3); opacity: 1; }
+          50%       { transform: scale(1.3); opacity: 1; }
         }
       `}</style>
     </div>
@@ -1527,7 +1744,7 @@ const PAGES = [
   { id:"models",    label:"Model Usage" },
   { id:"workflows", label:"Workflow Health" },
   { id:"alerts",    label:"Alerts" },
-  { id:"budgets",   label:"Budgets" },
+  { id:"budgets",   label:"Budgets",  adminOnly: true },
   { id:"security",  label:"Security" },
 ];
 
@@ -1535,6 +1752,16 @@ const PAGES = [
 export default function App() {
   const [page, setPage]       = useState("home");
   const [filters, setFilters] = useState({ team:"all", model:"all", agent:"all", sev:"all", range:30 });
+
+  // ── User identity & RBAC ──
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("aifinops_user")) || null; } catch { return null; }
+  });
+
+  const handleLogin = (u) => {
+    localStorage.setItem("aifinops_user", JSON.stringify(u));
+    setUser(u);
+  };
 
   const { apiRecords, lastRefresh, isLive, refresh } = useLiveData(30_000);
 
@@ -1565,8 +1792,17 @@ export default function App() {
   const pageProps = { events: filteredEvents, allTeams, allAgents, A, alerts, savings, risk };
 
   const renderPage = () => {
+    if (!canAccess(user?.role, page)) {
+      return (
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:300, gap:12, color:T.textMute, fontFamily:FONT_MONO }}>
+          <div style={{ fontSize:24, color:T.crit }}>⊘</div>
+          <div style={{ fontSize:14 }}>Access denied — <strong style={{ color:T.warn }}>{ROLES[user?.role]?.label}</strong> role cannot view this page</div>
+        </div>
+      );
+    }
     switch (page) {
       case "home":      return <Home      {...pageProps} onNavigate={setPage} />;
+      case "chat":      return <ChatPage />;
       case "overview":  return <Overview  {...pageProps} />;
       case "cost":      return <CostIntel {...pageProps} />;
       case "agents":    return <AgentActivity {...pageProps} />;
@@ -1584,6 +1820,8 @@ export default function App() {
   }
 
   return (
+    <UserContext.Provider value={user}>
+    {!user && <UserSelectorModal onConfirm={handleLogin} />}
     <div style={{ minHeight:"100vh", background:T.bg, color:T.text, fontFamily:FONT_UI, fontSize:14, display:"flex" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -1609,7 +1847,7 @@ export default function App() {
         <div style={{ fontSize:9, letterSpacing:"0.14em", textTransform:"uppercase", color:T.textMute, fontFamily:FONT_MONO, padding:"0 8px 10px" }}>Telemetry</div>
 
         <nav style={{ display:"flex", flexDirection:"column", gap:2 }}>
-          {PAGES.map((p)=>(
+          {PAGES.filter(p => canAccess(user?.role, p.id)).map((p)=>(
             <button key={p.id} onClick={()=>setPage(p.id)}
               style={{ background:page===p.id?T.panelHi:"transparent", border:"none", color:page===p.id?T.text:T.textDim, textAlign:"left", padding:"9px 10px", fontSize:13, borderRadius:4, cursor:"pointer", fontFamily:FONT_UI, display:"flex", alignItems:"center", gap:10, borderLeft:page===p.id?`2px solid ${T.accent}`:"2px solid transparent", transition:"all 0.12s" }}>
               {p.label}
@@ -1620,13 +1858,25 @@ export default function App() {
           ))}
         </nav>
 
-        <div style={{ marginTop:"auto", padding:"12px 8px" }}>
+        <div style={{ marginTop:"auto", padding:"12px 8px", display:"flex", flexDirection:"column", gap:10 }}>
+          {/* User badge */}
+          {user && (
+            <div style={{ background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:6, padding:"8px 10px", display:"flex", alignItems:"center", gap:8 }}>
+              <div style={{ width:8, height:8, borderRadius:"50%", background: ROLES[user.role]?.color ?? T.textDim, flexShrink:0 }}/>
+              <div style={{ flex:1, overflow:"hidden" }}>
+                <div style={{ fontSize:12, fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.name}</div>
+                <div style={{ fontSize:9, fontFamily:FONT_MONO, color: ROLES[user.role]?.color ?? T.textDim, textTransform:"uppercase", letterSpacing:"0.1em" }}>{user.role} · {user.team}</div>
+              </div>
+              <button title="Switch user" onClick={() => { localStorage.removeItem("aifinops_user"); setUser(null); }}
+                style={{ background:"transparent", border:"none", color:T.textMute, fontSize:14, cursor:"pointer", padding:"2px 4px", lineHeight:1 }}>⇄</button>
+            </div>
+          )}
           <div style={{ fontSize:10, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.08em", lineHeight:1.8 }}>
             <div style={{ color:isLive?T.accent:T.warn }}>● {isLive?"live data":"demo mode"}</div>
             <span style={{ color:T.textMute }}>{filteredEvents.length.toLocaleString()} events / {filters.range}d</span>
             {lastRefresh && <div style={{ color:T.textMute, marginTop:2 }}>updated {lastRefresh.toLocaleTimeString()}</div>}
           </div>
-          <button onClick={refresh} style={{ marginTop:8, width:"100%", background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"6px 10px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>↻ Refresh</button>
+          <button onClick={refresh} style={{ width:"100%", background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"6px 10px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>↻ Refresh</button>
         </div>
       </aside>
 
@@ -1651,5 +1901,6 @@ export default function App() {
         {renderPage()}
       </main>
     </div>
+    </UserContext.Provider>
   );
 }

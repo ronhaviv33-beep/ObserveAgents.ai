@@ -1,3 +1,4 @@
+import uuid as _uuid
 from datetime import datetime, timezone
 from sqlalchemy import Integer, String, Float, Text, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
@@ -81,6 +82,48 @@ class Telemetry(Base):
     sensitive_findings: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list
     blocked: Mapped[bool] = mapped_column(Boolean, default=False)
     block_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    session_uuid: Mapped[str] = mapped_column(String(36), unique=True, index=True,
+                                               default=lambda: str(_uuid.uuid4()))
+    user_name: Mapped[str] = mapped_column(String(128))
+    user_role: Mapped[str] = mapped_column(String(32))   # admin | analyst | viewer
+    team: Mapped[str] = mapped_column(String(128))
+    agent: Mapped[str] = mapped_column(String(128))
+    model: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    last_activity_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    message_count: Mapped[int] = mapped_column(Integer, default=0)
+    total_cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    total_tokens: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ChatSessionMessage(Base):
+    __tablename__ = "chat_session_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    session_uuid: Mapped[str] = mapped_column(String(36), index=True)
+    role: Mapped[str] = mapped_column(String(16))        # user | assistant
+    content: Mapped[str] = mapped_column(Text)
+    prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    latency_ms: Mapped[float] = mapped_column(Float, default=0.0)
+    security_findings: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
+    budget_warnings: Mapped[str | None] = mapped_column(Text, nullable=True)    # JSON
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
