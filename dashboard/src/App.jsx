@@ -42,13 +42,25 @@ const AGENTS = [
   { id: "ag_10", name: "qa-test-generator",   team: "team_01", workflow: "wf_10", tool: "github_api" },
 ];
 const MODELS = [
-  { name: "claude-opus-4",       provider: "Anthropic", cost1k_in: 0.015,  cost1k_out: 0.075,  tier: "premium", approved: true  },
-  { name: "claude-sonnet-4",     provider: "Anthropic", cost1k_in: 0.003,  cost1k_out: 0.015,  tier: "mid",     approved: true  },
-  { name: "gpt-4.1",             provider: "OpenAI",    cost1k_in: 0.01,   cost1k_out: 0.03,   tier: "premium", approved: true  },
-  { name: "gpt-4o",              provider: "OpenAI",    cost1k_in: 0.0025, cost1k_out: 0.01,   tier: "mid",     approved: true  },
-  { name: "gpt-4o-mini",         provider: "OpenAI",    cost1k_in: 0.00015,cost1k_out: 0.0006, tier: "cheap",   approved: true  },
-  { name: "gemini-2.0-pro",      provider: "Google",    cost1k_in: 0.00125,cost1k_out: 0.005,  tier: "mid",     approved: false },
-  { name: "llama-3.1-70b-local", provider: "Local",     cost1k_in: 0.0002, cost1k_out: 0.0002, tier: "cheap",   approved: true  },
+  // Anthropic
+  { name: "claude-opus-4",        provider: "Anthropic", cost1k_in: 0.015,    cost1k_out: 0.075,   tier: "premium", approved: true  },
+  { name: "claude-sonnet-4",      provider: "Anthropic", cost1k_in: 0.003,    cost1k_out: 0.015,   tier: "mid",     approved: true  },
+  { name: "claude-haiku-4",       provider: "Anthropic", cost1k_in: 0.0008,   cost1k_out: 0.004,   tier: "cheap",   approved: true  },
+  // OpenAI
+  { name: "gpt-4.1",              provider: "OpenAI",    cost1k_in: 0.002,    cost1k_out: 0.008,   tier: "premium", approved: true  },
+  { name: "gpt-4.1-mini",         provider: "OpenAI",    cost1k_in: 0.0004,   cost1k_out: 0.0016,  tier: "mid",     approved: true  },
+  { name: "gpt-4o",               provider: "OpenAI",    cost1k_in: 0.0025,   cost1k_out: 0.01,    tier: "mid",     approved: true  },
+  { name: "gpt-4o-mini",          provider: "OpenAI",    cost1k_in: 0.00015,  cost1k_out: 0.0006,  tier: "cheap",   approved: true  },
+  { name: "gpt-4-turbo",          provider: "OpenAI",    cost1k_in: 0.01,     cost1k_out: 0.03,    tier: "premium", approved: true  },
+  { name: "o3",                   provider: "OpenAI",    cost1k_in: 0.01,     cost1k_out: 0.04,    tier: "premium", approved: true  },
+  { name: "o4-mini",              provider: "OpenAI",    cost1k_in: 0.0011,   cost1k_out: 0.0044,  tier: "mid",     approved: true  },
+  // Google
+  { name: "gemini-2.0-pro",       provider: "Google",    cost1k_in: 0.00125,  cost1k_out: 0.005,   tier: "mid",     approved: false },
+  { name: "gemini-2.0-flash",     provider: "Google",    cost1k_in: 0.000075, cost1k_out: 0.0003,  tier: "cheap",   approved: false },
+  { name: "gemini-1.5-pro",       provider: "Google",    cost1k_in: 0.00125,  cost1k_out: 0.005,   tier: "mid",     approved: false },
+  // Local / open-source
+  { name: "llama-3.1-70b-local",  provider: "Local",     cost1k_in: 0.0002,   cost1k_out: 0.0002,  tier: "cheap",   approved: true  },
+  { name: "llama-3.1-8b-local",   provider: "Local",     cost1k_in: 0.00005,  cost1k_out: 0.00005, tier: "cheap",   approved: true  },
 ];
 
 // ─── Provider / model lookup helpers ─────────────────────────────────────────
