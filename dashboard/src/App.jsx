@@ -1430,6 +1430,43 @@ function ChatPage() {
     return () => clearInterval(id);
   }, []);
 
+  // ── Poll current session for external messages (e.g. from /ask) ──
+  const knownMsgCountRef = useRef(0);
+  useEffect(() => {
+    if (!sessionUuid || sessionClosed) return;
+    const poll = async () => {
+      try {
+        const r = await fetch(`/api/sessions/${sessionUuid}/messages`);
+        if (!r.ok) return;
+        const dbMsgs = await r.json();
+        // Only act if DB has more messages than we've tracked
+        if (dbMsgs.length <= knownMsgCountRef.current) return;
+        knownMsgCountRef.current = dbMsgs.length;
+        // Rebuild full message list from DB so external /ask calls appear
+        setMessages(dbMsgs.map(m => ({
+          role: m.role,
+          content: m.content,
+          ...(m.role === "assistant" ? {
+            meta: {
+              model: model,
+              tokens: m.prompt_tokens + m.completion_tokens,
+              cost: m.cost_usd,
+              latency: m.latency_ms,
+              findings: JSON.parse(m.security_findings || "[]"),
+              warnings: JSON.parse(m.budget_warnings   || "[]"),
+            }
+          } : {}),
+        })));
+        const totalC = dbMsgs.filter(m => m.role==="assistant").reduce((a, m) => a + m.cost_usd, 0);
+        const totalT = dbMsgs.reduce((a, m) => a + m.prompt_tokens + m.completion_tokens, 0);
+        setTotalCost(totalC);
+        setTotalTokens(totalT);
+      } catch { /* ignore */ }
+    };
+    const id = setInterval(poll, 4_000);
+    return () => clearInterval(id);
+  }, [sessionUuid, sessionClosed]);
+
   // ── Inactivity timer ──
   useEffect(() => {
     if (!sessionUuid || sessionClosed) return;
@@ -1460,6 +1497,7 @@ function ChatPage() {
     });
     if (!r.ok) throw new Error("Failed to create session");
     const data = await r.json();
+    knownMsgCountRef.current = 0;
     setSessionUuid(data.session_uuid);
     return data.session_uuid;
   };
@@ -1576,6 +1614,7 @@ function ChatPage() {
       setMessages(rebuilt);
       setTotalCost(totalC);
       setTotalTokens(totalT);
+      knownMsgCountRef.current = msgs.length;
       setSessionUuid(newSession.session_uuid);
       setSessionClosed(false);
       setError(null);
