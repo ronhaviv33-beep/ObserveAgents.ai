@@ -1301,7 +1301,7 @@ function canAccess(role, page) {
 }
 
 // ─── User Selector Modal ───────────────────────────────────────────────────────
-function UserSelectorModal({ onConfirm }) {
+function UserSelectorModal({ onConfirm, onCancel }) {
   const [name, setName]   = useState("");
   const [role, setRole]   = useState("analyst");
   const [team, setTeam]   = useState("SOC");
@@ -1313,8 +1313,14 @@ function UserSelectorModal({ onConfirm }) {
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999 }}>
-      <div style={{ background:T.panel, border:`1px solid ${T.borderHi}`, borderRadius:12, padding:36, width:400, display:"flex", flexDirection:"column", gap:20 }}>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999 }}
+      onClick={e => { if (e.target === e.currentTarget && onCancel) onCancel(); }}>
+      <div style={{ background:T.panel, border:`1px solid ${T.borderHi}`, borderRadius:12, padding:36, width:400, display:"flex", flexDirection:"column", gap:20, position:"relative" }}>
+        {onCancel && (
+          <button onClick={onCancel}
+            style={{ position:"absolute", top:14, right:14, background:"transparent", border:"none", color:T.textMute, fontSize:18, cursor:"pointer", lineHeight:1, padding:"2px 6px", borderRadius:4 }}
+            title="Cancel">✕</button>
+        )}
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
             <div style={{ width:20, height:20, background:T.accent, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT_MONO, fontWeight:600, fontSize:11, color:T.bg }}>◆</div>
@@ -2026,9 +2032,20 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem("aifinops_user")) || null; } catch { return null; }
   });
 
+  const prevUserRef = useRef(null);
+
   const handleLogin = (u) => {
     localStorage.setItem("aifinops_user", JSON.stringify(u));
     setUser(u);
+  };
+
+  const handleCancelSwitch = () => {
+    // Restore the previous user without touching chat state
+    if (prevUserRef.current) {
+      localStorage.setItem("aifinops_user", JSON.stringify(prevUserRef.current));
+      setUser(prevUserRef.current);
+      prevUserRef.current = null;
+    }
   };
 
   const { apiRecords, lastRefresh, isLive, refresh } = useLiveData(30_000);
@@ -2089,7 +2106,7 @@ export default function App() {
 
   return (
     <UserContext.Provider value={user}>
-    {!user && <UserSelectorModal onConfirm={handleLogin} />}
+    {!user && <UserSelectorModal onConfirm={handleLogin} onCancel={prevUserRef.current ? handleCancelSwitch : undefined} />}
     <div style={{ minHeight:"100vh", background:T.bg, color:T.text, fontFamily:FONT_UI, fontSize:14, display:"flex" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -2136,6 +2153,7 @@ export default function App() {
                 <div style={{ fontSize:9, fontFamily:FONT_MONO, color: ROLES[user.role]?.color ?? T.textDim, textTransform:"uppercase", letterSpacing:"0.1em" }}>{user.role} · {user.team}</div>
               </div>
               <button title="Switch user" onClick={() => {
+                prevUserRef.current = user;  // save so cancel can restore
                 localStorage.removeItem("aifinops_user");
                 setUser(null);
                 // Clear chat state so the new user starts with a blank slate
