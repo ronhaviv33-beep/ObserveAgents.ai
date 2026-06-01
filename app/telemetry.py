@@ -1,3 +1,5 @@
+import json
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import Telemetry, calculate_cost
@@ -11,6 +13,8 @@ def save(
     agent: str,
     prompt: str,
     result: CompletionResult,
+    sensitive: bool = False,
+    sensitive_findings: list[dict] | None = None,
 ) -> Telemetry:
     record = Telemetry(
         team=team,
@@ -23,6 +27,35 @@ def save(
         total_tokens=result.total_tokens,
         latency_ms=result.latency_ms,
         cost_usd=calculate_cost(result.model, result.prompt_tokens, result.completion_tokens),
+        sensitive=sensitive,
+        sensitive_findings=json.dumps(sensitive_findings) if sensitive_findings else None,
+        blocked=False,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def save_blocked(
+    db: Session,
+    team: str,
+    agent: str,
+    model: str,
+    prompt: str,
+    reason: str,
+    sensitive: bool = False,
+    sensitive_findings: list[dict] | None = None,
+) -> Telemetry:
+    """Record a request that was blocked before reaching the LLM."""
+    record = Telemetry(
+        team=team, agent=agent, model=model, prompt=prompt, response="",
+        prompt_tokens=0, completion_tokens=0, total_tokens=0,
+        latency_ms=0.0, cost_usd=0.0,
+        sensitive=sensitive,
+        sensitive_findings=json.dumps(sensitive_findings) if sensitive_findings else None,
+        blocked=True,
+        block_reason=reason,
     )
     db.add(record)
     db.commit()
@@ -35,15 +68,11 @@ def get_all(db: Session, skip: int = 0, limit: int = 100) -> list[Telemetry]:
 
 
 def get_summary(db: Session) -> TelemetrySummary:
-    rows = db.query(Telemetry).all()
+    rows = db.query(Telemetry).filter(Telemetry.blocked == False).all()
     if not rows:
         return TelemetrySummary(
-            total_requests=0,
-            total_tokens=0,
-            total_cost_usd=0.0,
-            avg_latency_ms=0.0,
-            models_used=[],
-            teams=[],
+            total_requests=0, total_tokens=0, total_cost_usd=0.0,
+            avg_latency_ms=0.0, models_used=[], teams=[],
         )
     return TelemetrySummary(
         total_requests=len(rows),
@@ -53,3 +82,87 @@ def get_summary(db: Session) -> TelemetrySummary:
         models_used=sorted({r.model for r in rows}),
         teams=sorted({r.team for r in rows}),
     )
+
+
+def get_audit(
+    db: Session,
+    team: str | None = None,
+    agent: str | None = None,
+    sensitive_only: bool = False,
+    blocked_only: bool = False,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[Telemetry]:
+    q = db.query(Telemetry).order_by(Telemetry.timestamp.desc())
+    if team:
+        q = q.filter(Telemetry.team == team)
+    if agent:
+        q = q.filter(Telemetry.agent == agent)
+    if sensitive_only:
+        q = q.filter(Telemetry.sensitive == True)
+    if blocked_only:
+        q = q.filter(Telemetry.blocked == True)
+    return q.offset(skip).limit(limit).all()
+
+
+def get_security_alerts(db: Session) -> list[dict]:
+    """Run detection rules against real telemetry and return live alerts."""
+    from datetime import datetime, timezone, timedelta
+    alerts = []
+    now = datetime.now(timezone.utc)
+    day_ago = now - timedelta(days=1)
+    week_ago = now - timedelta(days=7)
+
+    # Sensitive data exposure
+    sensitive = db.query(Telemetry).filter(Telemetry.sensitive == True).all()
+    if sensitive:
+        alerts.append({
+            "type": "sensitive_data_exposure", "sev": "critical",
+            "entity": sensitive[0].agent,
+            "msg": f"{len(sensitive)} requests flagged with sensitive data (PII / credentials)",
+            "action": "Enable PII redaction policy on this workflow",
+            "ts": sensitive[0].timestamp.isoformat(),
+        })
+
+    # Blocked requests spike
+    blocked = db.query(Telemetry).filter(
+        Telemetry.blocked == True, Telemetry.timestamp >= day_ago
+    ).all()
+    if len(blocked) > 5:
+        alerts.append({
+            "type": "policy_block_spike", "sev": "warning",
+            "entity": blocked[0].team,
+            "msg": f"{len(blocked)} requests blocked by policy in last 24h",
+            "action": "Review team's model usage and budget rules",
+            "ts": now.isoformat(),
+        })
+
+    # High token requests
+    big = db.query(Telemetry).filter(Telemetry.total_tokens > 30000).order_by(Telemetry.total_tokens.desc()).limit(5).all()
+    for r in big:
+        alerts.append({
+            "type": "high_token_prompt", "sev": "warning",
+            "entity": r.agent,
+            "msg": f"{r.total_tokens:,} tokens in single request ({r.model})",
+            "action": "Add context compaction or retrieval truncation",
+            "ts": r.timestamp.isoformat(),
+        })
+
+    # After-hours activity (last 7 days)
+    all_week = db.query(Telemetry).filter(Telemetry.timestamp >= week_ago).all()
+    after_hours_counts: dict[str, int] = {}
+    for r in all_week:
+        hour = r.timestamp.hour
+        if hour < 7 or hour > 20:
+            after_hours_counts[r.agent] = after_hours_counts.get(r.agent, 0) + 1
+    for agent, count in after_hours_counts.items():
+        if count > 10:
+            alerts.append({
+                "type": "unusual_after_hours_usage", "sev": "info",
+                "entity": agent,
+                "msg": f"{count} calls outside 07:00–20:00 in last 7d",
+                "action": "Confirm batch job is intentional; otherwise rotate keys",
+                "ts": now.isoformat(),
+            })
+
+    return sorted(alerts, key=lambda a: {"critical": 0, "warning": 1, "info": 2}[a["sev"]])

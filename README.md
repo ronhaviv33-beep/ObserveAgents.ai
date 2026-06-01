@@ -242,12 +242,12 @@ npm run dev
 - Runtime Health Metrics
 - AI Risk Scoring
 
-### Phase 5 – Security & Governance 🟡
+### Phase 5 – Security & Governance ✅
 - Prompt Auditing ✅
 - Security Alerts (8 detection rules) ✅
 - Governance Dashboard ✅
-- Sensitive Data Detection ⚠️ *(rule-based, no ML scanner yet)*
-- Policy Enforcement ✅ *(budget-level blocking)*
+- Sensitive Data Detection ✅ (10 pattern types: PII, credentials, API keys)
+- Policy Enforcement ✅ (model allowlist/blocklist per team)
 
 ### Phase 6 – Frontend Dashboard ✅
 - React + Vite + Tailwind CSS + Recharts

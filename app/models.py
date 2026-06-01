@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Integer, String, Float, Text, DateTime
+from sqlalchemy import Integer, String, Float, Text, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -37,6 +37,18 @@ def calculate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> fl
     return round(prompt_cost + completion_cost, 8)
 
 
+class PolicyRule(Base):
+    __tablename__ = "policy_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    team: Mapped[str] = mapped_column(String(128))          # team name or "*" for global
+    rule_type: Mapped[str] = mapped_column(String(32))      # "allow_model" | "block_model"
+    value: Mapped[str] = mapped_column(String(128))         # model name or "*"
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class BudgetRule(Base):
     __tablename__ = "budget_rules"
 
@@ -65,6 +77,10 @@ class Telemetry(Base):
     total_tokens: Mapped[int] = mapped_column(Integer, default=0)
     latency_ms: Mapped[float] = mapped_column(Float, default=0.0)
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    sensitive: Mapped[bool] = mapped_column(Boolean, default=False)
+    sensitive_findings: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list
+    blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    block_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

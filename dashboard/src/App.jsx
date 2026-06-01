@@ -1050,6 +1050,242 @@ function BudgetsPage() {
   );
 }
 
+// ─── Security page ────────────────────────────────────────────────────────────
+function SecurityPage() {
+  const [alerts,    setAlerts]    = useState([]);
+  const [policies,  setPolicies]  = useState([]);
+  const [audit,     setAudit]     = useState([]);
+  const [scanText,  setScanText]  = useState("");
+  const [scanResult,setScanResult]= useState(null);
+  const [scanning,  setScanning]  = useState(false);
+  const [pForm,     setPForm]     = useState({ team:"", rule_type:"block_model", value:"" });
+  const [saving,    setSaving]    = useState(false);
+  const [loading,   setLoading]   = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const [a, p, au] = await Promise.all([
+        fetch("/api/security/alerts").then((x) => x.json()),
+        fetch("/api/policies").then((x) => x.json()),
+        fetch("/api/audit?sensitive_only=false&blocked_only=false&limit=50").then((x) => x.json()),
+      ]);
+      setAlerts(a);
+      setPolicies(p);
+      setAudit(au);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleScan = async () => {
+    if (!scanText.trim()) return;
+    setScanning(true);
+    try {
+      const r = await fetch("/api/security/scan", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ text: scanText }),
+      });
+      setScanResult(await r.json());
+    } finally { setScanning(false); }
+  };
+
+  const handleCreatePolicy = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await fetch("/api/policies", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(pForm),
+      });
+      setPForm({ team:"", rule_type:"block_model", value:"" });
+      await load();
+    } finally { setSaving(false); }
+  };
+
+  const handleDeletePolicy = async (id) => {
+    await fetch(`/api/policies/${id}`, { method:"DELETE" });
+    await load();
+  };
+
+  const sevColor = (s) => s==="critical"?T.crit:s==="high"?T.warn:s==="medium"?T.info:T.textDim;
+  const alertColor = (s) => s==="critical"?T.crit:s==="warning"?T.warn:T.info;
+
+  if (loading) return <div style={{ color:T.textDim, fontFamily:FONT_MONO, padding:24 }}>Loading security data…</div>;
+
+  const sensitiveCount = audit.filter((r) => r.sensitive).length;
+  const blockedCount   = audit.filter((r) => r.blocked).length;
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+      {/* KPI strip */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
+        {[
+          { label:"Live Alerts",     value:alerts.length,    color:alerts.length>0?T.crit:T.accent },
+          { label:"Policy Rules",    value:policies.length,  color:T.info },
+          { label:"Sensitive Reqs",  value:sensitiveCount,   color:sensitiveCount>0?T.warn:T.accent },
+          { label:"Blocked Reqs",    value:blockedCount,     color:blockedCount>0?T.crit:T.accent },
+        ].map((k) => (
+          <div key={k.label} style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:16 }}>
+            <div style={{ fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textDim }}>{k.label}</div>
+            <div style={{ fontSize:32, fontFamily:FONT_MONO, fontWeight:500, color:k.color, marginTop:8, lineHeight:1 }}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Live alerts */}
+      <Card title="Live Security Alerts" subtitle="Detected from real telemetry data">
+        {alerts.length === 0 ? (
+          <div style={{ color:T.accent, fontFamily:FONT_MONO, fontSize:13, padding:"16px 0" }}>✓ No security alerts detected</div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {alerts.map((a, i) => (
+              <div key={i} style={{ padding:"12px 14px", background:T.panelHi, borderLeft:`2px solid ${alertColor(a.sev)}`, borderRadius:4 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                  <div>
+                    <div style={{ fontFamily:FONT_MONO, fontSize:10, color:alertColor(a.sev), letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>{a.type}</div>
+                    <div style={{ fontSize:13, color:T.text }}>{a.msg}</div>
+                    <div style={{ fontSize:11, color:T.textMute, marginTop:4 }}>Agent: {a.entity} · {a.action}</div>
+                  </div>
+                  <Pill color={alertColor(a.sev)}>{a.sev}</Pill>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* PII Scanner */}
+      <Card title="PII / Sensitive Data Scanner" subtitle="Test any text for credentials, PII, and sensitive patterns">
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          <textarea
+            value={scanText} onChange={(e) => setScanText(e.target.value)}
+            placeholder="Paste a prompt or document to scan for sensitive data…"
+            rows={4}
+            style={{ width:"100%", background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, borderRadius:4, padding:"10px 12px", fontSize:12, fontFamily:FONT_MONO, resize:"vertical", boxSizing:"border-box" }}
+          />
+          <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+            <button onClick={handleScan} disabled={scanning || !scanText.trim()}
+              style={{ background:T.accent, color:T.bg, border:"none", padding:"8px 18px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:scanning?0.6:1 }}>
+              {scanning ? "Scanning…" : "Scan Text"}
+            </button>
+            {scanResult && (
+              <Pill color={scanResult.is_sensitive ? T.crit : T.accent}>
+                {scanResult.is_sensitive ? `${scanResult.findings.length} finding${scanResult.findings.length===1?"":"s"}` : "Clean"}
+              </Pill>
+            )}
+          </div>
+          {scanResult?.findings?.length > 0 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:6, marginTop:4 }}>
+              {scanResult.findings.map((f, i) => (
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"8px 12px", background:T.panelHi, borderLeft:`2px solid ${sevColor(f.severity)}`, borderRadius:3 }}>
+                  <Pill color={sevColor(f.severity)}>{f.severity}</Pill>
+                  <span style={{ fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{f.type}</span>
+                  <span style={{ fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{f.sample}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Policy rules */}
+      <Card title="Model Policy Rules" subtitle="Control which models each team is allowed to use">
+        <form onSubmit={handleCreatePolicy} style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"flex-end", marginBottom:16 }}>
+          {[
+            { label:"Team *", key:"team", placeholder:"e.g. SOC or *" },
+            { label:"Model *", key:"value", placeholder:"e.g. gemini-2.0-pro" },
+          ].map(({ label, key, placeholder }) => (
+            <div key={key} style={{ display:"flex", flexDirection:"column", gap:4 }}>
+              <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>{label}</label>
+              <input value={pForm[key]} onChange={(e) => setPForm({...pForm,[key]:e.target.value})}
+                placeholder={placeholder} required
+                style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, padding:"6px 10px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, width:160 }}
+              />
+            </div>
+          ))}
+          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Rule Type</label>
+            <select value={pForm.rule_type} onChange={(e) => setPForm({...pForm,rule_type:e.target.value})}
+              style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, padding:"6px 10px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, minWidth:150 }}>
+              <option value="block_model">Block model</option>
+              <option value="allow_model">Allow model (allowlist)</option>
+            </select>
+          </div>
+          <button type="submit" disabled={saving}
+            style={{ background:T.crit, color:"#fff", border:"none", padding:"8px 18px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:saving?0.6:1 }}>
+            {saving ? "Saving…" : "+ Add Policy"}
+          </button>
+        </form>
+
+        {policies.length === 0 ? (
+          <div style={{ color:T.textMute, fontFamily:FONT_MONO, fontSize:13, padding:"8px 0" }}>No policy rules configured. Add one above.</div>
+        ) : (
+          <table style={{ width:"100%", borderCollapse:"collapse" }}>
+            <thead>
+              <tr style={{ borderBottom:`1px solid ${T.border}` }}>
+                {["Team","Rule Type","Model","Created",""].map((h) => (
+                  <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {policies.map((r) => (
+                <tr key={r.id} style={{ borderBottom:`1px solid ${T.border}` }}>
+                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{r.team}</td>
+                  <td style={{ padding:"12px 8px" }}><Pill color={r.rule_type==="block_model"?T.crit:T.accent}>{r.rule_type}</Pill></td>
+                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{r.value}</td>
+                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.created_at).toLocaleDateString()}</td>
+                  <td style={{ padding:"12px 8px" }}>
+                    <button onClick={() => handleDeletePolicy(r.id)}
+                      style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.crit, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+
+      {/* Audit log */}
+      <Card title="Audit Log" subtitle="All requests — including blocked and sensitive-flagged">
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead>
+            <tr style={{ borderBottom:`1px solid ${T.border}` }}>
+              {["Time","Team","Agent","Model","Status","Sensitive","Tokens","Cost"].map((h) => (
+                <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {audit.length === 0 ? (
+              <tr><td colSpan={8} style={{ padding:"20px 8px", color:T.textMute, fontFamily:FONT_MONO, fontSize:13 }}>No audit records yet.</td></tr>
+            ) : audit.map((r) => (
+              <tr key={r.id} style={{ borderBottom:`1px solid ${T.border}`, background:r.blocked?`${T.crit}08`:r.sensitive?`${T.warn}08`:"transparent" }}>
+                <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.timestamp).toLocaleString()}</td>
+                <td style={{ padding:"10px 8px", fontSize:12, color:T.text }}>{r.team}</td>
+                <td style={{ padding:"10px 8px", fontSize:12, color:T.textDim }}>{r.agent}</td>
+                <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textDim }}>{r.model}</td>
+                <td style={{ padding:"10px 8px" }}>
+                  {r.blocked ? <Pill color={T.crit}>blocked</Pill> : <Pill color={T.accent}>ok</Pill>}
+                </td>
+                <td style={{ padding:"10px 8px" }}>
+                  {r.sensitive ? <Pill color={T.warn}>flagged</Pill> : <span style={{ color:T.textMute, fontFamily:FONT_MONO, fontSize:11 }}>—</span>}
+                </td>
+                <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>{r.total_tokens.toLocaleString()}</td>
+                <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>${r.cost_usd.toFixed(6)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 const PAGES = [
   { id:"home",      label:"Home" },
@@ -1060,6 +1296,7 @@ const PAGES = [
   { id:"workflows", label:"Workflow Health" },
   { id:"alerts",    label:"Alerts" },
   { id:"budgets",   label:"Budgets" },
+  { id:"security",  label:"Security" },
 ];
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
@@ -1105,6 +1342,7 @@ export default function App() {
       case "workflows": return <WorkflowHealth {...pageProps} />;
       case "alerts":    return <AlertsPage alerts={alerts} sevFilter={filters.sev} />;
       case "budgets":   return <BudgetsPage />;
+      case "security":  return <SecurityPage />;
       default:          return null;
     }
   };
@@ -1176,7 +1414,7 @@ export default function App() {
           </div>
         </header>
 
-        {page!=="home" && page!=="budgets" && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents}/>}
+        {!["home","budgets","security"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents}/>}
 
         {renderPage()}
       </main>
