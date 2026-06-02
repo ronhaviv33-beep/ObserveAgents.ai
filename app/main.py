@@ -1,9 +1,11 @@
 import os
 import json
 import asyncio
+import time
+from collections import defaultdict
 from typing import List
 
-from fastapi import FastAPI, Depends, HTTPException, Query, Body
+from fastapi import FastAPI, Depends, HTTPException, Query, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -34,6 +36,27 @@ from app.models import calculate_cost
 Base.metadata.create_all(bind=engine)
 
 
+# ─── Login rate limiter (in-memory, per IP) ───────────────────────────────────
+# Allows 5 attempts per 60 seconds per IP. Resets after the window expires.
+_login_attempts: dict = defaultdict(list)
+_RATE_LIMIT_MAX = 5
+_RATE_LIMIT_WINDOW = 60  # seconds
+
+def _check_login_rate_limit(ip: str):
+    now = time.time()
+    window_start = now - _RATE_LIMIT_WINDOW
+    attempts = [t for t in _login_attempts[ip] if t > window_start]
+    _login_attempts[ip] = attempts
+    if len(attempts) >= _RATE_LIMIT_MAX:
+        retry_after = int(_RATE_LIMIT_WINDOW - (now - attempts[0]))
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many login attempts. Try again in {retry_after} seconds.",
+            headers={"Retry-After": str(retry_after)},
+        )
+    _login_attempts[ip].append(now)
+
+
 # ─── Startup seed ─────────────────────────────────────────────────────────────
 
 def _seed_admin():
@@ -41,10 +64,11 @@ def _seed_admin():
     db = next(get_db())
     try:
         if not db.query(User).filter(User.email == "admin@aifinops.local").first():
+            seed_pw = os.getenv("ADMIN_SEED_PASSWORD", "Ch@ngeMe!FinOps2026#")
             db.add(User(
                 email="admin@aifinops.local",
                 name="Admin",
-                hashed_password=hash_password("Admin123!"),
+                hashed_password=hash_password(seed_pw),
                 role="admin",
                 team="Platform",
             ))
@@ -151,7 +175,9 @@ def root():
 # ─── Auth ─────────────────────────────────────────────────────────────────────
 
 @app.post("/auth/login", response_model=TokenResponse, tags=["Auth — Users"])
-def login(req: LoginRequest, db: Session = Depends(get_db)):
+def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    ip = request.client.host if request.client else "unknown"
+    _check_login_rate_limit(ip)
     from app.models import User
     user = db.query(User).filter(User.email == req.email, User.is_active == True).first()  # noqa: E712
     if not user or not verify_password(req.password, user.hashed_password):
