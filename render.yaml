@@ -1,0 +1,47 @@
+services:
+  # ── Backend (FastAPI) ──────────────────────────────────────────────────────
+  - type: web
+    name: aifinops-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    disk:
+      name: sqlite-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GATEWAY_FAIL_MODE
+        value: closed
+      # Set these in the Render dashboard — never commit real keys
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: LOCAL_LLM_URL
+        sync: false
+
+  # ── Frontend (Vite / React static site) ───────────────────────────────────
+  - type: web
+    name: aifinops-frontend
+    runtime: static
+    buildCommand: cd dashboard && npm install && npm run build
+    staticPublishPath: dashboard/dist
+    # _redirects in dashboard/public/ handles:
+    #   /api/*  → https://aifinops-backend.onrender.com/:splat
+    #   /*      → /index.html  (SPA fallback)
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
