@@ -363,6 +363,38 @@ const fmt$  = (n) => n>=1000?`$${(n/1000).toFixed(2)}k`:`$${n.toFixed(2)}`;
 const fmtK  = (n) => n>=1_000_000?`${(n/1_000_000).toFixed(2)}M`:n>=1000?`${(n/1000).toFixed(1)}k`:n.toString();
 const fmtTime=(ts)=>{ const d=Date.now()-ts; if(d<60_000)return"just now"; if(d<3_600_000)return`${Math.floor(d/60_000)}m ago`; if(d<86_400_000)return`${Math.floor(d/3_600_000)}h ago`; return new Date(ts).toLocaleDateString(); };
 
+// ─── Sortable table helpers ───────────────────────────────────────────────────
+function useSortable(defaultKey, defaultDir = "desc") {
+  const [sortKey, setSortKey] = useState(defaultKey);
+  const [sortDir, setSortDir] = useState(defaultDir);
+  const toggle = (key) => {
+    if (key === sortKey) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("desc"); }
+  };
+  const sort = (rows, getValue) => [...rows].sort((a, b) => {
+    const va = getValue(a, sortKey), vb = getValue(b, sortKey);
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    const cmp = typeof va === "string" ? va.localeCompare(vb) : va - vb;
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+  return { sortKey, sortDir, toggle, sort };
+}
+
+const SortableTh = ({ label, sortKey, active, dir, onToggle, style: extraStyle = {} }) => (
+  <th onClick={() => onToggle(sortKey)}
+    style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em",
+      textTransform:"uppercase", color: active ? T.text : T.textDim, fontWeight:500,
+      cursor:"pointer", userSelect:"none", whiteSpace:"nowrap", ...extraStyle }}
+    title={`Sort by ${label}`}>
+    {label}
+    <span style={{ marginLeft:4, opacity: active ? 1 : 0.3, fontSize:9 }}>
+      {active ? (dir === "asc" ? "▲" : "▼") : "⇅"}
+    </span>
+  </th>
+);
+
 // ─── Page components ──────────────────────────────────────────────────────────
 function Home({ risk, savings, alerts, A, onNavigate }) {
   const crit = alerts.filter((a)=>a.sev==="critical").length;
@@ -632,12 +664,15 @@ function Overview({ A, events, allAgents, allTeams }) {
 }
 
 function CostIntel({ A, events, allTeams }) {
+  const { sortKey, sortDir, toggle, sort } = useSortable("cost");
   const teamData  = Object.entries(A.costByTeam).map(([id,cost])=>({ name:allTeams.find((t)=>t.id===id)?.name||id, cost }));
   const modelData = Object.entries(A.costByModel).map(([name,cost])=>({ name, cost }));
   const COLORS    = [T.accent, T.info, T.warn, T.crit, T.purple, "#5BD9C5"];
   const wfCost    = {};
   events.forEach((e)=>{ wfCost[e.workflow]=(wfCost[e.workflow]||0)+e.cost; });
-  const topWf = Object.entries(wfCost).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const wfBaseRows = Object.entries(wfCost).map(([wf, cost]) => ({ wf, cost, calls: A.callsByWorkflow[wf]||0, avgCost: cost/Math.max(A.callsByWorkflow[wf]||0,1) }));
+  const colKey = { "Workflow":"wf","Calls":"calls","Total cost":"cost","Avg cost/call":"avgCost" };
+  const topWf = sort(wfBaseRows, (r, k) => r[k]);
   return (
     <div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:14 }}>
@@ -670,27 +705,24 @@ function CostIntel({ A, events, allTeams }) {
           </div>
         </Card>
       </div>
-      <Card title="Most expensive workflows" subtitle="Top 10 by spend">
+      <Card title="Most expensive workflows" subtitle="Click a column header to sort">
         <table style={{ width:"100%", borderCollapse:"collapse" }}>
           <thead>
             <tr style={{ borderBottom:`1px solid ${T.border}` }}>
               {["Workflow","Calls","Total cost","Avg cost/call"].map((h)=>(
-                <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
+                <SortableTh key={h} label={h} sortKey={colKey[h]} active={sortKey===colKey[h]} dir={sortDir} onToggle={toggle} />
               ))}
             </tr>
           </thead>
           <tbody>
-            {topWf.map(([wf,cost])=>{
-              const calls = A.callsByWorkflow[wf]||0;
-              return (
-                <tr key={wf} style={{ borderBottom:`1px solid ${T.border}` }}>
-                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{wf}</td>
-                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>{calls.toLocaleString()}</td>
-                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{fmt$(cost)}</td>
-                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>${(cost/Math.max(calls,1)).toFixed(4)}</td>
-                </tr>
-              );
-            })}
+            {topWf.map((r)=>(
+              <tr key={r.wf} style={{ borderBottom:`1px solid ${T.border}` }}>
+                <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{r.wf}</td>
+                <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>{r.calls.toLocaleString()}</td>
+                <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{fmt$(r.cost)}</td>
+                <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>${r.avgCost.toFixed(4)}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </Card>
@@ -699,22 +731,26 @@ function CostIntel({ A, events, allTeams }) {
 }
 
 function AgentActivity({ events, allAgents, allTeams }) {
-  const rows = allAgents.map((a)=>{
+  const { sortKey, sortDir, toggle, sort } = useSortable("cost");
+  const baseRows = allAgents.map((a)=>{
     const aev = events.filter((e)=>e.agent===a.id);
     const requests = aev.length;
     const cost     = aev.reduce((s,e)=>s+e.cost,0);
     const avgLat   = requests>0 ? aev.reduce((s,e)=>s+e.latency,0)/requests : 0;
     const errors   = aev.filter((e)=>e.status==="failed").length;
     const last     = aev[0]?.ts||0;
-    return { ...a, requests, cost, avgLat, errors, last };
-  }).sort((a,b)=>b.cost-a.cost);
+    const teamName = allTeams.find((t)=>t.id===a.team)?.name||a.team;
+    return { ...a, requests, cost, avgLat, errors, last, teamName };
+  });
+  const colKey = { "Agent":"name","Team":"teamName","Requests":"requests","Cost":"cost","Avg latency":"avgLat","Errors":"errors","Last activity":"last" };
+  const rows = sort(baseRows, (r, k) => r[k]);
   return (
     <Card title="Agents" subtitle="Live runtime activity">
       <table style={{ width:"100%", borderCollapse:"collapse" }}>
         <thead>
           <tr style={{ borderBottom:`1px solid ${T.border}` }}>
             {["Agent","Team","Requests","Cost","Avg latency","Errors","Last activity"].map((h)=>(
-              <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
+              <SortableTh key={h} label={h} sortKey={colKey[h]} active={sortKey===colKey[h]} dir={sortDir} onToggle={toggle} />
             ))}
           </tr>
         </thead>
@@ -725,7 +761,7 @@ function AgentActivity({ events, allAgents, allTeams }) {
                 <div style={{ fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{r.name}</div>
                 <div style={{ fontFamily:FONT_MONO, fontSize:10, color:T.textMute, marginTop:2 }}>{r.id}</div>
               </td>
-              <td style={{ padding:"12px 8px", fontSize:12, color:T.textDim }}>{allTeams.find((t)=>t.id===r.team)?.name||r.team}</td>
+              <td style={{ padding:"12px 8px", fontSize:12, color:T.textDim }}>{r.teamName}</td>
               <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{r.requests.toLocaleString()}</td>
               <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{fmt$(r.cost)}</td>
               <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:r.avgLat>2000?T.warn:T.textDim }}>{Math.round(r.avgLat)}ms</td>
@@ -740,8 +776,9 @@ function AgentActivity({ events, allAgents, allTeams }) {
 }
 
 function ModelUsage({ A }) {
+  const { sortKey, sortDir, toggle, sort } = useSortable("cost");
   const allModelNames = [...new Set([...MODELS.map((m)=>m.name), ...Object.keys(A.costByModel)])];
-  const modelRows = allModelNames.map((name)=>{
+  const baseRows = allModelNames.map((name)=>{
     const meta = MODELS.find((m)=>m.name===name);
     const cost  = A.costByModel[name]||0;
     const tokens= A.tokensByModel[name]||0;
@@ -749,14 +786,16 @@ function ModelUsage({ A }) {
     const avgLat= lats.length>0 ? lats.reduce((s,x)=>s+x,0)/lats.length : 0;
     const p95   = lats.length>0 ? [...lats].sort((a,b)=>a-b)[Math.floor(lats.length*0.95)] : 0;
     return { name, provider:meta?.provider||providerFromModel(name), tier:meta?.tier||tierFromModel(name), approved:meta?.approved??approvedModel(name), cost, tokens, avgLat, p95, calls:lats.length };
-  }).sort((a,b)=>b.cost-a.cost);
+  });
+  const colKey = { "Model":"name","Provider":"provider","Tier":"tier","Approved":"approved","Calls":"calls","Tokens":"tokens","Cost":"cost","Avg latency":"avgLat","p95":"p95" };
+  const modelRows = sort(baseRows, (r, k) => r[k]);
   return (
     <Card title="Models" subtitle="Performance, spend, and governance posture">
       <table style={{ width:"100%", borderCollapse:"collapse" }}>
         <thead>
           <tr style={{ borderBottom:`1px solid ${T.border}` }}>
             {["Model","Provider","Tier","Approved","Calls","Tokens","Cost","Avg latency","p95"].map((h)=>(
-              <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
+              <SortableTh key={h} label={h} sortKey={colKey[h]} active={sortKey===colKey[h]} dir={sortDir} onToggle={toggle} />
             ))}
           </tr>
         </thead>
@@ -781,19 +820,22 @@ function ModelUsage({ A }) {
 }
 
 function WorkflowHealth({ A, events }) {
-  const rows = Object.keys(A.callsByWorkflow).map((wf)=>{
+  const { sortKey, sortDir, toggle, sort } = useSortable("rate");
+  const baseRows = Object.keys(A.callsByWorkflow).map((wf)=>{
     const calls = A.callsByWorkflow[wf];
     const fails = A.failsByWorkflow[wf]||0;
     const cost  = events.filter((e)=>e.workflow===wf).reduce((s,e)=>s+e.cost,0);
     return { wf, calls, fails, rate:fails/calls, cost };
-  }).sort((a,b)=>b.rate-a.rate);
+  });
+  const colKey = { "Workflow":"wf","Calls":"calls","Failures":"fails","Rate":"rate","Cost":"cost","Status":"rate" };
+  const rows = sort(baseRows, (r, k) => r[k]);
   return (
     <Card title="Workflow health" subtitle="Failure rate & spend per workflow">
       <table style={{ width:"100%", borderCollapse:"collapse" }}>
         <thead>
           <tr style={{ borderBottom:`1px solid ${T.border}` }}>
             {["Workflow","Calls","Failures","Rate","Cost","Status"].map((h)=>(
-              <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
+              <SortableTh key={h} label={h} sortKey={colKey[h]} active={sortKey===colKey[h]} dir={sortDir} onToggle={toggle} />
             ))}
           </tr>
         </thead>
@@ -920,6 +962,47 @@ function FilterBar({ filters, setFilters, allTeams, allAgents }) {
   );
 }
 
+function SortableBudgetTable({ rules, onDelete }) {
+  const { sortKey, sortDir, toggle, sort } = useSortable("created_at");
+  const colKey = { "Team":"team","Agent":"agent","Limit":"limit_usd","Period":"period","Action":"action","Created":"created_at" };
+  const sorted = sort(rules, (r, k) => {
+    if (k === "created_at") return new Date(r.created_at).getTime();
+    if (k === "limit_usd")  return r.limit_usd;
+    return r[k] || "";
+  });
+  return (
+    <table style={{ width:"100%", borderCollapse:"collapse" }}>
+      <thead>
+        <tr style={{ borderBottom:`1px solid ${T.border}` }}>
+          {["Team","Agent","Limit","Period","Action","Created",""].map((h) => h === "" ? (
+            <th key={h} style={{ padding:"10px 8px" }} />
+          ) : (
+            <SortableTh key={h} label={h} sortKey={colKey[h]} active={sortKey===colKey[h]} dir={sortDir} onToggle={toggle} />
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((r) => (
+          <tr key={r.id} style={{ borderBottom:`1px solid ${T.border}` }}>
+            <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{r.team}</td>
+            <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>{r.agent||<span style={{color:T.textMute}}>all agents</span>}</td>
+            <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.accent }}>${r.limit_usd}</td>
+            <td style={{ padding:"12px 8px" }}><Pill color={T.info}>{r.period}</Pill></td>
+            <td style={{ padding:"12px 8px" }}><Pill color={r.action==="block"?T.crit:T.warn}>{r.action}</Pill></td>
+            <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.created_at).toLocaleDateString()}</td>
+            <td style={{ padding:"12px 8px" }}>
+              <button onClick={() => onDelete(r.id)}
+                style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.crit, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                Delete
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 // ─── Budgets page ─────────────────────────────────────────────────────────────
 function BudgetsPage() {
   const [rules,    setRules]    = useState([]);
@@ -1043,33 +1126,7 @@ function BudgetsPage() {
             No budget rules yet — add one above to start enforcing limits.
           </div>
         ) : (
-          <table style={{ width:"100%", borderCollapse:"collapse" }}>
-            <thead>
-              <tr style={{ borderBottom:`1px solid ${T.border}` }}>
-                {["Team","Agent","Limit","Period","Action","Created",""].map((h)=>(
-                  <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rules.map((r)=>(
-                <tr key={r.id} style={{ borderBottom:`1px solid ${T.border}` }}>
-                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{r.team}</td>
-                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>{r.agent||<span style={{color:T.textMute}}>all agents</span>}</td>
-                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.accent }}>${r.limit_usd}</td>
-                  <td style={{ padding:"12px 8px" }}><Pill color={T.info}>{r.period}</Pill></td>
-                  <td style={{ padding:"12px 8px" }}><Pill color={r.action==="block"?T.crit:T.warn}>{r.action}</Pill></td>
-                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.created_at).toLocaleDateString()}</td>
-                  <td style={{ padding:"12px 8px" }}>
-                    <button onClick={()=>handleDelete(r.id)}
-                      style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.crit, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <SortableBudgetTable rules={rules} onDelete={handleDelete} />
         )}
       </Card>
     </div>
@@ -1079,23 +1136,34 @@ function BudgetsPage() {
 // ─── Audit log detail ─────────────────────────────────────────────────────────
 function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore }) {
   const [expanded, setExpanded] = useState(null);
+  const { sortKey, sortDir, toggle: sortToggle, sort } = useSortable("timestamp");
 
-  const toggle = (id) => setExpanded(prev => prev === id ? null : id);
+  const toggleExpand = (id) => setExpanded(prev => prev === id ? null : id);
+
+  const colKey = { "Time":"timestamp","Team":"team","Agent":"agent","Model":"model","Status":"blocked","Sensitive":"sensitive","Tokens":"total_tokens","Cost":"cost_usd" };
+  const sorted = sort(audit, (r, k) => {
+    if (k === "timestamp") return new Date(r.timestamp).getTime();
+    if (k === "blocked")   return r.blocked ? 1 : 0;
+    if (k === "sensitive") return r.sensitive ? 1 : 0;
+    return r[k];
+  });
 
   return (
     <Card title="Audit Log" subtitle="All requests — including blocked and sensitive-flagged. Click a row for full details.">
       <table style={{ width:"100%", borderCollapse:"collapse" }}>
         <thead>
           <tr style={{ borderBottom:`1px solid ${T.border}` }}>
-            {["Time","Team","Agent","Model","Status","Sensitive","Tokens","Cost",""].map((h) => (
-              <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
+            {["Time","Team","Agent","Model","Status","Sensitive","Tokens","Cost",""].map((h) => h === "" ? (
+              <th key={h} style={{ padding:"10px 8px", width:24 }} />
+            ) : (
+              <SortableTh key={h} label={h} sortKey={colKey[h]} active={sortKey===colKey[h]} dir={sortDir} onToggle={sortToggle} />
             ))}
           </tr>
         </thead>
         <tbody>
-          {audit.length === 0 ? (
+          {sorted.length === 0 ? (
             <tr><td colSpan={9} style={{ padding:"20px 8px", color:T.textMute, fontFamily:FONT_MONO, fontSize:13 }}>No audit records yet.</td></tr>
-          ) : audit.map((r) => {
+          ) : sorted.map((r) => {
             const isOpen = expanded === r.id;
             const rowBg = r.blocked ? `${T.crit}08` : r.sensitive ? `${T.warn}08` : "transparent";
             let findings = [];
@@ -1103,7 +1171,7 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
             return (
               <React.Fragment key={r.id}>
                 <tr style={{ borderBottom: isOpen ? "none" : `1px solid ${T.border}`, background: rowBg, cursor:"pointer" }}
-                    onClick={() => toggle(r.id)}>
+                    onClick={() => toggleExpand(r.id)}>
                   <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.timestamp).toLocaleString()}</td>
                   <td style={{ padding:"10px 8px", fontSize:12, color:T.text }}>{r.team}</td>
                   <td style={{ padding:"10px 8px", fontSize:12, color:T.textDim }}>{r.agent}</td>
@@ -1511,6 +1579,85 @@ function LoginPage({ onLogin }) {
   );
 }
 
+function SortableUsersTable({ users, currentUser, editing, editSaving, setEditing, saveEdit, cancelEdit, handleToggle, handleDelete, inlineInput, inlineSelect }) {
+  const { sortKey, sortDir, toggle, sort } = useSortable("created_at");
+  const colKey = { "Name":"name","Email":"email","Role":"role","Team":"team","Status":"is_active","Created":"created_at" };
+  const sorted = sort(users, (u, k) => {
+    if (k === "created_at") return new Date(u.created_at).getTime();
+    if (k === "is_active")  return u.is_active ? 1 : 0;
+    return u[k] || "";
+  });
+  return (
+    <table style={{ width:"100%", borderCollapse:"collapse" }}>
+      <thead>
+        <tr style={{ borderBottom:`1px solid ${T.border}` }}>
+          {["Name","Email","Role","Team","Status","Created",""].map(h => h === "" ? (
+            <th key={h} style={{ padding:"10px 8px" }} />
+          ) : (
+            <SortableTh key={h} label={h} sortKey={colKey[h]} active={sortKey===colKey[h]} dir={sortDir} onToggle={toggle} />
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map(u => {
+          const isEditing = editing?.id === u.id;
+          const isSelf    = u.id === currentUser?.id;
+          return (
+            <tr key={u.id} style={{ borderBottom:`1px solid ${T.border}`, opacity:u.is_active?1:0.5, background: isEditing ? `${T.accent}06` : "transparent" }}>
+              <td style={{ padding:"12px 8px", fontSize:12, color:T.text, fontWeight:500 }}>{u.name}</td>
+              <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textDim }}>{u.email}</td>
+              <td style={{ padding:"10px 8px" }}>
+                {isEditing
+                  ? inlineSelect(editing.role, v => setEditing({...editing, role:v}), Object.entries(ROLES).map(([r, m]) => [r, m.label]))
+                  : <Pill color={ROLES[u.role]?.color ?? T.textDim}>{u.role}</Pill>}
+              </td>
+              <td style={{ padding:"10px 8px" }}>
+                {isEditing
+                  ? inlineInput(editing.team, v => setEditing({...editing, team:v}), 90)
+                  : <span style={{ fontSize:12, color:T.textDim }}>{u.team || "—"}</span>}
+              </td>
+              <td style={{ padding:"12px 8px" }}>{u.is_active ? <Pill color={T.accent}>active</Pill> : <Pill color={T.textMute}>inactive</Pill>}</td>
+              <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(u.created_at).toLocaleDateString()}</td>
+              <td style={{ padding:"10px 8px" }}>
+                <div style={{ display:"flex", gap:6, flexWrap:"nowrap" }}>
+                  {isEditing ? (
+                    <>
+                      <button onClick={saveEdit} disabled={editSaving}
+                        style={{ background:`${T.accent}20`, border:`1px solid ${T.accent}55`, color:T.accent, padding:"4px 12px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer", fontWeight:600, opacity:editSaving?0.6:1 }}>
+                        {editSaving ? "…" : "Save"}
+                      </button>
+                      <button onClick={cancelEdit}
+                        style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => setEditing({ id: u.id, role: u.role, team: u.team || "" })}
+                        style={{ background:`${T.info}15`, border:`1px solid ${T.info}44`, color:T.info, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                        Edit
+                      </button>
+                      <button onClick={() => handleToggle(u)}
+                        style={{ background:"transparent", border:`1px solid ${T.border}`, color:u.is_active?T.warn:T.accent, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                        {u.is_active ? "Disable" : "Enable"}
+                      </button>
+                      <button onClick={() => handleDelete(u.id)} disabled={isSelf}
+                        style={{ background:"transparent", border:`1px solid ${T.border}`, color:isSelf?T.textMute:T.crit, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:isSelf?"not-allowed":"pointer", opacity:isSelf?0.4:1 }}
+                        title={isSelf ? "Cannot delete your own account" : ""}>
+                        Delete
+                      </button>
+                    </>
+                  )}
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 // ─── Users Page (admin only) ──────────────────────────────────────────────────
 function UsersPage() {
   const currentUser = useUser();
@@ -1615,81 +1762,10 @@ function UsersPage() {
       </Card>
 
       <Card title="Platform Users" subtitle={`${users.length} user${users.length===1?"":"s"} registered — click Edit to change role or team`}>
-        <table style={{ width:"100%", borderCollapse:"collapse" }}>
-          <thead>
-            <tr style={{ borderBottom:`1px solid ${T.border}` }}>
-              {["Name","Email","Role","Team","Status","Created",""].map(h => (
-                <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => {
-              const isEditing = editing?.id === u.id;
-              const isSelf    = u.id === currentUser?.id;
-              return (
-                <tr key={u.id} style={{ borderBottom:`1px solid ${T.border}`, opacity:u.is_active?1:0.5, background: isEditing ? `${T.accent}06` : "transparent" }}>
-                  <td style={{ padding:"12px 8px", fontSize:12, color:T.text, fontWeight:500 }}>{u.name}</td>
-                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textDim }}>{u.email}</td>
-
-                  {/* Role cell */}
-                  <td style={{ padding:"10px 8px" }}>
-                    {isEditing
-                      ? inlineSelect(editing.role, v => setEditing({...editing, role:v}),
-                          Object.entries(ROLES).map(([r, m]) => [r, m.label]))
-                      : <Pill color={ROLES[u.role]?.color ?? T.textDim}>{u.role}</Pill>
-                    }
-                  </td>
-
-                  {/* Team cell */}
-                  <td style={{ padding:"10px 8px" }}>
-                    {isEditing
-                      ? inlineInput(editing.team, v => setEditing({...editing, team:v}), 90)
-                      : <span style={{ fontSize:12, color:T.textDim }}>{u.team || "—"}</span>
-                    }
-                  </td>
-
-                  <td style={{ padding:"12px 8px" }}>{u.is_active ? <Pill color={T.accent}>active</Pill> : <Pill color={T.textMute}>inactive</Pill>}</td>
-                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(u.created_at).toLocaleDateString()}</td>
-
-                  {/* Actions */}
-                  <td style={{ padding:"10px 8px" }}>
-                    <div style={{ display:"flex", gap:6, flexWrap:"nowrap" }}>
-                      {isEditing ? (
-                        <>
-                          <button onClick={saveEdit} disabled={editSaving}
-                            style={{ background:`${T.accent}20`, border:`1px solid ${T.accent}55`, color:T.accent, padding:"4px 12px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer", fontWeight:600, opacity:editSaving?0.6:1 }}>
-                            {editSaving ? "…" : "Save"}
-                          </button>
-                          <button onClick={cancelEdit}
-                            style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button onClick={() => startEdit(u)}
-                            style={{ background:`${T.info}15`, border:`1px solid ${T.info}44`, color:T.info, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
-                            Edit
-                          </button>
-                          <button onClick={() => handleToggle(u)}
-                            style={{ background:"transparent", border:`1px solid ${T.border}`, color:u.is_active?T.warn:T.accent, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
-                            {u.is_active ? "Disable" : "Enable"}
-                          </button>
-                          <button onClick={() => handleDelete(u.id)} disabled={isSelf}
-                            style={{ background:"transparent", border:`1px solid ${T.border}`, color:isSelf?T.textMute:T.crit, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:isSelf?"not-allowed":"pointer", opacity:isSelf?0.4:1 }}
-                            title={isSelf ? "Cannot delete your own account" : ""}>
-                            Delete
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <SortableUsersTable users={users} currentUser={currentUser} editing={editing} editSaving={editSaving}
+          setEditing={setEditing} saveEdit={saveEdit} cancelEdit={cancelEdit}
+          handleToggle={handleToggle} handleDelete={handleDelete}
+          inlineInput={inlineInput} inlineSelect={inlineSelect} />
       </Card>
     </div>
   );
