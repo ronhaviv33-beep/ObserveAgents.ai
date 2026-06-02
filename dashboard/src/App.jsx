@@ -2114,7 +2114,7 @@ function ChatPage() {
         setTotalTokens(t => t + data.total_tokens);
       } else {
         // ── Single-shot: independent /ask, no history, auto-creates session ──
-        const r = await authFetch(`${BASE}/ask", {
+        const r = await authFetch(`${BASE}/ask`, {
           method: "POST",
           body: JSON.stringify({
             team, agent, model,
@@ -2171,7 +2171,7 @@ function ChatPage() {
       }
 
       // Create a new session inheriting the old config
-      const nr = await authFetch(`${BASE}/sessions", {
+      const nr = await authFetch(`${BASE}/sessions`, {
         method: "POST",
         body: JSON.stringify({
           user_name: user?.name || "Unknown",
