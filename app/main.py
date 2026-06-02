@@ -1,5 +1,9 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+import os
+from typing import List
+
+from fastapi import FastAPI, Depends, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import engine, get_db
@@ -449,6 +453,14 @@ def list_sessions(active_only: bool = Query(default=True), db: Session = Depends
     return sess.list_sessions(db, active_only=active_only)
 
 
+@app.get("/sessions/{session_uuid}", response_model=SessionOut, tags=["GET — Read / Monitor"])
+def get_session_by_uuid(session_uuid: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    s = sess.get_session(db, session_uuid)
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return s
+
+
 @app.delete("/sessions/{session_uuid}", status_code=204, tags=["DELETE — Remove"])
 def close_session(session_uuid: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
     if not sess.close_session(db, session_uuid):
@@ -552,3 +564,86 @@ def list_policies(db: Session = Depends(get_db), _=Depends(get_current_user)):
 def delete_policy(rule_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
     if not pol.delete_rule(db, rule_id):
         raise HTTPException(status_code=404, detail="Policy rule not found")
+
+
+# ─── Settings / API Keys ──────────────────────────────────────────────────────
+
+_ENV_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+
+_KEY_DEFINITIONS = [
+    {
+        "key": "OPENAI_API_KEY",
+        "provider": "OpenAI",
+        "placeholder": "your-openai-api-key-here",
+    },
+    {
+        "key": "ANTHROPIC_API_KEY",
+        "provider": "Anthropic",
+        "placeholder": "your-anthropic-api-key-here",
+    },
+    {
+        "key": "GOOGLE_API_KEY",
+        "provider": "Google",
+        "placeholder": "your-google-api-key-here",
+    },
+    {
+        "key": "LOCAL_LLM_URL",
+        "provider": "Local LLM",
+        "placeholder": "http://localhost:11434/v1",
+    },
+    {
+        "key": "JWT_SECRET",
+        "provider": "Auth",
+        "placeholder": "change-me-in-production-use-a-long-random-string-32chars",
+    },
+]
+
+
+class KeyStatus(BaseModel):
+    key: str
+    provider: str
+    configured: bool
+    placeholder: bool
+
+
+class KeyUpdateRequest(BaseModel):
+    key: str
+    value: str
+
+
+@app.get("/settings/keys", response_model=List[KeyStatus], tags=["Auth — Users"])
+def get_key_statuses(_=Depends(require_admin)):
+    """Return the configuration status of each provider API key (admin only). Never exposes actual values."""
+    result = []
+    for defn in _KEY_DEFINITIONS:
+        env_val = os.environ.get(defn["key"], "")
+        configured = bool(env_val)
+        is_placeholder = env_val == defn["placeholder"]
+        result.append(KeyStatus(
+            key=defn["key"],
+            provider=defn["provider"],
+            configured=configured,
+            placeholder=is_placeholder,
+        ))
+    return result
+
+
+@app.patch("/settings/keys", tags=["Auth — Users"])
+def update_key(req: KeyUpdateRequest, _=Depends(require_admin)):
+    """Write or update a provider API key in the .env file (admin only). The value is stored in the project root .env."""
+    from dotenv import set_key, find_dotenv
+
+    valid_keys = {d["key"] for d in _KEY_DEFINITIONS}
+    if req.key not in valid_keys:
+        raise HTTPException(status_code=400, detail=f"Unknown key '{req.key}'. Valid keys: {sorted(valid_keys)}")
+
+    env_path = _ENV_FILE
+    # Create .env if it doesn't exist
+    if not os.path.exists(env_path):
+        open(env_path, "a").close()
+
+    set_key(env_path, req.key, req.value)
+    # Also update the current process environment so subsequent calls reflect the new value
+    os.environ[req.key] = req.value
+
+    return {"key": req.key, "updated": True}

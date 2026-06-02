@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, createContext, useContext } from "react";
-import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch } from "./api.js";
+import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey } from "./api.js";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -1053,7 +1053,7 @@ function BudgetsPage() {
 }
 
 // ─── Audit log detail ─────────────────────────────────────────────────────────
-function AuditLogTable({ audit }) {
+function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore }) {
   const [expanded, setExpanded] = useState(null);
 
   const toggle = (id) => setExpanded(prev => prev === id ? null : id);
@@ -1154,6 +1154,14 @@ function AuditLogTable({ audit }) {
           })}
         </tbody>
       </table>
+      {(hasMore || loadingMore) && (
+        <div style={{ marginTop:14, textAlign:"center" }}>
+          <button onClick={onLoadMore} disabled={loadingMore}
+            style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"8px 24px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase", opacity:loadingMore?0.5:1 }}>
+            {loadingMore ? "Loading…" : `Load more (50 at a time)`}
+          </button>
+        </div>
+      )}
     </Card>
   );
 }
@@ -1164,14 +1172,34 @@ function SecurityPage() {
   const isAdmin = currentUser?.role === "admin";
 
   const [alerts,    setAlerts]    = useState([]);
-  const [policies,  setPolicies]  = useState([]);
-  const [audit,     setAudit]     = useState([]);
+  const [policies,      setPolicies]      = useState([]);
+  const [audit,         setAudit]         = useState([]);
+  const [auditOffset,   setAuditOffset]   = useState(0);
+  const [auditHasMore,  setAuditHasMore]  = useState(false);
+  const [auditLoading,  setAuditLoading]  = useState(false);
+  const AUDIT_PAGE = 50;
   const [scanText,  setScanText]  = useState("");
   const [scanResult,setScanResult]= useState(null);
   const [scanning,  setScanning]  = useState(false);
   const [pForm,     setPForm]     = useState({ team:"", rule_type:"block_model", value:"*" });
   const [saving,    setSaving]    = useState(false);
   const [loading,   setLoading]   = useState(true);
+
+  const loadAudit = useCallback(async (offset = 0, append = false) => {
+    if (!isAdmin) return;
+    setAuditLoading(true);
+    try {
+      const r = await authFetch(`/api/audit?sensitive_only=false&blocked_only=false&limit=${AUDIT_PAGE + 1}&skip=${offset}`);
+      if (!r?.ok) return;
+      const rows = await r.json();
+      const hasMore = rows.length > AUDIT_PAGE;
+      const page = rows.slice(0, AUDIT_PAGE);
+      setAudit(prev => append ? [...prev, ...page] : page);
+      setAuditHasMore(hasMore);
+      setAuditOffset(offset + AUDIT_PAGE);
+    } catch { /* ignore */ }
+    finally { setAuditLoading(false); }
+  }, [isAdmin]);
 
   const load = useCallback(async () => {
     try {
@@ -1181,16 +1209,15 @@ function SecurityPage() {
       if (isAdmin) {
         fetchers.push(
           authFetch("/api/policies").then((x) => x.json()),
-          authFetch("/api/audit?sensitive_only=false&blocked_only=false&limit=50").then((x) => x.json()),
         );
       }
-      const [a, p, au] = await Promise.all(fetchers);
+      const [a, p] = await Promise.all(fetchers);
       setAlerts(a);
       if (p) setPolicies(p);
-      if (au) setAudit(au);
+      if (isAdmin) await loadAudit(0, false);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, [isAdmin]);
+  }, [isAdmin, loadAudit]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -1384,7 +1411,7 @@ function SecurityPage() {
       </Card>}
 
       {/* Audit log — admin only */}
-      {isAdmin && <AuditLogTable audit={audit} />}
+      {isAdmin && <AuditLogTable audit={audit} hasMore={auditHasMore} loadingMore={auditLoading} onLoadMore={() => loadAudit(auditOffset, true)} />}
     </div>
   );
 }
@@ -1394,7 +1421,7 @@ const UserContext = createContext(null);
 const useUser = () => useContext(UserContext);
 
 const ROLES = {
-  admin:   { label:"Admin",   color: T.crit,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users"] },
+  admin:   { label:"Admin",   color: T.crit,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users","settings"] },
   analyst: { label:"Analyst", color: T.warn,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","security"] },
   viewer:  { label:"Viewer",  color: T.info,   pages: ["home","overview","cost","agents","models","workflows","alerts","security"] },
 };
@@ -1654,12 +1681,16 @@ const CHAT_MODELS = [
 const SESSION_TIMEOUT_MS  = 30 * 60 * 1000;   // 30 minutes
 const SESSION_WARN_MS     = 5  * 60 * 1000;   // warn 5 min before
 
+const CHAT_SESSION_KEY = "guardChatSessionUuid";
+
 function ChatPage() {
   const user = useUser();
+  const isAdmin = user?.role === "admin";
 
   const [messages,      setMessages]      = useState([]);
   const [input,         setInput]         = useState("");
   const [sending,       setSending]       = useState(false);
+  // Non-admin: team is locked to their own team. Admin: editable.
   const [team,          setTeam]          = useState(user?.team || "SOC");
   const [agent,         setAgent]         = useState("IR-Agent");
   const [model,         setModel]         = useState("gpt-4o-mini");
@@ -1668,6 +1699,7 @@ function ChatPage() {
   const [error,         setError]         = useState(null);
   const [totalCost,     setTotalCost]     = useState(0);
   const [totalTokens,   setTotalTokens]   = useState(0);
+  const [restoring,     setRestoring]     = useState(true); // true until mount restore attempt done
 
   // Session state
   const [sessionUuid,   setSessionUuid]   = useState(null);
@@ -1684,6 +1716,59 @@ function ChatPage() {
   const [showSessions,   setShowSessions]   = useState(false);
 
   const bottomRef = useRef(null);
+  const knownMsgCountRef = useRef(0);
+
+  // ── Restore session from localStorage on mount ──
+  useEffect(() => {
+    const restore = async () => {
+      const saved = localStorage.getItem(CHAT_SESSION_KEY);
+      if (saved) {
+        try {
+          const sr = await authFetch(`/api/sessions/${saved}`);
+          if (sr?.ok) {
+            const session = await sr.json();
+            if (session.is_active) {
+              const mr = await authFetch(`/api/sessions/${saved}/messages`);
+              if (mr?.ok) {
+                const msgs = await mr.json();
+                if (msgs.length > 0) {
+                  const rebuilt = msgs.map(m => ({
+                    role: m.role, content: m.content,
+                    ...(m.role === "assistant" ? { meta: {
+                      model: session.model,
+                      tokens: m.prompt_tokens + m.completion_tokens,
+                      cost: m.cost_usd, latency: m.latency_ms,
+                      findings: JSON.parse(m.security_findings || "[]"),
+                      warnings: JSON.parse(m.budget_warnings   || "[]"),
+                    }} : {}),
+                  }));
+                  setMessages(rebuilt);
+                  setTotalCost(msgs.filter(m=>m.role==="assistant").reduce((a,m)=>a+m.cost_usd,0));
+                  setTotalTokens(msgs.reduce((a,m)=>a+m.prompt_tokens+m.completion_tokens,0));
+                  knownMsgCountRef.current = msgs.length;
+                  setTeam(session.team);
+                  setAgent(session.agent);
+                  setModel(session.model);
+                  setSessionUuid(saved);
+                }
+              }
+            } else {
+              localStorage.removeItem(CHAT_SESSION_KEY);
+            }
+          } else {
+            localStorage.removeItem(CHAT_SESSION_KEY);
+          }
+        } catch { localStorage.removeItem(CHAT_SESSION_KEY); }
+      }
+      setRestoring(false);
+    };
+    restore();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Persist session UUID to localStorage ──
+  useEffect(() => {
+    if (sessionUuid) localStorage.setItem(CHAT_SESSION_KEY, sessionUuid);
+  }, [sessionUuid]);
 
   // ── Scroll to bottom on new messages ──
   useEffect(() => {
@@ -1711,7 +1796,6 @@ function ChatPage() {
   }, []);
 
   // ── Poll current session for external messages (e.g. from /ask) ──
-  const knownMsgCountRef = useRef(0);
   useEffect(() => {
     if (!sessionUuid || sessionClosed) return;
     const poll = async () => {
@@ -1853,6 +1937,7 @@ function ChatPage() {
     if (sessionUuid) {
       await authFetch(`/api/sessions/${sessionUuid}`, { method: "DELETE" }).catch(() => {});
     }
+    localStorage.removeItem(CHAT_SESSION_KEY);
     setMessages([]); setTotalCost(0); setTotalTokens(0); setError(null);
     setSessionUuid(null); setSessionClosed(false); setTimeoutSecsLeft(null);
     resetTimer();
@@ -1932,6 +2017,12 @@ function ChatPage() {
 
   const fmtSecs = (s) => s >= 60 ? `${Math.floor(s/60)}m ${s%60}s` : `${s}s`;
   const roleColor = ROLES[user?.role]?.color ?? T.textDim;
+
+  if (restoring) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:T.textDim, fontFamily:FONT_MONO, fontSize:13, gap:8 }}>
+      <span style={{ color:T.accent }}>↻</span> Restoring session…
+    </div>
+  );
 
   return (
     <div style={{ display:"flex", gap:16, height:"calc(100vh - 120px)" }}>
@@ -2161,9 +2252,17 @@ function ChatPage() {
           </div>
 
           <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
-            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Team</label>
-            <input value={team} onChange={e => setTeam(e.target.value)} disabled={!!sessionUuid}
-              style={{ background:T.panelHi, color:sessionUuid?T.textMute:T.text, border:`1px solid ${T.border}`, padding:"5px 8px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, width:100, opacity:sessionUuid?0.5:1 }}/>
+            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>
+              Team {!isAdmin && <span style={{ color:T.textMute, textTransform:"none", fontSize:9 }}>(locked)</span>}
+            </label>
+            {isAdmin ? (
+              <input value={team} onChange={e => setTeam(e.target.value)} disabled={!!sessionUuid}
+                style={{ background:T.panelHi, color:sessionUuid?T.textMute:T.text, border:`1px solid ${T.border}`, padding:"5px 8px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, width:110, opacity:sessionUuid?0.5:1 }}/>
+            ) : (
+              <div style={{ background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:4, padding:"5px 10px", fontSize:11, fontFamily:FONT_MONO, color:T.textDim, width:110 }}>
+                {user?.team || "—"}
+              </div>
+            )}
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
             <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Agent</label>
@@ -2296,6 +2395,173 @@ function ChatPage() {
   );
 }
 
+// ─── Settings page (admin only) ───────────────────────────────────────────────
+function SettingsPage() {
+  const [keys,      setKeys]      = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [editing,   setEditing]   = useState(null);  // key name being edited
+  const [editVal,   setEditVal]   = useState("");
+  const [saving,    setSaving]    = useState(false);
+  const [saved,     setSaved]     = useState(null);
+  const [err,       setErr]       = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await fetchKeyStatuses();
+      setKeys(data);
+    } catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const startEdit = (k) => { setEditing(k.key); setEditVal(""); setSaved(null); setErr(null); };
+  const cancelEdit = () => { setEditing(null); setEditVal(""); };
+
+  const handleSave = async (keyName) => {
+    if (!editVal.trim()) return;
+    setSaving(true); setErr(null);
+    try {
+      await updateKey(keyName, editVal.trim());
+      setSaved(keyName);
+      setEditing(null);
+      setEditVal("");
+      await load();
+    } catch (e) { setErr(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const statusColor = (k) => {
+    if (!k.configured)  return T.textMute;
+    if (k.placeholder)  return T.warn;
+    return T.accent;
+  };
+  const statusLabel = (k) => {
+    if (!k.configured)  return "not set";
+    if (k.placeholder)  return "placeholder";
+    return "configured";
+  };
+
+  const PROVIDER_MODELS = {
+    OpenAI:    ["gpt-4.1","gpt-4.1-mini","gpt-4o","gpt-4o-mini","o3","o4-mini"],
+    Anthropic: ["claude-opus-4-5","claude-sonnet-4-5","claude-haiku-4-5"],
+    Google:    ["gemini-2.5-pro","gemini-2.0-flash","gemini-1.5-pro"],
+    "Local LLM": ["llama-3.1-70b-local","llama-3.1-8b-local"],
+    Auth:      [],
+  };
+
+  if (loading) return <div style={{ color:T.textDim, fontFamily:FONT_MONO, padding:24 }}>Loading settings…</div>;
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:14, maxWidth:860 }}>
+
+      {/* Status overview */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
+        {[
+          { label:"Configured",  count: keys.filter(k=>k.configured&&!k.placeholder).length, color:T.accent },
+          { label:"Placeholder", count: keys.filter(k=>k.placeholder).length,                color:T.warn  },
+          { label:"Not set",     count: keys.filter(k=>!k.configured).length,                color:T.crit  },
+          { label:"Total keys",  count: keys.length,                                          color:T.info  },
+        ].map(s => (
+          <div key={s.label} style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:16 }}>
+            <div style={{ fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textDim }}>{s.label}</div>
+            <div style={{ fontSize:32, fontFamily:FONT_MONO, fontWeight:500, color:s.color, marginTop:8, lineHeight:1 }}>{s.count}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Keys table */}
+      <Card title="API Keys & Configuration" subtitle="Keys are stored in the server .env file. Values are never exposed — only status is shown.">
+        {err && <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12, marginBottom:12 }}>{err}</div>}
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead>
+            <tr style={{ borderBottom:`1px solid ${T.border}` }}>
+              {["Provider","Env Variable","Models Unlocked","Status",""].map(h => (
+                <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {keys.map(k => {
+              const isEdit = editing === k.key;
+              const sc = statusColor(k);
+              const models = PROVIDER_MODELS[k.provider] || [];
+              return (
+                <React.Fragment key={k.key}>
+                  <tr style={{ borderBottom: isEdit ? "none" : `1px solid ${T.border}` }}>
+                    <td style={{ padding:"14px 8px", fontSize:13, color:T.text, fontWeight:500 }}>{k.provider}</td>
+                    <td style={{ padding:"14px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>{k.key}</td>
+                    <td style={{ padding:"14px 8px", fontSize:11, color:T.textMute }}>
+                      {models.length > 0
+                        ? <span style={{ fontFamily:FONT_MONO }}>{models.join(", ")}</span>
+                        : <span style={{ color:T.textMute }}>—</span>}
+                    </td>
+                    <td style={{ padding:"14px 8px" }}>
+                      <Pill color={sc}>{statusLabel(k)}</Pill>
+                      {saved === k.key && <span style={{ fontFamily:FONT_MONO, fontSize:10, color:T.accent, marginLeft:8 }}>✓ saved</span>}
+                    </td>
+                    <td style={{ padding:"14px 8px" }}>
+                      {!isEdit && (
+                        <button onClick={() => startEdit(k)}
+                          style={{ background:`${T.info}15`, border:`1px solid ${T.info}44`, color:T.info, padding:"5px 12px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                          {k.configured && !k.placeholder ? "Rotate" : "Set key"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  {isEdit && (
+                    <tr style={{ borderBottom:`1px solid ${T.border}` }}>
+                      <td colSpan={5} style={{ padding:"0 8px 14px" }}>
+                        <div style={{ display:"flex", gap:10, alignItems:"center", background:`${T.info}08`, border:`1px solid ${T.info}22`, borderRadius:6, padding:"12px 14px" }}>
+                          <input
+                            autoFocus
+                            type="password"
+                            placeholder={`Paste new value for ${k.key}…`}
+                            value={editVal}
+                            onChange={e => setEditVal(e.target.value)}
+                            onKeyDown={e => { if (e.key==="Enter") handleSave(k.key); if (e.key==="Escape") cancelEdit(); }}
+                            style={{ flex:1, background:T.bg, color:T.text, border:`1px solid ${T.border}`, padding:"8px 12px", borderRadius:4, fontSize:13, fontFamily:FONT_MONO }}
+                          />
+                          <button onClick={() => handleSave(k.key)} disabled={saving || !editVal.trim()}
+                            style={{ background:T.accent, color:T.bg, border:"none", padding:"8px 18px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:(saving||!editVal.trim())?0.5:1 }}>
+                            {saving ? "Saving…" : "Save"}
+                          </button>
+                          <button onClick={cancelEdit}
+                            style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"8px 12px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                            Cancel
+                          </button>
+                        </div>
+                        <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, marginTop:6, paddingLeft:2 }}>
+                          Value is stored in the server .env file. Press Escape to cancel.
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </Card>
+
+      {/* Info card */}
+      <Card title="How to configure" subtitle="Environment variables are read on server startup">
+        <div style={{ display:"flex", flexDirection:"column", gap:10, fontSize:13, color:T.textDim, lineHeight:1.7 }}>
+          <div>You can set keys directly here (saved to <code style={{ background:T.panelHi, padding:"1px 6px", borderRadius:3, fontSize:12, fontFamily:FONT_MONO }}>.env</code> on the server), or edit the file manually and restart.</div>
+          <div style={{ background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:4, padding:"10px 14px", fontFamily:FONT_MONO, fontSize:12, color:T.text, lineHeight:2 }}>
+            <div><span style={{ color:T.textMute }}># .env</span></div>
+            <div><span style={{ color:T.info }}>OPENAI_API_KEY</span>=<span style={{ color:T.accent }}>sk-…</span></div>
+            <div><span style={{ color:T.info }}>ANTHROPIC_API_KEY</span>=<span style={{ color:T.accent }}>sk-ant-…</span></div>
+            <div><span style={{ color:T.info }}>GOOGLE_API_KEY</span>=<span style={{ color:T.accent }}>AIza…</span></div>
+            <div><span style={{ color:T.info }}>JWT_SECRET</span>=<span style={{ color:T.accent }}>a-long-random-string</span></div>
+          </div>
+          <div style={{ color:T.warn, fontFamily:FONT_MONO, fontSize:11 }}>⚠ After setting OPENAI/ANTHROPIC/GOOGLE keys here, send one test message in Chat — the new client is initialized on first use.</div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 const PAGES = [
   { id:"home",      label:"Home" },
@@ -2309,6 +2575,7 @@ const PAGES = [
   { id:"budgets",   label:"Budgets" },
   { id:"security",  label:"Security" },
   { id:"users",     label:"Users" },
+  { id:"settings",  label:"Settings" },
 ];
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
@@ -2398,6 +2665,7 @@ export default function App() {
       case "budgets":   return <BudgetsPage />;
       case "security":  return <SecurityPage />;
       case "users":     return <UsersPage />;
+      case "settings":  return <SettingsPage />;
       default:          return null;
     }
   };
@@ -2486,7 +2754,7 @@ export default function App() {
           </div>
         </header>
 
-        {!["home","budgets","security","chat","users"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents}/>}
+        {!["home","budgets","security","chat","users","settings"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents}/>}
 
         {renderPage()}
       </main>

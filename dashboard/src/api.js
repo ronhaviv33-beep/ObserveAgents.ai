@@ -108,3 +108,21 @@ export async function fetchAudit(params = {}) {
   if (!r || !r.ok) throw new Error('Failed to fetch audit log')
   return r.json()
 }
+
+export async function fetchKeyStatuses() {
+  const r = await authFetch(`${BASE}/settings/keys`)
+  if (!r || !r.ok) throw new Error('Failed to fetch key statuses')
+  return r.json()
+}
+
+export async function updateKey(key, value) {
+  const r = await authFetch(`${BASE}/settings/keys`, {
+    method: 'PATCH',
+    body: JSON.stringify({ key, value }),
+  })
+  if (!r || !r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to update key')
+  }
+  return r.json()
+}
