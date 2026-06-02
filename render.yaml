@@ -10,8 +10,6 @@ services:
       mountPath: /data
       sizeGB: 1
     envVars:
-      - key: DATA_DIR
-        value: /data
       - key: JWT_SECRET
         generateValue: true
       - key: GATEWAY_FAIL_MODE
@@ -32,9 +30,18 @@ services:
     runtime: static
     buildCommand: cd dashboard && npm install && npm run build
     staticPublishPath: dashboard/dist
-    # _redirects in dashboard/public/ handles:
-    #   /api/*  → https://aifinops-backend.onrender.com/:splat
-    #   /*      → /index.html  (SPA fallback)
+    envVars:
+      # Render injects the backend's host here at build time.
+      # Vite bakes it into the JS bundle as import.meta.env.VITE_API_BASE.
+      - key: VITE_API_URL
+        fromService:
+          name: aifinops-backend
+          type: web
+          property: host
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     headers:
       - path: /assets/*
         name: Cache-Control

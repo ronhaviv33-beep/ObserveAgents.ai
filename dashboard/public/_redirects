@@ -1,5 +1,3 @@
-# Proxy /api/* to the backend service
-/api/*  https://aifinops-backend.onrender.com/:splat  200
-
-# SPA fallback — all other routes serve index.html
+# SPA fallback — all routes serve index.html
+# (API calls go directly to the backend URL baked in at build time via VITE_API_BASE)
 /*  /index.html  200
