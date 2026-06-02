@@ -2432,13 +2432,19 @@ function IntegrationsPage() {
 
   const pythonSnippet = `import openai
 
+# Works with ANY model — GPT, Claude, Gemini, Llama, and more.
+# AIFinOps Guard routes the request to the right provider automatically.
 client = openai.OpenAI(
     base_url="${gatewayUrl}/v1",
     api_key="<your-jwt-token>",   # from POST /api/auth/login
 )
 
 response = client.chat.completions.create(
-    model="gpt-4o-mini",          # or any supported model
+    # Pick any model your org has configured:
+    model="gpt-4o-mini",           # OpenAI
+    # model="claude-sonnet-4-5",   # Anthropic
+    # model="gemini-2.0-flash",    # Google
+    # model="llama-3.1-70b-local", # Local / self-hosted
     messages=[
         {"role": "user", "content": "Write a daily standup summary"}
     ],
@@ -2453,13 +2459,14 @@ print(response.choices[0].message.content)
 
   const nodejsSnippet = `import OpenAI from "openai";
 
+// Works with GPT, Claude, Gemini, Llama — all routed through the guard.
 const client = new OpenAI({
   baseURL: "${gatewayUrl}/v1",
   apiKey: "<your-jwt-token>",     // from POST /api/auth/login
 });
 
 const response = await client.chat.completions.create({
-  model: "gpt-4o-mini",
+  model: "gpt-4o-mini",          // or "claude-sonnet-4-5", "gemini-2.0-flash", etc.
   messages: [
     { role: "user", content: "Write a daily standup summary" }
   ],
@@ -2472,7 +2479,11 @@ const response = await client.chat.completions.create({
 
 console.log(response.choices[0].message.content);`;
 
-  const curlSnippet = `curl -X POST ${gatewayUrl}/v1/chat/completions \\
+  const curlSnippet = `# Works with any supported model — just change the "model" field.
+# Supported: gpt-4o-mini, gpt-4o, claude-sonnet-4-5, claude-opus-4-5,
+#            gemini-2.0-flash, gemini-2.5-pro, llama-3.1-70b-local, and more.
+
+curl -X POST ${gatewayUrl}/v1/chat/completions \\
   -H "Authorization: Bearer <your-jwt-token>" \\
   -H "Content-Type: application/json" \\
   -H "X-Guard-Team: ${teamName}" \\
@@ -2486,8 +2497,10 @@ console.log(response.choices[0].message.content);`;
 
   const langchainSnippet = `from langchain_openai import ChatOpenAI
 
+# AIFinOps Guard exposes a unified OpenAI-compatible endpoint for all providers.
+# Swap the model name to route to a different LLM — no other code change needed.
 llm = ChatOpenAI(
-    model="gpt-4o-mini",
+    model="gpt-4o-mini",           # or "claude-sonnet-4-5", "gemini-2.0-flash", etc.
     openai_api_base="${gatewayUrl}/v1",
     openai_api_key="<your-jwt-token>",
     default_headers={
@@ -2504,13 +2517,24 @@ print(response.content)`;
 
       {/* Hero */}
       <div style={{ background:`linear-gradient(135deg,${T.panel} 0%,${T.panelHi} 100%)`, border:`1px solid ${T.border}`, borderRadius:8, padding:"28px 32px" }}>
-        <div style={{ fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.16em", textTransform:"uppercase", color:T.accent, marginBottom:10 }}>◆ Drop-in Gateway</div>
+        <div style={{ fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.16em", textTransform:"uppercase", color:T.accent, marginBottom:10 }}>◆ Universal AI Gateway</div>
         <div style={{ fontSize:20, fontWeight:500, letterSpacing:"-0.01em", marginBottom:10, color:T.text }}>
-          Point any agent at AIFinOps Guard
+          Connect any agent to any LLM platform — through one gateway
         </div>
         <div style={{ fontSize:13, color:T.textDim, lineHeight:1.65, maxWidth:640 }}>
-          Your agents keep using the standard OpenAI SDK — just change <code style={{ background:T.panelHi, padding:"1px 6px", borderRadius:3, fontFamily:FONT_MONO, fontSize:12 }}>base_url</code> to this server.
-          Every call is automatically scanned for PII, checked against model policies and budget limits, and logged to the audit trail.
+          Your agents keep their existing code. Just change <code style={{ background:T.panelHi, padding:"1px 6px", borderRadius:3, fontFamily:FONT_MONO, fontSize:12 }}>base_url</code> to this server — and every call to <strong style={{ color:T.text }}>OpenAI, Anthropic, Google, or any local model</strong> is automatically observed, governed, and logged.
+        </div>
+        <div style={{ display:"flex", gap:10, marginTop:14, flexWrap:"wrap" }}>
+          {[
+            { label:"OpenAI",     color:T.info   },
+            { label:"Anthropic",  color:T.warn   },
+            { label:"Google",     color:T.accent },
+            { label:"Local LLMs", color:T.purple },
+          ].map(p => (
+            <span key={p.label} style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"4px 10px", borderRadius:4, background:`${p.color}15`, border:`1px solid ${p.color}33`, color:p.color, fontSize:11, fontFamily:FONT_MONO }}>
+              {p.label}
+            </span>
+          ))}
         </div>
         <div style={{ display:"flex", gap:10, marginTop:18, flexWrap:"wrap" }}>
           {[
@@ -2568,16 +2592,40 @@ print(response.content)`;
         </div>
       </Card>
 
+      {/* Supported models quick reference */}
+      <Card title="Supported models" subtitle="Use any of these as the model field — the gateway routes to the right provider automatically">
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10 }}>
+          {[
+            { provider:"OpenAI",    color:T.info,   models:["gpt-4.1","gpt-4.1-mini","gpt-4o","gpt-4o-mini","o3","o4-mini"] },
+            { provider:"Anthropic", color:T.warn,   models:["claude-opus-4-5","claude-sonnet-4-5","claude-haiku-4-5"] },
+            { provider:"Google",    color:T.accent, models:["gemini-2.5-pro","gemini-2.0-flash","gemini-1.5-pro"] },
+            { provider:"Local",     color:T.purple, models:["llama-3.1-70b-local","llama-3.1-8b-local"] },
+          ].map(g => (
+            <div key={g.provider} style={{ background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:6, padding:"12px 14px" }}>
+              <div style={{ fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.12em", textTransform:"uppercase", color:g.color, marginBottom:10 }}>{g.provider}</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                {g.models.map(m => (
+                  <code key={m} style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textDim, background:T.bg, padding:"2px 6px", borderRadius:3, display:"block" }}>{m}</code>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop:12, fontSize:11, color:T.textMute, fontFamily:FONT_MONO }}>
+          Requires the corresponding API key to be configured in Settings → API Keys.
+        </div>
+      </Card>
+
       {/* Code snippets */}
-      <Card title="Python — openai SDK" subtitle="Works with any agent framework that uses the openai package">
+      <Card title="Python" subtitle="Works with any LLM — change the model name to switch between OpenAI, Anthropic, Google, or local">
         <CodeBlock id="python" code={pythonSnippet.replace(/<your-jwt-token>/g, token || "<your-jwt-token>")} />
       </Card>
 
-      <Card title="LangChain" subtitle="Drop-in replacement for ChatOpenAI">
+      <Card title="LangChain" subtitle="Drop-in for any LangChain LLM — route GPT, Claude, Gemini through one gateway">
         <CodeBlock id="langchain" code={langchainSnippet.replace(/<your-jwt-token>/g, token || "<your-jwt-token>")} />
       </Card>
 
-      <Card title="Node.js — openai SDK" subtitle="TypeScript / JavaScript agents">
+      <Card title="Node.js" subtitle="TypeScript / JavaScript agents — any model, one endpoint">
         <CodeBlock id="nodejs" code={nodejsSnippet.replace(/<your-jwt-token>/g, token || "<your-jwt-token>")} />
       </Card>
 
