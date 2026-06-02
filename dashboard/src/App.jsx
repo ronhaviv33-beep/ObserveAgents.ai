@@ -1729,6 +1729,7 @@ function UsersPage() {
   const [editSaving, setEditSaving] = useState(false);
   // password change modal: { id, name } | null
   const [pwModal,   setPwModal]   = useState(null);
+  const [pwOld,     setPwOld]     = useState("");
   const [pwNew,     setPwNew]     = useState("");
   const [pwConfirm, setPwConfirm] = useState("");
   const [pwSaving,  setPwSaving]  = useState(false);
@@ -1778,15 +1779,16 @@ function UsersPage() {
     finally { setEditSaving(false); }
   };
 
-  const openPwModal = (u) => { setPwModal(u); setPwNew(""); setPwConfirm(""); setPwErr(null); };
-  const closePwModal = () => { setPwModal(null); setPwNew(""); setPwConfirm(""); setPwErr(null); };
+  const openPwModal = (u) => { setPwModal(u); setPwOld(""); setPwNew(""); setPwConfirm(""); setPwErr(null); };
+  const closePwModal = () => { setPwModal(null); setPwOld(""); setPwNew(""); setPwConfirm(""); setPwErr(null); };
 
   const savePassword = async () => {
-    if (pwNew.length < 8) { setPwErr("Password must be at least 8 characters."); return; }
+    if (!pwOld) { setPwErr("Current password is required."); return; }
+    if (pwNew.length < 8) { setPwErr("New password must be at least 8 characters."); return; }
     if (pwNew !== pwConfirm) { setPwErr("Passwords do not match."); return; }
     setPwSaving(true); setPwErr(null);
     try {
-      await updateUser(pwModal.id, { password: pwNew });
+      await updateUser(pwModal.id, { password: pwNew, current_password: pwOld });
       closePwModal();
     } catch (e) { setPwErr(e.message); }
     finally { setPwSaving(false); }
@@ -1853,6 +1855,7 @@ function UsersPage() {
           <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:28, minWidth:340, display:"flex", flexDirection:"column", gap:16 }}>
             <div style={{ fontFamily:FONT_MONO, fontWeight:700, color:T.text, fontSize:14 }}>Change Password — {pwModal.name}</div>
             {[
+              { label:"Current Password", val:pwOld,     set:setPwOld },
               { label:"New Password",     val:pwNew,     set:setPwNew },
               { label:"Confirm Password", val:pwConfirm, set:setPwConfirm },
             ].map(({ label, val, set }) => (

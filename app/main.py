@@ -222,7 +222,12 @@ async def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="User not found")
     updates = req.model_dump(exclude_none=True)
     if "password" in updates:
+        current_pw = updates.pop("current_password", None)
+        if not current_pw or not verify_password(current_pw, user.hashed_password):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
         updates["hashed_password"] = hash_password(updates.pop("password"))
+    else:
+        updates.pop("current_password", None)
     for field, value in updates.items():
         setattr(user, field, value)
     db.commit()

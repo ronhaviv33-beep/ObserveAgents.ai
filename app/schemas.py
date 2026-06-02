@@ -155,6 +155,7 @@ class UserUpdate(BaseModel):
     team: str | None = None
     is_active: bool | None = None
     password: str | None = Field(default=None, min_length=8)
+    current_password: str | None = None
 
 
 class UserOut(BaseModel):
