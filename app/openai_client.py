@@ -6,27 +6,6 @@ from openai import AsyncOpenAI
 
 load_dotenv()
 
-# ─── Model alias map ──────────────────────────────────────────────────────────
-# Maps the short display names used in the UI to the real API model IDs.
-# Update these when providers release new versions.
-MODEL_ALIASES: dict[str, str] = {
-    # Anthropic
-    "claude-opus-4":    "claude-opus-4-5",
-    "claude-sonnet-4":  "claude-sonnet-4-5",
-    "claude-haiku-4":   "claude-haiku-4-5",
-    # OpenAI aliases (these already match, but kept for completeness)
-    "gpt-4.1":          "gpt-4.1",
-    "gpt-4.1-mini":     "gpt-4.1-mini",
-    # Google
-    "gemini-2.0-pro":   "gemini-2.0-pro",
-    "gemini-2.0-flash": "gemini-2.0-flash",
-    "gemini-1.5-pro":   "gemini-1.5-pro",
-}
-
-
-def _resolve_model(model: str) -> str:
-    """Return the real API model ID for a given display name."""
-    return MODEL_ALIASES.get(model, model)
 
 # ─── Provider routing ─────────────────────────────────────────────────────────
 # Each provider gets its own lazy singleton client.
@@ -110,11 +89,10 @@ async def complete(
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
-    api_model = _resolve_model(model)
-    client = _get_client(api_model)
+    client = _get_client(model)
 
     t0 = time.perf_counter()
-    resp = await client.chat.completions.create(model=api_model, messages=messages)
+    resp = await client.chat.completions.create(model=model, messages=messages)
     latency_ms = (time.perf_counter() - t0) * 1000
 
     choice = resp.choices[0].message.content or ""
@@ -122,7 +100,7 @@ async def complete(
 
     return CompletionResult(
         content=choice,
-        model=model,          # return the display name, not the API ID
+        model=model,
         prompt_tokens=usage.prompt_tokens,
         completion_tokens=usage.completion_tokens,
         total_tokens=usage.total_tokens,
@@ -136,11 +114,10 @@ async def chat_complete(
     messages: list[dict],  # full history: [{"role": "user"|"assistant"|"system", "content": "..."}]
     model: str = "gpt-4o-mini",
 ) -> CompletionResult:
-    api_model = _resolve_model(model)
-    client = _get_client(api_model)
+    client = _get_client(model)
 
     t0 = time.perf_counter()
-    resp = await client.chat.completions.create(model=api_model, messages=messages)
+    resp = await client.chat.completions.create(model=model, messages=messages)
     latency_ms = (time.perf_counter() - t0) * 1000
 
     choice = resp.choices[0].message.content or ""
@@ -148,7 +125,7 @@ async def chat_complete(
 
     return CompletionResult(
         content=choice,
-        model=model,          # return the display name, not the API ID
+        model=model,
         prompt_tokens=usage.prompt_tokens,
         completion_tokens=usage.completion_tokens,
         total_tokens=usage.total_tokens,

@@ -7,9 +7,9 @@ from app.database import Base
 # Cost per 1M tokens (USD) — update as pricing changes
 COST_PER_1M = {
     # Anthropic
-    "claude-opus-4":          {"prompt": 15.00,  "completion": 75.00},
-    "claude-sonnet-4":        {"prompt": 3.00,   "completion": 15.00},
-    "claude-haiku-4":         {"prompt": 0.80,   "completion": 4.00},
+    "claude-opus-4-5":        {"prompt": 15.00,  "completion": 75.00},
+    "claude-sonnet-4-5":      {"prompt": 3.00,   "completion": 15.00},
+    "claude-haiku-4-5":       {"prompt": 0.80,   "completion": 4.00},
     # OpenAI
     "gpt-4.1":                {"prompt": 2.00,   "completion": 8.00},
     "gpt-4.1-mini":           {"prompt": 0.40,   "completion": 1.60},
@@ -20,7 +20,7 @@ COST_PER_1M = {
     "o3":                     {"prompt": 10.00,  "completion": 40.00},
     "o4-mini":                {"prompt": 1.10,   "completion": 4.40},
     # Google
-    "gemini-2.0-pro":         {"prompt": 1.25,   "completion": 5.00},
+    "gemini-2.5-pro":         {"prompt": 1.25,   "completion": 10.00},
     "gemini-2.0-flash":       {"prompt": 0.075,  "completion": 0.30},
     "gemini-1.5-pro":         {"prompt": 1.25,   "completion": 5.00},
     # Local / open-source (negligible marginal cost)

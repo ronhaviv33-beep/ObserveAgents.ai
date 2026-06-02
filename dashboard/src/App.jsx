@@ -44,9 +44,9 @@ const AGENTS = [
 ];
 const MODELS = [
   // Anthropic
-  { name: "claude-opus-4",        provider: "Anthropic", cost1k_in: 0.015,    cost1k_out: 0.075,   tier: "premium", approved: true  },
-  { name: "claude-sonnet-4",      provider: "Anthropic", cost1k_in: 0.003,    cost1k_out: 0.015,   tier: "mid",     approved: true  },
-  { name: "claude-haiku-4",       provider: "Anthropic", cost1k_in: 0.0008,   cost1k_out: 0.004,   tier: "cheap",   approved: true  },
+  { name: "claude-opus-4-5",      provider: "Anthropic", cost1k_in: 0.015,    cost1k_out: 0.075,   tier: "premium", approved: true  },
+  { name: "claude-sonnet-4-5",    provider: "Anthropic", cost1k_in: 0.003,    cost1k_out: 0.015,   tier: "mid",     approved: true  },
+  { name: "claude-haiku-4-5",     provider: "Anthropic", cost1k_in: 0.0008,   cost1k_out: 0.004,   tier: "cheap",   approved: true  },
   // OpenAI
   { name: "gpt-4.1",              provider: "OpenAI",    cost1k_in: 0.002,    cost1k_out: 0.008,   tier: "premium", approved: true  },
   { name: "gpt-4.1-mini",         provider: "OpenAI",    cost1k_in: 0.0004,   cost1k_out: 0.0016,  tier: "mid",     approved: true  },
@@ -56,7 +56,7 @@ const MODELS = [
   { name: "o3",                   provider: "OpenAI",    cost1k_in: 0.01,     cost1k_out: 0.04,    tier: "premium", approved: true  },
   { name: "o4-mini",              provider: "OpenAI",    cost1k_in: 0.0011,   cost1k_out: 0.0044,  tier: "mid",     approved: true  },
   // Google
-  { name: "gemini-2.0-pro",       provider: "Google",    cost1k_in: 0.00125,  cost1k_out: 0.005,   tier: "mid",     approved: false },
+  { name: "gemini-2.5-pro",       provider: "Google",    cost1k_in: 0.00125,  cost1k_out: 0.01,    tier: "premium", approved: false },
   { name: "gemini-2.0-flash",     provider: "Google",    cost1k_in: 0.000075, cost1k_out: 0.0003,  tier: "cheap",   approved: false },
   { name: "gemini-1.5-pro",       provider: "Google",    cost1k_in: 0.00125,  cost1k_out: 0.005,   tier: "mid",     approved: false },
   // Local / open-source
@@ -67,7 +67,7 @@ const MODELS = [
 // ─── Provider / model lookup helpers ─────────────────────────────────────────
 function providerFromModel(name = "") {
   if (name.startsWith("claude"))  return "Anthropic";
-  if (name.startsWith("gpt") || name.startsWith("o1") || name.startsWith("o3")) return "OpenAI";
+  if (name.startsWith("gpt") || name.startsWith("o3") || name.startsWith("o4")) return "OpenAI";
   if (name.startsWith("gemini")) return "Google";
   if (name.includes("local") || name.includes("llama")) return "Local";
   return "Unknown";
@@ -76,8 +76,8 @@ function providerFromModel(name = "") {
 function tierFromModel(name = "") {
   const m = MODELS.find((x) => x.name === name);
   if (m) return m.tier;
-  if (name.includes("opus") || name.includes("4.1") || name.includes("turbo")) return "premium";
-  if (name.includes("mini") || name.includes("local") || name.includes("llama")) return "cheap";
+  if (name.includes("opus") || name.includes("4.1") || name.includes("turbo") || name === "o3") return "premium";
+  if (name.includes("mini") || name.includes("haiku") || name.includes("flash") || name.includes("local") || name.includes("llama")) return "cheap";
   return "mid";
 }
 
@@ -1545,9 +1545,9 @@ function UsersPage() {
 
 // ─── Chat page ────────────────────────────────────────────────────────────────
 const CHAT_MODELS = [
-  "gpt-4o-mini","gpt-4o","gpt-4.1","gpt-4.1-mini",
-  "claude-sonnet-4","claude-opus-4","claude-haiku-4",
-  "gemini-2.0-pro","gemini-2.0-flash",
+  "gpt-4o-mini","gpt-4o","gpt-4.1","gpt-4.1-mini","o4-mini","o3",
+  "claude-sonnet-4-5","claude-opus-4-5","claude-haiku-4-5",
+  "gemini-2.0-flash","gemini-2.5-pro","gemini-1.5-pro",
 ];
 
 const SESSION_TIMEOUT_MS  = 30 * 60 * 1000;   // 30 minutes
