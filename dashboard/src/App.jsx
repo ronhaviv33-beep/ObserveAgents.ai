@@ -1052,31 +1052,145 @@ function BudgetsPage() {
   );
 }
 
+// ─── Audit log detail ─────────────────────────────────────────────────────────
+function AuditLogTable({ audit }) {
+  const [expanded, setExpanded] = useState(null);
+
+  const toggle = (id) => setExpanded(prev => prev === id ? null : id);
+
+  return (
+    <Card title="Audit Log" subtitle="All requests — including blocked and sensitive-flagged. Click a row for full details.">
+      <table style={{ width:"100%", borderCollapse:"collapse" }}>
+        <thead>
+          <tr style={{ borderBottom:`1px solid ${T.border}` }}>
+            {["Time","Team","Agent","Model","Status","Sensitive","Tokens","Cost",""].map((h) => (
+              <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {audit.length === 0 ? (
+            <tr><td colSpan={9} style={{ padding:"20px 8px", color:T.textMute, fontFamily:FONT_MONO, fontSize:13 }}>No audit records yet.</td></tr>
+          ) : audit.map((r) => {
+            const isOpen = expanded === r.id;
+            const rowBg = r.blocked ? `${T.crit}08` : r.sensitive ? `${T.warn}08` : "transparent";
+            let findings = [];
+            try { findings = JSON.parse(r.sensitive_findings || "[]"); } catch {}
+            return (
+              <React.Fragment key={r.id}>
+                <tr style={{ borderBottom: isOpen ? "none" : `1px solid ${T.border}`, background: rowBg, cursor:"pointer" }}
+                    onClick={() => toggle(r.id)}>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.timestamp).toLocaleString()}</td>
+                  <td style={{ padding:"10px 8px", fontSize:12, color:T.text }}>{r.team}</td>
+                  <td style={{ padding:"10px 8px", fontSize:12, color:T.textDim }}>{r.agent}</td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textDim }}>{r.model}</td>
+                  <td style={{ padding:"10px 8px" }}>
+                    {r.blocked ? <Pill color={T.crit}>blocked</Pill> : <Pill color={T.accent}>ok</Pill>}
+                  </td>
+                  <td style={{ padding:"10px 8px" }}>
+                    {r.sensitive ? <Pill color={T.warn}>flagged</Pill> : <span style={{ color:T.textMute, fontFamily:FONT_MONO, fontSize:11 }}>—</span>}
+                  </td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>{r.total_tokens.toLocaleString()}</td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>${r.cost_usd.toFixed(6)}</td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, color: isOpen ? T.accent : T.textMute, userSelect:"none" }}>
+                    {isOpen ? "▲" : "▼"}
+                  </td>
+                </tr>
+                {isOpen && (
+                  <tr style={{ background: rowBg }}>
+                    <td colSpan={9} style={{ padding:"0 0 0 0", borderBottom:`1px solid ${T.border}` }}>
+                      <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", gap:14, borderTop:`1px dashed ${T.border}` }}>
+                        {/* Prompt */}
+                        <div>
+                          <div style={{ fontFamily:FONT_MONO, fontSize:9, letterSpacing:"0.14em", textTransform:"uppercase", color:T.info, marginBottom:6 }}>Prompt</div>
+                          <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:4, padding:"10px 14px", fontFamily:FONT_MONO, fontSize:12, color:T.text, lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-word", maxHeight:200, overflow:"auto" }}>
+                            {r.prompt || <span style={{ color:T.textMute }}>—</span>}
+                          </div>
+                        </div>
+                        {/* Response or block reason */}
+                        {r.blocked ? (
+                          <div>
+                            <div style={{ fontFamily:FONT_MONO, fontSize:9, letterSpacing:"0.14em", textTransform:"uppercase", color:T.crit, marginBottom:6 }}>Block Reason</div>
+                            <div style={{ background:`${T.crit}10`, border:`1px solid ${T.crit}33`, borderRadius:4, padding:"10px 14px", fontFamily:FONT_MONO, fontSize:12, color:T.crit, lineHeight:1.6 }}>
+                              {r.block_reason || "—"}
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <div style={{ fontFamily:FONT_MONO, fontSize:9, letterSpacing:"0.14em", textTransform:"uppercase", color:T.accent, marginBottom:6 }}>Response</div>
+                            <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:4, padding:"10px 14px", fontFamily:FONT_MONO, fontSize:12, color:T.text, lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-word", maxHeight:200, overflow:"auto" }}>
+                              {r.response || <span style={{ color:T.textMute }}>—</span>}
+                            </div>
+                          </div>
+                        )}
+                        {/* Security findings */}
+                        {findings.length > 0 && (
+                          <div>
+                            <div style={{ fontFamily:FONT_MONO, fontSize:9, letterSpacing:"0.14em", textTransform:"uppercase", color:T.warn, marginBottom:6 }}>Security Findings ({findings.length})</div>
+                            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                              {findings.map((f, i) => (
+                                <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"6px 10px", background:T.panelHi, borderLeft:`2px solid ${T.warn}`, borderRadius:3 }}>
+                                  <Pill color={f.severity==="critical"?T.crit:T.warn}>{f.severity}</Pill>
+                                  <span style={{ fontFamily:FONT_MONO, fontSize:11, color:T.text }}>{f.type}</span>
+                                  <span style={{ fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{f.sample}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {/* Meta row */}
+                        <div style={{ display:"flex", gap:20, fontFamily:FONT_MONO, fontSize:10, color:T.textMute }}>
+                          <span>ID: <span style={{ color:T.textDim }}>{r.id}</span></span>
+                          <span>Latency: <span style={{ color:T.textDim }}>{r.latency_ms.toFixed(0)}ms</span></span>
+                          <span>Prompt tokens: <span style={{ color:T.textDim }}>{r.prompt_tokens}</span></span>
+                          <span>Completion tokens: <span style={{ color:T.textDim }}>{r.completion_tokens}</span></span>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
+
 // ─── Security page ────────────────────────────────────────────────────────────
 function SecurityPage() {
+  const currentUser = useUser();
+  const isAdmin = currentUser?.role === "admin";
+
   const [alerts,    setAlerts]    = useState([]);
   const [policies,  setPolicies]  = useState([]);
   const [audit,     setAudit]     = useState([]);
   const [scanText,  setScanText]  = useState("");
   const [scanResult,setScanResult]= useState(null);
   const [scanning,  setScanning]  = useState(false);
-  const [pForm,     setPForm]     = useState({ team:"", rule_type:"block_model", value:"" });
+  const [pForm,     setPForm]     = useState({ team:"", rule_type:"block_model", value:"*" });
   const [saving,    setSaving]    = useState(false);
   const [loading,   setLoading]   = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const [a, p, au] = await Promise.all([
+      const fetchers = [
         authFetch("/api/security/alerts").then((x) => x.json()),
-        authFetch("/api/policies").then((x) => x.json()),
-        authFetch("/api/audit?sensitive_only=false&blocked_only=false&limit=50").then((x) => x.json()),
-      ]);
+      ];
+      if (isAdmin) {
+        fetchers.push(
+          authFetch("/api/policies").then((x) => x.json()),
+          authFetch("/api/audit?sensitive_only=false&blocked_only=false&limit=50").then((x) => x.json()),
+        );
+      }
+      const [a, p, au] = await Promise.all(fetchers);
       setAlerts(a);
-      setPolicies(p);
-      setAudit(au);
+      if (p) setPolicies(p);
+      if (au) setAudit(au);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -1100,7 +1214,7 @@ function SecurityPage() {
         method: "POST",
         body: JSON.stringify(pForm),
       });
-      setPForm({ team:"", rule_type:"block_model", value:"" });
+      setPForm({ team:"", rule_type:"block_model", value:"*" });
       await load();
     } finally { setSaving(false); }
   };
@@ -1122,19 +1236,26 @@ function SecurityPage() {
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
 
       {/* KPI strip */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
-        {[
-          { label:"Live Alerts",     value:alerts.length,    color:alerts.length>0?T.crit:T.accent },
-          { label:"Policy Rules",    value:policies.length,  color:T.info },
-          { label:"Sensitive Reqs",  value:sensitiveCount,   color:sensitiveCount>0?T.warn:T.accent },
-          { label:"Blocked Reqs",    value:blockedCount,     color:blockedCount>0?T.crit:T.accent },
-        ].map((k) => (
-          <div key={k.label} style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:16 }}>
-            <div style={{ fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textDim }}>{k.label}</div>
-            <div style={{ fontSize:32, fontFamily:FONT_MONO, fontWeight:500, color:k.color, marginTop:8, lineHeight:1 }}>{k.value}</div>
+      {(() => {
+        const kpis = [
+          { label:"Live Alerts",    value:alerts.length,   color:alerts.length>0?T.crit:T.accent },
+          ...(isAdmin ? [
+            { label:"Policy Rules",   value:policies.length, color:T.info },
+            { label:"Sensitive Reqs", value:sensitiveCount,  color:sensitiveCount>0?T.warn:T.accent },
+            { label:"Blocked Reqs",   value:blockedCount,    color:blockedCount>0?T.crit:T.accent },
+          ] : []),
+        ];
+        return (
+          <div style={{ display:"grid", gridTemplateColumns:`repeat(${kpis.length},1fr)`, gap:12 }}>
+            {kpis.map((k) => (
+              <div key={k.label} style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:16 }}>
+                <div style={{ fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textDim }}>{k.label}</div>
+                <div style={{ fontSize:32, fontFamily:FONT_MONO, fontWeight:500, color:k.color, marginTop:8, lineHeight:1 }}>{k.value}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        );
+      })()}
 
       {/* Live alerts */}
       <Card title="Live Security Alerts" subtitle="Detected from real telemetry data">
@@ -1192,21 +1313,24 @@ function SecurityPage() {
         </div>
       </Card>
 
-      {/* Policy rules */}
-      <Card title="Model Policy Rules" subtitle="Control which models each team is allowed to use">
+      {/* Policy rules — admin only */}
+      {isAdmin && <Card title="Model Policy Rules" subtitle="Control which models each team is allowed to use. Team must match exactly what's sent in chat requests.">
         <form onSubmit={handleCreatePolicy} style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"flex-end", marginBottom:16 }}>
-          {[
-            { label:"Team *", key:"team", placeholder:"e.g. SOC or *" },
-            { label:"Model *", key:"value", placeholder:"e.g. gemini-2.0-pro" },
-          ].map(({ label, key, placeholder }) => (
-            <div key={key} style={{ display:"flex", flexDirection:"column", gap:4 }}>
-              <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>{label}</label>
-              <input value={pForm[key]} onChange={(e) => setPForm({...pForm,[key]:e.target.value})}
-                placeholder={placeholder} required
-                style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, padding:"6px 10px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, width:160 }}
-              />
-            </div>
-          ))}
+          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Team * <span style={{ color:T.textMute, textTransform:"none", fontSize:9 }}>(or * for all)</span></label>
+            <input value={pForm.team} onChange={(e) => setPForm({...pForm,team:e.target.value})}
+              placeholder="e.g. SOC or *" required
+              style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, padding:"6px 10px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, width:160 }}
+            />
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Model *</label>
+            <select value={pForm.value} onChange={(e) => setPForm({...pForm,value:e.target.value})}
+              style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, padding:"6px 10px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, minWidth:200 }}>
+              <option value="*">* (all models)</option>
+              {MODELS.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
+            </select>
+          </div>
           <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
             <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Rule Type</label>
             <select value={pForm.rule_type} onChange={(e) => setPForm({...pForm,rule_type:e.target.value})}
@@ -1215,8 +1339,15 @@ function SecurityPage() {
               <option value="allow_model">Allow model (allowlist)</option>
             </select>
           </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:4, alignSelf:"flex-end" }}>
+            <div style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.08em", color: pForm.rule_type==="block_model" ? T.crit : T.accent, marginBottom:8 }}>
+              {pForm.rule_type==="block_model"
+                ? `⊘ Will BLOCK "${pForm.value}" for team "${pForm.team}"`
+                : `✓ Will ALLOW only "${pForm.value}" for team "${pForm.team}"`}
+            </div>
+          </div>
           <button type="submit" disabled={saving}
-            style={{ background:T.crit, color:"#fff", border:"none", padding:"8px 18px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:saving?0.6:1 }}>
+            style={{ background: pForm.rule_type==="block_model" ? T.crit : T.accent, color: pForm.rule_type==="block_model" ? "#fff" : T.bg, border:"none", padding:"8px 18px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:saving?0.6:1 }}>
             {saving ? "Saving…" : "+ Add Policy"}
           </button>
         </form>
@@ -1250,40 +1381,10 @@ function SecurityPage() {
             </tbody>
           </table>
         )}
-      </Card>
+      </Card>}
 
-      {/* Audit log */}
-      <Card title="Audit Log" subtitle="All requests — including blocked and sensitive-flagged">
-        <table style={{ width:"100%", borderCollapse:"collapse" }}>
-          <thead>
-            <tr style={{ borderBottom:`1px solid ${T.border}` }}>
-              {["Time","Team","Agent","Model","Status","Sensitive","Tokens","Cost"].map((h) => (
-                <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {audit.length === 0 ? (
-              <tr><td colSpan={8} style={{ padding:"20px 8px", color:T.textMute, fontFamily:FONT_MONO, fontSize:13 }}>No audit records yet.</td></tr>
-            ) : audit.map((r) => (
-              <tr key={r.id} style={{ borderBottom:`1px solid ${T.border}`, background:r.blocked?`${T.crit}08`:r.sensitive?`${T.warn}08`:"transparent" }}>
-                <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.timestamp).toLocaleString()}</td>
-                <td style={{ padding:"10px 8px", fontSize:12, color:T.text }}>{r.team}</td>
-                <td style={{ padding:"10px 8px", fontSize:12, color:T.textDim }}>{r.agent}</td>
-                <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textDim }}>{r.model}</td>
-                <td style={{ padding:"10px 8px" }}>
-                  {r.blocked ? <Pill color={T.crit}>blocked</Pill> : <Pill color={T.accent}>ok</Pill>}
-                </td>
-                <td style={{ padding:"10px 8px" }}>
-                  {r.sensitive ? <Pill color={T.warn}>flagged</Pill> : <span style={{ color:T.textMute, fontFamily:FONT_MONO, fontSize:11 }}>—</span>}
-                </td>
-                <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>{r.total_tokens.toLocaleString()}</td>
-                <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>${r.cost_usd.toFixed(6)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+      {/* Audit log — admin only */}
+      {isAdmin && <AuditLogTable audit={audit} />}
     </div>
   );
 }
@@ -1295,7 +1396,7 @@ const useUser = () => useContext(UserContext);
 const ROLES = {
   admin:   { label:"Admin",   color: T.crit,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users"] },
   analyst: { label:"Analyst", color: T.warn,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","security"] },
-  viewer:  { label:"Viewer",  color: T.info,   pages: ["home","overview","cost","agents","models","workflows","alerts"] },
+  viewer:  { label:"Viewer",  color: T.info,   pages: ["home","overview","cost","agents","models","workflows","alerts","security"] },
 };
 
 function canAccess(role, page) {
