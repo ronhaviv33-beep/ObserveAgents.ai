@@ -154,6 +154,7 @@ class UserUpdate(BaseModel):
     role: str | None = Field(default=None, pattern="^(admin|analyst|viewer)$")
     team: str | None = None
     is_active: bool | None = None
+    password: str | None = Field(default=None, min_length=8)
 
 
 class UserOut(BaseModel):

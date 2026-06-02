@@ -220,7 +220,10 @@ async def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_d
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    for field, value in req.model_dump(exclude_none=True).items():
+    updates = req.model_dump(exclude_none=True)
+    if "password" in updates:
+        updates["hashed_password"] = hash_password(updates.pop("password"))
+    for field, value in updates.items():
         setattr(user, field, value)
     db.commit()
     db.refresh(user)

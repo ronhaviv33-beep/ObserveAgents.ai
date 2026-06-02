@@ -1629,7 +1629,7 @@ function LoginPage({ onLogin }) {
   );
 }
 
-function SortableUsersTable({ users, currentUser, editing, editSaving, setEditing, saveEdit, cancelEdit, handleToggle, handleDelete, inlineInput, inlineSelect }) {
+function SortableUsersTable({ users, currentUser, editing, editSaving, setEditing, saveEdit, cancelEdit, handleToggle, handleDelete, inlineInput, inlineSelect, onChangePassword }) {
   const { sortKey, sortDir, toggle, sort } = useSortable("created_at");
   const colKey = { "Name":"name","Email":"email","Role":"role","Team":"team","Status":"is_active","Created":"created_at" };
   const sorted = sort(users, (u, k) => {
@@ -1690,6 +1690,10 @@ function SortableUsersTable({ users, currentUser, editing, editSaving, setEditin
                         style={{ background:`${T.info}15`, border:`1px solid ${T.info}44`, color:T.info, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
                         Edit
                       </button>
+                      <button onClick={() => onChangePassword && onChangePassword(u)}
+                        style={{ background:`${T.accent}12`, border:`1px solid ${T.accent}44`, color:T.accent, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                        Password
+                      </button>
                       <button onClick={() => handleToggle(u)}
                         style={{ background:"transparent", border:`1px solid ${T.border}`, color:u.is_active?T.warn:T.accent, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
                         {u.is_active ? "Disable" : "Enable"}
@@ -1723,6 +1727,12 @@ function UsersPage() {
   // editing: { id, role, team } | null
   const [editing,  setEditing]  = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+  // password change modal: { id, name } | null
+  const [pwModal,   setPwModal]   = useState(null);
+  const [pwNew,     setPwNew]     = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [pwSaving,  setPwSaving]  = useState(false);
+  const [pwErr,     setPwErr]     = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -1766,6 +1776,20 @@ function UsersPage() {
       await load();
     } catch (e) { setErr(e.message); }
     finally { setEditSaving(false); }
+  };
+
+  const openPwModal = (u) => { setPwModal(u); setPwNew(""); setPwConfirm(""); setPwErr(null); };
+  const closePwModal = () => { setPwModal(null); setPwNew(""); setPwConfirm(""); setPwErr(null); };
+
+  const savePassword = async () => {
+    if (pwNew.length < 8) { setPwErr("Password must be at least 8 characters."); return; }
+    if (pwNew !== pwConfirm) { setPwErr("Passwords do not match."); return; }
+    setPwSaving(true); setPwErr(null);
+    try {
+      await updateUser(pwModal.id, { password: pwNew });
+      closePwModal();
+    } catch (e) { setPwErr(e.message); }
+    finally { setPwSaving(false); }
   };
 
   const inlineInput = (val, onChange, width = 100) => (
@@ -1819,8 +1843,38 @@ function UsersPage() {
         <SortableUsersTable users={users} currentUser={currentUser} editing={editing} editSaving={editSaving}
           setEditing={setEditing} saveEdit={saveEdit} cancelEdit={cancelEdit}
           handleToggle={handleToggle} handleDelete={handleDelete}
-          inlineInput={inlineInput} inlineSelect={inlineSelect} />
+          inlineInput={inlineInput} inlineSelect={inlineSelect}
+          onChangePassword={openPwModal} />
       </Card>
+
+      {/* ── Change Password Modal ── */}
+      {pwModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
+          <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:28, minWidth:340, display:"flex", flexDirection:"column", gap:16 }}>
+            <div style={{ fontFamily:FONT_MONO, fontWeight:700, color:T.text, fontSize:14 }}>Change Password — {pwModal.name}</div>
+            {[
+              { label:"New Password",     val:pwNew,     set:setPwNew },
+              { label:"Confirm Password", val:pwConfirm, set:setPwConfirm },
+            ].map(({ label, val, set }) => (
+              <div key={label} style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>{label}</label>
+                <input type="password" value={val} onChange={e => set(e.target.value)} placeholder="min 8 characters"
+                  style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, padding:"8px 12px", borderRadius:4, fontSize:13, fontFamily:FONT_MONO, width:"100%", boxSizing:"border-box" }} />
+              </div>
+            ))}
+            {pwErr && <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12 }}>{pwErr}</div>}
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+              <button onClick={closePwModal} style={{ background:"transparent", color:T.textDim, border:`1px solid ${T.border}`, padding:"7px 16px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                Cancel
+              </button>
+              <button onClick={savePassword} disabled={pwSaving}
+                style={{ background:T.accent, color:T.bg, border:"none", padding:"7px 18px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:pwSaving?0.6:1 }}>
+                {pwSaving ? "Saving…" : "Save Password"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
