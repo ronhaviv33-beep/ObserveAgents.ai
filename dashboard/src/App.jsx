@@ -183,6 +183,7 @@ function useLiveData(intervalMs = 30_000) {
   const [isLive, setIsLive] = useState(false);
 
   const load = useCallback(async () => {
+    if (!getToken()) { setApiRecords([]); return; }
     try {
       const r = await authFetch("/api/telemetry?limit=1000");
       if (!r || !r.ok) throw new Error("API error");
@@ -2145,7 +2146,7 @@ export default function App() {
   const [user,         setUser]         = useState(null);
   const [authChecked,  setAuthChecked]  = useState(false);
 
-  // On mount, validate stored token
+  // On mount, validate stored token; also listen for mid-session expiry
   useEffect(() => {
     const check = async () => {
       const token = getToken();
@@ -2159,6 +2160,10 @@ export default function App() {
       setAuthChecked(true);
     };
     check();
+
+    const onExpired = () => { setToken(null); setUser(null); };
+    window.addEventListener('auth:expired', onExpired);
+    return () => window.removeEventListener('auth:expired', onExpired);
   }, []);
 
   const handleLogin = (u) => {

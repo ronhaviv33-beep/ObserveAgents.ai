@@ -19,14 +19,16 @@ function authHeaders(extra = {}) {
 }
 
 export async function authFetch(url, options = {}) {
+  if (!getToken()) return null   // no token — caller treats as unauthenticated
   const resp = await fetch(url, {
     ...options,
     headers: { ...authHeaders(), ...(options.headers || {}) },
   })
   if (resp.status === 401) {
     setToken(null)
-    window.location.reload()
-    return
+    // Signal the app to return to login without a full page reload
+    window.dispatchEvent(new CustomEvent('auth:expired'))
+    return null
   }
   return resp
 }
