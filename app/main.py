@@ -90,6 +90,8 @@ app = FastAPI(
         "Every LLM call in your organisation routes through this gateway. "
         "It enforces **budget limits**, **model policies**, and **PII scanning** "
         "on every request, then stores full telemetry for cost and audit reporting.\n\n"
+        "**Authentication:** click **Authorize** (🔒) above, enter `Bearer <token>`. "
+        "Get a token from `POST /auth/login`.\n\n"
         "Endpoints are grouped by operation type:\n"
         "- **POST** — send prompts or create resources\n"
         "- **GET** — read telemetry, sessions, budgets, policies\n"
@@ -98,6 +100,29 @@ app = FastAPI(
     version="0.5.0",
     openapi_tags=tags_metadata,
 )
+
+# Add Bearer token support to Swagger UI
+from fastapi.openapi.utils import get_openapi
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+        tags=tags_metadata,
+    )
+    schema.setdefault("components", {})
+    schema["components"]["securitySchemes"] = {
+        "BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+    }
+    schema["security"] = [{"BearerAuth": []}]
+    app.openapi_schema = schema
+    return schema
+
+app.openapi = custom_openapi
 
 app.add_middleware(
     CORSMiddleware,
