@@ -1,173 +1,112 @@
 # AIFinOps Guard
 
-**Observability, Security and FinOps for Enterprise AI Agents**
+**AI Runtime Intelligence Platform — inline governance, cost control, and security for every LLM call in your organisation.**
 
-> "Datadog + CrowdStrike for AI Runtime" — visibility, governance, security, and cost intelligence for enterprise AI.
+> Closer to Cloudflare or Okta for AI traffic than to a dashboard tool. Every agent call flows *through* it — PII scanned, budget enforced, policy checked, fully audited — before it reaches the model.
 
 ---
 
-## Overview
+## The Integration
 
-AIFinOps Guard is an AI Runtime Intelligence platform that sits between AI agents and LLM providers. It collects telemetry, enforces budgets, detects anomalies, and provides a full observability dashboard across all AI activity.
+```python
+# Before
+client = openai.OpenAI(api_key="sk-...")
 
-**Problems it solves:**
+# After — one line change, full governance
+client = openai.OpenAI(
+    base_url="https://your-guard-instance/v1",
+    api_key="<jwt>",
+)
+```
 
-- Who is using AI, which models, and how much is it costing?
-- Which agents are looping, spiking in cost, or using unapproved models?
-- Is sensitive data being sent to external LLMs?
-- How do we enforce budget limits before tokens are consumed?
+Works with OpenAI SDK, Anthropic SDK, LangChain, Node.js, and any HTTP client. No agent code changes beyond `base_url`.
 
 ---
 
 ## Architecture
 
-```text
-Agent / Application
-        ↓
-AIFinOps Gateway  ←─ Budget enforcement, policy checks
-        ↓
-LLM Provider (OpenAI · Anthropic · Google · Local)
-        ↓
-Telemetry Collection  ←─ tokens, cost, latency, model
-        ↓
-SQLite Database
-        ↓
-React Dashboard  ←─ live observability, alerts, budgets
+```
+Agent / SDK  (OpenAI · Anthropic · LangChain · curl)
+      │  base_url = https://your-guard/v1
+      ▼
+POST /v1/chat/completions  (OpenAI-compatible)
+POST /v1/messages          (Anthropic-compatible)
+      │
+      ├─ JWT or opaque Bearer auth
+      ├─ PII / sensitive data scan  (10 pattern types)
+      ├─ Model policy check         (allowlist / blocklist per team)
+      ├─ Budget enforcement         (daily / monthly per team + agent)
+      ├─ Real upstream SSE streaming + disconnect detection
+      └─ Telemetry saved to SQLite
+                   │
+           React Dashboard
+  (Overview · Cost · Agents · Models · Workflows ·
+   Alerts · Budgets · Security · Audit · Users ·
+   Settings · Integrations · Chat)
 ```
 
 ---
 
 ## Tech Stack
 
-### Backend
 | Layer | Technology |
 |---|---|
-| Runtime | Python 3.14 |
-| API Framework | FastAPI |
-| ORM | SQLAlchemy |
-| Database | SQLite |
-| Server | Uvicorn |
-
-### Frontend
-| Layer | Technology |
-|---|---|
-| Framework | React + Vite |
-| Styling | Tailwind CSS v4 |
-| Charts | Recharts |
-| Icons | Lucide React |
+| API | FastAPI + Uvicorn |
+| ORM / DB | SQLAlchemy + SQLite |
+| Auth | HS256 JWT (pure Python) |
+| LLM clients | OpenAI SDK (multi-provider via compatible endpoints) |
+| Frontend | React 18 + Vite + Recharts |
+| Deploy | Render (backend web service + persistent disk + static frontend) |
 
 ---
 
 ## Features
 
-### ✅ AI Gateway
-- Single `/ask` endpoint routes to any supported LLM provider
-- Provider auto-detected from model name (no config changes needed)
-- Full request/response telemetry stored on every call
+### Gateway
+- **OpenAI-compatible proxy** — `POST /v1/chat/completions` accepts any OpenAI SDK call
+- **Anthropic-compatible proxy** — `POST /v1/messages` accepts any Anthropic SDK call
+- **Real streaming** — SSE chunks relayed as they arrive from the upstream provider; client disconnect stops the upstream call immediately (no wasted tokens)
+- **Full body passthrough** — `tool_calls`, `temperature`, `response_format`, `seed`, and every other parameter forwarded unchanged
+- **Opaque Bearer auth** — accepts dashboard JWT *or* any arbitrary token (`sk-...`); no agent code changes required
+- **Fail mode** — `GATEWAY_FAIL_MODE=closed` (default) blocks on errors; `open` passes through. Policy/budget blocks always propagate.
+- **Provider routing** by model name prefix: `claude-*` → Anthropic, `gemini-*` → Google, `llama-*` → Local/Ollama, everything else → OpenAI
 
-### ✅ Multi-Provider Support (15 models)
-| Provider | Models |
+### Enforcement Pipeline (every call)
+1. **PII scan** — emails, phone numbers, credit cards, SSNs, API keys, passwords, AWS keys, private keys, JWT tokens, IP addresses
+2. **Model policy** — per-team allowlist / blocklist; blocked calls return HTTP 403 and are logged
+3. **Budget check** — per-team and per-agent daily/monthly limits; `action=alert` warns, `action=block` returns HTTP 429
+4. **LLM call** — forwarded to the real provider
+5. **Telemetry** — tokens, cost (correct per-model pricing for 15+ models), latency, team, agent, PII findings all persisted
+
+### Auth & Users
+- JWT login (`POST /auth/login`) with 8-hour expiry
+- Role-based access: **admin** / **analyst** / **viewer**
+- Admin seeds automatically on first start: `admin@aifinops.local` / `Admin123!`
+- User CRUD with inline role/team editing
+- Settings page: live API key management (reads/writes `.env` without restart)
+
+### Dashboard Pages
+
+| Page | Who can see it |
 |---|---|
-| OpenAI | `gpt-4o`, `gpt-4o-mini`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4-turbo`, `o3`, `o4-mini` |
-| Anthropic | `claude-opus-4`, `claude-sonnet-4`, `claude-haiku-4` |
-| Google | `gemini-2.0-pro`, `gemini-2.0-flash`, `gemini-1.5-pro` |
-| Local | `llama-3.1-70b-local`, `llama-3.1-8b-local` |
+| Home | Everyone |
+| Overview, Cost, Agents, Models, Workflows, Alerts | Everyone |
+| Security (alerts + PII scanner) | Everyone |
+| Security (policy rules + audit log) | Admin only |
+| Budgets, Users, Settings | Admin only |
+| Integrations | Admin + Analyst |
+| Chat | Admin + Analyst |
 
-### ✅ Cost Intelligence
-- Per-request cost calculation using real per-1M-token pricing
-- Cost breakdown by team, agent, model, workflow
-- Savings estimator (premium model right-sizing, loop detection, failed workflows)
-
-### ✅ Budget Enforcement
-- Budget rules per team and/or agent (daily or monthly)
-- **`action=alert`** — request proceeds, warning returned in response
-- **`action=block`** — request rejected (HTTP 429) before any tokens are consumed
-- 80% threshold warning before limits are hit
-- Full CRUD API for budget rules
-
-### ✅ Runtime Intelligence
-- Agent activity monitoring (requests, cost, latency, errors)
-- Workflow health tracking with failure rate badges
-- Runtime Chain — end-to-end trace per agent (tool → model → cost → risk)
-- AI Runtime Risk Score (0–100 composite across 6 factors)
-
-### ✅ Security & Governance
-- 8 automated detection rules:
-  - Agent cost spike
-  - Unusually large prompt
-  - Workflow failure spike
-  - Premium model on trivial prompts
-  - After-hours activity
-  - Agent loop detection
-  - Unapproved model usage
-  - Sensitive data in requests
-- Each alert includes expandable "Why this fired" explanation with root causes and recommended action
-- Governance allowlist — Google models flagged as unapproved by default
-
-### ✅ Observability Dashboard
-- **Home** — Risk score ring, savings card, executive summary, critical signals
-- **Overview** — KPI stats, cost trend chart, top agents by cost
-- **Cost Intelligence** — Cost by team (bar), by model (pie), expensive workflows table
-- **Agent Activity** — All agents with live metrics
-- **Model Usage** — Performance, spend, governance posture per model
-- **Workflow Health** — Failure rates with health status badges
-- **Alerts** — All active alerts with full explanation panels
-- **Budgets** — Budget rules management, live progress bars per team
-- Auto-refresh every 30 seconds
+- **Sortable columns** on every table — click any header to toggle asc/desc
+- **Free-text search** on every table — instant filter across all columns, shows match count
+- **Audit log** — expandable rows with full prompt, response, block reason, PII findings; load-more pagination
 - **Live mode** (real API data) / **Demo mode** (6,000 synthetic events) — switches automatically
 
----
-
-## API Reference
-
-### Gateway
-
-```http
-POST /ask
-```
-```json
-{
-  "team": "SOC",
-  "agent": "IR-Agent",
-  "prompt": "Analyze this phishing email",
-  "model": "gpt-4o-mini",
-  "system_prompt": "You are a security analyst."
-}
-```
-
-Response includes `response`, `model`, `prompt_tokens`, `completion_tokens`,
-`total_tokens`, `latency_ms`, `cost_usd`, `telemetry_id`, `budget_warnings`.
-
----
-
-### Telemetry
-
-```http
-GET /telemetry?skip=0&limit=100
-GET /telemetry/summary
-```
-
----
-
-### Budgets
-
-```http
-POST   /budgets              # create a rule
-GET    /budgets              # list all rules
-DELETE /budgets/{id}         # delete a rule
-GET    /budgets/status       # live spend vs limit for every rule
-```
-
-Example rule:
-```json
-{
-  "team": "SOC",
-  "agent": "IR-Agent",
-  "limit_usd": 5.00,
-  "period": "daily",
-  "action": "block"
-}
-```
+### Security & Compliance
+- 8 automated detection rules (cost spike, large prompt, workflow failure spike, premium model misuse, after-hours activity, agent loop, unapproved model, sensitive data)
+- Each alert includes root cause analysis and recommended remediation
+- Security posture: TLS (via reverse proxy), HS256 JWT, secrets never returned via API, full audit trail, all data stays in your deployment
+- SOC 2: pre-certification — audit log, RBAC, and secrets isolation in place
 
 ---
 
@@ -180,101 +119,168 @@ Example rule:
 ### Backend
 
 ```bash
-# 1. Clone and enter the repo
 git clone https://github.com/ronhaviv33-beep/aifinops-guard.git
 cd aifinops-guard
-git checkout claude/kind-faraday-yoNJq
 
-# 2. Create virtual environment
 python -m venv venv
-source venv/bin/activate        # Mac/Linux
-venv\Scripts\Activate.ps1       # Windows PowerShell
+source venv/bin/activate          # Mac/Linux
+venv\Scripts\Activate.ps1         # Windows PowerShell
 
-# 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Configure API keys (.env file in project root)
-# OPENAI_API_KEY=sk-...
-# ANTHROPIC_API_KEY=sk-ant-...
-# GOOGLE_API_KEY=AIza...
-# LOCAL_LLM_URL=http://localhost:11434/v1
+cp .env.example .env              # then fill in your API keys
 
-# 5. Start the gateway
 uvicorn app.main:app
-# → http://localhost:8000/docs
+# API + Swagger UI → http://localhost:8000/docs
 ```
 
-### Frontend Dashboard
+### Frontend
 
 ```bash
 cd dashboard
 npm install
 npm run dev
-# → http://localhost:5173
+# Dashboard → http://localhost:5173
+# Login: admin@aifinops.local / Admin123!
 ```
 
-> The dashboard auto-connects to the backend via the Vite dev proxy.
-> Empty database = demo mode. Send a real `/ask` request to switch to live mode.
+### `.env` reference
+
+```env
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_API_KEY=AIza...
+LOCAL_LLM_URL=http://localhost:11434/v1   # Ollama / vLLM / LM Studio
+JWT_SECRET=change-me-in-production        # long random string
+GATEWAY_FAIL_MODE=closed                  # closed | open
+```
+
+---
+
+## API Reference
+
+### OpenAI-compatible proxy
+
+```python
+import openai
+
+client = openai.OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="<jwt from POST /auth/login>",
+)
+
+# Non-streaming
+response = client.chat.completions.create(
+    model="gpt-4o-mini",   # or "claude-sonnet-4-5", "gemini-2.0-flash", etc.
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_headers={"X-Guard-Team": "SOC", "X-Guard-Agent": "my-agent"},
+)
+print(response.choices[0].message.content)
+# response.x_guard → {"team", "agent", "cost_usd", "latency_ms", "security_findings", ...}
+
+# Streaming
+stream = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello"}],
+    stream=True,
+    extra_headers={"X-Guard-Team": "SOC", "X-Guard-Agent": "my-agent"},
+)
+for chunk in stream:
+    print(chunk.choices[0].delta.content or "", end="")
+```
+
+### Anthropic-compatible proxy
+
+```python
+import anthropic
+
+client = anthropic.Anthropic(
+    base_url="http://localhost:8000",
+    api_key="<jwt>",
+    default_headers={"X-Guard-Team": "SOC", "X-Guard-Agent": "my-agent"},
+)
+
+message = client.messages.create(
+    model="claude-haiku-4-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(message.content[0].text)
+```
+
+### Attribution headers
+
+| Header | Purpose |
+|---|---|
+| `X-Guard-Team` | Maps the call to a team for policy + budget enforcement |
+| `X-Guard-Agent` | Identifies the agent/workflow in telemetry and audit log |
+
+### Other endpoints
+
+```http
+POST /auth/login          # { email, password } → { access_token, user }
+POST /ask                 # single-shot with full enforcement pipeline
+POST /chat                # multi-turn with full enforcement pipeline
+GET  /telemetry           # paginated request log
+GET  /telemetry/summary   # totals: requests, tokens, cost, latency
+GET  /audit               # filtered audit log (team, agent, sensitive, blocked)
+GET  /security/alerts     # live detection rule results
+POST /budgets             # create budget rule
+GET  /budgets/status      # live spend vs limit per rule
+POST /policies            # create model allow/block rule
+GET  /settings/keys       # API key status (never exposes values)
+```
+
+Full interactive docs at `http://localhost:8000/docs`.
+
+---
+
+## Deploy to Render
+
+The repo includes a `render.yaml` Blueprint. Connect your GitHub repo in Render → **New** → **Blueprint** → select the repo.
+
+Render will:
+1. Create the backend web service with a 1 GB persistent disk for SQLite
+2. Build the frontend, injecting the backend URL at build time via `VITE_API_URL`
+3. Deploy both services with security headers and SPA routing configured
+
+After first deploy, set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and/or `GOOGLE_API_KEY` in the Render dashboard (or via the Settings page in the UI).
+
+---
+
+## Supported Models
+
+| Provider | Models |
+|---|---|
+| OpenAI | `gpt-4.1`, `gpt-4.1-mini`, `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `o3`, `o4-mini` |
+| Anthropic | `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
+| Google | `gemini-2.5-pro`, `gemini-2.0-flash`, `gemini-1.5-pro` |
+| Local | `llama-3.1-70b-local`, `llama-3.1-8b-local` (Ollama / vLLM / LM Studio) |
 
 ---
 
 ## Roadmap
 
-### Phase 1 – Gateway Foundation ✅
-- FastAPI Gateway
-- SQLite Storage
-- Telemetry API
-
-### Phase 2 – LLM Integration ✅
-- OpenAI Integration
-- Anthropic Integration
-- Real Token Tracking
-- Latency Measurement
-
-### Phase 3 – Cost Intelligence ✅
-- Cost Calculation (15 models, 4 providers)
-- Team & Agent Cost Breakdown
-- Budget Monitoring with Enforcement
-
-### Phase 4 – Runtime Intelligence ✅
-- Agent Activity Monitoring
-- Workflow Tracking
-- Runtime Health Metrics
-- AI Risk Scoring
-
-### Phase 5 – Security & Governance ✅
-- Prompt Auditing ✅
-- Security Alerts (8 detection rules) ✅
-- Governance Dashboard ✅
-- Sensitive Data Detection ✅ (10 pattern types: PII, credentials, API keys)
-- Policy Enforcement ✅ (model allowlist/blocklist per team)
-
-### Phase 6 – Frontend Dashboard ✅
-- React + Vite + Tailwind CSS + Recharts
-- 8-page observability dashboard
-- Executive Summary
-- Live / Demo mode
-
-### Future Capabilities
-- PII / sensitive data ML scanner
-- Cost forecasting
-- Compliance reporting (SOC 2, GDPR)
-- Multi-tenant org isolation
-- Slack / PagerDuty alert integrations
-- Agent inventory & approval workflow
-- Enterprise SSO
-
----
-
-## Project Status
-
-🟢 **Active Development** — core platform complete, advancing governance and security features.
+| Status | Item |
+|---|---|
+| ✅ | OpenAI-compatible proxy (`/v1/chat/completions`) with real streaming |
+| ✅ | Anthropic-compatible proxy (`/v1/messages`) with real streaming |
+| ✅ | JWT auth + RBAC (admin / analyst / viewer) |
+| ✅ | PII scanning (10 pattern types) |
+| ✅ | Budget enforcement (daily / monthly, alert / block) |
+| ✅ | Model policy (allowlist / blocklist per team) |
+| ✅ | Full audit log with expandable rows + pagination |
+| ✅ | Sortable + searchable tables on every dashboard page |
+| ✅ | Render deployment (`render.yaml` Blueprint) |
+| 🔜 | Per-tenant API key table (issue org keys, not user JWTs) |
+| 🔜 | Budget alerts via webhook (Slack / Teams at 80%) |
+| 🔜 | Cost forecasting (end-of-month projection from burn rate) |
+| 🔜 | SSO (Okta / Google OAuth) |
+| 🔜 | HA / fail-over story for enterprise SLA conversations |
 
 ---
 
 ## Author
 
-**Ron Haviv**
-SOC Analyst | Security Operations | AI Runtime Intelligence
-
-Building the next generation of visibility, governance, security, and cost intelligence for enterprise AI.
+**Ron Haviv**  
+SOC Analyst · Security Operations · AI Runtime Intelligence
