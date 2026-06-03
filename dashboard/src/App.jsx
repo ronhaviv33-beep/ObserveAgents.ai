@@ -2968,6 +2968,42 @@ print(response.content)`;
         </div>
       </Card>
 
+      {/* How to give a customer access */}
+      <Card title="Onboarding a customer" subtitle="Issue a long-lived API key instead of sharing a dashboard login">
+        <div style={{ fontSize:12, color:T.textDim, fontFamily:FONT_MONO, lineHeight:1.7, marginBottom:14 }}>
+          Dashboard JWTs expire after 8 hours — fine for the UI, wrong for an always-on agent.
+          For customers and production agents, issue a dedicated <strong style={{ color:T.text }}>API key</strong> that
+          you can revoke independently without affecting anyone else.
+        </div>
+        <ol style={{ margin:0, paddingLeft:20, display:"flex", flexDirection:"column", gap:10 }}>
+          {[
+            <>Go to the <strong style={{ color:T.accent }}>API Keys</strong> page → <strong style={{ color:T.text }}>Generate Key</strong>. Set a <em>Name</em> (e.g. <code style={{ color:T.info }}>acme-prod-agent</code>) and the <em>Team</em> it belongs to.</>,
+            <>Copy the <code style={{ color:T.accent }}>gk-…</code> key from the popup — it is shown <strong style={{ color:T.warn }}>only once</strong> and stored only as a hash. Hand it to the customer over a secure channel.</>,
+            <>The customer drops it into their existing agent as the <code style={{ color:T.info }}>api_key</code> — no other code change. The <code style={{ color:T.info }}>base_url</code> is this gateway.</>,
+            <>Every call is attributed to that key's team for budget &amp; policy enforcement, and the key's <em>last used</em> timestamp updates live on the API Keys page.</>,
+            <>To cut off access, click <strong style={{ color:T.warn }}>Revoke</strong> — that key stops working immediately; all other customers are unaffected.</>,
+          ].map((step, i) => (
+            <li key={i} style={{ fontSize:12, color:T.textDim, fontFamily:FONT_MONO, lineHeight:1.6 }}>{step}</li>
+          ))}
+        </ol>
+        <div style={{ marginTop:16 }}>
+          <CodeBlock id="customer-key" code={`# Customer's agent — only the api_key differs from a normal OpenAI call
+import openai
+
+client = openai.OpenAI(
+    base_url="${gatewayUrl}/v1",
+    api_key="gk-...",                      # the issued API key (not a JWT)
+)
+
+resp = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_headers={"X-Guard-Agent": "acme-prod-agent"},
+)
+print(resp.choices[0].message.content)`} />
+        </div>
+      </Card>
+
       {/* How attribution works */}
       <Card title="How team & agent attribution works" subtitle="Two HTTP headers on every request">
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
