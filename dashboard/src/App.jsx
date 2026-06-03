@@ -446,31 +446,7 @@ function Home({ risk, savings, alerts, A, onNavigate }) {
         <div style={{ fontSize:13, color:T.textMute, marginTop:12, maxWidth:680, lineHeight:1.65 }}>
           If your company uses ChatGPT, Copilot, Claude, Gemini, AI agents, or custom LLM applications, AIFinOps Guard helps you understand where your money goes, what your AI is doing, and whether it operates securely and according to policy.
         </div>
-        {/* 3-line pitch — the entire integration in one diff */}
-        <div style={{ marginTop:28, marginBottom:8, background:T.bg, border:`1px solid ${T.borderHi}`, borderRadius:6, padding:"16px 20px", maxWidth:720 }}>
-          <div style={{ fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.14em", textTransform:"uppercase", color:T.textMute, marginBottom:10 }}>The integration</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr auto 1fr", gap:16, alignItems:"center" }}>
-            <div>
-              <div style={{ fontFamily:FONT_MONO, fontSize:10, color:T.crit, marginBottom:6, letterSpacing:"0.08em" }}>BEFORE</div>
-              <pre style={{ margin:0, fontFamily:FONT_MONO, fontSize:12, color:T.textDim, lineHeight:1.7 }}>{`client = openai.OpenAI(
-  api_key="sk-..."
-)`}</pre>
-            </div>
-            <div style={{ fontFamily:FONT_MONO, fontSize:18, color:T.accent, padding:"0 8px" }}>→</div>
-            <div>
-              <div style={{ fontFamily:FONT_MONO, fontSize:10, color:T.accent, marginBottom:6, letterSpacing:"0.08em" }}>AFTER</div>
-              <pre style={{ margin:0, fontFamily:FONT_MONO, fontSize:12, color:T.text, lineHeight:1.7 }}>{`client = openai.OpenAI(
-  base_url="http://your-server/api/v1",
-  api_key="<jwt>"
-)`}</pre>
-            </div>
-          </div>
-          <div style={{ marginTop:12, fontSize:11, color:T.textMute, lineHeight:1.6 }}>
-            Every call now gets PII scanning · budget enforcement · model policy · full audit log. Works with OpenAI, Anthropic, Google, and local models.
-          </div>
-        </div>
-
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginTop:18, maxWidth:880 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginTop:28, maxWidth:880 }}>
           {[
             { k:"Cost",      v:"Visibility",    desc:"See every $ across teams, agents, models",       to:"cost" },
             { k:"Behavior",  v:"Intelligence",  desc:"Detect loops, spikes, anomalies in real time",    to:"agents" },
