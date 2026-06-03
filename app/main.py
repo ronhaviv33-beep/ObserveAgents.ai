@@ -283,6 +283,9 @@ async def ask(req: AskRequest, db: Session = Depends(get_db), _=Depends(get_curr
     # 1. PII / sensitive data scan
     scan_result = scan(req.prompt)
     findings_list = scan_result.to_dict()
+    if len(req.prompt) > 40_000:
+        findings_list.append({"type": "large_prompt", "severity": "warning",
+                               "sample": f"{len(req.prompt):,} chars"})
 
     # 2. Policy enforcement — model allowlist / blocklist
     policy_check = pol.check_model(db, team=req.team, model=req.model)
@@ -376,6 +379,10 @@ async def chat(req: ChatRequest, db: Session = Depends(get_db), _=Depends(get_cu
     last_user = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
     scan_result  = scan(last_user)
     findings_list = scan_result.to_dict()
+    total_chars = sum(len(m.content or "") for m in req.messages)
+    if total_chars > 40_000:
+        findings_list.append({"type": "large_prompt", "severity": "warning",
+                               "sample": f"{total_chars:,} chars across {len(req.messages)} messages"})
 
     # Policy check
     policy_check = pol.check_model(db, team=req.team, model=req.model)
@@ -570,6 +577,10 @@ async def session_chat(session_uuid: str, req: SessionChatRequest, db: Session =
     last_user = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
     scan_result = scan(last_user)
     findings_list = scan_result.to_dict()
+    total_chars = sum(len(m.content or "") for m in req.messages)
+    if total_chars > 40_000:
+        findings_list.append({"type": "large_prompt", "severity": "warning",
+                               "sample": f"{total_chars:,} chars across {len(req.messages)} messages"})
 
     # Policy check
     policy_check = pol.check_model(db, team=req.team, model=req.model)
@@ -759,13 +770,25 @@ async def _run_enforcement_pipeline(
 ):
     """
     Runs PII scan → policy → budget.
-    Returns (scan_result, findings_list, policy_check, budget_check).
+    Returns (scan_result, findings_list, policy_check, budget_check, large_prompt).
     Raises HTTPException on block (in closed mode, caller handles open mode).
+    Large prompts are flagged in findings but never blocked — budget enforces spend.
     """
     last_user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
+    total_chars = sum(len(m.get("content", "") or "") for m in messages)
 
     scan_result   = scan(last_user)
     findings_list = scan_result.to_dict()
+
+    # Flag large prompts as a warning finding (warn only — budget handles the cost)
+    LARGE_PROMPT_CHARS = 40_000  # ~10k tokens
+    large_prompt = total_chars > LARGE_PROMPT_CHARS
+    if large_prompt:
+        findings_list.append({
+            "type": "large_prompt",
+            "severity": "warning",
+            "sample": f"{total_chars:,} chars across {len(messages)} messages",
+        })
 
     policy_check = pol.check_model(db, team=team, model=model)
     if not policy_check["allowed"]:
@@ -786,7 +809,7 @@ async def _run_enforcement_pipeline(
                          sensitive=scan_result.is_sensitive, sensitive_findings=findings_list)
         raise HTTPException(status_code=429, detail=reason)
 
-    return last_user, scan_result, findings_list, policy_check, budget_check
+    return last_user, scan_result, findings_list, policy_check, budget_check, large_prompt
 
 
 
@@ -827,7 +850,7 @@ async def openai_compat_chat(
     budget_warnings = []
     scan_result = None
     try:
-        last_user, scan_result, findings_list, _, budget_check = \
+        last_user, scan_result, findings_list, _, budget_check, _ = \
             await _run_enforcement_pipeline(db, team, agent, model, messages)
         budget_warnings = budget_check["warnings"]
     except HTTPException:
@@ -975,7 +998,7 @@ async def anthropic_compat_messages(
     budget_warnings = []
     scan_result = None
     try:
-        last_user, scan_result, findings_list, _, budget_check = \
+        last_user, scan_result, findings_list, _, budget_check, _ = \
             await _run_enforcement_pipeline(db, team, agent, model, oai_messages)
         budget_warnings = budget_check["warnings"]
     except HTTPException:
