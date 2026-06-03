@@ -2730,11 +2730,19 @@ function ChatPage() {
 function IntegrationsPage() {
   const currentUser = useUser();
   const [copied, setCopied] = useState(null);
+  const [authMode, setAuthMode] = useState("apikey");  // "apikey" (production) | "jwt" (testing)
+  const [apiKey, setApiKey] = useState("");
   const [token, setToken] = useState("");
   const [teamName, setTeamName] = useState(currentUser?.team || "my-team");
   const [agentName, setAgentName] = useState("my-agent");
 
   const gatewayUrl = BASE.startsWith("http") ? BASE : window.location.origin;
+
+  // The credential the snippets show. Production agents use a gk- API key;
+  // manual testing uses a short-lived JWT from login.
+  const isApiKey   = authMode === "apikey";
+  const credValue  = isApiKey ? (apiKey || "gk-...") : (token || "<your-jwt-token>");
+  const credNote   = isApiKey ? "the issued API key (never expires)" : "from POST /auth/login (expires in 8h)";
 
   const copy = (id, text) => {
     navigator.clipboard.writeText(text);
@@ -2777,7 +2785,7 @@ function IntegrationsPage() {
 # AIFinOps Guard routes the request to the right provider automatically.
 client = openai.OpenAI(
     base_url="${gatewayUrl}/v1",
-    api_key="<your-jwt-token>",   # from POST /api/auth/login
+    api_key="${credValue}",   # ${credNote}
 )
 
 # Non-streaming
@@ -2813,7 +2821,7 @@ for chunk in stream:
 // Works with GPT, Claude, Gemini, Llama — all routed through the guard.
 const client = new OpenAI({
   baseURL: "${gatewayUrl}/v1",
-  apiKey: "<your-jwt-token>",     // from POST /api/auth/login
+  apiKey: "${credValue}",     // ${credNote}
 });
 
 const response = await client.chat.completions.create({
@@ -2835,7 +2843,7 @@ console.log(response.choices[0].message.content);`;
 #            gemini-2.0-flash, gemini-2.5-pro, llama-3.1-70b-local, and more.
 
 curl -X POST ${gatewayUrl}/v1/chat/completions \\
-  -H "Authorization: Bearer <your-jwt-token>" \\
+  -H "Authorization: Bearer ${credValue}" \\
   -H "Content-Type: application/json" \\
   -H "X-Guard-Team: ${teamName}" \\
   -H "X-Guard-Agent: ${agentName}" \\
@@ -2852,7 +2860,7 @@ curl -X POST ${gatewayUrl}/v1/chat/completions \\
 # Just point base_url at this server instead of api.anthropic.com.
 client = anthropic.Anthropic(
     base_url="${gatewayUrl}",   # note: no /v1 suffix — the SDK adds it
-    api_key="<your-jwt-token>",             # from POST /api/auth/login
+    api_key="${credValue}",             # ${credNote}
     default_headers={
         "X-Guard-Team":  "${teamName}",
         "X-Guard-Agent": "${agentName}",
@@ -2883,7 +2891,7 @@ with client.messages.stream(
 llm = ChatOpenAI(
     model="gpt-4o-mini",           # or "claude-sonnet-4-5", "gemini-2.0-flash", etc.
     openai_api_base="${gatewayUrl}/v1",
-    openai_api_key="<your-jwt-token>",
+    openai_api_key="${credValue}",   # ${credNote}
     default_headers={
         "X-Guard-Team":  "${teamName}",
         "X-Guard-Agent": "${agentName}",
@@ -2935,10 +2943,44 @@ print(response.content)`;
       <SectionHeader n="01" title="Get started" desc="Configure your connection and onboard a customer agent" />
 
       {/* Config builder */}
-      <Card title="Connection details" subtitle="Edit these to generate code snippets for your agent">
+      <Card title="Connection details" subtitle="Pick how the caller authenticates, then the code snippets below fill in automatically">
+
+        {/* Auth mode toggle */}
+        <div style={{ display:"flex", gap:0, marginBottom:18, background:T.bg, border:`1px solid ${T.border}`, borderRadius:6, padding:3, width:"fit-content" }}>
+          {[
+            { id:"apikey", label:"Production agent", sub:"API key" },
+            { id:"jwt",    label:"Manual testing",   sub:"JWT login" },
+          ].map(m => (
+            <button key={m.id} onClick={() => setAuthMode(m.id)}
+              style={{ background: authMode===m.id ? T.accent+"22" : "transparent", border:`1px solid ${authMode===m.id ? T.accent+"55" : "transparent"}`,
+                borderRadius:4, padding:"7px 16px", cursor:"pointer", color: authMode===m.id ? T.accent : T.textMute, fontFamily:FONT_UI, textAlign:"left" }}>
+              <div style={{ fontSize:12, fontWeight:600 }}>{m.label}</div>
+              <div style={{ fontSize:10, fontFamily:FONT_MONO, opacity:0.8 }}>{m.sub}</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Explainer per mode */}
+        <div style={{ fontSize:12, color:T.textDim, lineHeight:1.65, marginBottom:16, background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:6, padding:"12px 14px" }}>
+          {isApiKey ? (
+            <>
+              <strong style={{ color:T.text }}>Use this for real customers and always-on agents.</strong> Generate a
+              <code style={{ color:T.accent, background:T.bg, padding:"1px 6px", borderRadius:3, margin:"0 4px" }}>gk-…</code>
+              key on the <strong style={{ color:T.accent }}>API Keys</strong> page. It never expires, carries its own team,
+              and can be revoked independently. The customer just drops it into their existing code as the <code style={{ color:T.info }}>api_key</code>.
+            </>
+          ) : (
+            <>
+              <strong style={{ color:T.text }}>Use this only for quick manual testing from your own machine.</strong> A dashboard
+              JWT expires after 8 hours, so it is <strong style={{ color:T.warn }}>not</strong> suitable for a deployed agent.
+              Get one with <code style={{ color:T.info }}>POST {gatewayUrl}/auth/login</code> → copy <code style={{ color:T.accent }}>access_token</code>.
+            </>
+          )}
+        </div>
+
         <div style={{ display:"flex", gap:12, flexWrap:"wrap", alignItems:"flex-end", marginBottom:16 }}>
           {[
-            { label:"Gateway URL", val:gatewayUrl, set:null, width:280, mono:true, readOnly:true },
+            { label:"Gateway URL", val:gatewayUrl, set:null, width:280, readOnly:true },
             { label:"Team name",   val:teamName,   set:setTeamName,  width:140 },
             { label:"Agent name",  val:agentName,  set:setAgentName, width:140 },
           ].map(f => (
@@ -2949,13 +2991,21 @@ print(response.content)`;
             </div>
           ))}
           <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>JWT Token <span style={{ textTransform:"none", color:T.textMute }}>(from login)</span></label>
-            <input type="password" placeholder="Paste your token to see it in snippets…" value={token} onChange={e => setToken(e.target.value)}
-              style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, padding:"6px 10px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, width:220 }}/>
+            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>
+              {isApiKey ? <>API Key <span style={{ textTransform:"none", color:T.textMute }}>(gk-…)</span></>
+                        : <>JWT Token <span style={{ textTransform:"none", color:T.textMute }}>(from login)</span></>}
+            </label>
+            <input type="password"
+              placeholder={isApiKey ? "Paste a gk- key to see it in snippets…" : "Paste your JWT to see it in snippets…"}
+              value={isApiKey ? apiKey : token}
+              onChange={e => (isApiKey ? setApiKey(e.target.value) : setToken(e.target.value))}
+              style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, padding:"6px 10px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, width:240 }}/>
           </div>
         </div>
         <div style={{ fontSize:11, color:T.textMute, fontFamily:FONT_MONO }}>
-          Get a token: <code style={{ color:T.info }}>POST {gatewayUrl}/auth/login</code> → copy <code style={{ color:T.accent }}>access_token</code>
+          {isApiKey
+            ? <>No key yet? Go to <strong style={{ color:T.accent }}>API Keys → Generate Key</strong>. Team & agent are attributed automatically from the key.</>
+            : <>Team & agent below are sent as <code style={{ color:T.info }}>X-Guard-Team</code> / <code style={{ color:T.info }}>X-Guard-Agent</code> headers in the snippets.</>}
         </div>
       </Card>
 
@@ -3041,23 +3091,23 @@ print(resp.choices[0].message.content)`} />
 
       {/* Code snippets */}
       <Card title="Python" subtitle="Works with any LLM — change the model name to switch between OpenAI, Anthropic, Google, or local">
-        <CodeBlock id="python" code={pythonSnippet.replace(/<your-jwt-token>/g, token || "<your-jwt-token>")} />
+        <CodeBlock id="python" code={pythonSnippet} />
       </Card>
 
       <Card title="Anthropic SDK (native)" subtitle="Teams using the Anthropic SDK directly — same one-line swap, full Anthropic Messages API + streaming">
-        <CodeBlock id="anthropic" code={anthropicSnippet.replace(/<your-jwt-token>/g, token || "<your-jwt-token>")} />
+        <CodeBlock id="anthropic" code={anthropicSnippet} />
       </Card>
 
       <Card title="LangChain" subtitle="Drop-in for any LangChain LLM — route GPT, Claude, Gemini through one gateway">
-        <CodeBlock id="langchain" code={langchainSnippet.replace(/<your-jwt-token>/g, token || "<your-jwt-token>")} />
+        <CodeBlock id="langchain" code={langchainSnippet} />
       </Card>
 
       <Card title="Node.js" subtitle="TypeScript / JavaScript agents — any model, one endpoint">
-        <CodeBlock id="nodejs" code={nodejsSnippet.replace(/<your-jwt-token>/g, token || "<your-jwt-token>")} />
+        <CodeBlock id="nodejs" code={nodejsSnippet} />
       </Card>
 
       <Card title="curl" subtitle="Test the connection from a terminal">
-        <CodeBlock id="curl" code={curlSnippet.replace(/<your-jwt-token>/g, token || "<your-jwt-token>")} />
+        <CodeBlock id="curl" code={curlSnippet} />
       </Card>
 
       <SectionHeader n="04" title="How it works & security" desc="The enforcement pipeline, fail-mode behavior, and security posture" />
