@@ -66,10 +66,14 @@ def scan(text: str) -> ScanResult:
         matches = pattern.findall(text)
         if matches and ptype not in seen_types:
             seen_types.add(ptype)
+            severity = _SEVERITY.get(ptype, "medium")
+            # Critical secrets (API keys, SSNs): never echo any characters —
+            # even a 3-char prefix/suffix can help an attacker identify the value.
+            sample = "[redacted]" if severity == "critical" else _redact(str(matches[0])[:40])
             findings.append(Finding(
                 type=ptype,
-                severity=_SEVERITY.get(ptype, "medium"),
-                sample=_redact(str(matches[0])[:40]),
+                severity=severity,
+                sample=sample,
             ))
 
     # De-duplicate and sort by severity

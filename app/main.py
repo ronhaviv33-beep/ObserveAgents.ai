@@ -243,7 +243,7 @@ async def create_user(req: UserCreate, db: Session = Depends(get_db), _=Depends(
 
 
 @app.patch("/auth/users/{user_id}", response_model=UserOut, tags=["Auth — Users"])
-async def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_db), _=Depends(require_admin)):
+async def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_db), actor=Depends(require_admin)):
     from app.models import User
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -256,6 +256,13 @@ async def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_d
         updates["hashed_password"] = hash_password(updates.pop("password"))
     else:
         updates.pop("current_password", None)
+    # Audit privilege changes as a security event (H-1)
+    if "role" in updates and updates["role"] != user.role:
+        import logging
+        logging.getLogger("aifinops.security").warning(
+            "ROLE CHANGE: actor=%s(id=%s) changed user=%s(id=%s) role %s -> %s",
+            actor.email, actor.id, user.email, user.id, user.role, updates["role"],
+        )
     for field, value in updates.items():
         setattr(user, field, value)
     db.commit()
@@ -436,14 +443,35 @@ async def chat(req: ChatRequest, db: Session = Depends(get_db), _=Depends(get_cu
 
 # ─── Telemetry ────────────────────────────────────────────────────────────────
 
+def _redact_sensitive_records(records, user):
+    """
+    For non-admin users, blank out the prompt/response text of any record
+    flagged sensitive. Admins see everything; analysts/viewers see metadata
+    only for records that contain PII or secrets.
+    """
+    if getattr(user, "role", None) == "admin":
+        return records
+    from types import SimpleNamespace
+    out = []
+    for r in records:
+        if getattr(r, "sensitive", False):
+            data = {c.name: getattr(r, c.name) for c in r.__table__.columns}
+            data["prompt"] = "[redacted — sensitive, admin only]"
+            data["response"] = "[redacted — sensitive, admin only]"
+            out.append(SimpleNamespace(**data))
+        else:
+            out.append(r)
+    return out
+
+
 @app.get("/telemetry", response_model=list[TelemetryRecord], tags=["GET — Read / Monitor"])
 def get_telemetry(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=1000),
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    return tel.get_all(db, skip=skip, limit=limit)
+    return _redact_sensitive_records(tel.get_all(db, skip=skip, limit=limit), current_user)
 
 
 @app.get("/telemetry/summary", response_model=TelemetrySummary, tags=["GET — Read / Monitor"])
@@ -462,11 +490,12 @@ def get_audit(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=1000),
     db: Session = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
-    return tel.get_audit(db, team=team, agent=agent,
-                         sensitive_only=sensitive_only, blocked_only=blocked_only,
-                         skip=skip, limit=limit)
+    records = tel.get_audit(db, team=team, agent=agent,
+                            sensitive_only=sensitive_only, blocked_only=blocked_only,
+                            skip=skip, limit=limit)
+    return _redact_sensitive_records(records, current_user)
 
 
 # ─── Security ─────────────────────────────────────────────────────────────────
@@ -856,8 +885,14 @@ async def openai_compat_chat(
     except HTTPException:
         raise
     except Exception as exc:
+        import logging
         if _FAIL_MODE != "open":
-            import logging; logging.getLogger("aifinops").error("Enforcement error", exc_info=True); raise HTTPException(status_code=503, detail="Gateway enforcement error. Please try again.")
+            logging.getLogger("aifinops").error("Enforcement error", exc_info=True)
+            raise HTTPException(status_code=503, detail="Gateway enforcement error. Please try again.")
+        # Fail-open: never silent — log as a high-severity bypass and flag in telemetry
+        logging.getLogger("aifinops").error("FAIL-OPEN BYPASS: enforcement error swallowed", exc_info=True)
+        findings_list.append({"type": "enforcement_bypass", "severity": "critical",
+                              "sample": "fail-open mode swallowed an enforcement error"})
 
     # ── Streaming ──────────────────────────────────────────────────────────────
     if stream:
@@ -1004,8 +1039,13 @@ async def anthropic_compat_messages(
     except HTTPException:
         raise
     except Exception as exc:
+        import logging
         if _FAIL_MODE != "open":
-            import logging; logging.getLogger("aifinops").error("Enforcement error", exc_info=True); raise HTTPException(status_code=503, detail="Gateway enforcement error. Please try again.")
+            logging.getLogger("aifinops").error("Enforcement error", exc_info=True)
+            raise HTTPException(status_code=503, detail="Gateway enforcement error. Please try again.")
+        logging.getLogger("aifinops").error("FAIL-OPEN BYPASS: enforcement error swallowed", exc_info=True)
+        findings_list.append({"type": "enforcement_bypass", "severity": "critical",
+                              "sample": "fail-open mode swallowed an enforcement error"})
 
     msg_id  = f"msg_guard_{_uuid_mod.uuid4().hex[:12]}"
     created = int(_time_mod.time())

@@ -1,12 +1,42 @@
 import os
 import json
 import time
+import ipaddress
+import socket
+from urllib.parse import urlparse
 from dataclasses import dataclass
 from typing import AsyncIterator
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
 load_dotenv()
+
+
+# ─── SSRF guard for self-hosted model URL ─────────────────────────────────────
+
+def _validate_local_url(url: str) -> str:
+    """
+    Reject LOCAL_LLM_URL values that resolve to cloud metadata or internal
+    infrastructure, unless explicitly allowed via LOCAL_LLM_ALLOW_PRIVATE=true
+    (intended for on-box Ollama where localhost is the whole point).
+    """
+    allow_private = os.getenv("LOCAL_LLM_ALLOW_PRIVATE", "true").lower() == "true"
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise RuntimeError(f"LOCAL_LLM_URL must be http(s), got: {parsed.scheme}")
+    host = parsed.hostname or ""
+    # Always block the cloud metadata endpoint outright
+    BLOCKED = {"169.254.169.254", "metadata.google.internal", "100.100.100.200"}
+    if host in BLOCKED:
+        raise RuntimeError("LOCAL_LLM_URL points at a cloud metadata endpoint — blocked")
+    if not allow_private:
+        try:
+            ip = ipaddress.ip_address(socket.gethostbyname(host))
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                raise RuntimeError(f"LOCAL_LLM_URL resolves to a private/internal address ({ip})")
+        except socket.gaierror:
+            raise RuntimeError(f"LOCAL_LLM_URL host cannot be resolved: {host}")
+    return url
 
 
 # ─── Provider routing ─────────────────────────────────────────────────────────
@@ -53,7 +83,7 @@ def _get_client(model: str) -> AsyncOpenAI:
             )
 
         elif provider == "local":
-            base_url = os.getenv("LOCAL_LLM_URL", "http://localhost:11434/v1")
+            base_url = _validate_local_url(os.getenv("LOCAL_LLM_URL", "http://localhost:11434/v1"))
             _clients["local"] = AsyncOpenAI(
                 api_key="local",
                 base_url=base_url,
