@@ -4,11 +4,31 @@ import hmac
 import hashlib
 import base64
 import time
+import secrets
+from datetime import datetime, timezone
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.database import get_db
+
+
+def generate_api_key() -> tuple[str, str, str]:
+    """
+    Returns (full_key, key_prefix, key_hash).
+    full_key  — shown once to the user, never stored
+    key_prefix — first 12 chars, stored for display (gk-XXXXXXXX...)
+    key_hash  — SHA-256 of full_key, stored in DB for verification
+    """
+    raw = secrets.token_urlsafe(32)          # 43 url-safe chars
+    full_key = f"gk-{raw}"
+    key_prefix = full_key[:12]
+    key_hash = hashlib.sha256(full_key.encode()).hexdigest()
+    return full_key, key_prefix, key_hash
+
+
+def hash_api_key(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
 
 SECRET_KEY = os.getenv("JWT_SECRET", "")
 if not SECRET_KEY:
@@ -103,20 +123,17 @@ async def get_proxy_caller(
     Auth dependency for proxy routes (/v1/chat/completions, /v1/messages).
 
     Accepts two token forms:
-    - Valid dashboard JWT  → returns the real User object (full role/team info)
-    - Any other Bearer token → accepted as an opaque gateway key; returns a
-      synthetic identity dict so existing agent code needs no changes
+    1. Valid dashboard JWT  → returns the real User object (full role/team info)
+    2. Issued API key (gk-...) → verified against the api_keys table (SHA-256 hash)
 
-    This means customers can pass their own arbitrary api_key strings and the
-    gateway will accept them, attribute calls by the token prefix, and apply
-    whatever team/agent headers they send.
+    Any other token is rejected with 401.
     """
     if not credentials:
         raise HTTPException(status_code=401, detail="Authorization: Bearer <token> required")
 
     token = credentials.credentials
 
-    # Try to decode as a dashboard JWT first
+    # 1. Try JWT first (dashboard users, admin testing via Swagger)
     try:
         payload = _decode_token(token)
         from app.models import User
@@ -128,10 +145,25 @@ async def get_proxy_caller(
     except (ValueError, Exception):
         pass
 
-    # Accept as opaque gateway key — synthetic identity, team comes from header
-    return {
-        "id":   None,
-        "name": f"key_{token[:8]}",
-        "team": "unknown",
-        "role": "client",
-    }
+    # 2. Look up as an issued API key
+    from app.models import ApiKey
+    key_hash = hash_api_key(token)
+    api_key = db.query(ApiKey).filter(
+        ApiKey.key_hash == key_hash, ApiKey.is_active == True  # noqa: E712
+    ).first()
+    if api_key:
+        # Update last_used_at in-place (best-effort, don't fail the request if it errors)
+        try:
+            api_key.last_used_at = datetime.now(timezone.utc)
+            db.commit()
+        except Exception:
+            db.rollback()
+        return {
+            "id":   None,
+            "name": api_key.name,
+            "team": api_key.team,
+            "role": "client",
+            "api_key_id": api_key.id,
+        }
+
+    raise HTTPException(status_code=401, detail="Invalid or revoked API key")

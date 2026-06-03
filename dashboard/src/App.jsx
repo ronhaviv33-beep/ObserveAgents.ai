@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, createContext, useContext } from "react";
-import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE } from "./api.js";
+import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey } from "./api.js";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -1563,7 +1563,7 @@ const UserContext = createContext(null);
 const useUser = () => useContext(UserContext);
 
 const ROLES = {
-  admin:   { label:"Admin",   color: T.crit,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users","settings","integrations"] },
+  admin:   { label:"Admin",   color: T.crit,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations"] },
   analyst: { label:"Analyst", color: T.warn,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","security","integrations"] },
   viewer:  { label:"Viewer",  color: T.info,   pages: ["home","overview","cost","agents","models","workflows","alerts","security"] },
 };
@@ -1717,6 +1717,151 @@ function SortableUsersTable({ users, currentUser, editing, editSaving, setEditin
 }
 
 // ─── Users Page (admin only) ──────────────────────────────────────────────────
+// ─── API Keys page ────────────────────────────────────────────────────────────
+function ApiKeysPage() {
+  const [keys,      setKeys]      = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [form,      setForm]      = useState({ name: "", team: "" });
+  const [saving,    setSaving]    = useState(false);
+  const [err,       setErr]       = useState(null);
+  const [newKey,    setNewKey]    = useState(null); // shown-once modal
+
+  const load = useCallback(async () => {
+    try { setKeys(await fetchApiKeys()); }
+    catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) { setErr("Name is required."); return; }
+    setSaving(true); setErr(null);
+    try {
+      const created = await createApiKey({ name: form.name.trim(), team: form.team.trim() || "unknown" });
+      setNewKey(created.key);
+      setForm({ name: "", team: "" });
+      await load();
+    } catch (e) { setErr(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const handleRevoke = async (id) => {
+    try { await revokeApiKey(id); await load(); }
+    catch (e) { setErr(e.message); }
+  };
+
+  const handleDelete = async (id) => {
+    try { await deleteApiKey(id); await load(); }
+    catch (e) { setErr(e.message); }
+  };
+
+  const fmtDate = (d) => d ? new Date(d).toLocaleString() : "—";
+
+  const inputStyle = { background: T.panelHi, color: T.text, border: `1px solid ${T.border}`,
+    padding: "6px 10px", borderRadius: 4, fontSize: 12, fontFamily: FONT_MONO, width: 200 };
+
+  if (loading) return <div style={{ color: T.textDim, fontFamily: FONT_MONO, padding: 24 }}>Loading…</div>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+      {/* ── Create key ── */}
+      <Card title="Issue API Key" subtitle="Keys authenticate agents against the gateway — stored as SHA-256 hash, shown once">
+        <form onSubmit={handleCreate} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          {[
+            { label: "Name *", key: "name", placeholder: "e.g. soc-agent-prod" },
+            { label: "Team",   key: "team", placeholder: "e.g. SOC" },
+          ].map(({ label, key, placeholder }) => (
+            <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ fontSize: 9, fontFamily: FONT_MONO, letterSpacing: "0.12em", textTransform: "uppercase", color: T.textMute }}>{label}</label>
+              <input type="text" placeholder={placeholder} value={form[key]}
+                onChange={e => setForm({ ...form, [key]: e.target.value })}
+                style={inputStyle} />
+            </div>
+          ))}
+          <button type="submit" disabled={saving}
+            style={{ background: T.accent, color: T.bg, border: "none", padding: "8px 18px", borderRadius: 4, fontSize: 12, fontFamily: FONT_MONO, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
+            {saving ? "Generating…" : "+ Generate Key"}
+          </button>
+        </form>
+        {err && <div style={{ color: T.crit, fontFamily: FONT_MONO, fontSize: 12, marginTop: 10 }}>{err}</div>}
+      </Card>
+
+      {/* ── Keys table ── */}
+      <Card title="Issued Keys" subtitle={`${keys.length} key${keys.length === 1 ? "" : "s"} — the full key is never stored or retrievable`}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+              {["Name", "Prefix", "Team", "Created", "Last Used", "Status", ""].map(h => (
+                <th key={h} style={{ padding: "10px 8px", textAlign: "left", fontSize: 10, fontFamily: FONT_MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMute }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {keys.length === 0 && (
+              <tr><td colSpan={7} style={{ padding: 20, textAlign: "center", color: T.textMute, fontFamily: FONT_MONO, fontSize: 12 }}>No API keys yet.</td></tr>
+            )}
+            {keys.map(k => (
+              <tr key={k.id} style={{ borderBottom: `1px solid ${T.border}`, opacity: k.is_active ? 1 : 0.45 }}>
+                <td style={{ padding: "12px 8px", fontSize: 12, color: T.text, fontWeight: 500 }}>{k.name}</td>
+                <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textDim }}>{k.key_prefix}…</td>
+                <td style={{ padding: "12px 8px", fontSize: 12, color: T.textDim }}>{k.team}</td>
+                <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textMute }}>{fmtDate(k.created_at)}</td>
+                <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textMute }}>{fmtDate(k.last_used_at)}</td>
+                <td style={{ padding: "12px 8px" }}>
+                  {k.is_active ? <Pill color={T.accent}>active</Pill> : <Pill color={T.textMute}>revoked</Pill>}
+                </td>
+                <td style={{ padding: "10px 8px" }}>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {k.is_active && (
+                      <button onClick={() => handleRevoke(k.id)}
+                        style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.warn, padding: "4px 10px", borderRadius: 3, fontSize: 11, fontFamily: FONT_MONO, cursor: "pointer" }}>
+                        Revoke
+                      </button>
+                    )}
+                    <button onClick={() => handleDelete(k.id)}
+                      style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.crit, padding: "4px 10px", borderRadius: 3, fontSize: 11, fontFamily: FONT_MONO, cursor: "pointer" }}>
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      {/* ── Show-once modal ── */}
+      {newKey && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div style={{ background: T.panel, border: `1px solid ${T.accent}66`, borderRadius: 8, padding: 28, maxWidth: 540, width: "90%", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontFamily: FONT_MONO, fontWeight: 700, color: T.accent, fontSize: 14 }}>⚠ Copy your API key — shown only once</div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: T.textDim, lineHeight: 1.6 }}>
+              This key will <strong style={{ color: T.text }}>never be shown again</strong>. Copy it now and store it in a secrets manager (e.g. Render Secret Files, GitHub Actions secrets).
+            </div>
+            <div style={{ background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 4, padding: "10px 14px", fontFamily: FONT_MONO, fontSize: 12, color: T.text, wordBreak: "break-all", userSelect: "all" }}>
+              {newKey}
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={() => navigator.clipboard.writeText(newKey).catch(() => {})}
+                style={{ background: `${T.accent}20`, border: `1px solid ${T.accent}55`, color: T.accent, padding: "7px 16px", borderRadius: 4, fontSize: 12, fontFamily: FONT_MONO, cursor: "pointer" }}>
+                Copy to clipboard
+              </button>
+              <button onClick={() => setNewKey(null)}
+                style={{ background: T.accent, color: T.bg, border: "none", padding: "7px 18px", borderRadius: 4, fontSize: 12, fontFamily: FONT_MONO, fontWeight: 600, cursor: "pointer" }}>
+                I've saved it — close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function UsersPage() {
   const currentUser = useUser();
   const [users,    setUsers]    = useState([]);
@@ -3132,6 +3277,7 @@ const PAGES = [
   { id:"budgets",   label:"Budgets" },
   { id:"security",  label:"Security" },
   { id:"users",     label:"Users" },
+  { id:"apikeys",   label:"API Keys" },
   { id:"settings",     label:"Settings" },
   { id:"integrations", label:"Integrations" },
 ];
@@ -3223,6 +3369,7 @@ export default function App() {
       case "budgets":   return <BudgetsPage />;
       case "security":  return <SecurityPage />;
       case "users":     return <UsersPage />;
+      case "apikeys":   return <ApiKeysPage />;
       case "settings":      return <SettingsPage />;
       case "integrations":  return <IntegrationsPage />;
       default:              return null;
@@ -3313,7 +3460,7 @@ export default function App() {
           </div>
         </header>
 
-        {!["home","budgets","security","chat","users","settings","integrations"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents}/>}
+        {!["home","budgets","security","chat","users","apikeys","settings","integrations"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents}/>}
 
         {renderPage()}
       </main>

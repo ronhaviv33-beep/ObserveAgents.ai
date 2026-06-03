@@ -170,6 +170,29 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ApiKeyCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=128)
+    team: str = Field(default="unknown", max_length=128)
+
+
+class ApiKeyOut(BaseModel):
+    id: int
+    name: str
+    key_prefix: str
+    team: str
+    created_by_id: int | None
+    created_at: datetime
+    last_used_at: datetime | None
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class ApiKeyCreated(ApiKeyOut):
+    """Returned only at creation — includes the full key (shown once)."""
+    key: str
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str

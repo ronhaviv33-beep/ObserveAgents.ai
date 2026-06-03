@@ -128,3 +128,37 @@ export async function updateKey(key, value) {
   }
   return r.json()
 }
+
+// ── API Key management ────────────────────────────────────────────────────────
+
+export async function fetchApiKeys() {
+  const r = await authFetch(`${BASE}/api-keys`)
+  if (!r || !r.ok) throw new Error('Failed to fetch API keys')
+  return r.json()
+}
+
+export async function createApiKey(data) {
+  const r = await authFetch(`${BASE}/api-keys`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+  if (!r || !r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to create API key')
+  }
+  return r.json()
+}
+
+export async function revokeApiKey(id) {
+  const r = await authFetch(`${BASE}/api-keys/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ is_active: false }),
+  })
+  if (!r || !r.ok) throw new Error('Failed to revoke API key')
+  return r.json()
+}
+
+export async function deleteApiKey(id) {
+  const r = await authFetch(`${BASE}/api-keys/${id}`, { method: 'DELETE' })
+  if (!r || !r.ok) throw new Error('Failed to delete API key')
+}

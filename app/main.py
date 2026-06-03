@@ -22,6 +22,7 @@ from app.schemas import (
     ScanRequest, ScanResponse, ScanFinding,
     SessionCreate, SessionOut, SessionMessageOut, SessionChatRequest,
     UserCreate, UserUpdate, UserOut, LoginRequest, TokenResponse,
+    ApiKeyCreate, ApiKeyOut, ApiKeyCreated,
 )
 from app import telemetry as tel
 from app import budget as bud
@@ -29,7 +30,7 @@ from app import policy as pol
 from app import sessions as sess
 from app.scanner import scan
 from app.client import complete, chat_complete
-from app.auth import hash_password, verify_password, create_token, get_current_user, require_admin, get_proxy_caller
+from app.auth import hash_password, verify_password, create_token, get_current_user, require_admin, get_proxy_caller, generate_api_key
 from app.client import proxy_chat_complete, proxy_chat_stream
 from app.models import calculate_cost
 
@@ -279,6 +280,77 @@ async def delete_user(user_id: int, db: Session = Depends(get_db), current_user=
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     db.delete(user)
+    db.commit()
+
+
+# ─── API Key management ───────────────────────────────────────────────────────
+
+@app.post("/api-keys", response_model=ApiKeyCreated, status_code=201, tags=["Auth — Users"])
+async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor=Depends(require_admin)):
+    from app.models import ApiKey
+    full_key, key_prefix, key_hash = generate_api_key()
+    record = ApiKey(
+        name=req.name,
+        key_prefix=key_prefix,
+        key_hash=key_hash,
+        team=req.team,
+        created_by_id=actor.id,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    import logging
+    logging.getLogger("aifinops.security").info(
+        "API key created: id=%s name=%s team=%s by=%s", record.id, record.name, record.team, actor.email
+    )
+    # Return full key — shown exactly once, never retrievable again
+    return ApiKeyCreated(
+        id=record.id, name=record.name, key_prefix=record.key_prefix,
+        team=record.team, created_by_id=record.created_by_id,
+        created_at=record.created_at, last_used_at=record.last_used_at,
+        is_active=record.is_active, key=full_key,
+    )
+
+
+@app.get("/api-keys", response_model=list[ApiKeyOut], tags=["Auth — Users"])
+async def list_api_keys(db: Session = Depends(get_db), _=Depends(require_admin)):
+    from app.models import ApiKey
+    return db.query(ApiKey).order_by(ApiKey.created_at.desc()).all()
+
+
+@app.patch("/api-keys/{key_id}", response_model=ApiKeyOut, tags=["Auth — Users"])
+async def update_api_key(
+    key_id: int,
+    is_active: bool = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    actor=Depends(require_admin),
+):
+    from app.models import ApiKey
+    key = db.query(ApiKey).filter(ApiKey.id == key_id).first()
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+    key.is_active = is_active
+    db.commit()
+    db.refresh(key)
+    import logging
+    action = "enabled" if is_active else "revoked"
+    logging.getLogger("aifinops.security").info(
+        "API key %s: id=%s name=%s by=%s", action, key.id, key.name, actor.email
+    )
+    return key
+
+
+@app.delete("/api-keys/{key_id}", status_code=204, tags=["Auth — Users"])
+async def delete_api_key(key_id: int, db: Session = Depends(get_db), actor=Depends(require_admin)):
+    from app.models import ApiKey
+    key = db.query(ApiKey).filter(ApiKey.id == key_id).first()
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+    import logging
+    logging.getLogger("aifinops.security").info(
+        "API key deleted: id=%s name=%s by=%s", key.id, key.name, actor.email
+    )
+    db.delete(key)
     db.commit()
 
 
