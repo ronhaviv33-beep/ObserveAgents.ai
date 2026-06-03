@@ -3020,7 +3020,7 @@ print(response.content)`;
           {[
             <>Go to the <strong style={{ color:T.accent }}>API Keys</strong> page → <strong style={{ color:T.text }}>Generate Key</strong>. Set a <em>Name</em> (e.g. <code style={{ color:T.info }}>acme-prod-agent</code>) and the <em>Team</em> it belongs to.</>,
             <>Copy the <code style={{ color:T.accent }}>gk-…</code> key from the popup — it is shown <strong style={{ color:T.warn }}>only once</strong> and stored only as a hash. Hand it to the customer over a secure channel.</>,
-            <>The customer drops it into their existing agent as the <code style={{ color:T.info }}>api_key</code> — no other code change. The <code style={{ color:T.info }}>base_url</code> is this gateway.</>,
+            <>The customer drops it into their existing agent as the <code style={{ color:T.info }}>api_key</code> — no other code change. The <code style={{ color:T.info }}>base_url</code> is this gateway. Works the same whether they call <strong style={{ color:T.text }}>OpenAI, Anthropic, Google, or a local model</strong> — the gateway routes by model name.</>,
             <>Every call is attributed to that key's team for budget &amp; policy enforcement, and the key's <em>last used</em> timestamp updates live on the API Keys page.</>,
             <>To cut off access, click <strong style={{ color:T.warn }}>Revoke</strong> — that key stops working immediately; all other customers are unaffected.</>,
           ].map((step, i) => (
@@ -3028,7 +3028,12 @@ print(response.content)`;
           ))}
         </ol>
         <div style={{ marginTop:16 }}>
-          <CodeBlock id="customer-key" code={`# Customer's agent — only the api_key differs from a normal OpenAI call
+          <CodeBlock id="customer-key" code={`# One gateway, every provider. The customer changes only base_url + api_key;
+# the "model" field decides which platform the call is routed to:
+#   OpenAI      → gpt-4o-mini, gpt-4o, o3 ...
+#   Anthropic   → claude-sonnet-4-5, claude-opus-4-5 ...
+#   Google      → gemini-2.5-pro, gemini-2.0-flash ...
+#   Local/Ollama→ llama-3.1-70b-local ...
 import openai
 
 client = openai.OpenAI(
@@ -3036,8 +3041,9 @@ client = openai.OpenAI(
     api_key="gk-...",                      # the issued API key (not a JWT)
 )
 
+# Same code calls any provider — just swap the model name:
 resp = client.chat.completions.create(
-    model="gpt-4o-mini",
+    model="claude-sonnet-4-5",             # ← or gpt-4o-mini, gemini-2.0-flash, llama-3.1-70b-local
     messages=[{"role": "user", "content": "Hello"}],
     extra_headers={"X-Guard-Agent": "acme-prod-agent"},
 )
