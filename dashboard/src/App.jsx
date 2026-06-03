@@ -440,8 +440,11 @@ function Home({ risk, savings, alerts, A, onNavigate }) {
         <h1 style={{ fontSize:36, fontWeight:400, letterSpacing:"-0.025em", lineHeight:1.15, margin:0, maxWidth:720, color:T.text }}>
           "We don't understand or control our<br /><span style={{ color:T.textDim }}>AI infrastructure."</span>
         </h1>
-        <div style={{ fontSize:15, color:T.textDim, marginTop:18, maxWidth:620, lineHeight:1.55 }}>
-          Every enterprise running AI in production hits the same wall: opaque spend, runaway agents, ungoverned models, and no audit trail. AIFinOps Guard gives you the layer that sees, scores, and controls all of it.
+        <div style={{ fontSize:15, color:T.textDim, marginTop:18, maxWidth:680, lineHeight:1.65 }}>
+          AIFinOps Guard gives organizations complete visibility, governance, security, and cost control over every AI agent, model, and workflow running inside their environment.
+        </div>
+        <div style={{ fontSize:13, color:T.textMute, marginTop:12, maxWidth:680, lineHeight:1.65 }}>
+          If your company uses ChatGPT, Copilot, Claude, Gemini, AI agents, or custom LLM applications, AIFinOps Guard helps you understand where your money goes, what your AI is doing, and whether it operates securely and according to policy.
         </div>
         {/* 3-line pitch — the entire integration in one diff */}
         <div style={{ marginTop:28, marginBottom:8, background:T.bg, border:`1px solid ${T.borderHi}`, borderRadius:6, padding:"16px 20px", maxWidth:720 }}>
