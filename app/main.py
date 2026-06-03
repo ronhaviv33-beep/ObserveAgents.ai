@@ -61,6 +61,21 @@ def _platform_default_mode() -> str:
 _PLATFORM_MODE = _platform_default_mode()
 
 
+# ─── Caller identity helpers ──────────────────────────────────────────────────
+# get_proxy_caller returns either a User object (JWT) or a dict (gk- API key).
+# These pull team/name from whichever shape, so telemetry can fall back to the
+# API key's own team/name when the X-Guard-* headers aren't sent.
+def _caller_team(caller) -> str | None:
+    if caller is None:
+        return None
+    return caller.get("team") if isinstance(caller, dict) else getattr(caller, "team", None)
+
+def _caller_name(caller) -> str | None:
+    if caller is None:
+        return None
+    return caller.get("name") if isinstance(caller, dict) else getattr(caller, "name", None)
+
+
 # ─── Circuit breaker (protects callers during enforcement outages) ────────────
 _LLM_TIMEOUT      = float(os.getenv("GATEWAY_LLM_TIMEOUT_SECS", "30"))
 _ENFORCE_TIMEOUT  = float(os.getenv("GATEWAY_ENFORCE_TIMEOUT_SECS", "5"))
@@ -1142,8 +1157,10 @@ async def openai_compat_chat(
     messages = body.get("messages", [])
     stream   = body.pop("stream", False)  # pop so body can be forwarded cleanly
 
-    team  = request.headers.get("X-Guard-Team",  "unknown")
-    agent = request.headers.get("X-Guard-Agent", "unknown")
+    # Header wins (lets one key label many agents); else fall back to the API
+    # key's own team/name; else "unknown".
+    team  = request.headers.get("X-Guard-Team")  or _caller_team(current_user) or "unknown"
+    agent = request.headers.get("X-Guard-Agent") or _caller_name(current_user) or "unknown"
 
     # Enforcement pipeline
     last_user = ""
@@ -1290,8 +1307,8 @@ async def anthropic_compat_messages(
             content = " ".join(text_parts)
         oai_messages.append({"role": m["role"], "content": content})
 
-    team  = request.headers.get("X-Guard-Team",  "unknown")
-    agent = request.headers.get("X-Guard-Agent", "unknown")
+    team  = request.headers.get("X-Guard-Team")  or _caller_team(current_user) or "unknown"
+    agent = request.headers.get("X-Guard-Agent") or _caller_name(current_user) or "unknown"
 
     # Enforcement
     last_user = ""
