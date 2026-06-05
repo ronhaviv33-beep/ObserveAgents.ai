@@ -54,13 +54,8 @@ def _check_tenancy_hardened() -> bool:
     Checked once at startup and exposed in /health so the state is queryable and
     monitorable rather than buried in boot logs.
 
-    WATCH-ITEM (pre-customer-#2): when this returns False, the system should fail
-    closed — either refuse to start (Option 1) or gate the four dashboard read paths
-    with 503 (Option 2) — rather than just logging an ERROR. The loud ERROR in
-    migrate_orgs.py is a phase-appropriate stopgap for single-operator dogfooding.
-    It must be replaced with a hard fail before a real second tenant is onboarded.
-    See BUILD_LOG for tracking.
-    """
+    When False, the four dashboard read paths return 503 via require_tenancy_hardened().
+"""
     try:
         from sqlalchemy import inspect as _inspect
         inspector = _inspect(engine)
@@ -91,6 +86,18 @@ def _platform_default_mode() -> str:
     return "observe" if legacy == "open" else "enforce"
 
 _PLATFORM_MODE = _platform_default_mode()
+
+
+# ─── Tenancy gate ────────────────────────────────────────────────────────────
+def require_tenancy_hardened():
+    """Dependency: blocks dashboard read paths with 503 until the DB schema is
+    hardened (organization_id NOT NULL on telemetry). Prevents cross-org leaks
+    on un-migrated deployments."""
+    if not _TENANCY_HARDENED:
+        raise HTTPException(
+            status_code=503,
+            detail="Tenancy isolation not verified — run migrate_orgs.py before reading telemetry.",
+        )
 
 
 # ─── Caller identity helpers ──────────────────────────────────────────────────
@@ -877,6 +884,7 @@ def get_telemetry(
     limit: int = Query(default=100, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
+    _: None = Depends(require_tenancy_hardened),
 ):
     return _redact_sensitive_records(
         tel.get_all(db, organization_id=current_user.organization_id, skip=skip, limit=limit),
@@ -885,7 +893,7 @@ def get_telemetry(
 
 
 @app.get("/telemetry/summary", response_model=TelemetrySummary, tags=["GET — Read / Monitor"])
-def get_summary(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def get_summary(db: Session = Depends(get_db), current_user=Depends(get_current_user), _: None = Depends(require_tenancy_hardened)):
     return tel.get_summary(db, organization_id=current_user.organization_id)
 
 
@@ -901,6 +909,7 @@ def get_audit(
     limit: int = Query(default=100, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
+    _: None = Depends(require_tenancy_hardened),
 ):
     records = tel.get_audit(
         db, organization_id=current_user.organization_id,
@@ -924,7 +933,7 @@ def security_scan(req: ScanRequest, _=Depends(get_current_user)):
 
 
 @app.get("/security/alerts", tags=["GET — Read / Monitor"])
-def security_alerts(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def security_alerts(db: Session = Depends(get_db), current_user=Depends(get_current_user), _: None = Depends(require_tenancy_hardened)):
     return tel.get_security_alerts(db, organization_id=current_user.organization_id)
 
 
