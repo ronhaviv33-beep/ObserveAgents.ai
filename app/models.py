@@ -130,8 +130,9 @@ class Telemetry(Base):
     __tablename__ = "telemetry"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    # organization_id: nullable for rows written before BYOK migration; non-null for all new rows.
-    # All dashboard queries filter by this — null rows are visible only to the platform org.
+    # organization_id: nullable only during the boot migration that backfills pre-BYOK rows.
+    # migrate_orgs.py hardens this to NOT NULL after confirming zero nulls remain.
+    # All dashboard queries filter by this — a null row would be invisible to every org.
     organization_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("organizations.id"), nullable=True, index=True
     )

@@ -98,6 +98,67 @@ def run():
             log.info("All telemetry rows already have organization_id.")
 
         db.commit()
+
+        # ── 6. Harden telemetry.organization_id to NOT NULL ──────────────────
+        # SQLite doesn't support ALTER COLUMN, so we verify zero nulls remain
+        # (post-backfill) and recreate the table with a NOT NULL constraint.
+        # The check ensures we never harden with stranded null rows.
+        from sqlalchemy import text, inspect as _inspect
+        inspector = _inspect(engine)
+        tel_cols = {c["name"]: c for c in inspector.get_columns("telemetry")}
+        col_nullable = tel_cols.get("organization_id", {}).get("nullable", True)
+
+        if col_nullable:
+            null_count = db.execute(
+                text("SELECT COUNT(*) FROM telemetry WHERE organization_id IS NULL")
+            ).scalar()
+            if null_count > 0:
+                log.warning(
+                    f"Cannot harden telemetry.organization_id: {null_count} rows still null. "
+                    "Re-run migration after all null rows are backfilled."
+                )
+            else:
+                # Rebuild the table with NOT NULL on organization_id.
+                # All other columns are preserved exactly.
+                db.execute(text("PRAGMA foreign_keys=OFF"))
+                db.execute(text("""
+                    CREATE TABLE telemetry_new (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        organization_id INTEGER NOT NULL REFERENCES organizations(id),
+                        team VARCHAR(128) NOT NULL,
+                        agent VARCHAR(128) NOT NULL,
+                        model VARCHAR(64) NOT NULL,
+                        prompt TEXT NOT NULL,
+                        response TEXT NOT NULL,
+                        prompt_tokens INTEGER DEFAULT 0,
+                        completion_tokens INTEGER DEFAULT 0,
+                        total_tokens INTEGER DEFAULT 0,
+                        latency_ms FLOAT DEFAULT 0.0,
+                        cost_usd FLOAT DEFAULT 0.0,
+                        sensitive BOOLEAN DEFAULT 0,
+                        sensitive_findings TEXT,
+                        blocked BOOLEAN DEFAULT 0,
+                        block_reason TEXT,
+                        timestamp DATETIME
+                    )
+                """))
+                db.execute(text("""
+                    INSERT INTO telemetry_new
+                    SELECT id, organization_id, team, agent, model, prompt, response,
+                           prompt_tokens, completion_tokens, total_tokens, latency_ms,
+                           cost_usd, sensitive, sensitive_findings, blocked, block_reason, timestamp
+                    FROM telemetry
+                """))
+                db.execute(text("DROP TABLE telemetry"))
+                db.execute(text("ALTER TABLE telemetry_new RENAME TO telemetry"))
+                db.execute(text("CREATE INDEX IF NOT EXISTS ix_telemetry_id ON telemetry(id)"))
+                db.execute(text("CREATE INDEX IF NOT EXISTS ix_telemetry_organization_id ON telemetry(organization_id)"))
+                db.execute(text("PRAGMA foreign_keys=ON"))
+                db.commit()
+                log.info("Hardened telemetry.organization_id to NOT NULL.")
+        else:
+            log.info("telemetry.organization_id already NOT NULL.")
+
         log.info("Migration complete.")
 
     except Exception:
