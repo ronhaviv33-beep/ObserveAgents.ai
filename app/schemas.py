@@ -211,6 +211,7 @@ class HealthResponse(BaseModel):
     uptime_seconds: int
     platform_mode: str
     circuit_breaker: dict
+    tenancy_hardened: bool
 
 
 class LoginRequest(BaseModel):

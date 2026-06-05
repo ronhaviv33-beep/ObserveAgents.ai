@@ -48,6 +48,30 @@ except Exception as _e:
 _START_TIME = time.time()
 
 
+def _check_tenancy_hardened() -> bool:
+    """
+    Return True if telemetry.organization_id is NOT NULL (tenancy fully enforced).
+    Checked once at startup and exposed in /health so the state is queryable and
+    monitorable rather than buried in boot logs.
+
+    WATCH-ITEM (pre-customer-#2): when this returns False, the system should fail
+    closed — either refuse to start (Option 1) or gate the four dashboard read paths
+    with 503 (Option 2) — rather than just logging an ERROR. The loud ERROR in
+    migrate_orgs.py is a phase-appropriate stopgap for single-operator dogfooding.
+    It must be replaced with a hard fail before a real second tenant is onboarded.
+    See BUILD_LOG for tracking.
+    """
+    try:
+        from sqlalchemy import inspect as _inspect
+        inspector = _inspect(engine)
+        cols = {c["name"]: c for c in inspector.get_columns("telemetry")}
+        return not cols.get("organization_id", {}).get("nullable", True)
+    except Exception:
+        return False  # fail-safe: unknown = report not hardened
+
+_TENANCY_HARDENED = _check_tenancy_hardened()
+
+
 # ─── Guard mode (Visibility First → Governance Later) ─────────────────────────
 # Platform default comes from GUARD_MODE; per-team overrides live in the
 # guard_modes table. Effective mode = team override (if any) else platform default.
@@ -664,6 +688,7 @@ def health(db: Session = Depends(get_db)):
             "consecutive_failures": _circuit["failures"],
             "tripped_at": _circuit["tripped_at"],
         },
+        tenancy_hardened=_TENANCY_HARDENED,
     )
 
 
