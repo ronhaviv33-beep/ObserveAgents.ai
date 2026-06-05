@@ -11,6 +11,10 @@ from openai import AsyncOpenAI
 
 load_dotenv()
 
+# ─── Per-org client cache ─────────────────────────────────────────────────────
+# Keyed by (organization_id, provider) so each org's clients are independent.
+_org_clients: dict[tuple[int, str], AsyncOpenAI] = {}
+
 
 # ─── SSRF guard for self-hosted model URL ─────────────────────────────────────
 
@@ -98,6 +102,85 @@ def _get_client(model: str) -> AsyncOpenAI:
     return _clients[provider]
 
 
+def get_client_for_org(organization_id: int, model: str, db) -> AsyncOpenAI:
+    """
+    Resolve the provider client for a specific organization.
+
+    Looks up the org's encrypted credential in provider_credentials, decrypts
+    it, and returns an AsyncOpenAI client keyed to that org+provider pair.
+
+    Raises HTTPException 402 (with a clear message) if the org has no credential
+    for this provider — never falls back to the platform env-var keys.
+
+    The only org that reaches env-var keys is the platform (internal) org,
+    and only via the standard _get_client() path, not through this function.
+    """
+    from fastapi import HTTPException
+    from app.models import ProviderCredential, Organization, decrypt_credential
+
+    provider = _provider_for(model)
+    cache_key = (organization_id, provider)
+
+    if cache_key in _org_clients:
+        return _org_clients[cache_key]
+
+    timeout = float(os.getenv("GATEWAY_LLM_TIMEOUT_SECS", "30"))
+
+    cred = db.query(ProviderCredential).filter(
+        ProviderCredential.organization_id == organization_id,
+        ProviderCredential.provider == provider,
+        ProviderCredential.is_active == True,  # noqa: E712
+    ).first()
+
+    if cred is None:
+        org = db.query(Organization).filter(Organization.id == organization_id).first()
+        org_name = org.name if org else f"org:{organization_id}"
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                f"No {provider} credential configured for organization '{org_name}'. "
+                f"An admin must add the {provider.upper()}_API_KEY in Settings → Provider Keys."
+            ),
+        )
+
+    try:
+        api_key = decrypt_credential(cred.encrypted_key)
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to decrypt {provider} credential. Contact your administrator.",
+        )
+
+    if provider == "openai":
+        client = AsyncOpenAI(api_key=api_key, timeout=timeout)
+    elif provider == "anthropic":
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url="https://api.anthropic.com/v1",
+            timeout=timeout,
+        )
+    elif provider == "google":
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+            timeout=timeout,
+        )
+    elif provider == "local":
+        base_url = cred.base_url or os.getenv("LOCAL_LLM_URL", "http://localhost:11434/v1")
+        base_url = _validate_local_url(base_url)
+        client = AsyncOpenAI(api_key="local", base_url=base_url, timeout=timeout)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
+
+    _org_clients[cache_key] = client
+    return client
+
+
+def invalidate_org_client(organization_id: int, provider: str) -> None:
+    """Call this after a credential is updated or revoked."""
+    _org_clients.pop((organization_id, provider), None)
+
+
 # ─── Result dataclass ─────────────────────────────────────────────────────────
 
 @dataclass
@@ -170,14 +253,14 @@ async def chat_complete(
 # Used by /v1/chat/completions and /v1/messages so tool_calls, temperature,
 # response_format, seed, etc. all reach the upstream provider unchanged.
 
-async def proxy_chat_complete(body: dict) -> dict:
+async def proxy_chat_complete(body: dict, org_client: AsyncOpenAI | None = None) -> dict:
     """
     Forward an entire OpenAI-shaped request body to the upstream provider.
-    Returns the raw model_dump() of the response, preserving tool_calls and
-    all fields the caller sent (temperature, seed, response_format, etc.).
+    org_client: the org-resolved client from get_client_for_org(). If None,
+    falls back to the platform env-var client (internal org only).
     """
     model  = body.get("model", "gpt-4o-mini")
-    client = _get_client(model)
+    client = org_client if org_client is not None else _get_client(model)
 
     t0   = time.perf_counter()
     resp = await client.chat.completions.create(**body)
@@ -189,17 +272,15 @@ async def proxy_chat_complete(body: dict) -> dict:
 async def proxy_chat_stream(
     body: dict,
     request=None,
+    org_client: AsyncOpenAI | None = None,
 ) -> AsyncIterator[str]:
     """
-    Stream an OpenAI-shaped request to the upstream provider and relay SSE
-    chunks as they arrive.  Persists telemetry via the usage chunk at the end.
-
-    Yields raw SSE lines ("data: {...}\\n\\n" and "data: [DONE]\\n\\n").
-    Yields a special sentinel dict at the end for the caller to use for telemetry:
-      {"_guard_usage": {"prompt_tokens": ..., "completion_tokens": ..., "total_tokens": ..., "model": ...}}
+    Stream an OpenAI-shaped request to the upstream provider and relay SSE chunks.
+    org_client: the org-resolved client from get_client_for_org(). If None,
+    falls back to the platform env-var client (internal org only).
     """
     model  = body.get("model", "gpt-4o-mini")
-    client = _get_client(model)
+    client = org_client if org_client is not None else _get_client(model)
 
     stream_body = {**body, "stream": True, "stream_options": {"include_usage": True}}
 

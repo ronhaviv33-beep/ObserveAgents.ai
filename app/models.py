@@ -1,6 +1,8 @@
+import os
 import uuid as _uuid
 from datetime import datetime, timezone
-from sqlalchemy import Integer, String, Float, Text, DateTime, Boolean, ForeignKey
+from cryptography.fernet import Fernet
+from sqlalchemy import Integer, String, Float, Text, DateTime, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -31,11 +33,71 @@ COST_PER_1M = {
 _DEFAULT_PRICING = {"prompt": 0.15, "completion": 0.60}  # gpt-4o-mini as safe default
 
 
+# ─── Envelope encryption for provider credentials ────────────────────────────
+# CREDENTIAL_ENCRYPTION_KEY must be a 32-byte url-safe base64 Fernet key.
+# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Set in .env / Render dashboard (sync:false). Never commit.
+
+def _fernet() -> Fernet:
+    raw = os.getenv("CREDENTIAL_ENCRYPTION_KEY", "")
+    if not raw:
+        raise RuntimeError(
+            "CREDENTIAL_ENCRYPTION_KEY is not set. "
+            "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+        )
+    return Fernet(raw.encode())
+
+def encrypt_credential(plaintext: str) -> str:
+    return _fernet().encrypt(plaintext.encode()).decode()
+
+def decrypt_credential(ciphertext: str) -> str:
+    return _fernet().decrypt(ciphertext.encode()).decode()
+
+
 def calculate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     pricing = COST_PER_1M.get(model, _DEFAULT_PRICING)
     prompt_cost = (prompt_tokens / 1_000_000) * pricing["prompt"]
     completion_cost = (completion_tokens / 1_000_000) * pricing["completion"]
     return round(prompt_cost + completion_cost, 8)
+
+
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(256), unique=True, index=True)
+    slug: Mapped[str] = mapped_column(String(128), unique=True, index=True)  # url-safe handle
+    is_internal: Mapped[bool] = mapped_column(Boolean, default=False)        # True = platform org
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class ProviderCredential(Base):
+    """
+    Per-org provider API keys, encrypted at rest with Fernet envelope encryption.
+    The plaintext key is NEVER stored — only the Fernet ciphertext.
+    last4 is stored separately for display (e.g. "sk-...4f2a").
+    """
+    __tablename__ = "provider_credentials"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "provider", name="uq_org_provider"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(32))    # "openai" | "anthropic" | "google" | "local"
+    encrypted_key: Mapped[str] = mapped_column(Text)     # Fernet ciphertext
+    last4: Mapped[str] = mapped_column(String(8))        # display only e.g. "4f2a"
+    base_url: Mapped[str | None] = mapped_column(String(512), nullable=True)  # local LLM only
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class PolicyRule(Base):
@@ -95,7 +157,12 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(128))
     hashed_password: Mapped[str] = mapped_column(String(256))
     role: Mapped[str] = mapped_column(String(32), default="analyst")   # admin|analyst|viewer
-    team: Mapped[str] = mapped_column(String(128), default="")
+    team: Mapped[str] = mapped_column(String(128), default="")         # sub-label within org
+    # organization_id: nullable during backfill migration; enforced non-null after.
+    # Auth dependency treats null as a hard 401 — no fallback to any default org.
+    organization_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -109,7 +176,12 @@ class ApiKey(Base):
     name: Mapped[str] = mapped_column(String(128))                        # human label
     key_prefix: Mapped[str] = mapped_column(String(16))                   # first 12 chars — display only
     key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # SHA-256
-    team: Mapped[str] = mapped_column(String(128), default="unknown")
+    team: Mapped[str] = mapped_column(String(128), default="unknown")     # sub-label within org
+    # organization_id: nullable during backfill migration; enforced non-null after.
+    # get_proxy_caller treats null as a hard 401 — no fallback to any default org.
+    organization_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
     created_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)

@@ -27,6 +27,11 @@ services:
         sync: false
       - key: LOCAL_LLM_URL
         sync: false
+      # Fernet key for encrypting per-org provider credentials (BYOK).
+      # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      # Set in Render dashboard (sync:false). Never commit the real value.
+      - key: CREDENTIAL_ENCRYPTION_KEY
+        sync: false
       # Frontend origin for CORS — set to your actual frontend URL after first deploy
       - key: FRONTEND_ORIGIN
         sync: false

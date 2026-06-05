@@ -32,10 +32,18 @@ from app import sessions as sess
 from app.scanner import scan
 from app.client import complete, chat_complete
 from app.auth import hash_password, verify_password, create_token, get_current_user, require_admin, get_proxy_caller, generate_api_key
-from app.client import proxy_chat_complete, proxy_chat_stream
-from app.models import calculate_cost
+from app.client import proxy_chat_complete, proxy_chat_stream, get_client_for_org, invalidate_org_client
+from app.models import calculate_cost, Organization, ProviderCredential, encrypt_credential, decrypt_credential
 
 Base.metadata.create_all(bind=engine)
+
+# Run org migration on startup (idempotent — safe to call every boot)
+from app.migrate_orgs import run as _run_org_migration
+try:
+    _run_org_migration()
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("aifinops").warning("Org migration warning (non-fatal): %s", _e)
 
 _START_TIME = time.time()
 
@@ -65,6 +73,11 @@ _PLATFORM_MODE = _platform_default_mode()
 # get_proxy_caller returns either a User object (JWT) or a dict (gk- API key).
 # These pull team/name from whichever shape, so telemetry can fall back to the
 # API key's own team/name when the X-Guard-* headers aren't sent.
+def _caller_org_id(caller) -> int | None:
+    if caller is None:
+        return None
+    return caller.get("organization_id") if isinstance(caller, dict) else getattr(caller, "organization_id", None)
+
 def _caller_team(caller) -> str | None:
     if caller is None:
         return None
@@ -423,6 +436,128 @@ async def delete_api_key(key_id: int, db: Session = Depends(get_db), actor=Depen
     )
     db.delete(key)
     db.commit()
+
+
+# ─── Provider credentials (BYOK — per-org encrypted keys) ────────────────────
+
+@app.get("/provider-credentials", tags=["Auth — Users"])
+def list_provider_credentials(
+    db: Session = Depends(get_db),
+    actor=Depends(require_admin),
+):
+    """List provider credentials for the caller's org. Returns last4 only — never the key."""
+    creds = db.query(ProviderCredential).filter(
+        ProviderCredential.organization_id == actor.organization_id
+    ).all()
+    return [
+        {
+            "id":       c.id,
+            "provider": c.provider,
+            "last4":    c.last4,
+            "base_url": c.base_url,
+            "is_active": c.is_active,
+            "updated_at": c.updated_at.isoformat(),
+        }
+        for c in creds
+    ]
+
+
+@app.post("/provider-credentials", status_code=201, tags=["Auth — Users"])
+def upsert_provider_credential(
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    actor=Depends(require_admin),
+):
+    """
+    Add or update a provider API key for the caller's org.
+    The plaintext key is encrypted immediately and never stored.
+    Validates the key with a cheap test call before saving.
+    """
+    provider = body.get("provider", "").lower()
+    raw_key  = body.get("key", "").strip()
+    base_url = body.get("base_url")
+
+    if provider not in ("openai", "anthropic", "google", "local"):
+        raise HTTPException(status_code=400, detail="provider must be openai|anthropic|google|local")
+    if not raw_key:
+        raise HTTPException(status_code=400, detail="key is required")
+
+    # Validate the key with a minimal test call before storing
+    import asyncio as _asyncio
+    from app.client import _provider_for, _validate_local_url
+    from openai import AsyncOpenAI as _AsyncOpenAI
+
+    async def _validate():
+        timeout = 10.0
+        if provider == "openai":
+            c = _AsyncOpenAI(api_key=raw_key, timeout=timeout)
+        elif provider == "anthropic":
+            c = _AsyncOpenAI(api_key=raw_key, base_url="https://api.anthropic.com/v1", timeout=timeout)
+        elif provider == "google":
+            c = _AsyncOpenAI(api_key=raw_key, base_url="https://generativelanguage.googleapis.com/v1beta/openai", timeout=timeout)
+        else:  # local
+            burl = _validate_local_url(base_url or "http://localhost:11434/v1")
+            c = _AsyncOpenAI(api_key="local", base_url=burl, timeout=timeout)
+        test_model = {"openai": "gpt-4o-mini", "anthropic": "claude-haiku-4-5", "google": "gemini-2.0-flash", "local": "llama-3.1-8b-local"}[provider]
+        await c.chat.completions.create(
+            model=test_model,
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=1,
+        )
+
+    try:
+        _asyncio.get_event_loop().run_until_complete(_validate())
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Key validation failed: {exc}")
+
+    enc   = encrypt_credential(raw_key)
+    last4 = raw_key[-4:] if len(raw_key) >= 4 else raw_key
+
+    existing = db.query(ProviderCredential).filter(
+        ProviderCredential.organization_id == actor.organization_id,
+        ProviderCredential.provider == provider,
+    ).first()
+
+    if existing:
+        existing.encrypted_key = enc
+        existing.last4         = last4
+        existing.base_url      = base_url
+        existing.is_active     = True
+        invalidate_org_client(actor.organization_id, provider)
+        import logging; logging.getLogger("aifinops").info(
+            "Provider credential updated: org=%s provider=%s by=%s", actor.organization_id, provider, actor.email
+        )
+    else:
+        db.add(ProviderCredential(
+            organization_id=actor.organization_id,
+            provider=provider,
+            encrypted_key=enc,
+            last4=last4,
+            base_url=base_url,
+        ))
+        import logging; logging.getLogger("aifinops").info(
+            "Provider credential created: org=%s provider=%s by=%s", actor.organization_id, provider, actor.email
+        )
+
+    db.commit()
+    return {"provider": provider, "last4": last4, "status": "saved"}
+
+
+@app.delete("/provider-credentials/{provider}", status_code=204, tags=["Auth — Users"])
+def delete_provider_credential(
+    provider: str,
+    db: Session = Depends(get_db),
+    actor=Depends(require_admin),
+):
+    cred = db.query(ProviderCredential).filter(
+        ProviderCredential.organization_id == actor.organization_id,
+        ProviderCredential.provider == provider,
+    ).first()
+    if not cred:
+        raise HTTPException(status_code=404, detail="No credential found for this provider")
+    db.delete(cred)
+    db.commit()
+    invalidate_org_client(actor.organization_id, provider)
 
 
 # ─── Guard modes (per-team governance) ────────────────────────────────────────
@@ -1157,10 +1292,13 @@ async def openai_compat_chat(
     messages = body.get("messages", [])
     stream   = body.pop("stream", False)  # pop so body can be forwarded cleanly
 
-    # Header wins (lets one key label many agents); else fall back to the API
-    # key's own team/name; else "unknown".
     team  = request.headers.get("X-Guard-Team")  or _caller_team(current_user) or "unknown"
     agent = request.headers.get("X-Guard-Agent") or _caller_name(current_user) or "unknown"
+
+    # Resolve the org's provider client. Hard 402 if the org has no credential
+    # for this provider. Platform (internal) org falls through to env-var client.
+    org_id = _caller_org_id(current_user)
+    org_client = get_client_for_org(org_id, model, db) if org_id is not None else None
 
     # Enforcement pipeline
     last_user = ""
@@ -1182,7 +1320,7 @@ async def openai_compat_chat(
         async def relay():
             usage_data = None
             t0 = _time_mod.perf_counter()
-            async for item in proxy_chat_stream(body, request=request):
+            async for item in proxy_chat_stream(body, request=request, org_client=org_client):
                 if isinstance(item, dict) and "_guard_usage" in item:
                     usage_data = item["_guard_usage"]
                     usage_data["latency_ms"] = round((_time_mod.perf_counter() - t0) * 1000, 2)
@@ -1214,7 +1352,7 @@ async def openai_compat_chat(
 
     # ── Non-streaming — forward entire body ───────────────────────────────────
     try:
-        resp_dict = await proxy_chat_complete(body)
+        resp_dict = await proxy_chat_complete(body, org_client=org_client)
     except RuntimeError as exc:
         import logging; logging.getLogger("aifinops").error("Service error", exc_info=True); raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
     except Exception as exc:
@@ -1310,6 +1448,9 @@ async def anthropic_compat_messages(
     team  = request.headers.get("X-Guard-Team")  or _caller_team(current_user) or "unknown"
     agent = request.headers.get("X-Guard-Agent") or _caller_name(current_user) or "unknown"
 
+    org_id = _caller_org_id(current_user)
+    org_client = get_client_for_org(org_id, model, db) if org_id is not None else None
+
     # Enforcement
     last_user = ""
     findings_list = []
@@ -1348,7 +1489,7 @@ async def anthropic_compat_messages(
 
             usage_data = None
             t0 = _time_mod.perf_counter()
-            async for item in proxy_chat_stream(oai_body, request=request):
+            async for item in proxy_chat_stream(oai_body, request=request, org_client=org_client):
                 if isinstance(item, dict) and "_guard_usage" in item:
                     usage_data = item["_guard_usage"]
                     usage_data["latency_ms"] = round((_time_mod.perf_counter() - t0) * 1000, 2)
@@ -1391,7 +1532,7 @@ async def anthropic_compat_messages(
 
     # ── Non-streaming ─────────────────────────────────────────────────────────
     try:
-        resp_dict = await proxy_chat_complete(oai_body)
+        resp_dict = await proxy_chat_complete(oai_body, org_client=org_client)
     except RuntimeError as exc:
         import logging; logging.getLogger("aifinops").error("Service error", exc_info=True); raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
     except Exception as exc:

@@ -106,6 +106,15 @@ async def get_current_user(
     ).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    # organization_id is resolved from the DB on every request — never trusted from the token.
+    # A null organization_id means the user hasn't been backfilled yet → hard 401.
+    if user.organization_id is None:
+        raise HTTPException(
+            status_code=401,
+            detail="User has no organization assigned. Contact your administrator.",
+        )
+
     return user
 
 
@@ -152,6 +161,13 @@ async def get_proxy_caller(
         ApiKey.key_hash == key_hash, ApiKey.is_active == True  # noqa: E712
     ).first()
     if api_key:
+        # organization_id must be set — null means the key predates the migration
+        # and hasn't been backfilled. Hard 401: no fallback to platform or any default.
+        if api_key.organization_id is None:
+            raise HTTPException(
+                status_code=401,
+                detail="API key has no organization assigned. Run the org migration or reassign the key.",
+            )
         # Update last_used_at in-place (best-effort, don't fail the request if it errors)
         try:
             api_key.last_used_at = datetime.now(timezone.utc)
@@ -159,11 +175,12 @@ async def get_proxy_caller(
         except Exception:
             db.rollback()
         return {
-            "id":   None,
-            "name": api_key.name,
-            "team": api_key.team,
-            "role": "client",
-            "api_key_id": api_key.id,
+            "id":              None,
+            "name":            api_key.name,
+            "team":            api_key.team,
+            "role":            "client",
+            "api_key_id":      api_key.id,
+            "organization_id": api_key.organization_id,
         }
 
     raise HTTPException(status_code=401, detail="Invalid or revoked API key")

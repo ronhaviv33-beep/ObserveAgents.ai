@@ -5,3 +5,4 @@ openai>=1.57.0
 python-dotenv>=1.0.1
 pydantic>=2.11.0
 passlib[bcrypt]>=1.7.4
+cryptography>=42.0.0
