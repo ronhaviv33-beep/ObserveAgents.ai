@@ -130,6 +130,11 @@ class Telemetry(Base):
     __tablename__ = "telemetry"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    # organization_id: nullable for rows written before BYOK migration; non-null for all new rows.
+    # All dashboard queries filter by this — null rows are visible only to the platform org.
+    organization_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
     team: Mapped[str] = mapped_column(String(128))
     agent: Mapped[str] = mapped_column(String(128))
     model: Mapped[str] = mapped_column(String(64))

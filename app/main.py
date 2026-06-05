@@ -372,12 +372,18 @@ async def delete_user(user_id: int, db: Session = Depends(get_db), current_user=
 @app.post("/api-keys", response_model=ApiKeyCreated, status_code=201, tags=["Auth — Users"])
 async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor=Depends(require_admin)):
     from app.models import ApiKey
+    # organization_id comes from the creating admin's org — never from the request body.
+    # A null org here would produce a key that hard-401s on first use, which is the
+    # exact null-org state the migration exists to prevent.
+    if actor.organization_id is None:
+        raise HTTPException(status_code=500, detail="Admin account has no organization assigned. Contact your administrator.")
     full_key, key_prefix, key_hash = generate_api_key()
     record = ApiKey(
         name=req.name,
         key_prefix=key_prefix,
         key_hash=key_hash,
         team=req.team,
+        organization_id=actor.organization_id,
         created_by_id=actor.id,
     )
     db.add(record)
@@ -385,7 +391,8 @@ async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor
     db.refresh(record)
     import logging
     logging.getLogger("aifinops.security").info(
-        "API key created: id=%s name=%s team=%s by=%s", record.id, record.name, record.team, actor.email
+        "API key created: id=%s name=%s team=%s org=%s by=%s",
+        record.id, record.name, record.team, record.organization_id, actor.email,
     )
     # Return full key — shown exactly once, never retrievable again
     return ApiKeyCreated(
@@ -628,6 +635,7 @@ def set_guard_mode(team: str, req: GuardModeUpdate, db: Session = Depends(get_db
         db, team=team, agent="guard-mode", model="-",
         prompt=f"Guard mode change by {actor.email}",
         reason=f"GUARD_MODE: team '{team}' {old_mode} → {new_mode} by {actor.email}",
+        organization_id=actor.organization_id,
     )
 
     shadow = tel.would_block_counts(db, days=30)
@@ -662,7 +670,7 @@ def health(db: Session = Depends(get_db)):
 # ─── AI Gateway ───────────────────────────────────────────────────────────────
 
 @app.post("/ask", response_model=AskResponse, tags=["POST — Ask / Create"])
-async def ask(req: AskRequest, db: Session = Depends(get_db), _=Depends(get_current_user)):
+async def ask(req: AskRequest, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
 
     # 1. PII / sensitive data scan
     scan_result = scan(req.prompt)
@@ -676,7 +684,8 @@ async def ask(req: AskRequest, db: Session = Depends(get_db), _=Depends(get_curr
     if not policy_check["allowed"]:
         _shadow_or_block_inline(db, team=req.team, agent=req.agent, model=req.model,
                                 prompt=req.prompt, reason=policy_check["reason"], status=403,
-                                scan_result=scan_result, findings_list=findings_list)
+                                scan_result=scan_result, findings_list=findings_list,
+                                organization_id=current_user.organization_id)
 
     # 3. Budget enforcement
     budget_check = bud.check(db, team=req.team, agent=req.agent)
@@ -689,7 +698,8 @@ async def ask(req: AskRequest, db: Session = Depends(get_db), _=Depends(get_curr
         )
         _shadow_or_block_inline(db, team=req.team, agent=req.agent, model=req.model,
                                 prompt=req.prompt, reason=reason, status=429,
-                                scan_result=scan_result, findings_list=findings_list)
+                                scan_result=scan_result, findings_list=findings_list,
+                                organization_id=current_user.organization_id)
 
     # 4. Call LLM
     try:
@@ -707,6 +717,7 @@ async def ask(req: AskRequest, db: Session = Depends(get_db), _=Depends(get_curr
     record = tel.save(
         db=db, team=req.team, agent=req.agent, prompt=req.prompt, result=result,
         sensitive=scan_result.is_sensitive, sensitive_findings=findings_list,
+        organization_id=current_user.organization_id,
     )
 
     # 6. Attach to existing session or auto-create one
@@ -751,7 +762,7 @@ async def ask(req: AskRequest, db: Session = Depends(get_db), _=Depends(get_curr
 # ─── Multi-turn Chat ─────────────────────────────────────────────────────────
 
 @app.post("/chat", response_model=ChatResponse, tags=["POST — Ask / Create"])
-async def chat(req: ChatRequest, db: Session = Depends(get_db), _=Depends(get_current_user)):
+async def chat(req: ChatRequest, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
 
     # Scan the latest user message only
     last_user = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
@@ -777,7 +788,8 @@ async def chat(req: ChatRequest, db: Session = Depends(get_db), _=Depends(get_cu
                   f"${blk['spend']:.4f} of ${blk['limit']:.2f} {blk['period']} limit.")
         _shadow_or_block_inline(db, team=req.team, agent=req.agent, model=req.model,
                                 prompt=last_user, reason=reason, status=429,
-                                scan_result=scan_result, findings_list=findings_list)
+                                scan_result=scan_result, findings_list=findings_list,
+                                organization_id=current_user.organization_id)
 
     # Build messages list — prepend system prompt if given
     messages = []
@@ -794,7 +806,8 @@ async def chat(req: ChatRequest, db: Session = Depends(get_db), _=Depends(get_cu
 
     record = tel.save(db=db, team=req.team, agent=req.agent, prompt=last_user,
                       result=result, sensitive=scan_result.is_sensitive,
-                      sensitive_findings=findings_list)
+                      sensitive_findings=findings_list,
+                      organization_id=current_user.organization_id)
 
     return ChatResponse(
         reply=result.content,
@@ -840,12 +853,15 @@ def get_telemetry(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    return _redact_sensitive_records(tel.get_all(db, skip=skip, limit=limit), current_user)
+    return _redact_sensitive_records(
+        tel.get_all(db, organization_id=current_user.organization_id, skip=skip, limit=limit),
+        current_user,
+    )
 
 
 @app.get("/telemetry/summary", response_model=TelemetrySummary, tags=["GET — Read / Monitor"])
-def get_summary(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    return tel.get_summary(db)
+def get_summary(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    return tel.get_summary(db, organization_id=current_user.organization_id)
 
 
 # ─── Audit log ────────────────────────────────────────────────────────────────
@@ -861,9 +877,12 @@ def get_audit(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    records = tel.get_audit(db, team=team, agent=agent,
-                            sensitive_only=sensitive_only, blocked_only=blocked_only,
-                            skip=skip, limit=limit)
+    records = tel.get_audit(
+        db, organization_id=current_user.organization_id,
+        team=team, agent=agent,
+        sensitive_only=sensitive_only, blocked_only=blocked_only,
+        skip=skip, limit=limit,
+    )
     return _redact_sensitive_records(records, current_user)
 
 
@@ -880,8 +899,8 @@ def security_scan(req: ScanRequest, _=Depends(get_current_user)):
 
 
 @app.get("/security/alerts", tags=["GET — Read / Monitor"])
-def security_alerts(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    return tel.get_security_alerts(db)
+def security_alerts(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    return tel.get_security_alerts(db, organization_id=current_user.organization_id)
 
 
 # ─── Budgets ──────────────────────────────────────────────────────────────────
@@ -995,7 +1014,8 @@ async def session_chat(session_uuid: str, req: SessionChatRequest, db: Session =
                   f"${blk['spend']:.4f} of ${blk['limit']:.2f} {blk['period']} limit.")
         _shadow_or_block_inline(db, team=req.team, agent=req.agent, model=req.model,
                                 prompt=last_user, reason=reason, status=429,
-                                scan_result=scan_result, findings_list=findings_list)
+                                scan_result=scan_result, findings_list=findings_list,
+                                organization_id=current_user.organization_id)
 
     # Build messages list
     messages = []
@@ -1012,7 +1032,8 @@ async def session_chat(session_uuid: str, req: SessionChatRequest, db: Session =
 
     record = tel.save(db=db, team=req.team, agent=req.agent, prompt=last_user,
                       result=result, sensitive=scan_result.is_sensitive,
-                      sensitive_findings=findings_list)
+                      sensitive_findings=findings_list,
+                      organization_id=current_user.organization_id)
 
     # Persist user message + assistant reply in session
     sess.add_message(db, session_uuid=session_uuid, role="user", content=last_user)
@@ -1171,7 +1192,7 @@ def _resolve_guard_mode(db: Session, team: str) -> str:
 
 
 def _shadow_or_block_inline(db, *, team, agent, model, prompt, reason, status,
-                            scan_result, findings_list):
+                            scan_result, findings_list, organization_id=None):
     """
     Mode-aware block used by /ask and /chat inline enforcement.
     enforce → save_blocked + raise; observe/alert → append would_block finding.
@@ -1180,14 +1201,14 @@ def _shadow_or_block_inline(db, *, team, agent, model, prompt, reason, status,
     if mode == "enforce":
         tel.save_blocked(db, team=team, agent=agent, model=model, prompt=prompt,
                          reason=reason, sensitive=scan_result.is_sensitive,
-                         sensitive_findings=findings_list)
+                         sensitive_findings=findings_list, organization_id=organization_id)
         raise HTTPException(status_code=status, detail=reason)
     findings_list.append({"type": "would_block", "severity": "warning",
                           "sample": f"WOULD BLOCK in enforce mode ({status}): {reason}"})
 
 
 async def _run_enforcement_pipeline(
-    db: Session, team: str, agent: str, model: str, messages: list
+    db: Session, team: str, agent: str, model: str, messages: list, organization_id: int | None = None
 ):
     """
     Mode-aware enforcement. ALWAYS evaluates PII scan → policy → budget so the
@@ -1219,7 +1240,8 @@ async def _run_enforcement_pipeline(
         if mode == "enforce":
             tel.save_blocked(db, team=team, agent=agent, model=model,
                              prompt=last_user, reason=reason,
-                             sensitive=scan_result.is_sensitive, sensitive_findings=findings_list)
+                             sensitive=scan_result.is_sensitive, sensitive_findings=findings_list,
+                             organization_id=organization_id)
             raise HTTPException(status_code=status, detail=reason)
         findings_list.append({
             "type": "would_block", "severity": "warning",
@@ -1310,7 +1332,7 @@ async def openai_compat_chat(
     scan_result = None
     try:
         last_user, scan_result, findings_list, _, budget_check, _ = \
-            await _run_enforcement_pipeline(db, team, agent, model, messages)
+            await _run_enforcement_pipeline(db, team, agent, model, messages, organization_id=org_id)
         budget_warnings = budget_check["warnings"]
         _circuit_record_success()
     except HTTPException:
@@ -1345,6 +1367,7 @@ async def openai_compat_chat(
                     ),
                     sensitive=(scan_result.is_sensitive if scan_result else False),
                     sensitive_findings=findings_list,
+                    organization_id=org_id,
                 )
 
         return StreamingResponse(
@@ -1380,6 +1403,7 @@ async def openai_compat_chat(
                   latency_ms=latency_ms),
         sensitive=(scan_result.is_sensitive if scan_result else False),
         sensitive_findings=findings_list,
+        organization_id=org_id,
     )
 
     resp_dict["x_guard"] = {
@@ -1463,7 +1487,7 @@ async def anthropic_compat_messages(
     scan_result = None
     try:
         last_user, scan_result, findings_list, _, budget_check, _ = \
-            await _run_enforcement_pipeline(db, team, agent, model, oai_messages)
+            await _run_enforcement_pipeline(db, team, agent, model, oai_messages, organization_id=org_id)
         budget_warnings = budget_check["warnings"]
         _circuit_record_success()
     except HTTPException:
@@ -1527,6 +1551,7 @@ async def anthropic_compat_messages(
                                latency_ms=usage_data["latency_ms"]),
                     sensitive=(scan_result.is_sensitive if scan_result else False),
                     sensitive_findings=findings_list,
+                    organization_id=org_id,
                 )
 
         return StreamingResponse(
@@ -1561,6 +1586,7 @@ async def anthropic_compat_messages(
                   latency_ms=latency_ms),
         sensitive=(scan_result.is_sensitive if scan_result else False),
         sensitive_findings=findings_list,
+        organization_id=org_id,
     )
 
     return {

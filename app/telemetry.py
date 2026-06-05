@@ -15,8 +15,10 @@ def save(
     result: CompletionResult,
     sensitive: bool = False,
     sensitive_findings: list[dict] | None = None,
+    organization_id: int | None = None,
 ) -> Telemetry:
     record = Telemetry(
+        organization_id=organization_id,
         team=team,
         agent=agent,
         model=result.model,
@@ -46,9 +48,11 @@ def save_blocked(
     reason: str,
     sensitive: bool = False,
     sensitive_findings: list[dict] | None = None,
+    organization_id: int | None = None,
 ) -> Telemetry:
     """Record a request that was blocked before reaching the LLM."""
     record = Telemetry(
+        organization_id=organization_id,
         team=team, agent=agent, model=model, prompt=prompt, response="",
         prompt_tokens=0, completion_tokens=0, total_tokens=0,
         latency_ms=0.0, cost_usd=0.0,
@@ -63,12 +67,18 @@ def save_blocked(
     return record
 
 
-def get_all(db: Session, skip: int = 0, limit: int = 100) -> list[Telemetry]:
-    return db.query(Telemetry).order_by(Telemetry.timestamp.desc()).offset(skip).limit(limit).all()
+def get_all(db: Session, organization_id: int | None, skip: int = 0, limit: int = 100) -> list[Telemetry]:
+    q = db.query(Telemetry).order_by(Telemetry.timestamp.desc())
+    q = q.filter(Telemetry.organization_id == organization_id)
+    return q.offset(skip).limit(limit).all()
 
 
-def get_summary(db: Session) -> TelemetrySummary:
-    rows = db.query(Telemetry).filter(Telemetry.blocked == False).all()
+def get_summary(db: Session, organization_id: int | None) -> TelemetrySummary:
+    q = db.query(Telemetry).filter(
+        Telemetry.blocked == False,
+        Telemetry.organization_id == organization_id,
+    )
+    rows = q.all()
     if not rows:
         return TelemetrySummary(
             total_requests=0, total_tokens=0, total_cost_usd=0.0,
@@ -86,6 +96,7 @@ def get_summary(db: Session) -> TelemetrySummary:
 
 def get_audit(
     db: Session,
+    organization_id: int | None,
     team: str | None = None,
     agent: str | None = None,
     sensitive_only: bool = False,
@@ -94,6 +105,7 @@ def get_audit(
     limit: int = 100,
 ) -> list[Telemetry]:
     q = db.query(Telemetry).order_by(Telemetry.timestamp.desc())
+    q = q.filter(Telemetry.organization_id == organization_id)
     if team:
         q = q.filter(Telemetry.team == team)
     if agent:
@@ -119,7 +131,7 @@ def would_block_counts(db: Session, days: int = 30) -> dict[str, int]:
     return counts
 
 
-def get_security_alerts(db: Session) -> list[dict]:
+def get_security_alerts(db: Session, organization_id: int | None) -> list[dict]:
     """Run detection rules against real telemetry and return live alerts."""
     from datetime import datetime, timezone, timedelta
     alerts = []
@@ -127,8 +139,11 @@ def get_security_alerts(db: Session) -> list[dict]:
     day_ago = now - timedelta(days=1)
     week_ago = now - timedelta(days=7)
 
+    def _q():
+        return db.query(Telemetry).filter(Telemetry.organization_id == organization_id)
+
     # Sensitive data exposure
-    sensitive = db.query(Telemetry).filter(Telemetry.sensitive == True).all()
+    sensitive = _q().filter(Telemetry.sensitive == True).all()
     if sensitive:
         alerts.append({
             "type": "sensitive_data_exposure", "sev": "critical",
@@ -139,7 +154,7 @@ def get_security_alerts(db: Session) -> list[dict]:
         })
 
     # Blocked requests spike
-    blocked = db.query(Telemetry).filter(
+    blocked = _q().filter(
         Telemetry.blocked == True, Telemetry.timestamp >= day_ago
     ).all()
     if len(blocked) > 5:
@@ -152,7 +167,7 @@ def get_security_alerts(db: Session) -> list[dict]:
         })
 
     # High token requests
-    big = db.query(Telemetry).filter(Telemetry.total_tokens > 30000).order_by(Telemetry.total_tokens.desc()).limit(5).all()
+    big = _q().filter(Telemetry.total_tokens > 30000).order_by(Telemetry.total_tokens.desc()).limit(5).all()
     for r in big:
         alerts.append({
             "type": "high_token_prompt", "sev": "warning",
@@ -163,7 +178,7 @@ def get_security_alerts(db: Session) -> list[dict]:
         })
 
     # After-hours activity (last 7 days)
-    all_week = db.query(Telemetry).filter(Telemetry.timestamp >= week_ago).all()
+    all_week = _q().filter(Telemetry.timestamp >= week_ago).all()
     after_hours_counts: dict[str, int] = {}
     for r in all_week:
         hour = r.timestamp.hour

@@ -9,7 +9,7 @@ Safe to run multiple times — idempotent.
 """
 import logging
 from app.database import engine, SessionLocal
-from app.models import Base, Organization, ApiKey, User, ProviderCredential, encrypt_credential
+from app.models import Base, Organization, ApiKey, User, ProviderCredential, Telemetry, encrypt_credential
 import os
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -87,6 +87,15 @@ def run():
             log.info(f"Backfilled {len(unset_users)} users → platform org")
         else:
             log.info("All users already have organization_id.")
+
+        # ── 5. Backfill existing Telemetry rows → platform org ────────────────
+        unset_tel = db.query(Telemetry).filter(Telemetry.organization_id == None).all()  # noqa: E711
+        if unset_tel:
+            for row in unset_tel:
+                row.organization_id = platform_org.id
+            log.info(f"Backfilled {len(unset_tel)} telemetry rows → platform org")
+        else:
+            log.info("All telemetry rows already have organization_id.")
 
         db.commit()
         log.info("Migration complete.")
