@@ -139,6 +139,36 @@ export async function updateKey(key, value) {
   return r.json()
 }
 
+// ── Provider credentials (BYOK) ──────────────────────────────────────────────
+
+export async function fetchProviderCredentials() {
+  const r = await authFetch(`${BASE}/provider-credentials`)
+  if (!r || !r.ok) throw new Error('Failed to fetch provider credentials')
+  return r.json()
+}
+
+export async function upsertProviderCredential(provider, key, base_url) {
+  const body = { provider, key }
+  if (base_url) body.base_url = base_url
+  const r = await authFetch(`${BASE}/provider-credentials`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+  if (!r || !r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to save credential')
+  }
+  return r.json()
+}
+
+export async function deleteProviderCredential(provider) {
+  const r = await authFetch(`${BASE}/provider-credentials/${provider}`, { method: 'DELETE' })
+  if (!r || !r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to delete credential')
+  }
+}
+
 // ── API Key management ────────────────────────────────────────────────────────
 
 export async function fetchApiKeys() {

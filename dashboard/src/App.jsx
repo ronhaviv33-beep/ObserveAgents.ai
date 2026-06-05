@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, createContext, useContext } from "react";
-import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth } from "./api.js";
+import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential } from "./api.js";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -3312,6 +3312,172 @@ function GuardModesSection() {
 }
 
 
+// ─── Provider Credentials section (BYOK) ─────────────────────────────────────
+const PROVIDER_META = {
+  openai:    { label: "OpenAI",    prefix: "sk-",      placeholder: "sk-…" },
+  anthropic: { label: "Anthropic", prefix: "sk-ant-",  placeholder: "sk-ant-…" },
+  google:    { label: "Google",    prefix: "AIza",     placeholder: "AIza…" },
+  local:     { label: "Local LLM", prefix: "",         placeholder: "http://localhost:11434", isUrl: true },
+};
+const ALL_PROVIDERS = Object.keys(PROVIDER_META);
+
+function ProviderCredentialsSection() {
+  const [creds,    setCreds]    = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [err,      setErr]      = useState(null);
+  const [editing,  setEditing]  = useState(null);   // provider name currently open
+  const [keyVal,   setKeyVal]   = useState("");
+  const [urlVal,   setUrlVal]   = useState("");
+  const [saving,   setSaving]   = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const [flash,    setFlash]    = useState(null);   // provider that just saved
+
+  const load = useCallback(async () => {
+    try {
+      const data = await fetchProviderCredentials();
+      setCreds(data);
+    } catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const configuredProviders = new Set(creds.map(c => c.provider));
+
+  const startEdit = (provider) => {
+    setEditing(provider);
+    setKeyVal("");
+    setUrlVal(creds.find(c => c.provider === provider)?.base_url || "");
+    setErr(null);
+    setFlash(null);
+  };
+  const cancelEdit = () => { setEditing(null); setKeyVal(""); setUrlVal(""); };
+
+  const handleSave = async () => {
+    const meta = PROVIDER_META[editing];
+    if (!meta) return;
+    if (meta.isUrl) {
+      if (!urlVal.trim()) return;
+    } else {
+      if (!keyVal.trim()) return;
+    }
+    setSaving(true); setErr(null);
+    try {
+      await upsertProviderCredential(editing, meta.isUrl ? "local" : keyVal.trim(), meta.isUrl ? urlVal.trim() : undefined);
+      setFlash(editing);
+      cancelEdit();
+      await load();
+    } catch (e) { setErr(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (provider) => {
+    setDeleting(provider); setErr(null);
+    try {
+      await deleteProviderCredential(provider);
+      await load();
+    } catch (e) { setErr(e.message); }
+    finally { setDeleting(null); }
+  };
+
+  return (
+    <Card title="Provider API Keys" subtitle="Per-org encrypted credentials. Keys are stored as Fernet ciphertext — only the last 4 characters are shown here.">
+      {err && <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12, marginBottom:12 }}>{err}</div>}
+      {loading ? (
+        <div style={{ color:T.textDim, fontFamily:FONT_MONO, fontSize:12, padding:12 }}>Loading…</div>
+      ) : (
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead>
+            <tr style={{ borderBottom:`1px solid ${T.border}` }}>
+              {["Provider","Status","Key (last 4)",""].map(h => (
+                <th key={h} style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.textDim, fontWeight:500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ALL_PROVIDERS.map(provider => {
+              const meta  = PROVIDER_META[provider];
+              const cred  = creds.find(c => c.provider === provider);
+              const isSet = !!cred;
+              const isOpen = editing === provider;
+
+              return (
+                <React.Fragment key={provider}>
+                  <tr style={{ borderBottom: isOpen ? "none" : `1px solid ${T.border}` }}>
+                    <td style={{ padding:"14px 8px", fontSize:13, color:T.text, fontWeight:500 }}>
+                      {meta.label}
+                    </td>
+                    <td style={{ padding:"14px 8px" }}>
+                      {isSet
+                        ? <Pill color={T.accent}>configured</Pill>
+                        : <Pill color={T.textMute}>not set</Pill>}
+                      {flash === provider && <span style={{ fontFamily:FONT_MONO, fontSize:10, color:T.accent, marginLeft:8 }}>✓ saved</span>}
+                    </td>
+                    <td style={{ padding:"14px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>
+                      {isSet
+                        ? (meta.isUrl
+                            ? <span style={{ color:T.textDim }}>{cred.base_url || "—"}</span>
+                            : <span>····{cred.last4}</span>)
+                        : <span style={{ color:T.textMute }}>—</span>}
+                    </td>
+                    <td style={{ padding:"14px 8px", display:"flex", gap:8, alignItems:"center" }}>
+                      {!isOpen && (
+                        <button onClick={() => startEdit(provider)}
+                          style={{ background:`${T.info}15`, border:`1px solid ${T.info}44`, color:T.info, padding:"5px 12px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                          {isSet ? "Rotate" : "Set key"}
+                        </button>
+                      )}
+                      {isSet && !isOpen && (
+                        <button onClick={() => handleDelete(provider)} disabled={deleting === provider}
+                          style={{ background:`${T.crit}15`, border:`1px solid ${T.crit}44`, color:T.crit, padding:"5px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer", opacity: deleting===provider ? 0.5 : 1 }}>
+                          {deleting === provider ? "…" : "Remove"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr style={{ borderBottom:`1px solid ${T.border}` }}>
+                      <td colSpan={4} style={{ padding:"0 8px 14px" }}>
+                        <div style={{ display:"flex", flexDirection:"column", gap:8, background:`${T.info}08`, border:`1px solid ${T.info}22`, borderRadius:6, padding:"12px 14px" }}>
+                          {meta.isUrl ? (
+                            <input autoFocus type="text" placeholder="http://localhost:11434"
+                              value={urlVal} onChange={e => setUrlVal(e.target.value)}
+                              onKeyDown={e => { if (e.key==="Enter") handleSave(); if (e.key==="Escape") cancelEdit(); }}
+                              style={{ flex:1, background:T.bg, color:T.text, border:`1px solid ${T.border}`, padding:"8px 12px", borderRadius:4, fontSize:13, fontFamily:FONT_MONO }} />
+                          ) : (
+                            <input autoFocus type="password" placeholder={`Paste ${meta.label} key (${meta.placeholder})`}
+                              value={keyVal} onChange={e => setKeyVal(e.target.value)}
+                              onKeyDown={e => { if (e.key==="Enter") handleSave(); if (e.key==="Escape") cancelEdit(); }}
+                              style={{ flex:1, background:T.bg, color:T.text, border:`1px solid ${T.border}`, padding:"8px 12px", borderRadius:4, fontSize:13, fontFamily:FONT_MONO }} />
+                          )}
+                          <div style={{ display:"flex", gap:8 }}>
+                            <button onClick={handleSave} disabled={saving || (meta.isUrl ? !urlVal.trim() : !keyVal.trim())}
+                              style={{ background:T.accent, color:T.bg, border:"none", padding:"8px 18px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:(saving||(meta.isUrl?!urlVal.trim():!keyVal.trim()))?0.5:1 }}>
+                              {saving ? "Validating & saving…" : "Save"}
+                            </button>
+                            <button onClick={cancelEdit}
+                              style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"8px 12px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                              Cancel
+                            </button>
+                          </div>
+                          <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute }}>
+                            Key is validated against the provider before being stored as Fernet ciphertext. Only the last 4 characters are retained for display. Press Escape to cancel.
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </Card>
+  );
+}
+
+
 function SettingsPage() {
   const [keys,      setKeys]      = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -3385,6 +3551,9 @@ function SettingsPage() {
           </div>
         ))}
       </div>
+
+      {/* Provider API keys (BYOK) */}
+      <ProviderCredentialsSection />
 
       {/* Guard modes (Visibility First → Governance Later) */}
       <GuardModesSection />
