@@ -16,10 +16,38 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
 
+def _add_column_if_missing(conn, table: str, column: str, ddl_type: str) -> bool:
+    """
+    Add a column to an existing SQLite table if it isn't already there.
+    Returns True if the column was added, False if it already existed.
+
+    create_all() never alters existing tables, so columns added to a model
+    after the table was first created must be applied with ALTER TABLE.
+    SQLite supports ALTER TABLE ADD COLUMN (nullable, no default needed).
+    """
+    from sqlalchemy import text
+    cols = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
+    if column in cols:
+        return False
+    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
+    log.info(f"  Added column {table}.{column}")
+    return True
+
+
 def run():
-    # Create all new tables (organizations, provider_credentials, new columns)
+    # Create new tables (organizations, provider_credentials). This does NOT
+    # add new columns to tables that already exist — those need ALTER TABLE below.
     Base.metadata.create_all(bind=engine)
     log.info("Tables created / verified.")
+
+    # ── 0. Add organization_id columns to pre-BYOK tables ────────────────────
+    # The persistent SQLite DB predates BYOK; its users/api_keys/telemetry tables
+    # have no organization_id column. Add them before any ORM query touches them.
+    with engine.begin() as conn:
+        _add_column_if_missing(conn, "users",     "organization_id", "INTEGER REFERENCES organizations(id)")
+        _add_column_if_missing(conn, "api_keys",  "organization_id", "INTEGER REFERENCES organizations(id)")
+        _add_column_if_missing(conn, "telemetry", "organization_id", "INTEGER REFERENCES organizations(id)")
+    log.info("Column migration complete.")
 
     db = SessionLocal()
     try:
