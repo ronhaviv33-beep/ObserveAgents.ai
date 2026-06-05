@@ -27,6 +27,7 @@ class AskResponse(BaseModel):
 
 class TelemetryRecord(BaseModel):
     id: int
+    organization_id: int | None
     team: str
     agent: str
     model: str
