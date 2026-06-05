@@ -113,9 +113,11 @@ def run():
                 text("SELECT COUNT(*) FROM telemetry WHERE organization_id IS NULL")
             ).scalar()
             if null_count > 0:
-                log.warning(
-                    f"Cannot harden telemetry.organization_id: {null_count} rows still null. "
-                    "Re-run migration after all null rows are backfilled."
+                log.error(
+                    "MIGRATION INCOMPLETE — telemetry.organization_id NOT hardened. "
+                    f"{null_count} rows still have organization_id=NULL. "
+                    "Tenancy isolation is NOT fully enforced. "
+                    "Investigate which save path produced null rows, fix it, and redeploy."
                 )
             else:
                 # Rebuild the table with NOT NULL on organization_id.
