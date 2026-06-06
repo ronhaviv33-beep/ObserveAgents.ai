@@ -1293,7 +1293,7 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
 // ─── Security page ────────────────────────────────────────────────────────────
 function SecurityPage() {
   const currentUser = useUser();
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = canSeePage(currentUser, "settings");
 
   const [alerts,    setAlerts]    = useState([]);
   const [policies,      setPolicies]      = useState([]);
@@ -1550,6 +1550,12 @@ const ROLES = {
   viewer:  { label:"Viewer",  color: T.info,   pages: ["home","overview","cost","agents","models","workflows","alerts","security"] },
 };
 
+// deny-by-default: unknown/null role → false, never crashes, never leaks
+function canSeePage(user, page) {
+  return (ROLES[user?.role]?.pages ?? []).includes(page);
+}
+
+// legacy alias used by the router — keeps the call-site unchanged
 function canAccess(role, page) {
   return (ROLES[role]?.pages ?? []).includes(page);
 }
@@ -2023,7 +2029,7 @@ const CHAT_SESSION_KEY = "guardChatSessionUuid";
 
 function ChatPage() {
   const user = useUser();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = canSeePage(user, "users");
 
   const [messages,      setMessages]      = useState([]);
   const [input,         setInput]         = useState("");
@@ -2383,12 +2389,12 @@ function ChatPage() {
             {sessionTab === "active" && (
               <>
                 {(() => {
-                  const visible = user?.role === "admin"
+                  const visible = isAdmin
                     ? activeSessions
                     : activeSessions.filter(s => s.user_name === user?.name);
                   if (visible.length === 0) return (
                     <div style={{ color:T.textMute, fontSize:11, fontFamily:FONT_MONO, textAlign:"center", marginTop:20 }}>
-                      {user?.role === "admin" ? "No active sessions" : "No active sessions for you"}
+                      {isAdmin ? "No active sessions" : "No active sessions for you"}
                     </div>
                   );
                   return visible.map(s => {
@@ -2428,7 +2434,7 @@ function ChatPage() {
                               style={{ flex:1, background:`${T.info}18`, border:`1px solid ${T.info}44`, color:T.info, borderRadius:4, padding:"4px 0", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
                               ↩ Resume
                             </button>
-                            {(user?.role === "admin" || s.user_name === user?.name) && (
+                            {(isAdmin || s.user_name === user?.name) && (
                               <button onClick={async () => {
                                 await authFetch(`${BASE}/sessions/${s.session_uuid}`, { method:"DELETE" }).catch(()=>{});
                                 setActiveSessions(prev => prev.filter(x => x.session_uuid !== s.session_uuid));
@@ -2450,7 +2456,7 @@ function ChatPage() {
             {sessionTab === "recent" && (
               <>
                 {(() => {
-                  const visible = user?.role === "admin"
+                  const visible = isAdmin
                     ? allSessions
                     : allSessions.filter(s => s.user_name === user?.name);
                   if (visible.length === 0) return (
@@ -2732,7 +2738,7 @@ function ChatPage() {
 // ─── Integrations page ────────────────────────────────────────────────────────
 function IntegrationsPage({ onNavigate }) {
   const currentUser = useUser();
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = canSeePage(currentUser, "apikeys");
   const [copied,    setCopied]    = useState(null);
   const [apiKey,    setApiKey]    = useState("");
   const [teamName,  setTeamName]  = useState(currentUser?.team || "my-team");
