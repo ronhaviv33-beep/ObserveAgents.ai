@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.database import engine, get_db
 from app.models import Base
@@ -529,7 +530,11 @@ async def create_role(req: RoleCreate, db: Session = Depends(get_db), actor=Depe
         can=json.dumps(req.can),
     )
     db.add(role)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=f"Role '{req.name}' already exists (DB constraint: {exc.orig})")
     db.refresh(role)
     return RoleOut(name=role.name, label=role.label, color=role.color,
                    pages=json.loads(role.pages or "[]"), can=json.loads(role.can or "[]"))

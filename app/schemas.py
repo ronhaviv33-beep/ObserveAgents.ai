@@ -144,8 +144,8 @@ class ChatResponse(BaseModel):
 
 class RoleOut(BaseModel):
     name: str
-    label: str
-    color: str
+    label: str = ""
+    color: str = "#7A8499"
     pages: list[str]
     can: list[str]
     model_config = {"from_attributes": True}
