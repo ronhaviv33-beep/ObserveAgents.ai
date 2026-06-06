@@ -1558,8 +1558,8 @@ const ROLES = {
 };
 
 // deny-by-default: unknown/null role → false, never crashes, never leaks.
-// `rolesMap` defaults to the hardcoded ROLES during the brief init window before
-// the server roles have loaded; once loaded, components pass useRoles() here.
+// rolesMap is always the server-loaded map from RolesContext; the ROLES
+// fallback only applies if a component somehow calls this outside the provider.
 function canSeePage(user, page, rolesMap = ROLES) {
   return (rolesMap[user?.role]?.pages ?? []).includes(page);
 }
@@ -3834,7 +3834,14 @@ export default function App() {
       const token = getToken();
       if (token) {
         try {
-          const [me, serverRoles] = await Promise.all([fetchMe(), fetchRoles().catch(() => null)]);
+          // Race fetchRoles against a 5s timeout so a hanging server never
+          // prevents the spinner from resolving. fetchMe is the hard dependency;
+          // a hung roles fetch degrades to empty-map (deny-by-default), not hang.
+          const rolesOrNull = Promise.race([
+            fetchRoles().catch(() => null),
+            new Promise(resolve => setTimeout(() => resolve(null), 5000)),
+          ]);
+          const [me, serverRoles] = await Promise.all([fetchMe(), rolesOrNull]);
           if (me) {
             setUser(me);
             const map = {};
