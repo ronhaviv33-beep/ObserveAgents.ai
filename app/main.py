@@ -81,9 +81,10 @@ def _seed_roles_for_org(db, org_id: int) -> None:
         if not existing:
             db.add(RoleModel(organization_id=org_id, **r))
         else:
-            # Migrate pages: ensure onboarding is present for admin/analyst
+            # Migrate pages to match seed (adds new page IDs, fixes nulls/empties)
             try:
-                pages = json.loads(existing.pages) if isinstance(existing.pages, str) else existing.pages
+                raw = existing.pages
+                pages = json.loads(raw) if isinstance(raw, str) else (raw or [])
             except Exception:
                 pages = []
             seed_pages = json.loads(r["pages"])
