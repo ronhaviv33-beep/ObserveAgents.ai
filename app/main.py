@@ -812,16 +812,19 @@ def list_guard_modes(db: Session = Depends(get_db), actor=Depends(require_page_a
     whether it's an explicit override, and how many requests would have been
     blocked in the last 30 days (shadow-block preview).
     """
-    from app.models import GuardMode, Telemetry
+    from app.models import GuardMode, Telemetry, Team as TeamModel
     overrides = {g.team: g for g in db.query(GuardMode).filter(
         GuardMode.organization_id == actor.organization_id
     ).all()}
     shadow = tel.would_block_counts(db, days=30, organization_id=actor.organization_id)
-    # Union of teams seen in this org's telemetry + teams with overrides
+    # Union of: telemetry teams + override teams + registered teams (from api-key/user creation)
     teams = set(shadow.keys()) | set(overrides.keys())
     teams |= {r[0] for r in db.query(Telemetry.team).filter(
         Telemetry.organization_id == actor.organization_id
     ).distinct().all()}
+    teams |= {r[0] for r in db.query(TeamModel.name).filter(
+        TeamModel.organization_id == actor.organization_id
+    ).all()}
     out = []
     for team in sorted(t for t in teams if t):
         ov = overrides.get(team)
