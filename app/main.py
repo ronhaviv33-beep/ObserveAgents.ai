@@ -71,14 +71,24 @@ _SEED_ROLES = [
     },
 ]
 
+def _seed_roles_for_org(db, org_id: int) -> None:
+    """Seed the 3 default roles for a single org if not already present."""
+    for r in _SEED_ROLES:
+        if not db.query(RoleModel).filter(
+            RoleModel.organization_id == org_id, RoleModel.name == r["name"]
+        ).first():
+            db.add(RoleModel(organization_id=org_id, **r))
+    db.commit()
+
+
 def _seed_roles() -> None:
+    """Seed default roles for every existing org. Idempotent — safe to re-run."""
     from app.database import SessionLocal
+    from app.models import Organization
     db = SessionLocal()
     try:
-        for r in _SEED_ROLES:
-            if not db.query(RoleModel).filter(RoleModel.name == r["name"]).first():
-                db.add(RoleModel(**r))
-        db.commit()
+        for org in db.query(Organization).all():
+            _seed_roles_for_org(db, org.id)
     finally:
         db.close()
 
@@ -388,7 +398,7 @@ async def create_user(req: UserCreate, db: Session = Depends(get_db), actor=Depe
     from app.models import User
     if db.query(User).filter(User.email == req.email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
-    if not db.query(RoleModel).filter(RoleModel.name == req.role).first():
+    if not db.query(RoleModel).filter(RoleModel.organization_id == actor.organization_id, RoleModel.name == req.role).first():
         raise HTTPException(status_code=422, detail=f"Role '{req.role}' does not exist. Create it in Settings → Roles first.")
     user = User(
         email=req.email,
@@ -419,7 +429,7 @@ async def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_d
     else:
         updates.pop("current_password", None)
     # Validate new role exists in DB before applying
-    if "role" in updates and not db.query(RoleModel).filter(RoleModel.name == updates["role"]).first():
+    if "role" in updates and not db.query(RoleModel).filter(RoleModel.organization_id == actor.organization_id, RoleModel.name == updates["role"]).first():
         raise HTTPException(status_code=422, detail=f"Role '{updates['role']}' does not exist.")
     # Audit privilege changes as a security event (H-1)
     if "role" in updates and updates["role"] != user.role:
@@ -450,9 +460,11 @@ async def delete_user(user_id: int, db: Session = Depends(get_db), current_user=
 # ─── Role management ─────────────────────────────────────────────────────────
 
 @app.get("/roles", response_model=list[RoleOut], tags=["Roles"])
-async def list_roles(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    """Return all configured roles. Any authenticated user can read this (needed for dropdowns)."""
-    roles = db.query(RoleModel).order_by(RoleModel.name).all()
+async def list_roles(db: Session = Depends(get_db), actor=Depends(get_current_user)):
+    """Return roles for the caller's org. Any authenticated user can read this (needed for dropdowns)."""
+    roles = db.query(RoleModel).filter(
+        RoleModel.organization_id == actor.organization_id
+    ).order_by(RoleModel.name).all()
     return [
         RoleOut(
             name=r.name,
@@ -466,10 +478,13 @@ async def list_roles(db: Session = Depends(get_db), _=Depends(get_current_user))
 
 
 @app.post("/roles", response_model=RoleOut, status_code=201, tags=["Roles"])
-async def create_role(req: RoleCreate, db: Session = Depends(get_db), _=Depends(require_admin)):
-    if db.query(RoleModel).filter(RoleModel.name == req.name).first():
+async def create_role(req: RoleCreate, db: Session = Depends(get_db), actor=Depends(require_admin)):
+    if db.query(RoleModel).filter(
+        RoleModel.organization_id == actor.organization_id, RoleModel.name == req.name
+    ).first():
         raise HTTPException(status_code=409, detail=f"Role '{req.name}' already exists")
     role = RoleModel(
+        organization_id=actor.organization_id,
         name=req.name,
         label=req.label,
         color=req.color,
@@ -486,8 +501,10 @@ async def create_role(req: RoleCreate, db: Session = Depends(get_db), _=Depends(
 _ADMIN_REQUIRED_PAGES = frozenset({"settings", "users"})  # admin must always keep these
 
 @app.patch("/roles/{role_name}", response_model=RoleOut, tags=["Roles"])
-async def update_role(role_name: str, req: RoleUpdate, db: Session = Depends(get_db), _=Depends(require_admin)):
-    role = db.query(RoleModel).filter(RoleModel.name == role_name).first()
+async def update_role(role_name: str, req: RoleUpdate, db: Session = Depends(get_db), actor=Depends(require_admin)):
+    role = db.query(RoleModel).filter(
+        RoleModel.organization_id == actor.organization_id, RoleModel.name == role_name
+    ).first()
     if not role:
         raise HTTPException(status_code=404, detail=f"Role '{role_name}' not found")
     if req.label is not None:
@@ -513,14 +530,18 @@ async def update_role(role_name: str, req: RoleUpdate, db: Session = Depends(get
 
 
 @app.delete("/roles/{role_name}", status_code=204, tags=["Roles"])
-async def delete_role(role_name: str, db: Session = Depends(get_db), _=Depends(require_admin)):
+async def delete_role(role_name: str, db: Session = Depends(get_db), actor=Depends(require_admin)):
     if role_name == "admin":
         raise HTTPException(status_code=400, detail="Cannot delete the admin role")
-    role = db.query(RoleModel).filter(RoleModel.name == role_name).first()
+    role = db.query(RoleModel).filter(
+        RoleModel.organization_id == actor.organization_id, RoleModel.name == role_name
+    ).first()
     if not role:
         raise HTTPException(status_code=404, detail=f"Role '{role_name}' not found")
     from app.models import User
-    if db.query(User).filter(User.role == role_name).first():
+    if db.query(User).filter(
+        User.organization_id == actor.organization_id, User.role == role_name
+    ).first():
         raise HTTPException(status_code=409, detail=f"Cannot delete role '{role_name}' — users are assigned to it")
     db.delete(role)
     db.commit()

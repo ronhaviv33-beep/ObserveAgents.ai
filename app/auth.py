@@ -147,7 +147,10 @@ def require_page_access(page: str):
             return user
 
         from app.models import Role as RoleModel
-        role = db.query(RoleModel).filter(RoleModel.name == user.role).first()
+        role = db.query(RoleModel).filter(
+            RoleModel.organization_id == user.organization_id,
+            RoleModel.name == user.role,
+        ).first()
         if role is None:
             raise HTTPException(status_code=403, detail=f"Role '{user.role}' is not configured")
         try:

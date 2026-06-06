@@ -102,13 +102,18 @@ class ProviderCredential(Base):
 
 class Role(Base):
     """
-    DB-managed role definitions. Each role declares which dashboard pages it can access
-    (pages JSON array) and which data/action capabilities it holds (can JSON array).
-    The three seed roles (admin, analyst, viewer) are upserted at startup.
+    DB-managed role definitions, scoped per organization.
+    Each org gets its own copy of admin/analyst/viewer seeded on org creation.
+    Admins may create additional roles for their own org only.
     """
     __tablename__ = "roles"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "name", name="uq_org_role_name"),
+    )
 
-    name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(64), index=True)
     label: Mapped[str] = mapped_column(String(64))
     color: Mapped[str] = mapped_column(String(32))           # hex color for UI
     pages: Mapped[str] = mapped_column(Text, default="[]")   # JSON list of page ids
