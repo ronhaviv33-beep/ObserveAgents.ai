@@ -1545,9 +1545,11 @@ const UserContext = createContext(null);
 const useUser = () => useContext(UserContext);
 
 const ROLES = {
-  admin:   { label:"Admin",   color: T.crit,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations"] },
-  analyst: { label:"Analyst", color: T.warn,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","security","integrations"] },
-  viewer:  { label:"Viewer",  color: T.info,   pages: ["home","overview","cost","agents","models","workflows","alerts","security"] },
+  // pages  — controls navigation visibility and page-level UI gates
+  // can    — explicit data/action capabilities not expressible as page visibility
+  admin:   { label:"Admin",   color: T.crit,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations"], can: ["view_all_sessions"] },
+  analyst: { label:"Analyst", color: T.warn,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","security","integrations"],                                        can: [] },
+  viewer:  { label:"Viewer",  color: T.info,   pages: ["home","overview","cost","agents","models","workflows","alerts","security"],                                                              can: [] },
 };
 
 // deny-by-default: unknown/null role → false, never crashes, never leaks
@@ -1555,9 +1557,14 @@ function canSeePage(user, page) {
   return (ROLES[user?.role]?.pages ?? []).includes(page);
 }
 
-// legacy alias used by the router — keeps the call-site unchanged
+// deny-by-default capability check — for data/action permissions that aren't page-visibility
+function userCan(user, capability) {
+  return (ROLES[user?.role]?.can ?? []).includes(capability);
+}
+
+// router alias — delegates to canSeePage so deny-by-default lives in one place
 function canAccess(role, page) {
-  return (ROLES[role]?.pages ?? []).includes(page);
+  return canSeePage({ role }, page);
 }
 
 // ─── Login Page ───────────────────────────────────────────────────────────────
@@ -2029,7 +2036,7 @@ const CHAT_SESSION_KEY = "guardChatSessionUuid";
 
 function ChatPage() {
   const user = useUser();
-  const isAdmin = canSeePage(user, "users");
+  const isAdmin = userCan(user, "view_all_sessions");
 
   const [messages,      setMessages]      = useState([]);
   const [input,         setInput]         = useState("");
