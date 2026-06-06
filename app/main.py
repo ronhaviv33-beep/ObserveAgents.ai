@@ -532,7 +532,7 @@ async def create_role(req: RoleCreate, db: Session = Depends(get_db), actor=Depe
     db.commit()
     db.refresh(role)
     return RoleOut(name=role.name, label=role.label, color=role.color,
-                   pages=json.loads(role.pages), can=json.loads(role.can))
+                   pages=json.loads(role.pages or "[]"), can=json.loads(role.can or "[]"))
 
 
 _ADMIN_REQUIRED_PAGES = frozenset({"settings", "users"})  # admin must always keep these
@@ -563,7 +563,7 @@ async def update_role(role_name: str, req: RoleUpdate, db: Session = Depends(get
     db.commit()
     db.refresh(role)
     return RoleOut(name=role.name, label=role.label, color=role.color,
-                   pages=json.loads(role.pages), can=json.loads(role.can))
+                   pages=json.loads(role.pages or "[]"), can=json.loads(role.can or "[]"))
 
 
 @app.delete("/roles/{role_name}", status_code=204, tags=["Roles"])
