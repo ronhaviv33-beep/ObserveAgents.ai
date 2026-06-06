@@ -378,9 +378,9 @@ async def me(current_user=Depends(get_current_user)):
 
 
 @app.get("/auth/users", response_model=list[UserOut], tags=["Auth — Users"])
-async def list_users(db: Session = Depends(get_db), _=Depends(require_page_access("users"))):
+async def list_users(db: Session = Depends(get_db), actor=Depends(require_page_access("users"))):
     from app.models import User
-    return db.query(User).order_by(User.created_at).all()
+    return db.query(User).filter(User.organization_id == actor.organization_id).order_by(User.created_at).all()
 
 
 @app.post("/auth/users", response_model=UserOut, status_code=201, tags=["Auth — Users"])
@@ -407,7 +407,7 @@ async def create_user(req: UserCreate, db: Session = Depends(get_db), actor=Depe
 @app.patch("/auth/users/{user_id}", response_model=UserOut, tags=["Auth — Users"])
 async def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_db), actor=Depends(require_page_access("users"))):
     from app.models import User
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id, User.organization_id == actor.organization_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     updates = req.model_dump(exclude_none=True)
@@ -440,7 +440,7 @@ async def delete_user(user_id: int, db: Session = Depends(get_db), current_user=
     from app.models import User
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id, User.organization_id == current_user.organization_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     db.delete(user)
@@ -563,9 +563,9 @@ async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor
 
 
 @app.get("/api-keys", response_model=list[ApiKeyOut], tags=["Auth — Users"])
-async def list_api_keys(db: Session = Depends(get_db), _=Depends(require_page_access("apikeys"))):
+async def list_api_keys(db: Session = Depends(get_db), actor=Depends(require_page_access("apikeys"))):
     from app.models import ApiKey
-    return db.query(ApiKey).order_by(ApiKey.created_at.desc()).all()
+    return db.query(ApiKey).filter(ApiKey.organization_id == actor.organization_id).order_by(ApiKey.created_at.desc()).all()
 
 
 @app.patch("/api-keys/{key_id}", response_model=ApiKeyOut, tags=["Auth — Users"])
@@ -576,7 +576,7 @@ async def update_api_key(
     actor=Depends(require_page_access("apikeys")),
 ):
     from app.models import ApiKey
-    key = db.query(ApiKey).filter(ApiKey.id == key_id).first()
+    key = db.query(ApiKey).filter(ApiKey.id == key_id, ApiKey.organization_id == actor.organization_id).first()
     if not key:
         raise HTTPException(status_code=404, detail="API key not found")
     key.is_active = is_active
@@ -593,7 +593,7 @@ async def update_api_key(
 @app.delete("/api-keys/{key_id}", status_code=204, tags=["Auth — Users"])
 async def delete_api_key(key_id: int, db: Session = Depends(get_db), actor=Depends(require_page_access("apikeys"))):
     from app.models import ApiKey
-    key = db.query(ApiKey).filter(ApiKey.id == key_id).first()
+    key = db.query(ApiKey).filter(ApiKey.id == key_id, ApiKey.organization_id == actor.organization_id).first()
     if not key:
         raise HTTPException(status_code=404, detail="API key not found")
     import logging
