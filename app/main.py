@@ -378,13 +378,13 @@ async def me(current_user=Depends(get_current_user)):
 
 
 @app.get("/auth/users", response_model=list[UserOut], tags=["Auth — Users"])
-async def list_users(db: Session = Depends(get_db), _=Depends(require_admin)):
+async def list_users(db: Session = Depends(get_db), _=Depends(require_page_access("users"))):
     from app.models import User
     return db.query(User).order_by(User.created_at).all()
 
 
 @app.post("/auth/users", response_model=UserOut, status_code=201, tags=["Auth — Users"])
-async def create_user(req: UserCreate, db: Session = Depends(get_db), actor=Depends(require_admin)):
+async def create_user(req: UserCreate, db: Session = Depends(get_db), actor=Depends(require_page_access("users"))):
     from app.models import User
     if db.query(User).filter(User.email == req.email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -405,7 +405,7 @@ async def create_user(req: UserCreate, db: Session = Depends(get_db), actor=Depe
 
 
 @app.patch("/auth/users/{user_id}", response_model=UserOut, tags=["Auth — Users"])
-async def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_db), actor=Depends(require_admin)):
+async def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_db), actor=Depends(require_page_access("users"))):
     from app.models import User
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -436,7 +436,7 @@ async def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_d
 
 
 @app.delete("/auth/users/{user_id}", status_code=204, tags=["Auth — Users"])
-async def delete_user(user_id: int, db: Session = Depends(get_db), current_user=Depends(require_admin)):
+async def delete_user(user_id: int, db: Session = Depends(get_db), current_user=Depends(require_page_access("users"))):
     from app.models import User
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
@@ -529,7 +529,7 @@ async def delete_role(role_name: str, db: Session = Depends(get_db), _=Depends(r
 # ─── API Key management ───────────────────────────────────────────────────────
 
 @app.post("/api-keys", response_model=ApiKeyCreated, status_code=201, tags=["Auth — Users"])
-async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor=Depends(require_admin)):
+async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor=Depends(require_page_access("apikeys"))):
     from app.models import ApiKey
     # organization_id comes from the creating admin's org — never from the request body.
     # A null org here would produce a key that hard-401s on first use, which is the
@@ -563,7 +563,7 @@ async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor
 
 
 @app.get("/api-keys", response_model=list[ApiKeyOut], tags=["Auth — Users"])
-async def list_api_keys(db: Session = Depends(get_db), _=Depends(require_admin)):
+async def list_api_keys(db: Session = Depends(get_db), _=Depends(require_page_access("apikeys"))):
     from app.models import ApiKey
     return db.query(ApiKey).order_by(ApiKey.created_at.desc()).all()
 
@@ -573,7 +573,7 @@ async def update_api_key(
     key_id: int,
     is_active: bool = Body(..., embed=True),
     db: Session = Depends(get_db),
-    actor=Depends(require_admin),
+    actor=Depends(require_page_access("apikeys")),
 ):
     from app.models import ApiKey
     key = db.query(ApiKey).filter(ApiKey.id == key_id).first()
@@ -591,7 +591,7 @@ async def update_api_key(
 
 
 @app.delete("/api-keys/{key_id}", status_code=204, tags=["Auth — Users"])
-async def delete_api_key(key_id: int, db: Session = Depends(get_db), actor=Depends(require_admin)):
+async def delete_api_key(key_id: int, db: Session = Depends(get_db), actor=Depends(require_page_access("apikeys"))):
     from app.models import ApiKey
     key = db.query(ApiKey).filter(ApiKey.id == key_id).first()
     if not key:
@@ -609,7 +609,7 @@ async def delete_api_key(key_id: int, db: Session = Depends(get_db), actor=Depen
 @app.get("/provider-credentials", tags=["Auth — Users"])
 def list_provider_credentials(
     db: Session = Depends(get_db),
-    actor=Depends(require_admin),
+    actor=Depends(require_page_access("settings")),
 ):
     """List provider credentials for the caller's org. Returns last4 only — never the key."""
     creds = db.query(ProviderCredential).filter(
@@ -632,7 +632,7 @@ def list_provider_credentials(
 def upsert_provider_credential(
     body: dict = Body(...),
     db: Session = Depends(get_db),
-    actor=Depends(require_admin),
+    actor=Depends(require_page_access("settings")),
 ):
     """
     Add or update a provider API key for the caller's org.
@@ -726,7 +726,7 @@ def upsert_provider_credential(
 def delete_provider_credential(
     provider: str,
     db: Session = Depends(get_db),
-    actor=Depends(require_admin),
+    actor=Depends(require_page_access("settings")),
 ):
     cred = db.query(ProviderCredential).filter(
         ProviderCredential.organization_id == actor.organization_id,
@@ -742,7 +742,7 @@ def delete_provider_credential(
 # ─── Guard modes (per-team governance) ────────────────────────────────────────
 
 @app.get("/guard-modes", response_model=list[GuardModeOut], tags=["GET — Read / Monitor"])
-def list_guard_modes(db: Session = Depends(get_db), _=Depends(require_admin)):
+def list_guard_modes(db: Session = Depends(get_db), _=Depends(require_page_access("settings"))):
     """
     One row per team that appears in telemetry, showing its effective mode,
     whether it's an explicit override, and how many requests would have been
@@ -768,7 +768,7 @@ def list_guard_modes(db: Session = Depends(get_db), _=Depends(require_admin)):
 
 
 @app.put("/guard-modes/{team}", response_model=GuardModeOut, tags=["POST — Ask / Create"])
-def set_guard_mode(team: str, req: GuardModeUpdate, db: Session = Depends(get_db), actor=Depends(require_admin)):
+def set_guard_mode(team: str, req: GuardModeUpdate, db: Session = Depends(get_db), actor=Depends(require_page_access("settings"))):
     """
     Set a team's guard mode. mode="default" removes the override so the team
     falls back to the platform default. Every change is written to the audit log.
@@ -1081,7 +1081,7 @@ def security_alerts(db: Session = Depends(get_db), current_user=Depends(get_curr
 # ─── Budgets ──────────────────────────────────────────────────────────────────
 
 @app.post("/budgets", response_model=BudgetRuleOut, status_code=201, tags=["POST — Ask / Create"])
-def create_budget(rule: BudgetRuleCreate, db: Session = Depends(get_db), _=Depends(require_admin)):
+def create_budget(rule: BudgetRuleCreate, db: Session = Depends(get_db), _=Depends(require_page_access("budgets"))):
     return bud.create_rule(db, team=rule.team, agent=rule.agent,
                            limit_usd=rule.limit_usd, period=rule.period, action=rule.action)
 
@@ -1092,7 +1092,7 @@ def list_budgets(db: Session = Depends(get_db), _=Depends(get_current_user)):
 
 
 @app.delete("/budgets/{rule_id}", status_code=204, tags=["DELETE — Remove"])
-def delete_budget(rule_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
+def delete_budget(rule_id: int, db: Session = Depends(get_db), _=Depends(require_page_access("budgets"))):
     if not bud.delete_rule(db, rule_id):
         raise HTTPException(status_code=404, detail="Budget rule not found")
 
@@ -1236,7 +1236,7 @@ async def session_chat(session_uuid: str, req: SessionChatRequest, db: Session =
 # ─── Policies ─────────────────────────────────────────────────────────────────
 
 @app.post("/policies", response_model=PolicyRuleOut, status_code=201, tags=["POST — Ask / Create"])
-def create_policy(rule: PolicyRuleCreate, db: Session = Depends(get_db), _=Depends(require_admin)):
+def create_policy(rule: PolicyRuleCreate, db: Session = Depends(get_db), _=Depends(require_page_access("settings"))):
     return pol.create_rule(db, team=rule.team, rule_type=rule.rule_type, value=rule.value)
 
 
@@ -1246,7 +1246,7 @@ def list_policies(db: Session = Depends(get_db), _=Depends(get_current_user)):
 
 
 @app.delete("/policies/{rule_id}", status_code=204, tags=["DELETE — Remove"])
-def delete_policy(rule_id: int, db: Session = Depends(get_db), _=Depends(require_admin)):
+def delete_policy(rule_id: int, db: Session = Depends(get_db), _=Depends(require_page_access("settings"))):
     if not pol.delete_rule(db, rule_id):
         raise HTTPException(status_code=404, detail="Policy rule not found")
 
@@ -1297,7 +1297,7 @@ class KeyUpdateRequest(BaseModel):
 
 
 @app.get("/settings/keys", response_model=List[KeyStatus], tags=["Auth — Users"])
-def get_key_statuses(_=Depends(require_admin)):
+def get_key_statuses(_=Depends(require_page_access("settings"))):
     """Return the configuration status of each provider API key (admin only). Never exposes actual values."""
     result = []
     for defn in _KEY_DEFINITIONS:
@@ -1314,7 +1314,7 @@ def get_key_statuses(_=Depends(require_admin)):
 
 
 @app.patch("/settings/keys", tags=["Auth — Users"])
-def update_key(req: KeyUpdateRequest, _=Depends(require_admin)):
+def update_key(req: KeyUpdateRequest, _=Depends(require_page_access("settings"))):
     """Write or update a provider API key in the .env file (admin only). The value is stored in the project root .env."""
     from dotenv import set_key, find_dotenv
 
