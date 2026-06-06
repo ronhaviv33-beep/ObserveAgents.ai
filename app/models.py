@@ -220,6 +220,26 @@ class ApiKey(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class Team(Base):
+    """
+    Soft (auto-registering) team registry, scoped per org.
+    Never an FK — team remains a free string everywhere it's used.
+    This table is the source of truth for "what teams exist in this org."
+    Written idempotently on every path that accepts a team string.
+    """
+    __tablename__ = "teams"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "name", name="uq_org_team_name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class GuardMode(Base):
     __tablename__ = "guard_modes"
     __table_args__ = (

@@ -222,6 +222,15 @@ class ApiKeyCreated(ApiKeyOut):
     key: str
 
 
+class TeamOut(BaseModel):
+    id: int
+    organization_id: int
+    name: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class GuardModeOut(BaseModel):
     team: str
     mode: str               # observe | alert | enforce

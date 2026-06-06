@@ -25,6 +25,7 @@ from app.schemas import (
     ApiKeyCreate, ApiKeyOut, ApiKeyCreated,
     GuardModeOut, GuardModeUpdate, HealthResponse,
     RoleCreate, RoleUpdate, RoleOut,
+    TeamOut,
 )
 from app import telemetry as tel
 from app import budget as bud
@@ -34,7 +35,7 @@ from app.scanner import scan
 from app.client import complete, chat_complete
 from app.auth import hash_password, verify_password, create_token, get_current_user, require_admin, require_page_access, get_proxy_caller, generate_api_key
 from app.client import proxy_chat_complete, proxy_chat_stream, get_client_for_org, invalidate_org_client
-from app.models import calculate_cost, Organization, ProviderCredential, encrypt_credential, decrypt_credential, Role as RoleModel
+from app.models import calculate_cost, Organization, ProviderCredential, encrypt_credential, decrypt_credential, Role as RoleModel, Team as TeamModel
 
 Base.metadata.create_all(bind=engine)
 
@@ -166,6 +167,21 @@ def _caller_team(caller) -> str | None:
     if caller is None:
         return None
     return caller.get("team") if isinstance(caller, dict) else getattr(caller, "team", None)
+
+
+def _register_team(db: Session, organization_id: int, team: str) -> None:
+    """Idempotent insert of (organization_id, team) into the teams table.
+    Skips blank/unknown teams — they don't represent real attribution entities.
+    Called on every write path that accepts a team string."""
+    if not team or team == "unknown":
+        return
+    if not db.query(TeamModel).filter(
+        TeamModel.organization_id == organization_id,
+        TeamModel.name == team,
+    ).first():
+        db.add(TeamModel(organization_id=organization_id, name=team))
+        db.commit()
+
 
 def _caller_name(caller) -> str | None:
     if caller is None:
@@ -411,6 +427,7 @@ async def create_user(req: UserCreate, db: Session = Depends(get_db), actor=Depe
     db.add(user)
     db.commit()
     db.refresh(user)
+    _register_team(db, actor.organization_id, req.team)
     return user
 
 
@@ -475,6 +492,15 @@ async def list_roles(db: Session = Depends(get_db), actor=Depends(get_current_us
         )
         for r in roles
     ]
+
+
+@app.get("/teams", response_model=list[TeamOut], tags=["Teams"])
+async def list_teams(db: Session = Depends(get_db), actor=Depends(get_current_user)):
+    """Return teams registered in the caller's org."""
+    teams = db.query(TeamModel).filter(
+        TeamModel.organization_id == actor.organization_id
+    ).order_by(TeamModel.name).all()
+    return teams
 
 
 @app.post("/roles", response_model=RoleOut, status_code=201, tags=["Roles"])
@@ -569,6 +595,7 @@ async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor
     db.add(record)
     db.commit()
     db.refresh(record)
+    _register_team(db, actor.organization_id, req.team)
     import logging
     logging.getLogger("aifinops.security").info(
         "API key created: id=%s name=%s team=%s org=%s by=%s",
@@ -1534,6 +1561,7 @@ async def openai_compat_chat(
     if org_id is None:
         raise HTTPException(status_code=401, detail="No organization resolved for this credential")
     org_client = get_client_for_org(org_id, model, db)
+    _register_team(db, org_id, team)
 
     # Enforcement pipeline
     last_user = ""
@@ -1689,6 +1717,7 @@ async def anthropic_compat_messages(
     if org_id is None:
         raise HTTPException(status_code=401, detail="No organization resolved for this credential")
     org_client = get_client_for_org(org_id, model, db)
+    _register_team(db, org_id, team)
 
     # Enforcement
     last_user = ""
