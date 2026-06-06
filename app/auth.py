@@ -143,7 +143,10 @@ def require_page_access(page: str):
         role = db.query(RoleModel).filter(RoleModel.name == user.role).first()
         if role is None:
             raise HTTPException(status_code=403, detail=f"Role '{user.role}' is not configured")
-        pages = _json.loads(role.pages or "[]")
+        try:
+            pages = _json.loads(role.pages or "[]")
+        except Exception:
+            pages = []  # malformed JSON → deny (fail closed, same as unknown role)
         if page not in pages:
             raise HTTPException(status_code=403, detail=f"Role '{user.role}' cannot access page '{page}'")
         return user

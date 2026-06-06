@@ -483,6 +483,8 @@ async def create_role(req: RoleCreate, db: Session = Depends(get_db), _=Depends(
                    pages=json.loads(role.pages), can=json.loads(role.can))
 
 
+_ADMIN_REQUIRED_PAGES = frozenset({"settings", "users"})  # admin must always keep these
+
 @app.patch("/roles/{role_name}", response_model=RoleOut, tags=["Roles"])
 async def update_role(role_name: str, req: RoleUpdate, db: Session = Depends(get_db), _=Depends(require_admin)):
     role = db.query(RoleModel).filter(RoleModel.name == role_name).first()
@@ -493,6 +495,14 @@ async def update_role(role_name: str, req: RoleUpdate, db: Session = Depends(get
     if req.color is not None:
         role.color = req.color
     if req.pages is not None:
+        if role_name == "admin":
+            missing = _ADMIN_REQUIRED_PAGES - set(req.pages)
+            if missing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot remove required pages from admin role: {sorted(missing)}. "
+                           "Removing these would lock all admins out of role/user management.",
+                )
         role.pages = json.dumps(req.pages)
     if req.can is not None:
         role.can = json.dumps(req.can)

@@ -3466,12 +3466,17 @@ function RolesManagementSection() {
     finally { setSaving(false); }
   };
 
-  const PageToggle = ({ page, active, onChange }) => (
-    <button onClick={onChange} style={{ padding:"3px 8px", borderRadius:4, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer",
-      background: active ? `${T.accent}22` : T.panelHi,
-      border: `1px solid ${active ? T.accent : T.border}`,
-      color: active ? T.accent : T.textDim }}>
-      {page}
+  const ADMIN_REQUIRED = new Set(["settings", "users"]);
+
+  const PageToggle = ({ page, active, onChange, locked }) => (
+    <button onClick={locked ? undefined : onChange}
+      title={locked ? "Required for admin — cannot be removed" : undefined}
+      style={{ padding:"3px 8px", borderRadius:4, fontSize:10, fontFamily:FONT_MONO,
+        cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.5 : 1,
+        background: active ? `${T.accent}22` : T.panelHi,
+        border: `1px solid ${active ? T.accent : T.border}`,
+        color: active ? T.accent : T.textDim }}>
+      {page}{locked ? " 🔒" : ""}
     </button>
   );
 
@@ -3518,7 +3523,9 @@ function RolesManagementSection() {
                     <div style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute, marginBottom:6 }}>Pages</div>
                     <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
                       {ALL_PAGES.map(p => (
-                        <PageToggle key={p} page={p} active={r.pages.includes(p)} onChange={() => setEditingRole(togglePage(r, p))}/>
+                        <PageToggle key={p} page={p} active={r.pages.includes(p)}
+                          onChange={() => setEditingRole(togglePage(r, p))}
+                          locked={r.name === "admin" && ADMIN_REQUIRED.has(p)}/>
                       ))}
                     </div>
                   </div>
@@ -3817,8 +3824,9 @@ export default function App() {
   // ── Real JWT auth ──
   const [user,         setUser]         = useState(null);
   const [authChecked,  setAuthChecked]  = useState(false);
-  // rolesMap: keyed by role name for O(1) canSeePage/userCan lookups
-  const [rolesMap,     setRolesMap]     = useState(ROLES);
+  // rolesMap: null until server roles are fetched — gates rendering so the
+  // init window never falls back to stale hardcoded permissions.
+  const [rolesMap,     setRolesMap]     = useState(null);
 
   // On mount, validate stored token; also listen for mid-session expiry
   useEffect(() => {
@@ -3829,15 +3837,21 @@ export default function App() {
           const [me, serverRoles] = await Promise.all([fetchMe(), fetchRoles().catch(() => null)]);
           if (me) {
             setUser(me);
+            const map = {};
             if (serverRoles) {
-              const map = {};
               for (const r of serverRoles) map[r.name] = r;
-              setRolesMap(map);
             }
+            setRolesMap(map);  // always set (even empty) so the init gate clears
           } else {
             setToken(null);
+            setRolesMap({});  // no user → empty roles map, show login page
           }
-        } catch { setToken(null); }
+        } catch {
+          setToken(null);
+          setRolesMap({});
+        }
+      } else {
+        setRolesMap({});  // no token → set empty roles, unblock the login screen
       }
       setAuthChecked(true);
     };
@@ -3848,8 +3862,16 @@ export default function App() {
     return () => window.removeEventListener('auth:expired', onExpired);
   }, []);
 
-  const handleLogin = (u) => {
+  const handleLogin = async (u) => {
     setUser(u);
+    try {
+      const serverRoles = await fetchRoles();
+      const map = {};
+      for (const r of serverRoles) map[r.name] = r;
+      setRolesMap(map);
+    } catch {
+      setRolesMap({});
+    }
   };
 
   const handleLogout = () => {
@@ -3920,7 +3942,7 @@ export default function App() {
     }
   };
 
-  if (!authChecked || apiRecords === null) {
+  if (!authChecked || apiRecords === null || rolesMap === null) {
     return <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", color:T.textDim, fontFamily:FONT_MONO }}>Connecting to AIFinOps Guard…</div>;
   }
 
