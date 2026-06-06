@@ -117,14 +117,18 @@ def get_audit(
     return q.offset(skip).limit(limit).all()
 
 
-def would_block_counts(db: Session, days: int = 30) -> dict[str, int]:
+def would_block_counts(db: Session, days: int = 30,
+                       organization_id: int | None = None) -> dict[str, int]:
     """Count shadow-block ('would_block') findings per team over the last N days."""
     from datetime import datetime, timezone, timedelta
     since = datetime.now(timezone.utc) - timedelta(days=days)
-    rows = db.query(Telemetry).filter(
+    q = db.query(Telemetry).filter(
         Telemetry.timestamp >= since,
         Telemetry.sensitive_findings.like('%would_block%'),
-    ).all()
+    )
+    if organization_id is not None:
+        q = q.filter(Telemetry.organization_id == organization_id)
+    rows = q.all()
     counts: dict[str, int] = {}
     for r in rows:
         counts[r.team] = counts.get(r.team, 0) + 1

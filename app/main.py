@@ -742,18 +742,22 @@ def delete_provider_credential(
 # ─── Guard modes (per-team governance) ────────────────────────────────────────
 
 @app.get("/guard-modes", response_model=list[GuardModeOut], tags=["GET — Read / Monitor"])
-def list_guard_modes(db: Session = Depends(get_db), _=Depends(require_page_access("settings"))):
+def list_guard_modes(db: Session = Depends(get_db), actor=Depends(require_page_access("settings"))):
     """
-    One row per team that appears in telemetry, showing its effective mode,
+    One row per team that appears in this org's telemetry, showing its effective mode,
     whether it's an explicit override, and how many requests would have been
     blocked in the last 30 days (shadow-block preview).
     """
     from app.models import GuardMode, Telemetry
-    overrides = {g.team: g for g in db.query(GuardMode).all()}
-    shadow = tel.would_block_counts(db, days=30)
-    # Union of teams seen in telemetry + teams with overrides
+    overrides = {g.team: g for g in db.query(GuardMode).filter(
+        GuardMode.organization_id == actor.organization_id
+    ).all()}
+    shadow = tel.would_block_counts(db, days=30, organization_id=actor.organization_id)
+    # Union of teams seen in this org's telemetry + teams with overrides
     teams = set(shadow.keys()) | set(overrides.keys())
-    teams |= {r[0] for r in db.query(Telemetry.team).distinct().all()}
+    teams |= {r[0] for r in db.query(Telemetry.team).filter(
+        Telemetry.organization_id == actor.organization_id
+    ).distinct().all()}
     out = []
     for team in sorted(t for t in teams if t):
         ov = overrides.get(team)
@@ -774,7 +778,10 @@ def set_guard_mode(team: str, req: GuardModeUpdate, db: Session = Depends(get_db
     falls back to the platform default. Every change is written to the audit log.
     """
     from app.models import GuardMode
-    old = db.query(GuardMode).filter(GuardMode.team == team).first()
+    org_id = actor.organization_id
+    old = db.query(GuardMode).filter(
+        GuardMode.organization_id == org_id, GuardMode.team == team
+    ).first()
     old_mode = old.mode if old else f"default({_PLATFORM_MODE})"
 
     if req.mode == "default":
@@ -790,9 +797,12 @@ def set_guard_mode(team: str, req: GuardModeUpdate, db: Session = Depends(get_db
             old.mode = req.mode
             old.updated_by_id = actor.id
         else:
-            db.add(GuardMode(team=team, mode=req.mode, updated_by_id=actor.id))
+            db.add(GuardMode(organization_id=org_id, team=team,
+                             mode=req.mode, updated_by_id=actor.id))
         db.commit()
-        row = db.query(GuardMode).filter(GuardMode.team == team).first()
+        row = db.query(GuardMode).filter(
+            GuardMode.organization_id == org_id, GuardMode.team == team
+        ).first()
         new_mode = req.mode
         effective = req.mode
         is_override = True
@@ -807,10 +817,10 @@ def set_guard_mode(team: str, req: GuardModeUpdate, db: Session = Depends(get_db
         db, team=team, agent="guard-mode", model="-",
         prompt=f"Guard mode change by {actor.email}",
         reason=f"GUARD_MODE: team '{team}' {old_mode} → {new_mode} by {actor.email}",
-        organization_id=actor.organization_id,
+        organization_id=org_id,
     )
 
-    shadow = tel.would_block_counts(db, days=30)
+    shadow = tel.would_block_counts(db, days=30, organization_id=org_id)
     return GuardModeOut(team=team, mode=effective, is_override=is_override,
                         would_block_30d=shadow.get(team, 0), updated_at=updated_at)
 
@@ -861,7 +871,7 @@ async def ask(req: AskRequest, db: Session = Depends(get_db), current_user=Depen
                                 organization_id=current_user.organization_id)
 
     # 3. Budget enforcement
-    budget_check = bud.check(db, team=req.team, agent=req.agent)
+    budget_check = bud.check(db, organization_id=current_user.organization_id, team=req.team, agent=req.agent)
     if not budget_check["allowed"]:
         blk = budget_check["blocked_by"]
         reason = (
@@ -954,7 +964,7 @@ async def chat(req: ChatRequest, db: Session = Depends(get_db), current_user=Dep
                                 scan_result=scan_result, findings_list=findings_list)
 
     # Budget check
-    budget_check = bud.check(db, team=req.team, agent=req.agent)
+    budget_check = bud.check(db, organization_id=current_user.organization_id, team=req.team, agent=req.agent)
     if not budget_check["allowed"]:
         blk = budget_check["blocked_by"]
         reason = (f"Budget limit exceeded for team '{blk['team']}': "
@@ -1081,25 +1091,25 @@ def security_alerts(db: Session = Depends(get_db), current_user=Depends(get_curr
 # ─── Budgets ──────────────────────────────────────────────────────────────────
 
 @app.post("/budgets", response_model=BudgetRuleOut, status_code=201, tags=["POST — Ask / Create"])
-def create_budget(rule: BudgetRuleCreate, db: Session = Depends(get_db), _=Depends(require_page_access("budgets"))):
-    return bud.create_rule(db, team=rule.team, agent=rule.agent,
-                           limit_usd=rule.limit_usd, period=rule.period, action=rule.action)
+def create_budget(rule: BudgetRuleCreate, db: Session = Depends(get_db), actor=Depends(require_page_access("budgets"))):
+    return bud.create_rule(db, organization_id=actor.organization_id, team=rule.team,
+                           agent=rule.agent, limit_usd=rule.limit_usd, period=rule.period, action=rule.action)
 
 
 @app.get("/budgets", response_model=list[BudgetRuleOut], tags=["GET — Read / Monitor"])
-def list_budgets(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    return bud.get_rules(db)
+def list_budgets(db: Session = Depends(get_db), actor=Depends(get_current_user)):
+    return bud.get_rules(db, organization_id=actor.organization_id)
 
 
 @app.delete("/budgets/{rule_id}", status_code=204, tags=["DELETE — Remove"])
-def delete_budget(rule_id: int, db: Session = Depends(get_db), _=Depends(require_page_access("budgets"))):
-    if not bud.delete_rule(db, rule_id):
+def delete_budget(rule_id: int, db: Session = Depends(get_db), actor=Depends(require_page_access("budgets"))):
+    if not bud.delete_rule(db, rule_id, organization_id=actor.organization_id):
         raise HTTPException(status_code=404, detail="Budget rule not found")
 
 
 @app.get("/budgets/status", response_model=list[BudgetStatusItem], tags=["GET — Read / Monitor"])
-def budget_status(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    return bud.get_status(db)
+def budget_status(db: Session = Depends(get_db), actor=Depends(get_current_user)):
+    return bud.get_status(db, organization_id=actor.organization_id)
 
 
 # ─── Chat Sessions ────────────────────────────────────────────────────────────
@@ -1182,7 +1192,7 @@ async def session_chat(session_uuid: str, req: SessionChatRequest, db: Session =
                                 scan_result=scan_result, findings_list=findings_list)
 
     # Budget check
-    budget_check = bud.check(db, team=req.team, agent=req.agent)
+    budget_check = bud.check(db, organization_id=current_user.organization_id, team=req.team, agent=req.agent)
     if not budget_check["allowed"]:
         blk = budget_check["blocked_by"]
         reason = (f"Budget limit exceeded for team '{blk['team']}': "
@@ -1354,11 +1364,14 @@ from fastapi import Request as FastAPIRequest
 import uuid as _uuid_mod
 import time as _time_mod
 
-def _resolve_guard_mode(db: Session, team: str) -> str:
-    """Effective mode for a team: explicit override if present, else platform default."""
+def _resolve_guard_mode(db: Session, team: str, organization_id: int | None = None) -> str:
+    """Effective mode for a team within an org: explicit override if present, else platform default."""
     from app.models import GuardMode
     try:
-        row = db.query(GuardMode).filter(GuardMode.team == team).first()
+        q = db.query(GuardMode).filter(GuardMode.team == team)
+        if organization_id is not None:
+            q = q.filter(GuardMode.organization_id == organization_id)
+        row = q.first()
         if row and row.mode in _VALID_MODES:
             return row.mode
     except Exception:
@@ -1372,7 +1385,7 @@ def _shadow_or_block_inline(db, *, team, agent, model, prompt, reason, status,
     Mode-aware block used by /ask and /chat inline enforcement.
     enforce → save_blocked + raise; observe/alert → append would_block finding.
     """
-    mode = _resolve_guard_mode(db, team)
+    mode = _resolve_guard_mode(db, team, organization_id=organization_id)
     if mode == "enforce":
         tel.save_blocked(db, team=team, agent=agent, model=model, prompt=prompt,
                          reason=reason, sensitive=scan_result.is_sensitive,
@@ -1427,7 +1440,7 @@ async def _run_enforcement_pipeline(
     if not policy_check["allowed"]:
         _shadow_or_block(policy_check["reason"], 403)
 
-    budget_check = bud.check(db, team=team, agent=agent)
+    budget_check = bud.check(db, organization_id=organization_id, team=team, agent=agent)
     if not budget_check["allowed"]:
         blk = budget_check["blocked_by"]
         reason = (
@@ -1439,7 +1452,8 @@ async def _run_enforcement_pipeline(
     return last_user, scan_result, findings_list, policy_check, budget_check, large_prompt
 
 
-def _handle_enforcement_error(db: Session, team: str, findings_list: list):
+def _handle_enforcement_error(db: Session, team: str, findings_list: list,
+                              organization_id: int | None = None):
     """
     Called when the enforcement pipeline itself throws (DB down, scanner crash).
     Records a circuit-breaker failure. If the breaker is open, OR the team's mode
@@ -1449,7 +1463,7 @@ def _handle_enforcement_error(db: Session, team: str, findings_list: list):
     import logging
     _circuit_record_failure()
     breaker_open = _circuit_state() == "open"
-    mode = _resolve_guard_mode(db, team)
+    mode = _resolve_guard_mode(db, team, organization_id=organization_id)
     if mode == "enforce" and not breaker_open:
         logging.getLogger("aifinops").error("Enforcement error (enforce mode)", exc_info=True)
         raise HTTPException(status_code=503, detail="Gateway enforcement error. Please try again.")
@@ -1513,7 +1527,7 @@ async def openai_compat_chat(
     except HTTPException:
         raise
     except Exception:
-        _handle_enforcement_error(db, team, findings_list)
+        _handle_enforcement_error(db, team, findings_list, organization_id=org_id)
 
     # ── Streaming ──────────────────────────────────────────────────────────────
     if stream:
@@ -1668,7 +1682,7 @@ async def anthropic_compat_messages(
     except HTTPException:
         raise
     except Exception:
-        _handle_enforcement_error(db, team, findings_list)
+        _handle_enforcement_error(db, team, findings_list, organization_id=org_id)
 
     msg_id  = f"msg_guard_{_uuid_mod.uuid4().hex[:12]}"
     created = int(_time_mod.time())

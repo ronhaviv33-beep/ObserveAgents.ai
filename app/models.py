@@ -134,7 +134,8 @@ class BudgetRule(Base):
     __tablename__ = "budget_rules"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    team: Mapped[str] = mapped_column(String(128))           # team name or "*" for global
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    team: Mapped[str] = mapped_column(String(128))           # team name or "*" for org-global
     agent: Mapped[str | None] = mapped_column(String(128), nullable=True)  # None = team-wide
     limit_usd: Mapped[float] = mapped_column(Float)
     period: Mapped[str] = mapped_column(String(16))          # "daily" | "monthly"
@@ -216,9 +217,13 @@ class ApiKey(Base):
 
 class GuardMode(Base):
     __tablename__ = "guard_modes"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "team", name="uq_org_team_guard_mode"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    team: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    team: Mapped[str] = mapped_column(String(128), index=True)
     mode: Mapped[str] = mapped_column(String(16))   # observe | alert | enforce
     updated_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
