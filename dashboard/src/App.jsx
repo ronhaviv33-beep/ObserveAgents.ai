@@ -2730,20 +2730,17 @@ function ChatPage() {
 }
 
 // ─── Integrations page ────────────────────────────────────────────────────────
-function IntegrationsPage() {
+function IntegrationsPage({ onNavigate }) {
   const currentUser = useUser();
   const isAdmin = currentUser?.role === "admin";
   const [copied,    setCopied]    = useState(null);
-  const [authMode,  setAuthMode]  = useState("apikey");
   const [apiKey,    setApiKey]    = useState("");
-  const [token,     setToken]     = useState("");
   const [teamName,  setTeamName]  = useState(currentUser?.team || "my-team");
   const [agentName, setAgentName] = useState("my-agent");
   const [codeTab,   setCodeTab]   = useState("python");
 
   const gatewayUrl = BASE.startsWith("http") ? BASE : window.location.origin;
-  const isApiKey   = authMode === "apikey";
-  const cred       = isApiKey ? (apiKey || "gk-...") : (token || "<your-jwt>");
+  const cred       = apiKey || "gk-...";
 
   const copy = (id, text) => {
     navigator.clipboard.writeText(text).catch(() => {});
@@ -2906,23 +2903,6 @@ print(llm.invoke("Hello").content)`,
 
         {/* Inputs row */}
         <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"flex-end", marginBottom:16 }}>
-          {/* Auth toggle */}
-          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Auth</label>
-            <div style={{ display:"flex", background:T.bg, border:`1px solid ${T.border}`, borderRadius:5, padding:2, gap:2 }}>
-              {[{id:"apikey",label:"API key"},{id:"jwt",label:"JWT"}].map(m => (
-                <button key={m.id} onClick={() => setAuthMode(m.id)}
-                  style={{ background:authMode===m.id ? `${T.accent}22` : "transparent",
-                    border:`1px solid ${authMode===m.id ? T.accent+"44" : "transparent"}`,
-                    borderRadius:3, padding:"5px 12px", cursor:"pointer",
-                    color:authMode===m.id ? T.accent : T.textMute,
-                    fontSize:11, fontFamily:FONT_MONO }}>
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {[
             { label:"Team",  val:teamName,  set:setTeamName,  w:130 },
             { label:"Agent", val:agentName, set:setAgentName, w:130 },
@@ -2935,26 +2915,27 @@ print(llm.invoke("Hello").content)`,
             </div>
           ))}
 
-          <div style={{ display:"flex", flexDirection:"column", gap:4, flex:1, minWidth:200 }}>
-            <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>
-              {isApiKey ? "Gateway key (gk-…, from API Keys page)" : "JWT token (from /auth/login)"}
-            </label>
+          <div style={{ display:"flex", flexDirection:"column", gap:4, flex:1, minWidth:220 }}>
+            <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between" }}>
+              <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>
+                Gateway key (gk-…)
+              </label>
+              {isAdmin && (
+                <button onClick={() => onNavigate("apikeys")}
+                  style={{ background:"transparent", border:"none", color:T.accent, fontSize:10,
+                    fontFamily:FONT_MONO, cursor:"pointer", padding:0, textDecoration:"underline" }}>
+                  Get one in 10s →
+                </button>
+              )}
+            </div>
             <input type="password"
-              placeholder={isApiKey ? "Your gk-… gateway key — not a provider key" : "Paste JWT from /auth/login"}
-              value={isApiKey ? apiKey : token}
-              onChange={e => isApiKey ? setApiKey(e.target.value) : setToken(e.target.value)}
+              placeholder="Paste your gk-… key — snippets fill in live"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
               style={{ background:T.panelHi, color:T.text, border:`1px solid ${T.border}`,
                 padding:"6px 10px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO }} />
           </div>
         </div>
-
-        {/* Warning for JWT mode */}
-        {!isApiKey && (
-          <div style={{ fontSize:11, color:T.warn, fontFamily:FONT_MONO, marginBottom:12,
-            background:`${T.warn}10`, border:`1px solid ${T.warn}33`, borderRadius:4, padding:"7px 12px" }}>
-            JWT expires in 8h — use an API key for production agents.
-          </div>
-        )}
 
         {/* Language tabs */}
         <div style={{ display:"flex", gap:2, marginBottom:0, borderBottom:`1px solid ${T.border}`, paddingBottom:0 }}>
@@ -3687,7 +3668,7 @@ export default function App() {
       case "users":     return <UsersPage />;
       case "apikeys":   return <ApiKeysPage />;
       case "settings":      return <SettingsPage />;
-      case "integrations":  return <IntegrationsPage />;
+      case "integrations":  return <IntegrationsPage onNavigate={setPage} />;
       default:              return null;
     }
   };
