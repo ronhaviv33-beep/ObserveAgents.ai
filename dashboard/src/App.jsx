@@ -1883,7 +1883,11 @@ function ApiKeysPage() {
 
 function UsersPage() {
   const currentUser = useUser();
-  const roles = useRoles();
+  const rolesMap = useRoles();
+  const [serverRoles, setServerRoles] = useState(null); // null = not yet loaded
+  const roles = serverRoles
+    ? Object.fromEntries(serverRoles.map(r => [r.name, r]))
+    : rolesMap;
   const [users,    setUsers]    = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [form,     setForm]     = useState({ email:"", name:"", password:"", role:"analyst", team:"" });
@@ -1902,8 +1906,9 @@ function UsersPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await fetchUsers();
+      const [data, roleData] = await Promise.all([fetchUsers(), fetchRoles().catch(() => null)]);
       setUsers(data);
+      if (roleData) setServerRoles(roleData);
     } catch (e) { setErr(e.message); }
     finally { setLoading(false); }
   }, []);
