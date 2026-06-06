@@ -3439,7 +3439,8 @@ function RolesManagementSection() {
     try {
       const data = await fetchRoles();
       setServerRoles(data);
-    } catch (e) { setErr(e.message); }
+      setErr(null);
+    } catch { /* silently keep showing the initial state */ }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -3529,13 +3530,13 @@ function RolesManagementSection() {
                   <input type="color" value={r.color} onChange={e => setEditingRole({...r, color:e.target.value})}
                     style={{ width:28, height:28, borderRadius:4, border:"none", background:"none", cursor:"pointer", padding:0 }}/>
                 )}
-                {role.name !== "admin" && !isEditing && (
+                {!["admin","analyst","viewer"].includes(role.name) && !isEditing && (
                   <button onClick={() => setEditingRole({...role})}
                     style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, borderRadius:4, padding:"3px 10px", fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
                     Edit
                   </button>
                 )}
-                {role.name !== "admin" && !isEditing && (
+                {!["admin","analyst","viewer"].includes(role.name) && !isEditing && (
                   <button onClick={() => handleDelete(role.name)}
                     style={{ background:`${T.crit}15`, border:`1px solid ${T.crit}44`, color:T.crit, borderRadius:4, padding:"3px 10px", fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
                     Delete
