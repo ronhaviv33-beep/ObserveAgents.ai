@@ -9,7 +9,7 @@ Safe to run multiple times — idempotent.
 """
 import logging
 from app.database import engine, SessionLocal
-from app.models import Base, Organization, ApiKey, User, ProviderCredential, Telemetry, encrypt_credential
+from app.models import Base, Organization, ApiKey, User, ProviderCredential, Telemetry, Team as TeamModel, encrypt_credential
 import os
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -151,6 +151,26 @@ def run():
             log.info(f"Backfilled {len(unset_keys)} api_keys → platform org")
         else:
             log.info("All api_keys already have organization_id.")
+
+        # ── 3b. Backfill teams table from existing api_keys ──────────────────────
+        # API keys created before team-registration was added have a team name
+        # but no corresponding row in the teams table. Seed them now so Guard
+        # Modes shows all teams without requiring a proxy request first.
+        seeded_teams = 0
+        for key in db.query(ApiKey).filter(ApiKey.team != None, ApiKey.team != "", ApiKey.team != "unknown").all():  # noqa: E711
+            if key.organization_id is None:
+                continue
+            exists = db.query(TeamModel).filter(
+                TeamModel.organization_id == key.organization_id,
+                TeamModel.name == key.team,
+            ).first()
+            if not exists:
+                db.add(TeamModel(organization_id=key.organization_id, name=key.team))
+                seeded_teams += 1
+        if seeded_teams:
+            log.info(f"Backfilled {seeded_teams} team(s) from existing api_keys.")
+        else:
+            log.info("Teams table already up-to-date from api_keys.")
 
         # ── 4. Backfill existing Users → platform org ─────────────────────────
         unset_users = db.query(User).filter(User.organization_id == None).all()  # noqa: E711
