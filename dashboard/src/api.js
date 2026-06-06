@@ -244,8 +244,8 @@ export async function createRole(data) {
     body: JSON.stringify(data),
   })
   if (!r || !r.ok) {
-    const err = await r.json().catch(() => ({}))
-    throw new Error(err.detail || 'Failed to create role')
+    const err = r ? await r.json().catch(() => ({})) : {}
+    throw new Error(err.detail || `Failed to create role (HTTP ${r?.status ?? 'network error'})`)
   }
   return r.json()
 }
