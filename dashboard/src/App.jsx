@@ -4270,7 +4270,7 @@ export default function App() {
             setUser(me);
             const map = serverRoles?.length
               ? Object.fromEntries(serverRoles.map(r => [r.name, r]))
-              : Object.fromEntries(Object.entries(ROLES).map(([k,v]) => [k, {...v, pages: v.pages ?? [], can: v.can ?? []}]));
+              : Object.fromEntries(Object.entries(ROLES).map(([k,v]) => [k, {name:k, ...v, pages: v.pages ?? [], can: v.can ?? []}]));
             setRolesMap(map);  // always set (even empty) so the init gate clears
           } else {
             setToken(null);
@@ -4298,10 +4298,10 @@ export default function App() {
       const serverRoles = await fetchRoles();
       const map = serverRoles?.length
         ? Object.fromEntries(serverRoles.map(r => [r.name, r]))
-        : Object.fromEntries(Object.entries(ROLES).map(([k,v]) => [k, {...v, pages: v.pages ?? [], can: v.can ?? []}]));
+        : Object.fromEntries(Object.entries(ROLES).map(([k,v]) => [k, {name:k, ...v, pages: v.pages ?? [], can: v.can ?? []}]));
       setRolesMap(map);
     } catch {
-      setRolesMap(Object.fromEntries(Object.entries(ROLES).map(([k,v]) => [k, {...v, pages: v.pages ?? [], can: v.can ?? []}])));
+      setRolesMap(Object.fromEntries(Object.entries(ROLES).map(([k,v]) => [k, {name:k, ...v, pages: v.pages ?? [], can: v.can ?? []}])));
     }
   };
 
