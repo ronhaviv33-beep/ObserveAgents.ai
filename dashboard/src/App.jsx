@@ -4251,10 +4251,9 @@ export default function App() {
           ]);
           if (me) {
             setUser(me);
-            const map = {};
-            if (serverRoles) {
-              for (const r of serverRoles) map[r.name] = r;
-            }
+            const map = serverRoles?.length
+              ? Object.fromEntries(serverRoles.map(r => [r.name, r]))
+              : Object.fromEntries(Object.entries(ROLES).map(([k,v]) => [k, {...v, pages: v.pages ?? [], can: v.can ?? []}]));
             setRolesMap(map);  // always set (even empty) so the init gate clears
           } else {
             setToken(null);
@@ -4280,11 +4279,12 @@ export default function App() {
     setUser(u);
     try {
       const serverRoles = await fetchRoles();
-      const map = {};
-      for (const r of serverRoles) map[r.name] = r;
+      const map = serverRoles?.length
+        ? Object.fromEntries(serverRoles.map(r => [r.name, r]))
+        : Object.fromEntries(Object.entries(ROLES).map(([k,v]) => [k, {...v, pages: v.pages ?? [], can: v.can ?? []}]));
       setRolesMap(map);
     } catch {
-      setRolesMap({});
+      setRolesMap(Object.fromEntries(Object.entries(ROLES).map(([k,v]) => [k, {...v, pages: v.pages ?? [], can: v.can ?? []}])));
     }
   };
 
