@@ -4272,6 +4272,13 @@ export default function App() {
   const [page, setPage]       = useState("home");
   const [filters, setFilters] = useState({ team:"all", model:"all", agent:"all", sev:"all", range:30 });
 
+  // ── Real JWT auth ──
+  const [user,         setUser]         = useState(null);
+  const [authChecked,  setAuthChecked]  = useState(false);
+  // rolesMap: null until server roles are fetched — gates rendering so the
+  // init window never falls back to stale hardcoded permissions.
+  const [rolesMap,     setRolesMap]     = useState(null);
+
   // When the logged-in user has a team-scoped role, lock the team filter to their team.
   // Runs whenever user or rolesMap changes (e.g. after login).
   useEffect(() => {
@@ -4281,13 +4288,6 @@ export default function App() {
       setFilters(f => f.team === user.team ? f : { ...f, team: user.team });
     }
   }, [user, rolesMap]);
-
-  // ── Real JWT auth ──
-  const [user,         setUser]         = useState(null);
-  const [authChecked,  setAuthChecked]  = useState(false);
-  // rolesMap: null until server roles are fetched — gates rendering so the
-  // init window never falls back to stale hardcoded permissions.
-  const [rolesMap,     setRolesMap]     = useState(null);
 
   // On mount, validate stored token; also listen for mid-session expiry
   useEffect(() => {
