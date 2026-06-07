@@ -982,7 +982,10 @@ function AlertsPage({ alerts, sevFilter }) {
   );
 }
 
-function FilterBar({ filters, setFilters, allTeams, allAgents }) {
+function FilterBar({ filters, setFilters, allTeams, allAgents, user, rolesMap }) {
+  const isTeamScoped = !!(rolesMap?.[user?.role]?.team_scoped);
+  const lockedTeam   = user?.team || "";
+
   const Select = ({ label, value, onChange, options }) => (
     <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
       <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>{label}</label>
@@ -991,14 +994,33 @@ function FilterBar({ filters, setFilters, allTeams, allAgents }) {
       </select>
     </div>
   );
+
+  const TeamField = isTeamScoped ? (
+    <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+      <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>Team</label>
+      <div style={{ display:"flex", alignItems:"center", gap:6, background:T.panelHi, border:`1px solid ${T.border}`, padding:"5px 10px", borderRadius:3, fontSize:12, fontFamily:FONT_MONO, color:T.accent, minWidth:100 }}>
+        <span style={{ fontSize:9, color:T.accentDim }}>⬤</span>
+        {lockedTeam || "—"}
+      </div>
+    </div>
+  ) : (
+    <Select label="Team" value={filters.team} onChange={(v)=>setFilters({...filters,team:v})}
+      options={[{value:"all",label:"All teams"}, ...allTeams.map((t)=>({value:t.id,label:t.name}))]}/>
+  );
+
+  const handleReset = () => setFilters({
+    team:  isTeamScoped ? filters.team : "all",
+    model: "all", agent: "all", sev: "all", range: 30,
+  });
+
   return (
     <div style={{ display:"flex", gap:16, padding:"12px 18px", background:T.panel, border:`1px solid ${T.border}`, borderRadius:6, marginBottom:14, alignItems:"flex-end", flexWrap:"wrap" }}>
-      <Select label="Team"     value={filters.team}  onChange={(v)=>setFilters({...filters,team:v})}  options={[{value:"all",label:"All teams"},  ...allTeams.map((t)=>({value:t.id,label:t.name}))]}/>
+      {TeamField}
       <Select label="Model"    value={filters.model} onChange={(v)=>setFilters({...filters,model:v})} options={[{value:"all",label:"All models"}, ...MODELS.map((m)=>({value:m.name,label:m.name}))]}/>
       <Select label="Agent"    value={filters.agent} onChange={(v)=>setFilters({...filters,agent:v})} options={[{value:"all",label:"All agents"}, ...allAgents.map((a)=>({value:a.id,label:a.name}))]}/>
       <Select label="Severity" value={filters.sev}   onChange={(v)=>setFilters({...filters,sev:v})}   options={[{value:"all",label:"All"},{value:"critical",label:"Critical"},{value:"warning",label:"Warning"},{value:"info",label:"Info"}]}/>
       <Select label="Range"    value={String(filters.range)} onChange={(v)=>setFilters({...filters,range:parseInt(v)})} options={[{value:"1",label:"Last 24h"},{value:"7",label:"Last 7d"},{value:"30",label:"Last 30d"}]}/>
-      <button onClick={()=>setFilters({team:"all",model:"all",agent:"all",sev:"all",range:30})} style={{ background:"transparent", color:T.textDim, border:`1px solid ${T.border}`, padding:"6px 12px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer", marginLeft:"auto" }}>Reset</button>
+      <button onClick={handleReset} style={{ background:"transparent", color:T.textDim, border:`1px solid ${T.border}`, padding:"6px 12px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer", marginLeft:"auto" }}>Reset</button>
     </div>
   );
 }
@@ -4250,6 +4272,16 @@ export default function App() {
   const [page, setPage]       = useState("home");
   const [filters, setFilters] = useState({ team:"all", model:"all", agent:"all", sev:"all", range:30 });
 
+  // When the logged-in user has a team-scoped role, lock the team filter to their team.
+  // Runs whenever user or rolesMap changes (e.g. after login).
+  useEffect(() => {
+    if (!user || !rolesMap) return;
+    const isTeamScoped = !!(rolesMap[user.role]?.team_scoped);
+    if (isTeamScoped && user.team) {
+      setFilters(f => f.team === user.team ? f : { ...f, team: user.team });
+    }
+  }, [user, rolesMap]);
+
   // ── Real JWT auth ──
   const [user,         setUser]         = useState(null);
   const [authChecked,  setAuthChecked]  = useState(false);
@@ -4474,7 +4506,7 @@ export default function App() {
           </div>
         </header>
 
-        {!["home","budgets","security","chat","users","apikeys","settings","integrations","onboarding"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents}/>}
+        {!["home","budgets","security","chat","users","apikeys","settings","integrations","onboarding"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
 
         <PageErrorBoundary key={page}>{renderPage()}</PageErrorBoundary>
       </main>
