@@ -86,14 +86,15 @@ def _seed_roles_for_org(db, org_id: int) -> None:
         if not existing:
             db.add(RoleModel(organization_id=org_id, **r))
         else:
-            # Migrate pages to match seed (adds new page IDs, fixes nulls/empties)
+            # Admin always gets the full seed pages (never allow admin to be locked out).
+            # Other roles: migrate pages to match seed when they diverge (adds new page IDs).
             try:
                 raw = existing.pages
                 pages = json.loads(raw) if isinstance(raw, str) else (raw or [])
             except Exception:
                 pages = []
             seed_pages = json.loads(r["pages"])
-            if set(seed_pages) != set(pages):
+            if r["name"] == "admin" or set(seed_pages) != set(pages):
                 existing.pages = r["pages"]
             # Backfill team_scoped if the column was just added (value will be None/False default).
             # We only force the seed value when the column is None (never set) — we do NOT
@@ -552,7 +553,7 @@ async def create_role(req: RoleCreate, db: Session = Depends(get_db), actor=Depe
                    team_scoped=bool(role.team_scoped))
 
 
-_ADMIN_REQUIRED_PAGES = frozenset({"settings", "users"})  # admin must always keep these
+_ADMIN_REQUIRED_PAGES = frozenset({"home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations","onboarding"})
 
 @app.patch("/roles/{role_name}", response_model=RoleOut, tags=["Roles"])
 async def update_role(role_name: str, req: RoleUpdate, db: Session = Depends(get_db), actor=Depends(require_admin)):
