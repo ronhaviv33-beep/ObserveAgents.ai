@@ -262,30 +262,34 @@ function runDetections(events) {
     if (age < DAY)             byAgentToday[e.agent] = (byAgentToday[e.agent] || 0) + e.cost;
     if (age >= DAY && age < 8 * DAY) byAgent7d[e.agent]  = (byAgent7d[e.agent]  || 0) + e.cost;
   });
+  // Helpers to get the most recent event timestamp for an agent
+  const latestTsByAgent = {};
+  events.forEach((e) => { if (!latestTsByAgent[e.agent] || e.ts > latestTsByAgent[e.agent]) latestTsByAgent[e.agent] = e.ts; });
+
   // Cost spike: 7-day comparison OR high absolute spend today (> $0.05)
   Object.keys(byAgentToday).forEach((a) => {
     const today = byAgentToday[a]; const avg7 = (byAgent7d[a] || 0) / 7;
     const spike = (avg7 > 0.01 && today > 2 * avg7) || (avg7 === 0 && today > 0.05);
-    if (spike) alerts.push({ type: "agent_cost_spike", sev: "critical", entity: a, msg: `Agent cost $${today.toFixed(4)} today vs $${avg7.toFixed(4)} 7-day avg`, action: "Inspect prompt construction and tool-call loops", ts: now - 720_000 });
+    if (spike) alerts.push({ type: "agent_cost_spike", sev: "critical", entity: a, msg: `Agent cost $${today.toFixed(4)} today vs $${avg7.toFixed(4)} 7-day avg`, action: "Inspect prompt construction and tool-call loops", ts: latestTsByAgent[a] || now });
   });
   events.filter((e) => e.tokens_total > 30000).slice(0, 5).forEach((e) => alerts.push({ type: "high_token_prompt", sev: "warning", entity: e.agent, msg: `${e.tokens_total.toLocaleString()} tokens in single request (${e.model})`, action: "Add context compaction or retrieval truncation", ts: e.ts }));
-  const wfFails = {}, wfTotal = {};
-  events.filter((e) => now - e.ts < 2 * DAY).forEach((e) => { wfTotal[e.workflow] = (wfTotal[e.workflow] || 0) + 1; if (e.status === "failed") wfFails[e.workflow] = (wfFails[e.workflow] || 0) + 1; });
-  Object.keys(wfTotal).forEach((w) => { const rate = (wfFails[w] || 0) / wfTotal[w]; if (rate > 0.25 && wfTotal[w] > 10) alerts.push({ type: "failed_workflow_spike", sev: "critical", entity: w, msg: `${(rate * 100).toFixed(0)}% failure rate over last 48h`, action: "Check upstream tool availability and auth tokens", ts: now - 2_700_000 }); });
+  const wfFails = {}, wfTotal = {}, wfLatestTs = {};
+  events.filter((e) => now - e.ts < 2 * DAY).forEach((e) => { wfTotal[e.workflow] = (wfTotal[e.workflow] || 0) + 1; if (e.status === "failed") wfFails[e.workflow] = (wfFails[e.workflow] || 0) + 1; if (!wfLatestTs[e.workflow] || e.ts > wfLatestTs[e.workflow]) wfLatestTs[e.workflow] = e.ts; });
+  Object.keys(wfTotal).forEach((w) => { const rate = (wfFails[w] || 0) / wfTotal[w]; if (rate > 0.25 && wfTotal[w] > 10) alerts.push({ type: "failed_workflow_spike", sev: "critical", entity: w, msg: `${(rate * 100).toFixed(0)}% failure rate over last 48h`, action: "Check upstream tool availability and auth tokens", ts: wfLatestTs[w] || now }); });
   const cheapCandidates = events.filter((e) => tierFromModel(e.model) === "premium" && e.tokens_total < 200);
-  if (cheapCandidates.length > 5) alerts.push({ type: "expensive_model_usage", sev: "warning", entity: cheapCandidates[0].agent, msg: `${cheapCandidates.length} premium-model calls under 200 tokens`, action: "Route short prompts to gpt-4o-mini or claude-sonnet", ts: now - 5_400_000 });
-  const afterHoursAgents = {};
-  events.filter((e) => now - e.ts < 7 * DAY && e.afterHours).forEach((e) => { afterHoursAgents[e.agent] = (afterHoursAgents[e.agent] || 0) + 1; });
-  Object.keys(afterHoursAgents).forEach((a) => { if (afterHoursAgents[a] > 5) alerts.push({ type: "unusual_after_hours_usage", sev: "info", entity: a, msg: `${afterHoursAgents[a]} calls outside 07:00–20:00 in last 7d`, action: "Confirm batch job is intentional; otherwise rotate keys", ts: now - 10_800_000 }); });
-  // Loop detection: >5 calls from same agent in any 30-min window (was 40 — unreachable in practice)
-  const buckets = {};
-  events.forEach((e) => { const k = `${e.agent}:${Math.floor(e.ts / 1_800_000)}`; buckets[k] = (buckets[k] || 0) + 1; });
+  if (cheapCandidates.length > 5) alerts.push({ type: "expensive_model_usage", sev: "warning", entity: cheapCandidates[0].agent, msg: `${cheapCandidates.length} premium-model calls under 200 tokens`, action: "Route short prompts to gpt-4o-mini or claude-sonnet", ts: cheapCandidates[0].ts });
+  const afterHoursAgents = {}, afterHoursLatestTs = {};
+  events.filter((e) => now - e.ts < 7 * DAY && e.afterHours).forEach((e) => { afterHoursAgents[e.agent] = (afterHoursAgents[e.agent] || 0) + 1; if (!afterHoursLatestTs[e.agent] || e.ts > afterHoursLatestTs[e.agent]) afterHoursLatestTs[e.agent] = e.ts; });
+  Object.keys(afterHoursAgents).forEach((a) => { if (afterHoursAgents[a] > 5) alerts.push({ type: "unusual_after_hours_usage", sev: "info", entity: a, msg: `${afterHoursAgents[a]} calls outside 07:00–20:00 in last 7d`, action: "Confirm batch job is intentional; otherwise rotate keys", ts: afterHoursLatestTs[a] || now }); });
+  // Loop detection: >5 calls from same agent in any 30-min window
+  const buckets = {}, bucketLatestTs = {};
+  events.forEach((e) => { const k = `${e.agent}:${Math.floor(e.ts / 1_800_000)}`; buckets[k] = (buckets[k] || 0) + 1; if (!bucketLatestTs[k] || e.ts > bucketLatestTs[k]) bucketLatestTs[k] = e.ts; });
   const flagged = new Set();
-  Object.entries(buckets).forEach(([k, v]) => { const [agent] = k.split(":"); if (v > 5 && !flagged.has(agent)) { flagged.add(agent); alerts.push({ type: "repeated_agent_loop", sev: "critical", entity: agent, msg: `${v} calls in a single 30-min window`, action: "Check for tool-call retry loop or missing termination", ts: now - 1_200_000 }); } });
+  Object.entries(buckets).forEach(([k, v]) => { const [agent] = k.split(":"); if (v > 5 && !flagged.has(agent)) { flagged.add(agent); alerts.push({ type: "repeated_agent_loop", sev: "critical", entity: agent, msg: `${v} calls in a single 30-min window`, action: "Check for tool-call retry loop or missing termination", ts: bucketLatestTs[k] || now }); } });
   const unapproved = events.filter((e) => !approvedModel(e.model));
-  if (unapproved.length > 0) alerts.push({ type: "unapproved_model_usage", sev: "warning", entity: unapproved[0].agent, msg: `${unapproved.length} calls to non-allowlisted model "${unapproved[0].model}"`, action: "Block at gateway or request governance approval", ts: now - 14_400_000 });
+  if (unapproved.length > 0) alerts.push({ type: "unapproved_model_usage", sev: "warning", entity: unapproved[0].agent, msg: `${unapproved.length} calls to non-allowlisted model "${unapproved[0].model}"`, action: "Block at gateway or request governance approval", ts: unapproved.reduce((max, e) => e.ts > max ? e.ts : max, 0) });
   const sensitive = events.filter((e) => e.sensitive);
-  if (sensitive.length > 0) alerts.push({ type: "sensitive_data_exposure", sev: "critical", entity: sensitive[0].agent, msg: `${sensitive.length} requests flagged with sensitive payload patterns`, action: "Enable PII redaction policy on this workflow", ts: now - 7_200_000 });
+  if (sensitive.length > 0) alerts.push({ type: "sensitive_data_exposure", sev: "critical", entity: sensitive[0].agent, msg: `${sensitive.length} requests flagged with sensitive payload patterns`, action: "Enable PII redaction policy on this workflow", ts: sensitive.reduce((max, e) => e.ts > max ? e.ts : max, 0) });
   return alerts.sort((a, b) => { const o = { critical: 0, warning: 1, info: 2 }; return o[a.sev] - o[b.sev] || b.ts - a.ts; });
 }
 
