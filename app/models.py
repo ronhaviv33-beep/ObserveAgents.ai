@@ -12,27 +12,35 @@ _pricing_log = logging.getLogger("aifinops.pricing")
 
 # When this table was last audited against provider pricing pages.
 # Update this constant whenever you update COST_PER_1M.
-PRICING_LAST_UPDATED = "2025-06-08"
+PRICING_LAST_UPDATED = "2026-06-07"
 
 # Cost per 1M tokens (USD) — update as pricing changes
 COST_PER_1M = {
-    # Anthropic
+    # Anthropic — claude.ai/pricing
+    "claude-opus-4-8":        {"prompt": 15.00,  "completion": 75.00},
     "claude-opus-4-5":        {"prompt": 15.00,  "completion": 75.00},
+    "claude-sonnet-4-6":      {"prompt": 3.00,   "completion": 15.00},
     "claude-sonnet-4-5":      {"prompt": 3.00,   "completion": 15.00},
     "claude-haiku-4-5":       {"prompt": 0.80,   "completion": 4.00},
-    # OpenAI
+    # OpenAI — openai.com/pricing
     "gpt-4.1":                {"prompt": 2.00,   "completion": 8.00},
     "gpt-4.1-mini":           {"prompt": 0.40,   "completion": 1.60},
+    "gpt-4.1-nano":           {"prompt": 0.10,   "completion": 0.40},
     "gpt-4o":                 {"prompt": 2.50,   "completion": 10.00},
     "gpt-4o-mini":            {"prompt": 0.15,   "completion": 0.60},
     "gpt-4-turbo":            {"prompt": 10.00,  "completion": 30.00},
     "gpt-3.5-turbo":          {"prompt": 0.50,   "completion": 1.50},
+    "o1":                     {"prompt": 15.00,  "completion": 60.00},
+    "o1-mini":                {"prompt": 1.10,   "completion": 4.40},
     "o3":                     {"prompt": 10.00,  "completion": 40.00},
+    "o3-mini":                {"prompt": 1.10,   "completion": 4.40},
     "o4-mini":                {"prompt": 1.10,   "completion": 4.40},
-    # Google
+    # Google — ai.google.dev/pricing
     "gemini-2.5-pro":         {"prompt": 1.25,   "completion": 10.00},
+    "gemini-2.5-flash":       {"prompt": 0.075,  "completion": 0.30},
     "gemini-2.0-flash":       {"prompt": 0.075,  "completion": 0.30},
     "gemini-1.5-pro":         {"prompt": 1.25,   "completion": 5.00},
+    "gemini-1.5-flash":       {"prompt": 0.075,  "completion": 0.30},
     # Local / open-source (negligible marginal cost)
     "llama-3.1-70b-local":    {"prompt": 0.20,   "completion": 0.20},
     "llama-3.1-8b-local":     {"prompt": 0.05,   "completion": 0.05},
