@@ -62,7 +62,7 @@ _SEED_ROLES = [
         "name": "analyst",
         "label": "Analyst",
         "color": "#FFB547",
-        "pages": json.dumps(["home","chat","overview","cost","agents","models","workflows","alerts","security","integrations","onboarding"]),
+        "pages": json.dumps(["home","chat","overview","cost","agents","models","workflows","alerts","security"]),
         "can":   json.dumps([]),
         "team_scoped": True,    # team-scoped: analyst sees only own team's data
     },
