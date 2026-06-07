@@ -127,7 +127,8 @@ class PolicyRule(Base):
     __tablename__ = "policy_rules"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    team: Mapped[str] = mapped_column(String(128))          # team name or "*" for global
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    team: Mapped[str] = mapped_column(String(128))          # team name or "*" for org-global
     rule_type: Mapped[str] = mapped_column(String(32))      # "allow_model" | "block_model"
     value: Mapped[str] = mapped_column(String(128))         # model name or "*"
     created_at: Mapped[datetime] = mapped_column(

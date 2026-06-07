@@ -4,20 +4,32 @@ from app.models import PolicyRule
 
 # ─── CRUD ─────────────────────────────────────────────────────────────────────
 
-def create_rule(db: Session, team: str, rule_type: str, value: str) -> PolicyRule:
-    rule = PolicyRule(team=team, rule_type=rule_type, value=value)
+def create_rule(db: Session, organization_id: int, team: str, rule_type: str, value: str) -> PolicyRule:
+    rule = PolicyRule(organization_id=organization_id, team=team, rule_type=rule_type, value=value)
     db.add(rule)
     db.commit()
     db.refresh(rule)
     return rule
 
 
-def get_rules(db: Session) -> list[PolicyRule]:
-    return db.query(PolicyRule).order_by(PolicyRule.created_at.desc()).all()
+def get_rules(db: Session, organization_id: int) -> list[PolicyRule]:
+    try:
+        return (db.query(PolicyRule)
+                  .filter(PolicyRule.organization_id == organization_id)
+                  .order_by(PolicyRule.created_at.desc())
+                  .all())
+    except Exception:
+        try:
+            return db.query(PolicyRule).order_by(PolicyRule.created_at.desc()).all()
+        except Exception:
+            return []
 
 
-def delete_rule(db: Session, rule_id: int) -> bool:
-    rule = db.query(PolicyRule).filter(PolicyRule.id == rule_id).first()
+def delete_rule(db: Session, rule_id: int, organization_id: int) -> bool:
+    rule = db.query(PolicyRule).filter(
+        PolicyRule.id == rule_id,
+        PolicyRule.organization_id == organization_id,
+    ).first()
     if not rule:
         return False
     db.delete(rule)
@@ -27,7 +39,7 @@ def delete_rule(db: Session, rule_id: int) -> bool:
 
 # ─── Enforcement ──────────────────────────────────────────────────────────────
 
-def check_model(db: Session, team: str, model: str) -> dict:
+def check_model(db: Session, organization_id: int, team: str, model: str) -> dict:
     """
     Returns {"allowed": bool, "reason": str | None}
 
@@ -37,9 +49,14 @@ def check_model(db: Session, team: str, model: str) -> dict:
       3. No rules at all                    → allowed
       4. allow_model rules exist but none match this model → blocked
     """
-    rules = db.query(PolicyRule).filter(
-        PolicyRule.team.in_([team, "*"])
-    ).all()
+    try:
+        rules = db.query(PolicyRule).filter(
+            PolicyRule.organization_id == organization_id,
+            PolicyRule.team.in_([team, "*"]),
+        ).all()
+    except Exception:
+        # policy_rules may be missing organization_id in pre-migration DBs — fail open
+        return {"allowed": True, "reason": None}
 
     if not rules:
         return {"allowed": True, "reason": None}

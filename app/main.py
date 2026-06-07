@@ -960,7 +960,7 @@ async def ask(req: AskRequest, db: Session = Depends(get_db), current_user=Depen
                                "sample": f"{len(req.prompt):,} chars"})
 
     # 2. Policy enforcement — model allowlist / blocklist
-    policy_check = pol.check_model(db, team=req.team, model=req.model)
+    policy_check = pol.check_model(db, organization_id=organization_id, team=req.team, model=req.model)
     if not policy_check["allowed"]:
         _shadow_or_block_inline(db, team=req.team, agent=req.agent, model=req.model,
                                 prompt=req.prompt, reason=policy_check["reason"], status=403,
@@ -1054,7 +1054,7 @@ async def chat(req: ChatRequest, db: Session = Depends(get_db), current_user=Dep
                                "sample": f"{total_chars:,} chars across {len(req.messages)} messages"})
 
     # Policy check
-    policy_check = pol.check_model(db, team=req.team, model=req.model)
+    policy_check = pol.check_model(db, organization_id=current_user.organization_id, team=req.team, model=req.model)
     if not policy_check["allowed"]:
         _shadow_or_block_inline(db, team=req.team, agent=req.agent, model=req.model,
                                 prompt=last_user, reason=policy_check["reason"], status=403,
@@ -1282,7 +1282,7 @@ async def session_chat(session_uuid: str, req: SessionChatRequest, db: Session =
                                "sample": f"{total_chars:,} chars across {len(req.messages)} messages"})
 
     # Policy check
-    policy_check = pol.check_model(db, team=req.team, model=req.model)
+    policy_check = pol.check_model(db, organization_id=current_user.organization_id, team=req.team, model=req.model)
     if not policy_check["allowed"]:
         _shadow_or_block_inline(db, team=req.team, agent=req.agent, model=req.model,
                                 prompt=last_user, reason=policy_check["reason"], status=403,
@@ -1343,18 +1343,18 @@ async def session_chat(session_uuid: str, req: SessionChatRequest, db: Session =
 # ─── Policies ─────────────────────────────────────────────────────────────────
 
 @app.post("/policies", response_model=PolicyRuleOut, status_code=201, tags=["POST — Ask / Create"])
-def create_policy(rule: PolicyRuleCreate, db: Session = Depends(get_db), _=Depends(require_page_access("settings"))):
-    return pol.create_rule(db, team=rule.team, rule_type=rule.rule_type, value=rule.value)
+def create_policy(rule: PolicyRuleCreate, db: Session = Depends(get_db), actor=Depends(require_page_access("settings"))):
+    return pol.create_rule(db, organization_id=actor.organization_id, team=rule.team, rule_type=rule.rule_type, value=rule.value)
 
 
 @app.get("/policies", response_model=list[PolicyRuleOut], tags=["GET — Read / Monitor"])
-def list_policies(db: Session = Depends(get_db), _=Depends(get_current_user)):
-    return pol.get_rules(db)
+def list_policies(db: Session = Depends(get_db), actor=Depends(get_current_user)):
+    return pol.get_rules(db, organization_id=actor.organization_id)
 
 
 @app.delete("/policies/{rule_id}", status_code=204, tags=["DELETE — Remove"])
-def delete_policy(rule_id: int, db: Session = Depends(get_db), _=Depends(require_page_access("settings"))):
-    if not pol.delete_rule(db, rule_id):
+def delete_policy(rule_id: int, db: Session = Depends(get_db), actor=Depends(require_page_access("settings"))):
+    if not pol.delete_rule(db, rule_id, organization_id=actor.organization_id):
         raise HTTPException(status_code=404, detail="Policy rule not found")
 
 
@@ -1533,7 +1533,7 @@ async def _run_enforcement_pipeline(
             "sample": f"WOULD BLOCK in enforce mode ({status}): {reason}",
         })
 
-    policy_check = pol.check_model(db, team=team, model=model)
+    policy_check = pol.check_model(db, organization_id=organization_id, team=team, model=model)
     if not policy_check["allowed"]:
         _shadow_or_block(policy_check["reason"], 403)
 
