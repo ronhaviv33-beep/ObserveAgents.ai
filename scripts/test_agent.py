@@ -1,25 +1,3 @@
-#!/usr/bin/env python3
-"""
-AIFinOps Guard — test agent
-
-Simulates realistic multi-team AI usage against the live gateway and
-fires specific scenarios designed to trigger every server-side alert type:
-
-  • sensitive_data_exposure   — PII / card numbers in prompts
-  • high_token_prompt         — large context requests (>30K tokens)
-  • policy_block_spike        — blocked requests (if enforce mode is on)
-  • unusual_after_hours_usage — calls outside 07:00–20:00 UTC (faked via timestamp)
-  • pricing_estimated         — unknown/unrecognised model strings
-  • cost_anomaly              — gpt-4o burst requests (client-side detection)
-
-Usage:
-    pip install openai schedule requests
-    python scripts/test_agent.py [--hours N] [--verify-alerts]
-
-    --hours N        Override RUN_HOURS (default 8)
-    --verify-alerts  After each burst scenario, query /security/alerts and
-                     print which alert types fired. Requires ADMIN_TOKEN env var.
-"""
 import os, sys, time, random, argparse, textwrap
 import schedule, requests
 from openai import OpenAI
@@ -27,7 +5,7 @@ from openai import OpenAI
 # ── Config ─────────────────────────────────────────────────────────────────────
 GATEWAY_URL = os.environ.get("GATEWAY_URL",  "https://aifinops-backend.onrender.com/v1")
 API_KEY     = os.environ.get("GATEWAY_KEY",  "gk-PkdKHCmt9F6SiLrI9rruHkTCBK-dz8n7SGelbl2zqMQ")
-ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN",  "")   # Bearer token — needed for --verify-alerts
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN",  "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJzdWIiOiAiMSIsICJlbWFpbCI6ICJhZG1pbkBhaWZpbm9wcy5sb2NhbCIsICJuYW1lIjogIkFkbWluIiwgInJvbGUiOiAiYWRtaW4iLCAidGVhbSI6ICJQbGF0Zm9ybSIsICJleHAiOiAxNzgwOTAyNzEyfQ.kKkuytDmhHhdmhQGCsJBwbgGoEte60tUp-d_vx3g0Gg")   # Bearer token — needed for --verify-alerts
 TEAM        = os.environ.get("GUARD_TEAM",   "Developer")
 BASE_URL    = GATEWAY_URL.removesuffix("/v1")      # https://aifinops-backend.onrender.com
 
