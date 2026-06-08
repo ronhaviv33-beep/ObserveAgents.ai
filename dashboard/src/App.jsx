@@ -1225,7 +1225,22 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
 
   const toggleExpand = (id) => setExpanded(prev => prev === id ? null : id);
 
-  const colKey = { "Time":"timestamp","Team":"team","Agent":"agent","Model":"model","Status":"blocked","Sensitive":"sensitive","Tokens":"total_tokens","Cost":"cost_usd" };
+  const colKey = { "Time":"timestamp","Team":"team","Agent":"agent","Model":"model","Status":"blocked","Flags":"sensitive","Tokens":"total_tokens","Cost":"cost_usd" };
+
+  // Build a lookup: agent → sorted timestamps, for loop detection per-row
+  const agentTimes = React.useMemo(() => {
+    const m = {};
+    audit.forEach(r => { (m[r.agent] = m[r.agent] || []).push(new Date(r.timestamp).getTime()); });
+    Object.values(m).forEach(a => a.sort((x,y) => x - y));
+    return m;
+  }, [audit]);
+  const isLoopRow = (r) => {
+    const times = agentTimes[r.agent] || [];
+    const t = new Date(r.timestamp).getTime();
+    const nearby = times.filter(x => Math.abs(x - t) < 5 * 60 * 1000);
+    return nearby.length >= 5;
+  };
+  const isAfterHours = (r) => { const h = new Date(r.timestamp).getUTCHours(); return h < 7 || h >= 20; };
   const sorted = sort(audit, (r, k) => {
     if (k === "timestamp") return new Date(r.timestamp).getTime();
     if (k === "blocked")   return r.blocked ? 1 : 0;
@@ -1242,7 +1257,7 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
       <table style={{ width:"100%", borderCollapse:"collapse" }}>
         <thead>
           <tr style={{ borderBottom:`1px solid ${T.border}` }}>
-            {["Time","Team","Agent","Model","Status","Sensitive","Tokens","Cost",""].map((h) => h === "" ? (
+            {["Time","Team","Agent","Model","Status","Flags","Tokens","Cost",""].map((h) => h === "" ? (
               <th key={h} style={{ padding:"10px 8px", width:24 }} />
             ) : (
               <SortableTh key={h} label={h} sortKey={colKey[h]} active={sortKey===colKey[h]} dir={sortDir} onToggle={sortToggle} />
@@ -1268,14 +1283,21 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
                   <td style={{ padding:"10px 8px" }}>
                     {r.blocked ? <Pill color={T.crit}>blocked</Pill> : <Pill color={T.accent}>ok</Pill>}
                   </td>
-                  <td style={{ padding:"10px 8px" }}>
-                    {r.sensitive ? <Pill color={T.warn}>flagged</Pill> : <span style={{ color:T.textMute, fontFamily:FONT_MONO, fontSize:11 }}>—</span>}
+                  <td style={{ padding:"6px 8px" }}>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:3 }}>
+                      {r.sensitive       && <Pill color={T.warn}>PII</Pill>}
+                      {r.pricing_estimated && <Pill color="#f97316">unknown mdl</Pill>}
+                      {isLoopRow(r)      && <Pill color="#eab308">loop</Pill>}
+                      {isAfterHours(r)   && <Pill color={T.info}>after-hrs</Pill>}
+                      {!r.sensitive && !r.pricing_estimated && !isLoopRow(r) && !isAfterHours(r) && (
+                        <span style={{ color:T.textMute, fontFamily:FONT_MONO, fontSize:11 }}>—</span>
+                      )}
+                    </div>
                   </td>
                   <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>{r.total_tokens.toLocaleString()}</td>
-                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:12, color: r.pricing_estimated ? T.warn : T.text }}>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:12, color: r.pricing_estimated ? "#f97316" : T.text }}>
                     {r.pricing_estimated && <span title="Conservative estimate — model not in pricing table" style={{ marginRight:2 }}>~</span>}
                     ${r.cost_usd.toFixed(6)}
-                    {r.pricing_estimated && <span style={{ fontSize:9, marginLeft:4, color:T.warn, letterSpacing:"0.06em" }}>est.</span>}
                   </td>
                   <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, color: isOpen ? T.accent : T.textMute, userSelect:"none" }}>
                     {isOpen ? "▲" : "▼"}

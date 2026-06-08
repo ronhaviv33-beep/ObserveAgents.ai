@@ -1745,9 +1745,19 @@ async def openai_compat_chat(
     try:
         resp_dict = await proxy_chat_complete(body, org_client=org_client)
     except RuntimeError as exc:
-        import logging; logging.getLogger("aifinops").error("Service error", exc_info=True); raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
+        import logging; logging.getLogger("aifinops").error("Service error", exc_info=True)
+        tel.save_blocked(db, team=team, agent=agent, model=model,
+                         prompt=last_user, reason=f"upstream_error: {exc}",
+                         sensitive=(scan_result.is_sensitive if scan_result else False),
+                         sensitive_findings=findings_list, organization_id=org_id)
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
     except Exception as exc:
-        import logging; logging.getLogger("aifinops").error("LLM error", exc_info=True); raise HTTPException(status_code=502, detail="Upstream LLM error. Please try again.")
+        import logging; logging.getLogger("aifinops").error("LLM error", exc_info=True)
+        tel.save_blocked(db, team=team, agent=agent, model=model,
+                         prompt=last_user, reason=f"upstream_error: {exc}",
+                         sensitive=(scan_result.is_sensitive if scan_result else False),
+                         sensitive_findings=findings_list, organization_id=org_id)
+        raise HTTPException(status_code=502, detail="Upstream LLM error. Please try again.")
 
     latency_ms = resp_dict.pop("_latency_ms", 0.0)
     usage      = resp_dict.get("usage", {})
@@ -1932,9 +1942,19 @@ async def anthropic_compat_messages(
     try:
         resp_dict = await proxy_chat_complete(oai_body, org_client=org_client)
     except RuntimeError as exc:
-        import logging; logging.getLogger("aifinops").error("Service error", exc_info=True); raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
+        import logging; logging.getLogger("aifinops").error("Service error", exc_info=True)
+        tel.save_blocked(db, team=team, agent=agent, model=model,
+                         prompt=last_user, reason=f"upstream_error: {exc}",
+                         sensitive=(scan_result.is_sensitive if scan_result else False),
+                         sensitive_findings=findings_list, organization_id=org_id)
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
     except Exception as exc:
-        import logging; logging.getLogger("aifinops").error("LLM error", exc_info=True); raise HTTPException(status_code=502, detail="Upstream LLM error. Please try again.")
+        import logging; logging.getLogger("aifinops").error("LLM error", exc_info=True)
+        tel.save_blocked(db, team=team, agent=agent, model=model,
+                         prompt=last_user, reason=f"upstream_error: {exc}",
+                         sensitive=(scan_result.is_sensitive if scan_result else False),
+                         sensitive_findings=findings_list, organization_id=org_id)
+        raise HTTPException(status_code=502, detail="Upstream LLM error. Please try again.")
 
     latency_ms = resp_dict.pop("_latency_ms", 0.0)
     usage      = resp_dict.get("usage", {})
