@@ -1240,7 +1240,7 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
     const nearby = times.filter(x => Math.abs(x - t) < 5 * 60 * 1000);
     return nearby.length >= 5;
   };
-  const isAfterHours = (r) => { const h = new Date(r.timestamp).getUTCHours(); return h < 7 || h >= 20; };
+  const isAfterHours = (r) => { const h = new Date(r.timestamp).getHours(); return h < 7 || h >= 20; };
   const sorted = sort(audit, (r, k) => {
     if (k === "timestamp") return new Date(r.timestamp).getTime();
     if (k === "blocked")   return r.blocked ? 1 : 0;
