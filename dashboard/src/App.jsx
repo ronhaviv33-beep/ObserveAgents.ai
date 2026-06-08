@@ -105,7 +105,7 @@ function approvedModel(name = "") {
 
 // ─── Transform real API records → internal event shape ───────────────────────
 function apiRecordToEvent(r, idx) {
-  const ts = new Date(r.timestamp).getTime();
+  const ts = parseUTC(r.timestamp).getTime();
   const hour = new Date(ts).getHours();
   const afterHours = hour < 7 || hour > 20;
 
@@ -400,6 +400,8 @@ const sevColor = (s) => s==="critical"?T.crit:s==="warning"?T.warn:T.info;
 const fmt$  = (n) => n>=1000?`$${(n/1000).toFixed(2)}k`:`$${n.toFixed(2)}`;
 const fmtK  = (n) => n>=1_000_000?`${(n/1_000_000).toFixed(2)}M`:n>=1000?`${(n/1000).toFixed(1)}k`:n.toString();
 const fmtTime=(ts)=>{ const d=Date.now()-ts; if(d<60_000)return"just now"; if(d<3_600_000)return`${Math.floor(d/60_000)}m ago`; if(d<86_400_000)return`${Math.floor(d/3_600_000)}h ago`; return new Date(ts).toLocaleDateString(); };
+// SQLite returns naive UTC strings without Z; append it so the browser parses them as UTC → local time
+const parseUTC = (s) => new Date(typeof s === "string" && !s.endsWith("Z") && !s.includes("+") ? s + "Z" : s);
 
 // ─── Sortable table helpers ───────────────────────────────────────────────────
 function useSortable(defaultKey, defaultDir = "desc") {
@@ -1230,19 +1232,19 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
   // Build a lookup: agent → sorted timestamps, for loop detection per-row
   const agentTimes = React.useMemo(() => {
     const m = {};
-    audit.forEach(r => { (m[r.agent] = m[r.agent] || []).push(new Date(r.timestamp).getTime()); });
+    audit.forEach(r => { (m[r.agent] = m[r.agent] || []).push(parseUTC(r.timestamp).getTime()); });
     Object.values(m).forEach(a => a.sort((x,y) => x - y));
     return m;
   }, [audit]);
   const isLoopRow = (r) => {
     const times = agentTimes[r.agent] || [];
-    const t = new Date(r.timestamp).getTime();
+    const t = parseUTC(r.timestamp).getTime();
     const nearby = times.filter(x => Math.abs(x - t) < 5 * 60 * 1000);
     return nearby.length >= 5;
   };
-  const isAfterHours = (r) => { const h = new Date(r.timestamp).getHours(); return h < 7 || h >= 20; };
+  const isAfterHours = (r) => { const h = parseUTC(r.timestamp).getHours(); return h < 7 || h >= 20; };
   const sorted = sort(audit, (r, k) => {
-    if (k === "timestamp") return new Date(r.timestamp).getTime();
+    if (k === "timestamp") return parseUTC(r.timestamp).getTime();
     if (k === "blocked")   return r.blocked ? 1 : 0;
     if (k === "sensitive") return r.sensitive ? 1 : 0;
     return r[k];
@@ -1276,7 +1278,7 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
               <React.Fragment key={r.id}>
                 <tr style={{ borderBottom: isOpen ? "none" : `1px solid ${T.border}`, background: rowBg, cursor:"pointer" }}
                     onClick={() => toggleExpand(r.id)}>
-                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.timestamp).toLocaleString()}</td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{parseUTC(r.timestamp).toLocaleString()}</td>
                   <td style={{ padding:"10px 8px", fontSize:12, color:T.text }}>{r.team}</td>
                   <td style={{ padding:"10px 8px", fontSize:12, color:T.textDim }}>{r.agent}</td>
                   <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textDim }}>{r.model}</td>
@@ -4439,7 +4441,7 @@ export default function App() {
     if (serverAlerts.length === 0) return detected;
     const serverTsByType = {};
     serverAlerts.forEach(sa => {
-      const t = new Date(sa.ts).getTime();
+      const t = parseUTC(sa.ts).getTime();
       if (!serverTsByType[sa.type] || t > serverTsByType[sa.type]) {
         serverTsByType[sa.type] = t;
       }
