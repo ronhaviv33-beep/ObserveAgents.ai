@@ -24,7 +24,7 @@ def _org_and_scope(user, db):
     return org_id, team_scope
 
 
-@router.get("/api/assets")
+@router.get("/assets")
 async def list_assets(
     team:    Optional[str] = Query(None),
     status:  Optional[str] = Query(None, pattern="^(active|dormant|inactive)$"),
@@ -53,7 +53,7 @@ async def list_assets(
     return asset_lib.sort_assets(assets, sort_by=sort_by, order=order)
 
 
-@router.get("/api/assets/summary")
+@router.get("/assets/summary")
 async def assets_summary(
     days: int = Query(90, ge=1, le=365),
     user=Depends(get_current_user),
@@ -71,7 +71,7 @@ async def assets_summary(
     return asset_lib.get_asset_summary(db, org_id, days_lookback=days, team_scope=team_scope)
 
 
-@router.get("/api/assets/{agent_name}")
+@router.get("/assets/{agent_name}")
 async def get_asset(
     agent_name: str,
     days: int = Query(90, ge=1, le=365),
@@ -94,7 +94,7 @@ async def get_asset(
     return asset
 
 
-@router.get("/api/assets/{agent_name}/telemetry")
+@router.get("/assets/{agent_name}/telemetry")
 async def get_asset_telemetry(
     agent_name: str,
     skip:  int = Query(0, ge=0),
@@ -148,7 +148,7 @@ async def get_asset_telemetry(
     return {"items": items, "total": total, "skip": skip, "limit": limit}
 
 
-@router.post("/api/assets/{agent_name}/owner")
+@router.post("/assets/{agent_name}/owner")
 async def update_asset_owner(
     agent_name: str,
     body: dict,
@@ -160,7 +160,7 @@ async def update_asset_owner(
     return {"agent_name": agent_name, "owner": body.get("owner"), "status": "pending_phase2"}
 
 
-@router.post("/api/assets/{agent_name}/environment")
+@router.post("/assets/{agent_name}/environment")
 async def update_asset_environment(
     agent_name: str,
     body: dict,
