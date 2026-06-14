@@ -5,6 +5,9 @@ import time
 from collections import OrderedDict
 from typing import List
 
+from dotenv import load_dotenv
+load_dotenv()  # reads .env from project root before any os.getenv() calls
+
 from fastapi import FastAPI, Depends, HTTPException, Query, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
