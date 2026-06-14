@@ -1480,59 +1480,104 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
                     {isOpen ? "▲" : "▼"}
                   </td>
                 </tr>
-                {isOpen && (
-                  <tr style={{ background: rowBg }}>
-                    <td colSpan={9} style={{ padding:"0 0 0 0", borderBottom:`1px solid ${T.border}` }}>
-                      <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", gap:14, borderTop:`1px dashed ${T.border}` }}>
-                        {/* Prompt */}
-                        <div>
-                          <div style={{ fontFamily:FONT_MONO, fontSize:9, letterSpacing:"0.14em", textTransform:"uppercase", color:T.info, marginBottom:6 }}>Prompt</div>
-                          <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:4, padding:"10px 14px", fontFamily:FONT_MONO, fontSize:12, color:T.text, lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-word", maxHeight:200, overflow:"auto" }}>
-                            {r.prompt || <span style={{ color:T.textMute }}>—</span>}
+                {isOpen && (() => {
+                  const startTime = parseUTC(r.timestamp);
+                  const endTime   = new Date(startTime.getTime() + (r.latency_ms || 0));
+                  const afterHrs  = isAfterHours(r);
+                  const loopFlag  = isLoopRow(r);
+                  const Field = ({ label, value, color, mono = true }) => (
+                    <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                      <div style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>{label}</div>
+                      <div style={{ fontSize:12, fontFamily: mono ? FONT_MONO : FONT_UI, color: color || T.text, wordBreak:"break-all" }}>{value ?? "—"}</div>
+                    </div>
+                  );
+                  return (
+                    <tr style={{ background: r.blocked ? `${T.crit}06` : r.sensitive ? `${T.warn}06` : T.panelHi }}>
+                      <td colSpan={9} style={{ borderBottom:`1px solid ${T.border}`, padding:0 }}>
+                        <div style={{ padding:"20px 24px", display:"flex", flexDirection:"column", gap:18, borderTop:`1px solid ${T.border}` }}>
+
+                          {/* Section header */}
+                          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                            <div style={{ fontSize:11, fontFamily:FONT_MONO, letterSpacing:"0.14em", textTransform:"uppercase", color:T.textDim, fontWeight:600 }}>Request Details</div>
+                            <div style={{ display:"flex", gap:6 }}>
+                              {r.blocked   && <Pill color={T.crit}>blocked</Pill>}
+                              {r.sensitive && <Pill color={T.warn}>PII</Pill>}
+                              {loopFlag    && <Pill color="#eab308">loop</Pill>}
+                              {afterHrs    && <Pill color={T.info}>after-hrs</Pill>}
+                              {r.pricing_estimated && <Pill color="#f97316">est. pricing</Pill>}
+                            </div>
                           </div>
+
+                          {/* Identity grid */}
+                          <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:"14px 16px" }}>
+                            <Field label="Request ID"  value={`#${r.id}`} />
+                            <Field label="Team"        value={r.team} />
+                            <Field label="Agent"       value={r.agent} />
+                            <Field label="Model"       value={r.model} />
+                            <Field label="Status"      value={r.blocked ? "BLOCKED" : "OK"} color={r.blocked ? T.crit : T.accent} />
+                            <Field label="Latency"     value={`${Math.round(r.latency_ms || 0)} ms`} />
+                          </div>
+
+                          {/* Timing + tokens + cost grid */}
+                          <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:"14px 16px" }}>
+                            <Field label="Start Time"         value={startTime.toLocaleTimeString()} />
+                            <Field label="End Time"           value={endTime.toLocaleTimeString()} />
+                            <Field label="Total Tokens"       value={(r.total_tokens || 0).toLocaleString()} />
+                            <Field label="Prompt Tokens"      value={(r.prompt_tokens || 0).toLocaleString()} />
+                            <Field label="Completion Tokens"  value={(r.completion_tokens || 0).toLocaleString()} />
+                            <Field label="Spend"
+                              value={`${r.pricing_estimated ? "~" : ""}$${(r.cost_usd || 0).toFixed(6)}`}
+                              color={r.pricing_estimated ? "#f97316" : T.text} />
+                          </div>
+
+                          {/* Prompt */}
+                          <div>
+                            <div style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.14em", textTransform:"uppercase", color:T.info, marginBottom:8 }}>Prompt</div>
+                            <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:6, padding:"12px 16px", fontFamily:FONT_MONO, fontSize:12, color:T.text, lineHeight:1.7, whiteSpace:"pre-wrap", wordBreak:"break-word", maxHeight:180, overflowY:"auto" }}>
+                              {r.prompt || <span style={{ color:T.textMute }}>—</span>}
+                            </div>
+                          </div>
+
+                          {/* Block reason OR Response */}
+                          {r.blocked ? (
+                            <div>
+                              <div style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.14em", textTransform:"uppercase", color:T.crit, marginBottom:8 }}>Block Reason</div>
+                              <div style={{ background:`${T.crit}10`, border:`1px solid ${T.crit}33`, borderRadius:6, padding:"12px 16px", fontFamily:FONT_MONO, fontSize:12, color:T.crit, lineHeight:1.6 }}>
+                                {r.block_reason || "—"}
+                              </div>
+                            </div>
+                          ) : r.response ? (
+                            <div>
+                              <div style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.14em", textTransform:"uppercase", color:T.accent, marginBottom:8 }}>Response</div>
+                              <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:6, padding:"12px 16px", fontFamily:FONT_MONO, fontSize:12, color:T.text, lineHeight:1.7, whiteSpace:"pre-wrap", wordBreak:"break-word", maxHeight:180, overflowY:"auto" }}>
+                                {r.response}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {/* Security findings */}
+                          {findings.length > 0 && (
+                            <div>
+                              <div style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.14em", textTransform:"uppercase", color:T.warn, marginBottom:8 }}>
+                                Security Findings ({findings.length})
+                              </div>
+                              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                                {findings.map((f, i) => (
+                                  <div key={i} style={{ display:"grid", gridTemplateColumns:"90px 160px 1fr", alignItems:"center", gap:12, padding:"8px 14px", background:T.bg, border:`1px solid ${T.border}`, borderLeft:`3px solid ${f.severity==="critical"?T.crit:T.warn}`, borderRadius:4 }}>
+                                    <Pill color={f.severity==="critical"?T.crit:T.warn}>{f.severity}</Pill>
+                                    <span style={{ fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{f.type}</span>
+                                    <span style={{ fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{f.sample}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                         </div>
-                        {/* Response or block reason */}
-                        {r.blocked ? (
-                          <div>
-                            <div style={{ fontFamily:FONT_MONO, fontSize:9, letterSpacing:"0.14em", textTransform:"uppercase", color:T.crit, marginBottom:6 }}>Block Reason</div>
-                            <div style={{ background:`${T.crit}10`, border:`1px solid ${T.crit}33`, borderRadius:4, padding:"10px 14px", fontFamily:FONT_MONO, fontSize:12, color:T.crit, lineHeight:1.6 }}>
-                              {r.block_reason || "—"}
-                            </div>
-                          </div>
-                        ) : (
-                          <div>
-                            <div style={{ fontFamily:FONT_MONO, fontSize:9, letterSpacing:"0.14em", textTransform:"uppercase", color:T.accent, marginBottom:6 }}>Response</div>
-                            <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:4, padding:"10px 14px", fontFamily:FONT_MONO, fontSize:12, color:T.text, lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-word", maxHeight:200, overflow:"auto" }}>
-                              {r.response || <span style={{ color:T.textMute }}>—</span>}
-                            </div>
-                          </div>
-                        )}
-                        {/* Security findings */}
-                        {findings.length > 0 && (
-                          <div>
-                            <div style={{ fontFamily:FONT_MONO, fontSize:9, letterSpacing:"0.14em", textTransform:"uppercase", color:T.warn, marginBottom:6 }}>Security Findings ({findings.length})</div>
-                            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                              {findings.map((f, i) => (
-                                <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"6px 10px", background:T.panelHi, borderLeft:`2px solid ${T.warn}`, borderRadius:3 }}>
-                                  <Pill color={f.severity==="critical"?T.crit:T.warn}>{f.severity}</Pill>
-                                  <span style={{ fontFamily:FONT_MONO, fontSize:11, color:T.text }}>{f.type}</span>
-                                  <span style={{ fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{f.sample}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {/* Meta row */}
-                        <div style={{ display:"flex", gap:20, fontFamily:FONT_MONO, fontSize:10, color:T.textMute }}>
-                          <span>ID: <span style={{ color:T.textDim }}>{r.id}</span></span>
-                          <span>Latency: <span style={{ color:T.textDim }}>{r.latency_ms.toFixed(0)}ms</span></span>
-                          <span>Prompt tokens: <span style={{ color:T.textDim }}>{r.prompt_tokens}</span></span>
-                          <span>Completion tokens: <span style={{ color:T.textDim }}>{r.completion_tokens}</span></span>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                )}
+                      </td>
+                    </tr>
+                  );
+                })()}
               </React.Fragment>
             );
           })}
