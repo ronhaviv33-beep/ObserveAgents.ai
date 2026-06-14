@@ -1,7 +1,7 @@
 import urllib.request, urllib.error, json, sys
 
-BASE = "https://aifinops-backend.onrender.com"
-EMAIL = "admin@aifinops.local"
+BASE = "https://ai-asset-backend.onrender.com"
+EMAIL = "admin@ai-asset-mgmt.local"
 PASSWORD = "Htaron1603."
 
 PAGES = ["home","chat","overview","cost","agents","models","workflows",

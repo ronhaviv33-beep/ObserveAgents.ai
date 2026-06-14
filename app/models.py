@@ -8,7 +8,7 @@ from sqlalchemy import Integer, String, Float, Text, DateTime, Boolean, ForeignK
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
-_pricing_log = logging.getLogger("aifinops.pricing")
+_pricing_log = logging.getLogger("ai_asset_mgmt.pricing")
 
 # When this table was last audited against provider pricing pages.
 # Update this constant whenever you update COST_PER_1M.

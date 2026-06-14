@@ -1,11 +1,11 @@
-// Paste this into the browser console on https://aifinops-frontend.onrender.com
+// Paste this into the browser console on https://ai-asset-frontend.onrender.com
 // while logged in as an admin user.
 // It fires 5 sensitive-data calls + 8 rapid loop calls to trigger both alerts.
 
 (async () => {
   const API_KEY = "gk-PkdKHCmt9F6SiLrI9rruHkTCBK-dz8n7SGelbl2zqMQ";
   // Derive backend URL from the frontend's VITE_API_BASE or fall back to Render default
-  const BASE = window.__VITE_API_BASE__ || "https://aifinops-backend.onrender.com";
+  const BASE = window.__VITE_API_BASE__ || "https://ai-asset-backend.onrender.com";
 
   const headers = {
     "Authorization": `Bearer ${API_KEY}`,

@@ -148,7 +148,7 @@ function buildLiveMetadata(apiRecords) {
     if (!teamMap[teamId])  teamMap[teamId]  = { id: teamId,  org: "org_live", name: r.team };
     if (!agentMap[agentId]) agentMap[agentId] = { id: agentId, name: r.agent, team: teamId, workflow: `live_wf_${r.agent.replace(/\s+/g, "_").toLowerCase()}`, tool: "openai_api" };
   }
-  const liveOrg   = { id: "org_live", name: "Live (AIFinOps Guard)" };
+  const liveOrg   = { id: "org_live", name: "Live (AI Asset Management)" };
   return { liveOrg, liveTeams: Object.values(teamMap), liveAgents: Object.values(agentMap) };
 }
 
@@ -481,10 +481,10 @@ function Home({ risk, savings, alerts, A, onNavigate }) {
           "We don't understand or control our<br /><span style={{ color:T.textDim }}>AI infrastructure."</span>
         </h1>
         <div style={{ fontSize:15, color:T.textDim, marginTop:18, maxWidth:680, lineHeight:1.65 }}>
-          AIFinOps Guard gives organizations complete visibility, governance, security, and cost control over every AI agent, model, and workflow running inside their environment.
+          AI Asset Management gives organizations complete visibility, governance, security, and cost control over every AI agent, model, and workflow running inside their environment.
         </div>
         <div style={{ fontSize:13, color:T.textMute, marginTop:12, maxWidth:680, lineHeight:1.65 }}>
-          If your company uses ChatGPT, Copilot, Claude, Gemini, AI agents, or custom LLM applications, AIFinOps Guard helps you understand where your money goes, what your AI is doing, and whether it operates securely and according to policy.
+          If your company uses ChatGPT, Copilot, Claude, Gemini, AI agents, or custom LLM applications, AI Asset Management helps you understand where your money goes, what your AI is doing, and whether it operates securely and according to policy.
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginTop:28, maxWidth:880 }}>
           {[
@@ -1686,7 +1686,7 @@ function LoginPage({ onLogin }) {
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
             <div style={{ width:22, height:22, background:T.accent, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT_MONO, fontWeight:600, fontSize:12, color:T.bg }}>◆</div>
-            <span style={{ fontSize:15, fontWeight:500, letterSpacing:"-0.01em" }}>AIFinOps Guard</span>
+            <span style={{ fontSize:15, fontWeight:500, letterSpacing:"-0.01em" }}>AI Asset Management</span>
           </div>
           <div style={{ fontSize:13, color:T.textDim }}>Sign in to your account</div>
         </div>
@@ -1708,7 +1708,7 @@ function LoginPage({ onLogin }) {
           {loading ? "Signing in…" : "Sign in"}
         </button>
         <div style={{ fontSize:11, color:T.textMute, fontFamily:FONT_MONO, textAlign:"center" }}>
-          Default: admin@aifinops.local / Admin123!
+          Default: admin@ai-asset-mgmt.local / Admin123!
         </div>
       </form>
     </div>
@@ -4485,7 +4485,7 @@ export default function App() {
   };
 
   if (!authChecked || apiRecords === null || rolesMap === null) {
-    return <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", color:T.textDim, fontFamily:FONT_MONO }}>Connecting to AIFinOps Guard…</div>;
+    return <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", color:T.textDim, fontFamily:FONT_MONO }}>Connecting to AI Asset Management…</div>;
   }
 
   if (!user) {
@@ -4512,7 +4512,7 @@ export default function App() {
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:32, padding:"0 6px" }}>
           <div style={{ width:22, height:22, background:T.accent, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT_MONO, fontWeight:600, fontSize:12, color:T.bg }}>◆</div>
           <div>
-            <div style={{ fontSize:13, fontWeight:500, letterSpacing:"-0.01em" }}>AIFinOps Guard</div>
+            <div style={{ fontSize:13, fontWeight:500, letterSpacing:"-0.01em" }}>AI Asset Management</div>
             <div style={{ fontSize:9, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.1em", textTransform:"uppercase", marginTop:1 }}>control center</div>
           </div>
         </div>

@@ -4,7 +4,7 @@ Test agent that triggers two alert types:
   2. Sensitive data exposure — prompts containing PII / secrets
 
 Usage:
-  python test_agent.py --url https://aifinops-backend.onrender.com
+  python test_agent.py --url https://ai-asset-backend.onrender.com
 """
 
 import argparse
@@ -55,7 +55,7 @@ def call(url: str, prompt: str) -> tuple[int, str]:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--url", default="https://aifinops-backend.onrender.com",
+    parser.add_argument("--url", default="https://ai-asset-backend.onrender.com",
                         help="Backend base URL")
     parser.add_argument("--loops", type=int, default=8,
                         help="Number of loop calls (>5 triggers alert)")

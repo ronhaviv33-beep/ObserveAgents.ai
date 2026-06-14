@@ -1,4 +1,4 @@
-# AIFinOps Guard
+# AI Asset Management
 
 **AI Runtime Intelligence Platform — inline governance, cost control, and security for every LLM call in your organisation.**
 
@@ -81,7 +81,7 @@ POST /v1/messages          (Anthropic-compatible)
 ### Auth & Users
 - JWT login (`POST /auth/login`) with 8-hour expiry
 - Role-based access: **admin** / **analyst** / **viewer**
-- Admin seeds automatically on first start: `admin@aifinops.local` / `Admin123!`
+- Admin seeds automatically on first start: `admin@ai-asset-mgmt.local` / `Admin123!`
 - User CRUD with inline role/team editing
 - Settings page: live API key management (reads/writes `.env` without restart)
 
@@ -119,8 +119,8 @@ POST /v1/messages          (Anthropic-compatible)
 ### Backend
 
 ```bash
-git clone https://github.com/ronhaviv33-beep/aifinops-guard.git
-cd aifinops-guard
+git clone https://github.com/ronhaviv33-beep/ai-asset-management.git
+cd ai-asset-management
 
 python -m venv venv
 source venv/bin/activate          # Mac/Linux
@@ -146,7 +146,7 @@ cd dashboard
 npm install
 npm run dev
 # Dashboard → http://localhost:5173
-# Login: admin@aifinops.local / Admin123!
+# Login: admin@ai-asset-mgmt.local / Admin123!
 ```
 
 ### `.env` reference

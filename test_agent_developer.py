@@ -2,7 +2,7 @@ import os, time, random, schedule
 from openai import OpenAI
 
 # ── Config ─────────────────────────────────────────────────────────────────────
-GATEWAY_URL  = "https://aifinops-backend.onrender.com/v1"
+GATEWAY_URL  = "https://ai-asset-backend.onrender.com/v1"
 API_KEY      = "gk-PkdKHCmt9F6SiLrI9rruHkTCBK-dz8n7SGelbl2zqMQ"
 TEAM         = "Developer"
 RUN_HOURS    = 8                          # ← change this to run longer/shorter
@@ -100,7 +100,7 @@ schedule.every(25).minutes.do(run_unapproved_model)
 
 # ── Main loop ──────────────────────────────────────────────────────────────────
 print("=" * 60)
-print(f"  AIFinOps Guard — test agent")
+print(f"  AI Asset Management — test agent")
 print(f"  Team:    {TEAM}")
 print(f"  Started: {time.strftime('%Y-%m-%d %H:%M:%S')}")
 print(f"  Stops:   {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(END_TIME))}")

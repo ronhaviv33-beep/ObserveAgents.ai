@@ -3,11 +3,11 @@ import schedule, requests
 from openai import OpenAI
 
 # ── Config ─────────────────────────────────────────────────────────────────────
-GATEWAY_URL = os.environ.get("GATEWAY_URL",  "https://aifinops-backend.onrender.com/v1")
+GATEWAY_URL = os.environ.get("GATEWAY_URL",  "https://ai-asset-backend.onrender.com/v1")
 API_KEY     = os.environ.get("GATEWAY_KEY",  "gk-PkdKHCmt9F6SiLrI9rruHkTCBK-dz8n7SGelbl2zqMQ")
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN",  "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJzdWIiOiAiMSIsICJlbWFpbCI6ICJhZG1pbkBhaWZpbm9wcy5sb2NhbCIsICJuYW1lIjogIkFkbWluIiwgInJvbGUiOiAiYWRtaW4iLCAidGVhbSI6ICJQbGF0Zm9ybSIsICJleHAiOiAxNzgwOTAyNzEyfQ.kKkuytDmhHhdmhQGCsJBwbgGoEte60tUp-d_vx3g0Gg")   # Bearer token — needed for --verify-alerts
 TEAM        = os.environ.get("GUARD_TEAM",   "Developer")
-BASE_URL    = GATEWAY_URL.removesuffix("/v1")      # https://aifinops-backend.onrender.com
+BASE_URL    = GATEWAY_URL.removesuffix("/v1")      # https://ai-asset-backend.onrender.com
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--hours",         type=float, default=8,     help="How long to run (default 8)")
@@ -275,7 +275,7 @@ schedule.every(60).minutes.do(run_high_token_prompt)
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 print("=" * 64)
-print(f"  {BOLD}AIFinOps Guard — test agent{RESET}")
+print(f"  {BOLD}AI Asset Management — test agent{RESET}")
 print(f"  Gateway:  {GATEWAY_URL}")
 print(f"  Team:     {TEAM}")
 print(f"  Started:  {time.strftime('%Y-%m-%d %H:%M:%S')}")

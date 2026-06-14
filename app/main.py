@@ -46,7 +46,7 @@ try:
     _run_org_migration()
 except Exception as _e:
     import logging as _logging
-    _logging.getLogger("aifinops").warning("Org migration warning (non-fatal): %s", _e)
+    _logging.getLogger("ai_asset_mgmt").warning("Org migration warning (non-fatal): %s", _e)
 
 # ── Seed built-in roles (idempotent — INSERT OR IGNORE pattern) ────────────────
 _SEED_ROLES = [
@@ -117,7 +117,7 @@ try:
     _seed_roles()
 except Exception as _e:
     import logging as _logging
-    _logging.getLogger("aifinops").warning("Role seed warning (non-fatal): %s", _e)
+    _logging.getLogger("ai_asset_mgmt").warning("Role seed warning (non-fatal): %s", _e)
 
 
 def _migrate_pricing_estimated() -> None:
@@ -139,7 +139,7 @@ try:
     _migrate_pricing_estimated()
 except Exception as _e:
     import logging as _logging
-    _logging.getLogger("aifinops").warning("pricing_estimated migration warning (non-fatal): %s", _e)
+    _logging.getLogger("ai_asset_mgmt").warning("pricing_estimated migration warning (non-fatal): %s", _e)
 
 _START_TIME = time.time()
 
@@ -295,10 +295,10 @@ def _seed_admin():
     from app.models import User
     db = next(get_db())
     try:
-        if not db.query(User).filter(User.email == "admin@aifinops.local").first():
+        if not db.query(User).filter(User.email == "admin@ai-asset-mgmt.local").first():
             seed_pw = os.getenv("ADMIN_SEED_PASSWORD", "Ch@ngeMe!FinOps2026#")
             db.add(User(
-                email="admin@aifinops.local",
+                email="admin@ai-asset-mgmt.local",
                 name="Admin",
                 hashed_password=hash_password(seed_pw),
                 role="admin",
@@ -352,7 +352,7 @@ _DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 _FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "")
 
 app = FastAPI(
-    title="AIFinOps Guard",
+    title="AI Asset Management",
     description=(
         "## AI Runtime Intelligence Platform\n\n"
         "Every LLM call in your organisation routes through this gateway. "
@@ -424,7 +424,7 @@ async def security_headers(request: Request, call_next):
 
 @app.get("/", tags=["GET — Read / Monitor"])
 def root():
-    return {"status": "AIFinOps Gateway Running", "version": "0.5.0"}
+    return {"status": "AI Asset Management Gateway Running", "version": "0.5.0"}
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -493,7 +493,7 @@ async def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_d
     # Audit privilege changes as a security event (H-1)
     if "role" in updates and updates["role"] != user.role:
         import logging
-        logging.getLogger("aifinops.security").warning(
+        logging.getLogger("ai_asset_mgmt.security").warning(
             "ROLE CHANGE: actor=%s(id=%s) changed user=%s(id=%s) role %s -> %s",
             actor.email, actor.id, user.email, user.id, user.role, updates["role"],
         )
@@ -649,7 +649,7 @@ async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor
     db.refresh(record)
     _register_team(db, actor.organization_id, req.team)
     import logging
-    logging.getLogger("aifinops.security").info(
+    logging.getLogger("ai_asset_mgmt.security").info(
         "API key created: id=%s name=%s team=%s org=%s by=%s",
         record.id, record.name, record.team, record.organization_id, actor.email,
     )
@@ -684,7 +684,7 @@ async def update_api_key(
     db.refresh(key)
     import logging
     action = "enabled" if is_active else "revoked"
-    logging.getLogger("aifinops.security").info(
+    logging.getLogger("ai_asset_mgmt.security").info(
         "API key %s: id=%s name=%s by=%s", action, key.id, key.name, actor.email
     )
     return key
@@ -697,7 +697,7 @@ async def delete_api_key(key_id: int, db: Session = Depends(get_db), actor=Depen
     if not key:
         raise HTTPException(status_code=404, detail="API key not found")
     import logging
-    logging.getLogger("aifinops.security").info(
+    logging.getLogger("ai_asset_mgmt.security").info(
         "API key deleted: id=%s name=%s by=%s", key.id, key.name, actor.email
     )
     db.delete(key)
@@ -803,7 +803,7 @@ def upsert_provider_credential(
         existing.base_url      = base_url
         existing.is_active     = True
         invalidate_org_client(actor.organization_id, provider)
-        import logging; logging.getLogger("aifinops").info(
+        import logging; logging.getLogger("ai_asset_mgmt").info(
             "Provider credential updated: org=%s provider=%s by=%s", actor.organization_id, provider, actor.email
         )
     else:
@@ -814,7 +814,7 @@ def upsert_provider_credential(
             last4=last4,
             base_url=base_url,
         ))
-        import logging; logging.getLogger("aifinops").info(
+        import logging; logging.getLogger("ai_asset_mgmt").info(
             "Provider credential created: org=%s provider=%s by=%s", actor.organization_id, provider, actor.email
         )
 
@@ -943,7 +943,7 @@ def set_guard_mode(team: str, req: GuardModeUpdate, db: Session = Depends(get_db
 
     # Audit: server log + dashboard-visible governance row
     import logging
-    logging.getLogger("aifinops.security").warning(
+    logging.getLogger("ai_asset_mgmt.security").warning(
         "GUARD MODE: team=%s %s -> %s by=%s", team, old_mode, new_mode, actor.email
     )
     tel.save_blocked(
@@ -1026,9 +1026,9 @@ async def ask(req: AskRequest, db: Session = Depends(get_db), current_user=Depen
             system_prompt=req.system_prompt,
         )
     except RuntimeError as exc:
-        import logging; logging.getLogger("aifinops").error("Service error", exc_info=True); raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
+        import logging; logging.getLogger("ai_asset_mgmt").error("Service error", exc_info=True); raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
     except Exception as exc:
-        import logging; logging.getLogger("aifinops").error("LLM error", exc_info=True); raise HTTPException(status_code=502, detail="Upstream LLM error. Please try again.")
+        import logging; logging.getLogger("ai_asset_mgmt").error("LLM error", exc_info=True); raise HTTPException(status_code=502, detail="Upstream LLM error. Please try again.")
 
     # 5. Persist telemetry
     record = tel.save(
@@ -1117,9 +1117,9 @@ async def chat(req: ChatRequest, db: Session = Depends(get_db), current_user=Dep
     try:
         result = await chat_complete(messages=messages, model=req.model)
     except RuntimeError as exc:
-        import logging; logging.getLogger("aifinops").error("Service error", exc_info=True); raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
+        import logging; logging.getLogger("ai_asset_mgmt").error("Service error", exc_info=True); raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
     except Exception as exc:
-        import logging; logging.getLogger("aifinops").error("LLM error", exc_info=True); raise HTTPException(status_code=502, detail="Upstream LLM error. Please try again.")
+        import logging; logging.getLogger("ai_asset_mgmt").error("LLM error", exc_info=True); raise HTTPException(status_code=502, detail="Upstream LLM error. Please try again.")
 
     record = tel.save(db=db, team=req.team, agent=req.agent, prompt=last_user,
                       result=result, sensitive=scan_result.is_sensitive,
@@ -1375,9 +1375,9 @@ async def session_chat(session_uuid: str, req: SessionChatRequest, db: Session =
     try:
         result = await chat_complete(messages=messages, model=req.model)
     except RuntimeError as exc:
-        import logging; logging.getLogger("aifinops").error("Service error", exc_info=True); raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
+        import logging; logging.getLogger("ai_asset_mgmt").error("Service error", exc_info=True); raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
     except Exception as exc:
-        import logging; logging.getLogger("aifinops").error("LLM error", exc_info=True); raise HTTPException(status_code=502, detail="Upstream LLM error. Please try again.")
+        import logging; logging.getLogger("ai_asset_mgmt").error("LLM error", exc_info=True); raise HTTPException(status_code=502, detail="Upstream LLM error. Please try again.")
 
     record = tel.save(db=db, team=req.team, agent=req.agent, prompt=last_user,
                       result=result, sensitive=scan_result.is_sensitive,
@@ -1640,11 +1640,11 @@ def _handle_enforcement_error(db: Session, team: str, findings_list: list,
     breaker_open = _circuit_state() == "open"
     mode = _resolve_guard_mode(db, team, organization_id=organization_id)
     if mode == "enforce" and not breaker_open:
-        logging.getLogger("aifinops").error("Enforcement error (enforce mode)", exc_info=True)
+        logging.getLogger("ai_asset_mgmt").error("Enforcement error (enforce mode)", exc_info=True)
         raise HTTPException(status_code=503, detail="Gateway enforcement error. Please try again.")
     # Fail-open path — never silent
     why = "circuit breaker OPEN" if breaker_open else f"{mode} mode"
-    logging.getLogger("aifinops").error("FAIL-OPEN BYPASS (%s): enforcement error swallowed", why, exc_info=True)
+    logging.getLogger("ai_asset_mgmt").error("FAIL-OPEN BYPASS (%s): enforcement error swallowed", why, exc_info=True)
     findings_list.append({"type": "enforcement_bypass", "severity": "critical",
                           "sample": f"fail-open ({why}) swallowed an enforcement error"})
 
@@ -1745,14 +1745,14 @@ async def openai_compat_chat(
     try:
         resp_dict = await proxy_chat_complete(body, org_client=org_client)
     except RuntimeError as exc:
-        import logging; logging.getLogger("aifinops").error("Service error", exc_info=True)
+        import logging; logging.getLogger("ai_asset_mgmt").error("Service error", exc_info=True)
         tel.save_blocked(db, team=team, agent=agent, model=model,
                          prompt=last_user, reason=f"upstream_error: {exc}",
                          sensitive=(scan_result.is_sensitive if scan_result else False),
                          sensitive_findings=findings_list, organization_id=org_id)
         raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
     except Exception as exc:
-        import logging; logging.getLogger("aifinops").error("LLM error", exc_info=True)
+        import logging; logging.getLogger("ai_asset_mgmt").error("LLM error", exc_info=True)
         tel.save_blocked(db, team=team, agent=agent, model=model,
                          prompt=last_user, reason=f"upstream_error: {exc}",
                          sensitive=(scan_result.is_sensitive if scan_result else False),
@@ -1942,14 +1942,14 @@ async def anthropic_compat_messages(
     try:
         resp_dict = await proxy_chat_complete(oai_body, org_client=org_client)
     except RuntimeError as exc:
-        import logging; logging.getLogger("aifinops").error("Service error", exc_info=True)
+        import logging; logging.getLogger("ai_asset_mgmt").error("Service error", exc_info=True)
         tel.save_blocked(db, team=team, agent=agent, model=model,
                          prompt=last_user, reason=f"upstream_error: {exc}",
                          sensitive=(scan_result.is_sensitive if scan_result else False),
                          sensitive_findings=findings_list, organization_id=org_id)
         raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
     except Exception as exc:
-        import logging; logging.getLogger("aifinops").error("LLM error", exc_info=True)
+        import logging; logging.getLogger("ai_asset_mgmt").error("LLM error", exc_info=True)
         tel.save_blocked(db, team=team, agent=agent, model=model,
                          prompt=last_user, reason=f"upstream_error: {exc}",
                          sensitive=(scan_result.is_sensitive if scan_result else False),

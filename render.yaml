@@ -1,7 +1,7 @@
 services:
   # ── Backend (FastAPI) ──────────────────────────────────────────────────────
   - type: web
-    name: aifinops-backend
+    name: ai-asset-backend
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
@@ -38,13 +38,13 @@ services:
 
   # ── Frontend (Vite / React static site) ───────────────────────────────────
   - type: web
-    name: aifinops-frontend
+    name: ai-asset-frontend
     runtime: static
     buildCommand: cd dashboard && npm install && npm run build
     staticPublishPath: dashboard/dist
     envVars:
       # Set VITE_API_BASE manually in the Render dashboard to the FULL backend URL,
-      # e.g. https://aifinops-backend.onrender.com. We don't use fromService here
+      # e.g. https://ai-asset-backend.onrender.com. We don't use fromService here
       # because property:host can resolve to the bare service name (no .onrender.com),
       # which then fails to resolve in the browser.
       - key: VITE_API_BASE
