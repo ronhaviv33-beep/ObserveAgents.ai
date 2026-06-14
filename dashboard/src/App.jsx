@@ -4796,8 +4796,9 @@ function AssetsPage() {
                                           <td style={{ padding: "4px 10px", color: T2.textDim }}>${(r.cost_usd || 0).toFixed(5)}</td>
                                           <td style={{ padding: "4px 10px", color: T2.textDim }}>{Math.round(r.latency_ms)}ms</td>
                                           <td style={{ padding: "4px 10px" }}>
-                                            {r.sensitive && <span style={{ color: T2.crit, marginRight: 4 }}>PII</span>}
-                                            {r.blocked   && <span style={{ color: T2.warn }}>blocked</span>}
+                                            {r.sensitive && <span style={{ color: T2.crit, marginRight: 4, fontSize: 10, background: `${T2.crit}22`, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>PII</span>}
+                                            {r.blocked   && <span style={{ color: T2.warn, marginRight: 4, fontSize: 10, background: `${T2.warn}22`, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>blocked</span>}
+                                            {(() => { const h = new Date(r.timestamp).getHours(); return (h < 7 || h >= 20); })() && <span style={{ color: T2.info, fontSize: 10, background: `${T2.info}22`, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>after-hrs</span>}
                                           </td>
                                         </tr>
                                       ))}
