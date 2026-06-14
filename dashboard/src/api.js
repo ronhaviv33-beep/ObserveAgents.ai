@@ -275,3 +275,33 @@ export async function fetchTeams() {
   if (!r || !r.ok) throw new Error('Failed to fetch teams')
   return r.json()
 }
+
+// ── Asset Management ──────────────────────────────────────────────────────────
+
+export async function fetchAssets(params = {}) {
+  const q = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  const r = await authFetch(`${BASE}/assets${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch assets')
+  return r.json()
+}
+
+export async function fetchAssetsSummary(days = 90) {
+  const r = await authFetch(`${BASE}/assets/summary?days=${days}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch assets summary')
+  return r.json()
+}
+
+export async function fetchAsset(agentName, days = 90) {
+  const r = await authFetch(`${BASE}/assets/${encodeURIComponent(agentName)}?days=${days}`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch asset: ${agentName}`)
+  return r.json()
+}
+
+export async function fetchAssetTelemetry(agentName, params = {}) {
+  const q = new URLSearchParams(params).toString()
+  const r = await authFetch(`${BASE}/assets/${encodeURIComponent(agentName)}/telemetry${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch telemetry for: ${agentName}`)
+  return r.json()
+}

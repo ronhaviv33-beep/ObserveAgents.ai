@@ -16,7 +16,7 @@ class PageErrorBoundary extends Component {
     return this.props.children;
   }
 }
-import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams } from "./api.js";
+import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams, fetchAssets, fetchAssetsSummary, fetchAssetTelemetry } from "./api.js";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -1637,9 +1637,9 @@ const useRoles = () => useContext(RolesContext);
 const ROLES = {
   // pages  — controls navigation visibility and page-level UI gates
   // can    — explicit data/action capabilities not expressible as page visibility
-  admin:   { label:"Admin",   color: T.crit,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations","onboarding"], can: ["view_all_sessions"], team_scoped: false },
-  analyst: { label:"Analyst", color: T.warn,   pages: ["home","chat","overview","cost","agents","models","workflows","alerts","security","integrations","onboarding"],                          can: [], team_scoped: true },
-  viewer:  { label:"Viewer",  color: T.info,   pages: ["home","overview","cost","agents","models","workflows","alerts","security"],                                                              can: [], team_scoped: true },
+  admin:   { label:"Admin",   color: T.crit,   pages: ["home","chat","assets","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations","onboarding"], can: ["view_all_sessions"], team_scoped: false },
+  analyst: { label:"Analyst", color: T.warn,   pages: ["home","chat","assets","overview","cost","agents","models","workflows","alerts","security","integrations","onboarding"],                can: [], team_scoped: true },
+  viewer:  { label:"Viewer",  color: T.info,   pages: ["home","assets","overview","cost","agents","models","workflows","alerts","security"],                                                    can: [], team_scoped: true },
 };
 
 // deny-by-default: unknown/null role → false, never crashes, never leaks.
@@ -4294,10 +4294,374 @@ message = client.messages.create(
   );
 }
 
+// ─── Assets Page ─────────────────────────────────────────────────────────────
+function AssetsPage() {
+  const T2 = T;
+  const [assets,   setAssets]   = useState(null);
+  const [summary,  setSummary]  = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState(null);
+  const [expanded, setExpanded] = useState(null);
+  const [telRows,  setTelRows]  = useState({});
+  const [telLoading, setTelLoading] = useState({});
+  const [lastRefresh, setLastRefresh] = useState(null);
+
+  // Filters
+  const [search,    setSearch]   = useState("");
+  const [fTeam,     setFTeam]    = useState("");
+  const [fStatus,   setFStatus]  = useState("");
+  const [fRisk,     setFRisk]    = useState("");
+  const [sortBy,    setSortBy]   = useState("monthly_cost_usd");
+  const [sortOrder, setSortOrder] = useState("desc");
+  const [days,      setDays]     = useState(90);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const params = { sort_by: sortBy, order: sortOrder, days };
+      if (search)  params.search  = search;
+      if (fTeam)   params.team    = fTeam;
+      if (fStatus) params.status  = fStatus;
+      if (fRisk)   params.risk    = fRisk;
+      const [a, s] = await Promise.all([
+        fetchAssets(params),
+        fetchAssetsSummary(days),
+      ]);
+      setAssets(Array.isArray(a) ? a : []);
+      setSummary(s);
+      setLastRefresh(new Date());
+    } catch(e) {
+      setError(e.message);
+      setAssets([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, fTeam, fStatus, fRisk, sortBy, sortOrder, days]);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const id = setInterval(load, 30_000);
+    return () => clearInterval(id);
+  }, [load]);
+
+  const loadTelemetry = async (agentName) => {
+    if (telRows[agentName]) return;
+    setTelLoading(l => ({ ...l, [agentName]: true }));
+    try {
+      const data = await fetchAssetTelemetry(agentName, { limit: 20, days });
+      setTelRows(r => ({ ...r, [agentName]: data }));
+    } catch { /* ignore */ } finally {
+      setTelLoading(l => ({ ...l, [agentName]: false }));
+    }
+  };
+
+  const toggleRow = (name) => {
+    if (expanded === name) {
+      setExpanded(null);
+    } else {
+      setExpanded(name);
+      loadTelemetry(name);
+    }
+  };
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(o => o === "desc" ? "asc" : "desc");
+    } else {
+      setSortBy(field);
+      setSortOrder("desc");
+    }
+  };
+
+  const riskColor = (r) => r === "high" ? T2.crit : r === "medium" ? T2.warn : T2.accent;
+  const statusColor = (s) => s === "active" ? T2.accent : s === "dormant" ? T2.warn : T2.textMute;
+
+  const cell = { padding: "10px 12px", fontSize: 12, fontFamily: FONT_MONO, borderBottom: `1px solid ${T2.border}` };
+  const hdr  = { ...cell, fontSize: 11, color: T2.textDim, cursor: "pointer", userSelect: "none", textTransform: "uppercase", letterSpacing: "0.08em" };
+
+  const sortArrow = (field) => sortBy === field ? (sortOrder === "desc" ? " ↓" : " ↑") : "";
+
+  const uniqueTeams = [...new Set((assets || []).map(a => a.team).filter(Boolean))].sort();
+
+  return (
+    <div style={{ padding: 24, fontFamily: FONT_UI }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em" }}>AI Asset Inventory</div>
+          <div style={{ fontSize: 12, color: T2.textDim, marginTop: 2, fontFamily: FONT_MONO }}>
+            System of record for all AI agents — derived from proxy telemetry
+            {lastRefresh && <span style={{ marginLeft: 12, color: T2.textMute }}>· refreshed {lastRefresh.toLocaleTimeString()}</span>}
+          </div>
+        </div>
+        <button onClick={load} disabled={loading}
+          style={{ background: `${T2.accent}15`, border: `1px solid ${T2.accent}55`, color: T2.accent,
+            padding: "7px 14px", borderRadius: 5, fontSize: 11, fontFamily: FONT_MONO,
+            cursor: loading ? "default" : "pointer", opacity: loading ? 0.5 : 1, letterSpacing: "0.06em" }}>
+          {loading ? "Loading…" : "↺ Refresh"}
+        </button>
+      </div>
+
+      {/* KPI Cards */}
+      {summary && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 24 }}>
+          {[
+            { label: "Total Agents",   value: summary.total_agents,       color: T2.text },
+            { label: "Active",         value: summary.active_agents,      color: T2.accent },
+            { label: "Dormant",        value: summary.dormant_agents,     color: T2.warn },
+            { label: "Inactive",       value: summary.inactive_agents,    color: T2.textMute },
+            { label: "High Risk",      value: summary.high_risk_agents,   color: T2.crit },
+            { label: "With PII",       value: summary.agents_with_pii,    color: T2.crit },
+            { label: "Monthly Cost",   value: `$${(summary.monthly_cost_usd || 0).toFixed(2)}`, color: T2.purple },
+            { label: "Total Cost",     value: `$${(summary.total_cost_usd || 0).toFixed(2)}`,   color: T2.textDim },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ background: T2.panel, border: `1px solid ${T2.border}`, borderRadius: 8, padding: "14px 16px" }}>
+              <div style={{ fontSize: 10, color: T2.textMute, fontFamily: FONT_MONO, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{label}</div>
+              <div style={{ fontSize: 22, fontWeight: 600, color, fontFamily: FONT_MONO }}>{value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        <input
+          placeholder="Search agents or teams…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ background: T2.panel, border: `1px solid ${T2.border}`, color: T2.text, borderRadius: 5, padding: "7px 10px", fontSize: 12, fontFamily: FONT_MONO, minWidth: 200, outline: "none" }}
+        />
+        <select value={fTeam} onChange={e => setFTeam(e.target.value)}
+          style={{ background: T2.panel, border: `1px solid ${T2.border}`, color: fTeam ? T2.text : T2.textDim, borderRadius: 5, padding: "7px 10px", fontSize: 12, fontFamily: FONT_MONO }}>
+          <option value="">All teams</option>
+          {uniqueTeams.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={fStatus} onChange={e => setFStatus(e.target.value)}
+          style={{ background: T2.panel, border: `1px solid ${T2.border}`, color: fStatus ? T2.text : T2.textDim, borderRadius: 5, padding: "7px 10px", fontSize: 12, fontFamily: FONT_MONO }}>
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="dormant">Dormant</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <select value={fRisk} onChange={e => setFRisk(e.target.value)}
+          style={{ background: T2.panel, border: `1px solid ${T2.border}`, color: fRisk ? T2.text : T2.textDim, borderRadius: 5, padding: "7px 10px", fontSize: 12, fontFamily: FONT_MONO }}>
+          <option value="">All risk levels</option>
+          <option value="high">High risk</option>
+          <option value="medium">Medium risk</option>
+          <option value="low">Low risk</option>
+        </select>
+        <select value={days} onChange={e => setDays(Number(e.target.value))}
+          style={{ background: T2.panel, border: `1px solid ${T2.border}`, color: T2.text, borderRadius: 5, padding: "7px 10px", fontSize: 12, fontFamily: FONT_MONO }}>
+          <option value={7}>Last 7 days</option>
+          <option value={30}>Last 30 days</option>
+          <option value={90}>Last 90 days</option>
+        </select>
+        {(search || fTeam || fStatus || fRisk) && (
+          <button onClick={() => { setSearch(""); setFTeam(""); setFStatus(""); setFRisk(""); }}
+            style={{ background: "transparent", border: `1px solid ${T2.border}`, color: T2.textDim, borderRadius: 5, padding: "7px 12px", fontSize: 12, fontFamily: FONT_MONO, cursor: "pointer" }}>
+            Clear filters
+          </button>
+        )}
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div style={{ background: `${T2.crit}15`, border: `1px solid ${T2.crit}44`, borderRadius: 6, padding: "10px 14px", marginBottom: 16, color: T2.crit, fontSize: 12, fontFamily: FONT_MONO }}>
+          Error loading assets: {error}
+        </div>
+      )}
+
+      {/* Table */}
+      <div style={{ background: T2.panel, border: `1px solid ${T2.border}`, borderRadius: 8, overflow: "hidden" }}>
+        {loading && !assets ? (
+          <div style={{ padding: 40, textAlign: "center", color: T2.textMute, fontFamily: FONT_MONO }}>Loading agents…</div>
+        ) : !assets || assets.length === 0 ? (
+          <div style={{ padding: 40, textAlign: "center", color: T2.textMute, fontFamily: FONT_MONO }}>
+            No agents found. Run <span style={{ color: T2.accent }}>python scripts/seed_demo_data.py</span> to create demo data.
+          </div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${T2.borderHi}` }}>
+                <th style={hdr} onClick={() => handleSort("agent_name")}>Agent{sortArrow("agent_name")}</th>
+                <th style={hdr}>Team</th>
+                <th style={hdr} onClick={() => handleSort("status")}>Status{sortArrow("status")}</th>
+                <th style={hdr} onClick={() => handleSort("risk")}>Risk{sortArrow("risk")}</th>
+                <th style={{ ...hdr, textAlign: "right" }} onClick={() => handleSort("monthly_cost_usd")}>30d Cost{sortArrow("monthly_cost_usd")}</th>
+                <th style={{ ...hdr, textAlign: "right" }} onClick={() => handleSort("total_calls")}>Calls{sortArrow("total_calls")}</th>
+                <th style={hdr} onClick={() => handleSort("last_seen")}>Last Seen{sortArrow("last_seen")}</th>
+                <th style={hdr}>Signals</th>
+                <th style={{ ...hdr, cursor: "default" }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {assets.map((a) => {
+                const isExpanded = expanded === a.agent_name;
+                const lastSeen = new Date(a.last_seen);
+                const daysAgo = Math.floor((Date.now() - lastSeen.getTime()) / 86400000);
+                const lastSeenStr = daysAgo === 0 ? "today" : daysAgo === 1 ? "yesterday" : `${daysAgo}d ago`;
+                const sig = a.signals || {};
+                return (
+                  <React.Fragment key={a.agent_name}>
+                    <tr
+                      onClick={() => toggleRow(a.agent_name)}
+                      style={{ cursor: "pointer", background: isExpanded ? T2.panelHi : "transparent",
+                        transition: "background 0.1s" }}
+                      onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = `${T2.panelHi}88`; }}
+                      onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = "transparent"; }}
+                    >
+                      <td style={cell}>
+                        <span style={{ color: T2.text, fontWeight: 500 }}>{a.agent_name}</span>
+                      </td>
+                      <td style={{ ...cell, color: T2.textDim }}>{a.team || "—"}</td>
+                      <td style={cell}>
+                        <span style={{ color: statusColor(a.status), fontSize: 11, fontWeight: 600,
+                          background: `${statusColor(a.status)}18`, padding: "2px 8px", borderRadius: 10 }}>
+                          {a.status}
+                        </span>
+                      </td>
+                      <td style={cell}>
+                        <span style={{ color: riskColor(a.risk), fontSize: 11, fontWeight: 600,
+                          background: `${riskColor(a.risk)}18`, padding: "2px 8px", borderRadius: 10 }}>
+                          {a.risk}
+                        </span>
+                      </td>
+                      <td style={{ ...cell, textAlign: "right", color: a.monthly_cost_usd > 1 ? T2.warn : T2.text }}>
+                        ${(a.monthly_cost_usd || 0).toFixed(4)}
+                      </td>
+                      <td style={{ ...cell, textAlign: "right", color: T2.textDim }}>
+                        {(a.total_calls || 0).toLocaleString()}
+                      </td>
+                      <td style={{ ...cell, color: T2.textDim }}>{lastSeenStr}</td>
+                      <td style={cell}>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {sig.has_pii && <span style={{ fontSize: 10, background: `${T2.crit}22`, color: T2.crit, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>PII</span>}
+                          {sig.has_blocked && <span style={{ fontSize: 10, background: `${T2.warn}22`, color: T2.warn, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>blocked</span>}
+                          {sig.has_loop && <span style={{ fontSize: 10, background: `${T2.crit}22`, color: T2.crit, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>loop</span>}
+                          {sig.after_hours_calls > 5 && <span style={{ fontSize: 10, background: `${T2.info}22`, color: T2.info, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>after-hours</span>}
+                        </div>
+                      </td>
+                      <td style={{ ...cell, color: T2.textDim, fontSize: 14 }}>
+                        {isExpanded ? "▲" : "▼"}
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={9} style={{ background: `${T2.panelHi}`, borderBottom: `1px solid ${T2.border}`, padding: 0 }}>
+                          <div style={{ padding: "16px 20px" }}>
+                            {/* Details grid */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 16 }}>
+                              {[
+                                { label: "First Seen",     value: new Date(a.first_seen).toLocaleDateString() },
+                                { label: "Total Cost",     value: `$${(a.total_cost_usd || 0).toFixed(4)}` },
+                                { label: "Total Tokens",   value: (a.total_tokens || 0).toLocaleString() },
+                                { label: "Models Used",    value: (a.models_used || []).join(", ") || "—" },
+                                { label: "Owner",          value: a.owner || "Unassigned" },
+                                { label: "Environment",    value: a.environment || "Unknown" },
+                              ].map(({ label, value }) => (
+                                <div key={label} style={{ background: T2.panel, border: `1px solid ${T2.border}`, borderRadius: 6, padding: "10px 12px" }}>
+                                  <div style={{ fontSize: 10, color: T2.textMute, fontFamily: FONT_MONO, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{label}</div>
+                                  <div style={{ fontSize: 12, color: T2.text, fontFamily: FONT_MONO, wordBreak: "break-all" }}>{value}</div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Risk signals detail */}
+                            <div style={{ marginBottom: 16 }}>
+                              <div style={{ fontSize: 11, color: T2.textMute, fontFamily: FONT_MONO, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Risk Signals</div>
+                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                {sig.has_pii && (
+                                  <div style={{ background: `${T2.crit}15`, border: `1px solid ${T2.crit}44`, borderRadius: 6, padding: "6px 12px", fontSize: 12, color: T2.crit, fontFamily: FONT_MONO }}>
+                                    PII detected in {sig.pii_count} calls
+                                  </div>
+                                )}
+                                {sig.has_blocked && (
+                                  <div style={{ background: `${T2.warn}15`, border: `1px solid ${T2.warn}44`, borderRadius: 6, padding: "6px 12px", fontSize: 12, color: T2.warn, fontFamily: FONT_MONO }}>
+                                    {sig.blocked_count} blocked requests
+                                  </div>
+                                )}
+                                {sig.has_loop && (
+                                  <div style={{ background: `${T2.crit}15`, border: `1px solid ${T2.crit}44`, borderRadius: 6, padding: "6px 12px", fontSize: 12, color: T2.crit, fontFamily: FONT_MONO }}>
+                                    Loop: {sig.loop_max_window} calls in 5-min window
+                                  </div>
+                                )}
+                                {sig.after_hours_calls > 0 && (
+                                  <div style={{ background: `${T2.info}15`, border: `1px solid ${T2.info}44`, borderRadius: 6, padding: "6px 12px", fontSize: 12, color: T2.info, fontFamily: FONT_MONO }}>
+                                    {sig.after_hours_calls} after-hours calls
+                                  </div>
+                                )}
+                                {!sig.has_pii && !sig.has_blocked && !sig.has_loop && sig.after_hours_calls <= 0 && (
+                                  <div style={{ color: T2.textMute, fontSize: 12, fontFamily: FONT_MONO }}>No risk signals detected</div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Recent telemetry */}
+                            <div>
+                              <div style={{ fontSize: 11, color: T2.textMute, fontFamily: FONT_MONO, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Recent Calls</div>
+                              {telLoading[a.agent_name] ? (
+                                <div style={{ color: T2.textMute, fontSize: 12, fontFamily: FONT_MONO }}>Loading…</div>
+                              ) : telRows[a.agent_name] ? (
+                                <div style={{ overflowX: "auto" }}>
+                                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: FONT_MONO }}>
+                                    <thead>
+                                      <tr>
+                                        {["Timestamp", "Model", "Tokens", "Cost", "Latency", "Flags"].map(h => (
+                                          <th key={h} style={{ textAlign: "left", padding: "4px 10px", color: T2.textMute, borderBottom: `1px solid ${T2.border}`, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em" }}>{h}</th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {(telRows[a.agent_name].items || []).map(r => (
+                                        <tr key={r.id}>
+                                          <td style={{ padding: "4px 10px", color: T2.textDim }}>{new Date(r.timestamp).toLocaleString()}</td>
+                                          <td style={{ padding: "4px 10px", color: T2.text }}>{r.model}</td>
+                                          <td style={{ padding: "4px 10px", color: T2.textDim }}>{(r.total_tokens || 0).toLocaleString()}</td>
+                                          <td style={{ padding: "4px 10px", color: T2.textDim }}>${(r.cost_usd || 0).toFixed(5)}</td>
+                                          <td style={{ padding: "4px 10px", color: T2.textDim }}>{Math.round(r.latency_ms)}ms</td>
+                                          <td style={{ padding: "4px 10px" }}>
+                                            {r.sensitive && <span style={{ color: T2.crit, marginRight: 4 }}>PII</span>}
+                                            {r.blocked   && <span style={{ color: T2.warn }}>blocked</span>}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                  {telRows[a.agent_name].total > 20 && (
+                                    <div style={{ color: T2.textMute, fontSize: 11, padding: "6px 10px" }}>
+                                      Showing 20 of {telRows[a.agent_name].total} calls
+                                    </div>
+                                  )}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {assets && assets.length > 0 && (
+        <div style={{ marginTop: 8, fontSize: 11, color: T2.textMute, fontFamily: FONT_MONO }}>
+          {assets.length} agent{assets.length !== 1 ? "s" : ""} · auto-refreshes every 30s
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 const PAGES = [
   { id:"home",      label:"Home" },
   { id:"chat",      label:"Chat" },
+  { id:"assets",    label:"Asset Inventory" },
   { id:"overview",  label:"Overview" },
   { id:"cost",      label:"Cost Intelligence" },
   { id:"agents",    label:"Agent Activity" },
@@ -4467,6 +4831,7 @@ export default function App() {
     switch (page) {
       case "home":      return <Home      {...pageProps} onNavigate={setPage} />;
       case "chat":      return <ChatPage />;
+      case "assets":    return <AssetsPage />;
       case "overview":  return <Overview  {...pageProps} />;
       case "cost":      return <CostIntel {...pageProps} />;
       case "agents":    return <AgentActivity {...pageProps} />;

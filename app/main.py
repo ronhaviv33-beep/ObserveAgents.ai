@@ -54,7 +54,7 @@ _SEED_ROLES = [
         "name": "admin",
         "label": "Admin",
         "color": "#FF5C7A",
-        "pages": json.dumps(["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations","onboarding"]),
+        "pages": json.dumps(["home","chat","assets","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations","onboarding"]),
         "can":   json.dumps(["view_all_sessions"]),
         "team_scoped": False,   # org-wide: admin sees all teams
     },
@@ -62,7 +62,7 @@ _SEED_ROLES = [
         "name": "analyst",
         "label": "Analyst",
         "color": "#FFB547",
-        "pages": json.dumps(["home","chat","overview","cost","agents","models","workflows","alerts","security"]),
+        "pages": json.dumps(["home","chat","assets","overview","cost","agents","models","workflows","alerts","security"]),
         "can":   json.dumps([]),
         "team_scoped": True,    # team-scoped: analyst sees only own team's data
     },
@@ -70,7 +70,7 @@ _SEED_ROLES = [
         "name": "viewer",
         "label": "Viewer",
         "color": "#6FA8FF",
-        "pages": json.dumps(["home","overview","cost","agents","models","workflows","alerts","security"]),
+        "pages": json.dumps(["home","assets","overview","cost","agents","models","workflows","alerts","security"]),
         "can":   json.dumps([]),
         "team_scoped": True,    # team-scoped: viewer sees only own team's data
     },
@@ -394,6 +394,10 @@ def custom_openapi():
     return schema
 
 app.openapi = custom_openapi
+
+# ── Asset Management routes ───────────────────────────────────────────────────
+from app.routes import assets as assets_routes  # noqa: E402
+app.include_router(assets_routes.router)
 
 _ALLOWED_ORIGINS = (
     [_FRONTEND_ORIGIN] if _FRONTEND_ORIGIN
