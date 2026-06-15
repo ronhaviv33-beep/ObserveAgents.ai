@@ -223,7 +223,7 @@ async def claim_asset(
     if not reg:
         raise HTTPException(status_code=404, detail=f"Asset '{agent_name}' not found in registry")
 
-    caller_email = getattr(user, "email", None) or user.get("email") if isinstance(user, dict) else None
+    caller_email = user.get("email") if isinstance(user, dict) else getattr(user, "email", None)
 
     reg.owner            = body.get("owner") or reg.owner
     reg.team             = body.get("team") or reg.team
