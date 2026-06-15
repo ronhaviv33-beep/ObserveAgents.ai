@@ -148,25 +148,135 @@ async def get_asset_telemetry(
     return {"items": items, "total": total, "skip": skip, "limit": limit}
 
 
-@router.post("/assets/{agent_name}/owner")
-async def update_asset_owner(
+@router.get("/assets/registry/unassigned")
+async def list_unassigned_assets(
+    days: int = Query(90, ge=1, le=365),
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return all assets in 'unassigned' lifecycle state — the discovery queue."""
+    from app.models import AssetRegistry
+    org_id, team_scope = _org_and_scope(user, db)
+    if is_deny_sentinel(team_scope):
+        return []
+    q = db.query(AssetRegistry).filter(
+        AssetRegistry.organization_id == org_id,
+        AssetRegistry.status == "unassigned",
+    )
+    rows = q.order_by(AssetRegistry.first_seen_at.desc()).all()
+    return [
+        {
+            "asset_key":      r.asset_key,
+            "agent_id_raw":   r.agent_id_raw,
+            "agent_name":     r.agent_name,
+            "status":         r.status,
+            "source":         r.source,
+            "first_seen_at":  r.first_seen_at.isoformat(),
+            "created_at":     r.created_at.isoformat(),
+        }
+        for r in rows
+    ]
+
+
+@router.post("/assets/{agent_name}/claim")
+async def claim_asset(
     agent_name: str,
     body: dict,
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Phase 2 placeholder — update owner assignment for an agent asset."""
-    # TODO Phase 2: persist to AgentAsset table
-    return {"agent_name": agent_name, "owner": body.get("owner"), "status": "pending_phase2"}
+    """
+    Claim a discovered asset — promotes lifecycle_status from 'unassigned' to 'managed'
+    and stores governance metadata (owner, team, environment, criticality, business_purpose).
+    """
+    import hashlib as _hashlib
+    from datetime import datetime, timezone
+    from app.models import AssetRegistry
+    from app.auth import require_admin as _require_admin
+
+    org_id, team_scope = _org_and_scope(user, db)
+    if is_deny_sentinel(team_scope):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    asset_key = _hashlib.sha256(f"{org_id}:{agent_name}".encode()).hexdigest()
+    reg = db.query(AssetRegistry).filter(
+        AssetRegistry.organization_id == org_id,
+        AssetRegistry.asset_key == asset_key,
+    ).first()
+
+    if not reg:
+        raise HTTPException(status_code=404, detail=f"Asset '{agent_name}' not found in registry")
+
+    caller_email = getattr(user, "email", None) or user.get("email") if isinstance(user, dict) else None
+
+    reg.owner            = body.get("owner") or reg.owner
+    reg.team             = body.get("team") or reg.team
+    reg.environment      = body.get("environment") or reg.environment
+    reg.criticality      = body.get("criticality") or reg.criticality
+    reg.business_purpose = body.get("business_purpose") or reg.business_purpose
+    reg.agent_name       = body.get("agent_name") or reg.agent_name
+    reg.status           = "managed"
+    reg.source           = "claimed"
+    reg.claimed_by       = caller_email
+    reg.claimed_at       = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(reg)
+
+    return {
+        "asset_key":        reg.asset_key,
+        "agent_id_raw":     reg.agent_id_raw,
+        "agent_name":       reg.agent_name,
+        "owner":            reg.owner,
+        "team":             reg.team,
+        "environment":      reg.environment,
+        "criticality":      reg.criticality,
+        "business_purpose": reg.business_purpose,
+        "status":           reg.status,
+        "claimed_by":       reg.claimed_by,
+        "claimed_at":       reg.claimed_at.isoformat(),
+    }
 
 
-@router.post("/assets/{agent_name}/environment")
-async def update_asset_environment(
+@router.patch("/assets/{agent_name}/registry")
+async def update_asset_registry(
     agent_name: str,
     body: dict,
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Phase 2 placeholder — update environment tag for an agent asset."""
-    # TODO Phase 2: persist to AgentAsset table
-    return {"agent_name": agent_name, "environment": body.get("environment"), "status": "pending_phase2"}
+    """Update any governance field on a managed asset (owner, environment, criticality, etc.)."""
+    import hashlib as _hashlib
+    from app.models import AssetRegistry
+
+    org_id, team_scope = _org_and_scope(user, db)
+    if is_deny_sentinel(team_scope):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    asset_key = _hashlib.sha256(f"{org_id}:{agent_name}".encode()).hexdigest()
+    reg = db.query(AssetRegistry).filter(
+        AssetRegistry.organization_id == org_id,
+        AssetRegistry.asset_key == asset_key,
+    ).first()
+    if not reg:
+        raise HTTPException(status_code=404, detail=f"Asset '{agent_name}' not found in registry")
+
+    allowed = {"owner", "team", "environment", "criticality", "business_purpose", "agent_name", "status"}
+    for field, value in body.items():
+        if field in allowed:
+            setattr(reg, field, value)
+
+    db.commit()
+    db.refresh(reg)
+
+    return {
+        "asset_key":        reg.asset_key,
+        "agent_id_raw":     reg.agent_id_raw,
+        "agent_name":       reg.agent_name,
+        "owner":            reg.owner,
+        "team":             reg.team,
+        "environment":      reg.environment,
+        "criticality":      reg.criticality,
+        "business_purpose": reg.business_purpose,
+        "status":           reg.status,
+    }

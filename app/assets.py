@@ -1,9 +1,10 @@
 """
-Asset derivation layer — reads from telemetry table, derives agent inventory.
-No writes to telemetry; all data comes from existing proxy telemetry.
+Asset derivation layer — reads from telemetry and asset_registry tables.
+Telemetry drives runtime signals; asset_registry provides governance metadata.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
@@ -11,7 +12,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models import Telemetry
+from app.models import Telemetry, AssetRegistry
 
 
 # Status thresholds (days since last call)
@@ -65,6 +66,10 @@ def _compute_risk(signals: dict) -> str:
     if signals.get("after_hours_calls", 0) > 5 or signals.get("blocked_count", 0) > 0:
         return "medium"
     return "low"
+
+
+def _asset_key(organization_id: int, agent_id_raw: str) -> str:
+    return hashlib.sha256(f"{organization_id}:{agent_id_raw}".encode()).hexdigest()
 
 
 def _derive_asset(agent_name: str, team: str, calls: list[Telemetry], now: datetime) -> dict:
@@ -130,8 +135,16 @@ def _derive_asset(agent_name: str, team: str, calls: list[Telemetry], now: datet
         "last_seen":     last_seen_ts.isoformat(),
         "first_seen":    first_seen_ts.isoformat(),
         "signals":       signals,
-        "owner":         None,   # Phase 2: set from AgentAsset table
-        "environment":   None,   # Phase 2: set from AgentAsset table
+        # Governance fields — populated from asset_registry by get_all_assets_derived()
+        "asset_key":         None,
+        "lifecycle_status":  "unassigned",  # unassigned | managed | retired
+        "owner":             None,
+        "environment":       None,
+        "criticality":       None,
+        "business_purpose":  None,
+        "claimed_by":        None,
+        "claimed_at":        None,
+        "registry_source":   None,
     }
 
 
@@ -143,6 +156,7 @@ def get_all_assets_derived(
 ) -> list[dict]:
     """
     Main function: read telemetry, group by agent, derive asset inventory.
+    Merges governance metadata from asset_registry where available.
     Returns a list of asset dicts sorted by monthly_cost_usd desc.
     """
     since = datetime.now(timezone.utc) - timedelta(days=days_lookback)
@@ -170,6 +184,30 @@ def get_all_assets_derived(
         asset = _derive_asset(agent_name, data["team"], data["calls"], now)
         if asset:
             assets.append(asset)
+
+    # Merge governance metadata from asset_registry
+    try:
+        registry_rows = (
+            db.query(AssetRegistry)
+            .filter(AssetRegistry.organization_id == organization_id)
+            .all()
+        )
+        registry_by_key: dict[str, AssetRegistry] = {r.asset_key: r for r in registry_rows}
+        for asset in assets:
+            key = _asset_key(organization_id, asset["agent_name"])
+            asset["asset_key"] = key
+            reg = registry_by_key.get(key)
+            if reg:
+                asset["lifecycle_status"] = reg.status or "unassigned"
+                asset["owner"]            = reg.owner
+                asset["environment"]      = reg.environment
+                asset["criticality"]      = reg.criticality
+                asset["business_purpose"] = reg.business_purpose
+                asset["claimed_by"]       = reg.claimed_by
+                asset["claimed_at"]       = reg.claimed_at.isoformat() if reg.claimed_at else None
+                asset["registry_source"]  = reg.source
+    except Exception:
+        pass  # registry table may be missing in very old deployments — degrade gracefully
 
     # Sort by monthly cost descending, then name
     assets.sort(key=lambda a: (-a["monthly_cost_usd"], a["agent_name"]))

@@ -16,6 +16,11 @@ def save(
     sensitive: bool = False,
     sensitive_findings: list[dict] | None = None,
     organization_id: int | None = None,
+    asset_key: str | None = None,
+    agent_id_raw: str | None = None,
+    agent_version: str | None = None,
+    team_raw: str | None = None,
+    environment_raw: str | None = None,
 ) -> Telemetry:
     cost_usd, pricing_estimated = calculate_cost(result.model, result.prompt_tokens, result.completion_tokens)
     record = Telemetry(
@@ -34,6 +39,11 @@ def save(
         sensitive=sensitive,
         sensitive_findings=json.dumps(sensitive_findings) if sensitive_findings else None,
         blocked=False,
+        asset_key=asset_key,
+        agent_id_raw=agent_id_raw,
+        agent_version=agent_version,
+        team_raw=team_raw,
+        environment_raw=environment_raw,
     )
     db.add(record)
     db.commit()
@@ -51,6 +61,11 @@ def save_blocked(
     sensitive: bool = False,
     sensitive_findings: list[dict] | None = None,
     organization_id: int | None = None,
+    asset_key: str | None = None,
+    agent_id_raw: str | None = None,
+    agent_version: str | None = None,
+    team_raw: str | None = None,
+    environment_raw: str | None = None,
 ) -> Telemetry:
     """Record a request that was blocked before reaching the LLM."""
     record = Telemetry(
@@ -62,6 +77,11 @@ def save_blocked(
         sensitive_findings=json.dumps(sensitive_findings) if sensitive_findings else None,
         blocked=True,
         block_reason=reason,
+        asset_key=asset_key,
+        agent_id_raw=agent_id_raw,
+        agent_version=agent_version,
+        team_raw=team_raw,
+        environment_raw=environment_raw,
     )
     db.add(record)
     db.commit()

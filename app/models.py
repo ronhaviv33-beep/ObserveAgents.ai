@@ -226,6 +226,12 @@ class Telemetry(Base):
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+    # Phase 2 — asset identity fields (nullable; backfilled by migration for old rows)
+    asset_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    agent_id_raw: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    agent_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    team_raw: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    environment_raw: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class User(Base):
@@ -300,6 +306,43 @@ class GuardMode(Base):
     team: Mapped[str] = mapped_column(String(128), index=True)
     mode: Mapped[str] = mapped_column(String(16))   # observe | alert | enforce
     updated_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class AssetRegistry(Base):
+    """
+    Governance source of truth for AI agent assets.
+    Discovered automatically from proxy traffic; claimed by humans via UI.
+    Telemetry is the immutable runtime record; this table is the mutable governance layer.
+    """
+    __tablename__ = "asset_registry"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "asset_key", name="uq_org_asset_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    asset_key: Mapped[str] = mapped_column(String(64), index=True)       # sha256(org_id + ":" + agent_id_raw)
+    agent_id_raw: Mapped[str] = mapped_column(String(256))               # X-Guard-Agent header value
+    agent_name: Mapped[str | None] = mapped_column(String(256), nullable=True)  # human-readable alias
+    owner: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    team: Mapped[str | None] = mapped_column(String(128), nullable=True)         # canonical team
+    environment: Mapped[str | None] = mapped_column(String(64), nullable=True)   # prod | staging | dev
+    criticality: Mapped[str | None] = mapped_column(String(32), nullable=True)   # critical | high | medium | low
+    business_purpose: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="unassigned")        # unassigned | managed | retired
+    source: Mapped[str] = mapped_column(String(32), default="discovered")        # discovered | claimed | ci_pipeline | api
+    claimed_by: Mapped[str | None] = mapped_column(String(256), nullable=True)   # email of claimer
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),

@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+import hashlib
 import time
 from collections import OrderedDict
 from typing import List
@@ -143,6 +144,127 @@ try:
 except Exception as _e:
     import logging as _logging
     _logging.getLogger("ai_asset_mgmt").warning("pricing_estimated migration warning (non-fatal): %s", _e)
+
+
+def _migrate_telemetry_asset_fields() -> None:
+    """Idempotent: add Phase 2 asset identity columns to telemetry if absent."""
+    from sqlalchemy import inspect as _inspect, text as _text
+    with engine.connect() as conn:
+        cols = {c["name"] for c in _inspect(engine).get_columns("telemetry")}
+        for col_name, col_def in [
+            ("asset_key",       "VARCHAR(64)"),
+            ("agent_id_raw",    "VARCHAR(256)"),
+            ("agent_version",   "VARCHAR(128)"),
+            ("team_raw",        "VARCHAR(128)"),
+            ("environment_raw", "VARCHAR(64)"),
+        ]:
+            if col_name not in cols:
+                conn.execute(_text(f"ALTER TABLE telemetry ADD COLUMN {col_name} {col_def}"))
+        conn.commit()
+
+
+try:
+    _migrate_telemetry_asset_fields()
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("ai_asset_mgmt").warning("telemetry asset fields migration warning (non-fatal): %s", _e)
+
+
+def _backfill_asset_keys() -> None:
+    """
+    For existing telemetry rows that predate Phase 2, generate a stable asset_key
+    from sha256(org_id + ':' + agent_name) and insert the corresponding
+    asset_registry row as 'discovered' if it doesn't already exist.
+    """
+    import hashlib as _hashlib
+    from app.database import SessionLocal
+    from app.models import Telemetry as _Telemetry, AssetRegistry as _AssetRegistry
+
+    db = SessionLocal()
+    try:
+        combos = (
+            db.query(_Telemetry.organization_id, _Telemetry.agent)
+            .filter(
+                _Telemetry.asset_key.is_(None),
+                _Telemetry.organization_id.isnot(None),
+            )
+            .distinct()
+            .all()
+        )
+        if not combos:
+            return
+
+        for org_id, agent_name in combos:
+            if not agent_name or not org_id:
+                continue
+            asset_key = _hashlib.sha256(f"{org_id}:{agent_name}".encode()).hexdigest()
+
+            db.query(_Telemetry).filter(
+                _Telemetry.organization_id == org_id,
+                _Telemetry.agent == agent_name,
+                _Telemetry.asset_key.is_(None),
+            ).update(
+                {"asset_key": asset_key, "agent_id_raw": agent_name},
+                synchronize_session=False,
+            )
+
+            if not db.query(_AssetRegistry).filter(
+                _AssetRegistry.organization_id == org_id,
+                _AssetRegistry.asset_key == asset_key,
+            ).first():
+                db.add(_AssetRegistry(
+                    organization_id=org_id,
+                    asset_key=asset_key,
+                    agent_id_raw=agent_name,
+                    agent_name=agent_name,
+                    status="unassigned",
+                    source="discovered",
+                ))
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+try:
+    _backfill_asset_keys()
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("ai_asset_mgmt").warning("asset key backfill warning (non-fatal): %s", _e)
+
+
+# ── In-memory cache: known (org_id, asset_key) pairs already in asset_registry ──
+# Avoids a DB round-trip on every proxy request after first discovery.
+_known_assets: set[tuple[int, str]] = set()
+
+
+def _discover_asset(db: Session, org_id: int, asset_key: str, agent_id_raw: str) -> None:
+    """Idempotent: insert an unassigned asset_registry row on first sight of an agent."""
+    if (org_id, asset_key) in _known_assets:
+        return
+    from app.models import AssetRegistry as _AssetRegistry
+    try:
+        if not db.query(_AssetRegistry).filter(
+            _AssetRegistry.organization_id == org_id,
+            _AssetRegistry.asset_key == asset_key,
+        ).first():
+            db.add(_AssetRegistry(
+                organization_id=org_id,
+                asset_key=asset_key,
+                agent_id_raw=agent_id_raw,
+                agent_name=agent_id_raw,
+                status="unassigned",
+                source="discovered",
+            ))
+            db.commit()
+        _known_assets.add((org_id, asset_key))
+    except Exception:
+        db.rollback()
+        # Non-fatal — telemetry write proceeds regardless
+
 
 _START_TIME = time.time()
 
@@ -412,7 +534,7 @@ app.add_middleware(
     allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Guard-Team", "X-Guard-Agent"],
+    allow_headers=["Authorization", "Content-Type", "X-Guard-Team", "X-Guard-Agent", "X-Guard-Agent-Version", "X-Guard-Environment"],
 )
 
 
@@ -1685,8 +1807,12 @@ async def openai_compat_chat(
     messages = body.get("messages", [])
     stream   = body.pop("stream", False)  # pop so body can be forwarded cleanly
 
-    team  = request.headers.get("X-Guard-Team")  or _caller_team(current_user) or "unknown"
-    agent = request.headers.get("X-Guard-Agent") or _caller_name(current_user) or "unknown"
+    agent_id_raw    = request.headers.get("X-Guard-Agent") or _caller_name(current_user) or "unknown"
+    agent_version   = request.headers.get("X-Guard-Agent-Version")
+    team_raw        = request.headers.get("X-Guard-Team")
+    environment_raw = request.headers.get("X-Guard-Environment")
+    team  = team_raw  or _caller_team(current_user) or "unknown"
+    agent = agent_id_raw
 
     # Resolve the org's provider client. Hard 401 if org_id is missing (should
     # have been caught by get_proxy_caller, but never trust that implicitly).
@@ -1696,6 +1822,10 @@ async def openai_compat_chat(
         raise HTTPException(status_code=401, detail="No organization resolved for this credential")
     org_client = get_client_for_org(org_id, model, db)
     _register_team(db, org_id, team)
+
+    # Asset discovery — idempotent, non-fatal
+    asset_key = hashlib.sha256(f"{org_id}:{agent_id_raw}".encode()).hexdigest()
+    _discover_asset(db, org_id, asset_key, agent_id_raw)
 
     # Enforcement pipeline
     last_user = ""
@@ -1740,6 +1870,11 @@ async def openai_compat_chat(
                     sensitive=(scan_result.is_sensitive if scan_result else False),
                     sensitive_findings=findings_list,
                     organization_id=org_id,
+                    asset_key=asset_key,
+                    agent_id_raw=agent_id_raw,
+                    agent_version=agent_version,
+                    team_raw=team_raw,
+                    environment_raw=environment_raw,
                 )
 
         return StreamingResponse(
@@ -1756,14 +1891,18 @@ async def openai_compat_chat(
         tel.save_blocked(db, team=team, agent=agent, model=model,
                          prompt=last_user, reason=f"upstream_error: {exc}",
                          sensitive=(scan_result.is_sensitive if scan_result else False),
-                         sensitive_findings=findings_list, organization_id=org_id)
+                         sensitive_findings=findings_list, organization_id=org_id,
+                         asset_key=asset_key, agent_id_raw=agent_id_raw,
+                         agent_version=agent_version, team_raw=team_raw, environment_raw=environment_raw)
         raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
     except Exception as exc:
         import logging; logging.getLogger("ai_asset_mgmt").error("LLM error", exc_info=True)
         tel.save_blocked(db, team=team, agent=agent, model=model,
                          prompt=last_user, reason=f"upstream_error: {exc}",
                          sensitive=(scan_result.is_sensitive if scan_result else False),
-                         sensitive_findings=findings_list, organization_id=org_id)
+                         sensitive_findings=findings_list, organization_id=org_id,
+                         asset_key=asset_key, agent_id_raw=agent_id_raw,
+                         agent_version=agent_version, team_raw=team_raw, environment_raw=environment_raw)
         raise HTTPException(status_code=502, detail="Upstream LLM error. Please try again.")
 
     latency_ms = resp_dict.pop("_latency_ms", 0.0)
@@ -1786,6 +1925,11 @@ async def openai_compat_chat(
         sensitive=(scan_result.is_sensitive if scan_result else False),
         sensitive_findings=findings_list,
         organization_id=org_id,
+        asset_key=asset_key,
+        agent_id_raw=agent_id_raw,
+        agent_version=agent_version,
+        team_raw=team_raw,
+        environment_raw=environment_raw,
     )
 
     _cost_usd, _pricing_estimated = calculate_cost(resp_model, pt, ct)
@@ -1856,14 +2000,22 @@ async def anthropic_compat_messages(
             content = " ".join(text_parts)
         oai_messages.append({"role": m["role"], "content": content})
 
-    team  = request.headers.get("X-Guard-Team")  or _caller_team(current_user) or "unknown"
-    agent = request.headers.get("X-Guard-Agent") or _caller_name(current_user) or "unknown"
+    agent_id_raw    = request.headers.get("X-Guard-Agent") or _caller_name(current_user) or "unknown"
+    agent_version   = request.headers.get("X-Guard-Agent-Version")
+    team_raw        = request.headers.get("X-Guard-Team")
+    environment_raw = request.headers.get("X-Guard-Environment")
+    team  = team_raw  or _caller_team(current_user) or "unknown"
+    agent = agent_id_raw
 
     org_id = _caller_org_id(current_user)
     if org_id is None:
         raise HTTPException(status_code=401, detail="No organization resolved for this credential")
     org_client = get_client_for_org(org_id, model, db)
     _register_team(db, org_id, team)
+
+    # Asset discovery — idempotent, non-fatal
+    asset_key = hashlib.sha256(f"{org_id}:{agent_id_raw}".encode()).hexdigest()
+    _discover_asset(db, org_id, asset_key, agent_id_raw)
 
     # Enforcement
     last_user = ""
@@ -1937,6 +2089,11 @@ async def anthropic_compat_messages(
                     sensitive=(scan_result.is_sensitive if scan_result else False),
                     sensitive_findings=findings_list,
                     organization_id=org_id,
+                    asset_key=asset_key,
+                    agent_id_raw=agent_id_raw,
+                    agent_version=agent_version,
+                    team_raw=team_raw,
+                    environment_raw=environment_raw,
                 )
 
         return StreamingResponse(
@@ -1953,14 +2110,18 @@ async def anthropic_compat_messages(
         tel.save_blocked(db, team=team, agent=agent, model=model,
                          prompt=last_user, reason=f"upstream_error: {exc}",
                          sensitive=(scan_result.is_sensitive if scan_result else False),
-                         sensitive_findings=findings_list, organization_id=org_id)
+                         sensitive_findings=findings_list, organization_id=org_id,
+                         asset_key=asset_key, agent_id_raw=agent_id_raw,
+                         agent_version=agent_version, team_raw=team_raw, environment_raw=environment_raw)
         raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
     except Exception as exc:
         import logging; logging.getLogger("ai_asset_mgmt").error("LLM error", exc_info=True)
         tel.save_blocked(db, team=team, agent=agent, model=model,
                          prompt=last_user, reason=f"upstream_error: {exc}",
                          sensitive=(scan_result.is_sensitive if scan_result else False),
-                         sensitive_findings=findings_list, organization_id=org_id)
+                         sensitive_findings=findings_list, organization_id=org_id,
+                         asset_key=asset_key, agent_id_raw=agent_id_raw,
+                         agent_version=agent_version, team_raw=team_raw, environment_raw=environment_raw)
         raise HTTPException(status_code=502, detail="Upstream LLM error. Please try again.")
 
     latency_ms = resp_dict.pop("_latency_ms", 0.0)
@@ -1982,6 +2143,11 @@ async def anthropic_compat_messages(
         sensitive=(scan_result.is_sensitive if scan_result else False),
         sensitive_findings=findings_list,
         organization_id=org_id,
+        asset_key=asset_key,
+        agent_id_raw=agent_id_raw,
+        agent_version=agent_version,
+        team_raw=team_raw,
+        environment_raw=environment_raw,
     )
 
     _anth_cost, _anth_pricing_estimated = calculate_cost(resp_model, pt, ct)
