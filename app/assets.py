@@ -148,15 +148,42 @@ def _derive_asset(agent_name: str, team: str, calls: list[Telemetry], now: datet
     }
 
 
+def _merge_registry(asset: dict, reg: AssetRegistry) -> None:
+    """
+    Overwrite governance fields in an asset dict with canonical values from asset_registry.
+    Telemetry-derived team/environment are runtime hints; the registry holds truth.
+    When the registry field is None (not yet set), the telemetry hint is preserved as
+    a fallback so the UI always has something to display.
+    """
+    asset["lifecycle_status"] = reg.status or "unassigned"
+    asset["owner"]            = reg.owner
+    asset["criticality"]      = reg.criticality
+    asset["business_purpose"] = reg.business_purpose
+    asset["claimed_by"]       = reg.claimed_by
+    asset["claimed_at"]       = reg.claimed_at.isoformat() if reg.claimed_at else None
+    asset["registry_source"]  = reg.source
+    # Canonical team and environment from registry — fall back to telemetry hint only
+    # when the registry field has not been set yet (asset not fully claimed).
+    if reg.team:
+        asset["team"] = reg.team
+    if reg.environment:
+        asset["environment"] = reg.environment
+
+
 def get_all_assets_derived(
     db: Session,
     organization_id: int,
     days_lookback: int = 90,
     team_scope: Optional[str] = None,
+    include_retired: bool = False,
 ) -> list[dict]:
     """
     Main function: read telemetry, group by agent, derive asset inventory.
     Merges governance metadata from asset_registry where available.
+
+    By default retired assets (lifecycle_status='retired') are excluded — they
+    remain queryable for audit via include_retired=True.
+
     Returns a list of asset dicts sorted by monthly_cost_usd desc.
     """
     since = datetime.now(timezone.utc) - timedelta(days=days_lookback)
@@ -185,7 +212,7 @@ def get_all_assets_derived(
         if asset:
             assets.append(asset)
 
-    # Merge governance metadata from asset_registry
+    # Merge governance metadata from asset_registry (canonical source for all governance fields)
     try:
         registry_rows = (
             db.query(AssetRegistry)
@@ -198,16 +225,14 @@ def get_all_assets_derived(
             asset["asset_key"] = key
             reg = registry_by_key.get(key)
             if reg:
-                asset["lifecycle_status"] = reg.status or "unassigned"
-                asset["owner"]            = reg.owner
-                asset["environment"]      = reg.environment
-                asset["criticality"]      = reg.criticality
-                asset["business_purpose"] = reg.business_purpose
-                asset["claimed_by"]       = reg.claimed_by
-                asset["claimed_at"]       = reg.claimed_at.isoformat() if reg.claimed_at else None
-                asset["registry_source"]  = reg.source
+                _merge_registry(asset, reg)
     except Exception:
         pass  # registry table may be missing in very old deployments — degrade gracefully
+
+    # Exclude retired assets from active inventory by default (rule 9).
+    # Retired telemetry rows are preserved and remain queryable via include_retired=True.
+    if not include_retired:
+        assets = [a for a in assets if a.get("lifecycle_status") != "retired"]
 
     # Sort by monthly cost descending, then name
     assets.sort(key=lambda a: (-a["monthly_cost_usd"], a["agent_name"]))
@@ -220,7 +245,10 @@ def get_asset_by_name(
     agent_name: str,
     days_lookback: int = 90,
 ) -> Optional[dict]:
-    """Get a single agent asset by name."""
+    """
+    Get a single agent asset by name, with governance metadata merged from asset_registry.
+    agent_name is the agent_id_raw value (X-Guard-Agent header), used as the stable identity.
+    """
     since = datetime.now(timezone.utc) - timedelta(days=days_lookback)
     rows = (
         db.query(Telemetry)
@@ -235,7 +263,22 @@ def get_asset_by_name(
         return None
     team = rows[0].team or ""
     now  = datetime.now(timezone.utc)
-    return _derive_asset(agent_name, team, rows, now)
+    asset = _derive_asset(agent_name, team, rows, now)
+
+    # Merge canonical governance metadata from asset_registry
+    key = _asset_key(organization_id, agent_name)
+    asset["asset_key"] = key
+    try:
+        reg = db.query(AssetRegistry).filter(
+            AssetRegistry.organization_id == organization_id,
+            AssetRegistry.asset_key == key,
+        ).first()
+        if reg:
+            _merge_registry(asset, reg)
+    except Exception:
+        pass
+
+    return asset
 
 
 def get_asset_summary(
@@ -276,19 +319,25 @@ def get_asset_summary(
 
 
 def filter_assets(assets: list[dict], filters: dict) -> list[dict]:
-    """Apply optional filters: team, status, risk, owner, search."""
+    """
+    Apply optional filters.
+    'team' matches the canonical registry team (falling back to telemetry hint when unset).
+    'lifecycle_status' matches the registry lifecycle state (unassigned/managed/retired).
+    """
     result = assets
     if filters.get("team"):
-        result = [a for a in result if a["team"] == filters["team"]]
+        result = [a for a in result if a.get("team") == filters["team"]]
     if filters.get("status"):
         result = [a for a in result if a["status"] == filters["status"]]
+    if filters.get("lifecycle_status"):
+        result = [a for a in result if a.get("lifecycle_status") == filters["lifecycle_status"]]
     if filters.get("risk"):
         result = [a for a in result if a["risk"] == filters["risk"]]
     if filters.get("owner"):
         result = [a for a in result if a.get("owner") == filters["owner"]]
     if filters.get("search"):
         q = filters["search"].lower()
-        result = [a for a in result if q in a["agent_name"].lower() or q in (a["team"] or "").lower()]
+        result = [a for a in result if q in a["agent_name"].lower() or q in (a.get("team") or "").lower()]
     return result
 
 

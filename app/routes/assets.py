@@ -26,26 +26,40 @@ def _org_and_scope(user, db):
 
 @router.get("/assets")
 async def list_assets(
-    team:    Optional[str] = Query(None),
-    status:  Optional[str] = Query(None, pattern="^(active|dormant|inactive)$"),
-    risk:    Optional[str] = Query(None, pattern="^(high|medium|low)$"),
-    owner:   Optional[str] = Query(None),
-    search:  Optional[str] = Query(None),
-    sort_by: str = Query("monthly_cost_usd"),
-    order:   str = Query("desc", pattern="^(asc|desc)$"),
-    days:    int = Query(90, ge=1, le=365),
+    team:             Optional[str] = Query(None),
+    status:           Optional[str] = Query(None, pattern="^(active|dormant|inactive)$"),
+    lifecycle_status: Optional[str] = Query(None, pattern="^(unassigned|managed|retired)$"),
+    risk:             Optional[str] = Query(None, pattern="^(high|medium|low)$"),
+    owner:            Optional[str] = Query(None),
+    search:           Optional[str] = Query(None),
+    sort_by:          str = Query("monthly_cost_usd"),
+    order:            str = Query("desc", pattern="^(asc|desc)$"),
+    days:             int = Query(90, ge=1, le=365),
+    include_retired:  bool = Query(False),
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List all AI agent assets derived from telemetry, with optional filters."""
+    """
+    List AI agent assets.
+
+    Governance fields (team, owner, environment, criticality, lifecycle_status)
+    come from asset_registry. Telemetry fields (status, risk, cost, tokens) are
+    derived from proxy call history.
+
+    Retired assets are excluded by default; pass include_retired=true to include them.
+    """
     org_id, team_scope = _org_and_scope(user, db)
     if is_deny_sentinel(team_scope):
         return []
 
-    assets = asset_lib.get_all_assets_derived(db, org_id, days_lookback=days, team_scope=team_scope)
+    assets = asset_lib.get_all_assets_derived(
+        db, org_id, days_lookback=days, team_scope=team_scope,
+        include_retired=include_retired,
+    )
 
     filters = {k: v for k, v in {
-        "team": team, "status": status, "risk": risk, "owner": owner, "search": search,
+        "team": team, "status": status, "lifecycle_status": lifecycle_status,
+        "risk": risk, "owner": owner, "search": search,
     }.items() if v is not None}
     if filters:
         assets = asset_lib.filter_assets(assets, filters)
@@ -87,7 +101,9 @@ async def get_asset(
     if not asset:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found in telemetry")
 
-    # Enforce team-scoped access
+    # Enforce team-scoped access.
+    # asset["team"] is the canonical registry team when the asset has been claimed,
+    # or the telemetry runtime hint otherwise — both are appropriate RBAC signals.
     if team_scope and asset.get("team") != team_scope:
         raise HTTPException(status_code=403, detail="Access denied: asset belongs to a different team")
 
