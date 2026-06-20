@@ -275,3 +275,200 @@ export async function fetchTeams() {
   if (!r || !r.ok) throw new Error('Failed to fetch teams')
   return r.json()
 }
+
+// ── Asset Management ──────────────────────────────────────────────────────────
+
+export async function fetchAssets(params = {}) {
+  const q = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  const r = await authFetch(`${BASE}/assets${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch assets')
+  return r.json()
+}
+
+export async function fetchAssetsSummary(days = 90) {
+  const r = await authFetch(`${BASE}/assets/summary?days=${days}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch assets summary')
+  return r.json()
+}
+
+export async function fetchAsset(agentName, days = 90) {
+  const r = await authFetch(`${BASE}/assets/${encodeURIComponent(agentName)}?days=${days}`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch asset: ${agentName}`)
+  return r.json()
+}
+
+export async function fetchAssetTelemetry(agentName, params = {}) {
+  const q = new URLSearchParams(params).toString()
+  const r = await authFetch(`${BASE}/assets/${encodeURIComponent(agentName)}/telemetry${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch telemetry for: ${agentName}`)
+  return r.json()
+}
+
+export async function fetchUnassignedAssets() {
+  const r = await authFetch(`${BASE}/assets/registry/unassigned`)
+  if (!r || !r.ok) throw new Error('Failed to fetch unassigned assets')
+  return r.json()
+}
+
+export async function claimAsset(agentName, body) {
+  const r = await authFetch(`${BASE}/assets/${encodeURIComponent(agentName)}/claim`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!r || !r.ok) throw new Error('Failed to claim asset')
+  return r.json()
+}
+
+export async function updateAssetRegistry(agentName, body) {
+  const r = await authFetch(`${BASE}/assets/${encodeURIComponent(agentName)}/registry`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!r || !r.ok) throw new Error('Failed to update asset')
+  return r.json()
+}
+
+// ── Agent Inventory API ───────────────────────────────────────────────────────
+
+export async function fetchAgents(params = {}) {
+  const q = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  const r = await authFetch(`${BASE}/agents${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch agents')
+  return r.json()
+}
+
+export async function fetchAgentsSummary(days = 90) {
+  const r = await authFetch(`${BASE}/agents/summary?days=${days}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch agents summary')
+  return r.json()
+}
+
+export async function fetchAgentDetail(agentId, days = 90) {
+  const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}?days=${days}`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch agent: ${agentId}`)
+  return r.json()
+}
+
+export async function claimInventoryAgent(agentId, body) {
+  const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}/claim`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!r || !r.ok) throw new Error('Failed to claim agent')
+  return r.json()
+}
+
+export async function validateInventoryAgent(agentId, body) {
+  const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}/validate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!r || !r.ok) throw new Error('Failed to validate agent')
+  return r.json()
+}
+
+export async function rejectInventoryAgent(agentId, rejectionReason) {
+  const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}/reject`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rejection_reason: rejectionReason }),
+  })
+  if (!r || !r.ok) throw new Error('Failed to reject agent')
+  return r.json()
+}
+
+// ── Cost Intelligence ─────────────────────────────────────────────────────────
+
+export async function fetchCostIntelligence(params = {}) {
+  const q = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  const r = await authFetch(`${BASE}/cost-intelligence${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch cost intelligence')
+  return r.json()
+}
+
+export async function importProviderBilling(provider, data) {
+  const r = await authFetch(`${BASE}/billing/${encodeURIComponent(provider)}/import`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+  if (!r || !r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to import billing data')
+  }
+  return r.json()
+}
+
+export async function fetchBillingPeriods() {
+  const r = await authFetch(`${BASE}/billing/periods`)
+  if (!r || !r.ok) throw new Error('Failed to fetch billing periods')
+  return r.json()
+}
+
+export async function fetchBillingPeriod(periodId) {
+  const r = await authFetch(`${BASE}/billing/periods/${periodId}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch billing period')
+  return r.json()
+}
+
+export async function fetchAgentCostDetail(agentId, days = 90) {
+  const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}/cost?days=${days}`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch cost data for agent: ${agentId}`)
+  return r.json()
+}
+
+// ── Pricing Registry ──────────────────────────────────────────────────────────
+
+export async function fetchPricingRegistry(params = {}) {
+  const q = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  const r = await authFetch(`${BASE}/pricing-registry${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch pricing registry')
+  return r.json()
+}
+
+export async function fetchPricingModelHistory(provider, model) {
+  const r = await authFetch(`${BASE}/pricing-registry/${encodeURIComponent(provider)}/${encodeURIComponent(model)}/history`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch pricing history for ${provider}/${model}`)
+  return r.json()
+}
+
+export async function fetchPricingStatus() {
+  const r = await authFetch(`${BASE}/pricing-registry/status`)
+  if (!r || !r.ok) throw new Error('Failed to fetch pricing status')
+  return r.json()
+}
+
+export async function overridePricing(data) {
+  const r = await authFetch(`${BASE}/pricing-registry/override`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+  if (!r || !r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to apply pricing override')
+  }
+  return r.json()
+}
+
+export async function triggerPricingSync() {
+  const r = await authFetch(`${BASE}/pricing-registry/sync`, { method: 'POST' })
+  if (!r || !r.ok) throw new Error('Failed to trigger pricing sync')
+  return r.json()
+}
+
+export async function fetchPricingSyncStatus() {
+  const r = await authFetch(`${BASE}/pricing-registry/sync-status`)
+  if (!r || !r.ok) throw new Error('Failed to fetch sync status')
+  return r.json()
+}

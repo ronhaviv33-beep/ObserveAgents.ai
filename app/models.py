@@ -226,6 +226,12 @@ class Telemetry(Base):
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+    # Phase 2 — asset identity fields (nullable; backfilled by migration for old rows)
+    asset_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    agent_id_raw: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    agent_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    team_raw: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    environment_raw: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class User(Base):
@@ -306,6 +312,49 @@ class GuardMode(Base):
     )
 
 
+class AssetRegistry(Base):
+    """
+    Governance source of truth for AI agent assets.
+    Discovered automatically from proxy traffic; claimed by humans via UI.
+    Telemetry is the immutable runtime record; this table is the mutable governance layer.
+    """
+    __tablename__ = "asset_registry"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "asset_key", name="uq_org_asset_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    asset_key: Mapped[str] = mapped_column(String(64), index=True)       # sha256(org_id + ":" + agent_id_raw)
+    agent_id_raw: Mapped[str] = mapped_column(String(256))               # X-Guard-Agent header value
+    agent_name: Mapped[str | None] = mapped_column(String(256), nullable=True)  # human-readable alias
+    owner: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    team: Mapped[str | None] = mapped_column(String(128), nullable=True)         # canonical team
+    environment: Mapped[str | None] = mapped_column(String(64), nullable=True)   # prod | staging | dev
+    criticality: Mapped[str | None] = mapped_column(String(32), nullable=True)   # critical | high | medium | low
+    business_purpose: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="unassigned")        # unassigned | needs_validation | managed | retired
+    source: Mapped[str] = mapped_column(String(32), default="discovered")        # discovered | claimed | ci_pipeline | api
+    # Discovery classification (Phase 1)
+    discovery_status: Mapped[str] = mapped_column(String(32), default="verified")         # verified | potential
+    discovery_source: Mapped[str] = mapped_column(String(64), default="gateway_telemetry") # gateway_telemetry | github | jira | servicenow | slack | mcp | cloud_functions
+    discovery_reason: Mapped[str | None] = mapped_column(Text, nullable=True)             # human-readable explanation
+    evidence: Mapped[str | None] = mapped_column(Text, nullable=True)                     # JSON — discovery signals
+    confidence_score: Mapped[float] = mapped_column(Float, default=95.0)                  # 0–100
+    claimed_by: Mapped[str | None] = mapped_column(String(256), nullable=True)   # email of claimer
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
@@ -344,5 +393,130 @@ class ChatSessionMessage(Base):
     security_findings: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
     budget_warnings: Mapped[str | None] = mapped_column(Text, nullable=True)    # JSON
     timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class ModelPricing(Base):
+    """
+    Versioned pricing registry for all LLM models.
+    Never update a row — always create a new version when prices change.
+    organization_id=NULL means global (built-in / synced); non-NULL is an org-specific override.
+    """
+    __tablename__ = "model_pricing"
+    __table_args__ = (
+        UniqueConstraint("provider", "model_name", "version", "organization_id",
+                         name="uq_provider_model_version_org"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32), index=True)     # openai | anthropic | google | bedrock | azure | local | custom
+    model_name: Mapped[str] = mapped_column(String(128), index=True)  # gpt-4o, claude-sonnet-4-6, etc.
+
+    # Pricing per million tokens (USD)
+    input_cost_per_million_tokens: Mapped[float] = mapped_column(Float)
+    output_cost_per_million_tokens: Mapped[float] = mapped_column(Float)
+    cache_read_cost_per_million_tokens: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cache_write_cost_per_million_tokens: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Versioning — one immutable row per price point
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    effective_from: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    effective_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # NULL = still active
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Provenance
+    source: Mapped[str] = mapped_column(String(64), default="builtin")  # builtin | sync | admin_override | fallback
+    source_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    last_checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    sync_status: Mapped[str] = mapped_column(String(32), default="ok")  # ok | failed | pending | override
+    sync_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Audit
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    created_by: Mapped[str] = mapped_column(String(256), default="system")  # "system" or user email
+    override_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class PricingChangeLog(Base):
+    """Audit trail for every pricing version change."""
+    __tablename__ = "pricing_change_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    provider: Mapped[str] = mapped_column(String(32))
+    model_name: Mapped[str] = mapped_column(String(128))
+    old_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    new_version: Mapped[int] = mapped_column(Integer)
+    change_reason: Mapped[str] = mapped_column(String(64))  # initial_seed | provider_updated | admin_override | sync_detected
+    input_price_old: Mapped[float | None] = mapped_column(Float, nullable=True)
+    input_price_new: Mapped[float] = mapped_column(Float)
+    output_price_old: Mapped[float | None] = mapped_column(Float, nullable=True)
+    output_price_new: Mapped[float] = mapped_column(Float)
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    created_by: Mapped[str] = mapped_column(String(256), default="system")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class ProviderBilling(Base):
+    """
+    Actual provider invoice data — ground truth for cost reconciliation.
+    Runtime telemetry gives estimates; this table holds what was actually billed.
+    """
+    __tablename__ = "provider_billing"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(32))                # openai | anthropic | gemini | bedrock | azure | google
+    billing_period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    billing_period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    actual_billed_cost_usd: Mapped[float] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(8), default="USD")
+    billing_breakdown: Mapped[str | None] = mapped_column(Text, nullable=True)   # JSON — optional model/token breakdown
+    source: Mapped[str] = mapped_column(String(32), default="manual_upload")     # api | manual_upload | csv_import | webhook
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    imported_by: Mapped[str | None] = mapped_column(String(256), nullable=True)  # email of importer
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class CostReconciliation(Base):
+    """
+    Variance analysis between runtime cost estimates and provider invoices.
+    Created automatically whenever a ProviderBilling record is imported.
+    """
+    __tablename__ = "cost_reconciliation"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    billing_id: Mapped[int] = mapped_column(Integer, ForeignKey("provider_billing.id"), nullable=False, index=True)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    provider: Mapped[str] = mapped_column(String(32))
+    runtime_cost_estimate_usd: Mapped[float] = mapped_column(Float)   # sum of telemetry cost_usd for period
+    provider_billed_cost_usd: Mapped[float] = mapped_column(Float)    # from ProviderBilling
+    variance_absolute_usd: Mapped[float] = mapped_column(Float)       # runtime - billed
+    variance_percent: Mapped[float] = mapped_column(Float)            # (variance / billed) * 100
+    status: Mapped[str] = mapped_column(String(32))                   # healthy | warning | investigate
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
