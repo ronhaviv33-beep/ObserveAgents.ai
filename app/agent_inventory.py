@@ -181,7 +181,8 @@ def get_inventory_summary(
         },
         "potential_agents": {
             "total":            len(potential),
-            "needs_validation": sum(1 for a in potential if a["lifecycle_status"] == "needs_validation"),
+            # All potential agents need validation — their lifecycle_status may vary
+            "needs_validation": len(potential),
         },
         "managed_agents":  sum(1 for a in all_agents if a["lifecycle_status"] == "managed"),
         "retired_agents":  sum(1 for a in all_agents if a["lifecycle_status"] == "retired"),

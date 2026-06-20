@@ -123,10 +123,12 @@ export default function ExecutiveDashboard({ onNavigate }) {
   // ── Derived metrics ──────────────────────────────────────────────────────────
   const total            = (summary?.verified_agents?.total ?? 0) + (summary?.potential_agents?.total ?? 0) || agents.length;
   const managed          = summary?.managed_agents ?? summary?.verified_agents?.managed ?? 0;
-  const unassigned       = summary?.verified_agents?.unassigned ?? 0;
-  const needsValidation  = summary?.potential_agents?.needs_validation ?? 0;
+  // verified agents with no owner + potential agents (all need owner assignment)
+  const unassigned       = (summary?.verified_agents?.unassigned ?? 0) + (summary?.potential_agents?.total ?? 0);
+  const needsValidation  = summary?.potential_agents?.needs_validation ?? summary?.potential_agents?.total ?? 0;
   const retired          = summary?.retired_agents ?? 0;
-  const monthlyCost      = costData?.overview?.runtime_cost?.total_usd ?? 0;
+  // runtime_cost is at the top level of the cost intelligence response, not nested under "overview"
+  const monthlyCost      = costData?.runtime_cost?.total_usd ?? 0;
 
   // Lifecycle donut
   const lifecycleSlices = [
