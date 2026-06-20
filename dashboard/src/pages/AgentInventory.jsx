@@ -210,6 +210,7 @@ function VerifiedTable({ agents, onClaim }) {
           <Th label="Agent" style={{ paddingLeft: 20 }} />
           <Th label="Source" />
           <Th label="Team" />
+          <Th label="Environment" />
           <Th label="Owner" />
           <Th label="Status" />
           <Th label="Risk" />
@@ -228,6 +229,11 @@ function VerifiedTable({ agents, onClaim }) {
               </Td>
               <Td><DiscoveryBadge source={a.discovery_source} /></Td>
               <Td><span style={{ fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>{a.team}</span></Td>
+              <Td>
+                {a.environment && a.environment !== "Unknown"
+                  ? <span style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.info, background: "#0D1F3D", padding: "2px 7px", borderRadius: 3 }}>{a.environment}</span>
+                  : <span style={{ fontSize: 11, color: T.textMute }}>—</span>}
+              </Td>
               <Td>
                 {a.owner === "Unassigned"
                   ? <span style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.warn, background: "#3D2E0D", padding: "2px 7px", borderRadius: 3 }}>Unassigned</span>
