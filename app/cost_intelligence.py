@@ -45,7 +45,10 @@ def _parse_period(
     return start, end
 
 
-def _recon_status(variance_percent: float) -> str:
+def _recon_status(variance_percent: float, runtime_cost: float = -1) -> str:
+    # No telemetry found for the period — can't do a real reconciliation
+    if runtime_cost == 0.0 and variance_percent <= -99.0:
+        return "no_data"
     pct = abs(variance_percent)
     if pct < HEALTHY_THRESHOLD:
         return "healthy"
@@ -407,7 +410,7 @@ def import_provider_billing(
     billed_cost  = billing.actual_billed_cost_usd
     variance_abs = round(runtime_cost - billed_cost, 6)
     variance_pct = round((variance_abs / billed_cost) * 100, 2) if billed_cost > 0 else 0.0
-    status       = _recon_status(variance_pct)
+    status       = _recon_status(variance_pct, runtime_cost)
 
     recon = CostReconciliation(
         organization_id           = org_id,
@@ -471,7 +474,7 @@ def update_provider_billing(
     billed_cost  = billing.actual_billed_cost_usd
     variance_abs = round(runtime_cost - billed_cost, 6)
     variance_pct = round((variance_abs / billed_cost) * 100, 2) if billed_cost > 0 else 0.0
-    status       = _recon_status(variance_pct)
+    status       = _recon_status(variance_pct, runtime_cost)
 
     recon = db.query(CostReconciliation).filter(CostReconciliation.billing_id == period_id).first()
     if recon:

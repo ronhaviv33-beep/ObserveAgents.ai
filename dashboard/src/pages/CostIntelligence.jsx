@@ -41,8 +41,8 @@ const PROVIDER_COLORS = {
   unknown:   T.textMute,
 }
 
-const RECON_COLOR = { healthy: T.success, warning: T.warn, investigate: T.crit }
-const RECON_ICON  = { healthy: '✓', warning: '⚠', investigate: '!' }
+const RECON_COLOR = { healthy: T.success, warning: T.warn, investigate: T.crit, no_data: T.textMute }
+const RECON_ICON  = { healthy: '✓', warning: '⚠', investigate: '!', no_data: '○' }
 
 // ── Formatters ─────────────────────────────────────────────────────────────────
 const fmt$ = (v) =>
@@ -272,9 +272,15 @@ function BillingTable({ records, onEdit }) {
               <td style={{ padding: '10px 8px', fontSize: 11, color: T.textMute, textTransform: 'capitalize' }}>{r.source?.replace('_', ' ')}</td>
               <td style={{ padding: '10px 8px' }}>
                 {recon ? (
-                  <span style={{ fontSize: 11, fontFamily: FONT_MONO, color: recon_color }}>
-                    {RECON_ICON[recon.status]} {recon.status} ({fmtPct(recon.variance_percent)})
-                  </span>
+                  recon.status === 'no_data' ? (
+                    <span style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textMute }}>
+                      ○ no telemetry for period
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 11, fontFamily: FONT_MONO, color: recon_color }}>
+                      {RECON_ICON[recon.status]} {recon.status} ({fmtPct(recon.variance_percent)})
+                    </span>
+                  )
                 ) : <span style={{ color: T.textMute, fontSize: 11 }}>—</span>}
               </td>
               <td style={{ padding: '10px 8px', fontSize: 11, color: T.textMute }}>
