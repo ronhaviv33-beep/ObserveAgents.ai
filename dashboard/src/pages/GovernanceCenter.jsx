@@ -93,12 +93,43 @@ const TD = ({ children, style }) => (
   </td>
 );
 
+function sortItems(list, key, dir) {
+  if (!key) return list;
+  const mul = dir === "asc" ? 1 : -1;
+  return [...list].sort((a, b) => {
+    let va = a[key], vb = b[key];
+    if (["first_seen_at","created_at"].includes(key)) {
+      va = va ? new Date(va).getTime() : 0; vb = vb ? new Date(vb).getTime() : 0;
+    }
+    if (typeof va === "number" && typeof vb === "number") return (va - vb) * mul;
+    return String(va || "").toLowerCase().localeCompare(String(vb || "").toLowerCase()) * mul;
+  });
+}
+
+const STH = ({ children, sortKey, sort, onSort }) => {
+  const active = sort?.key === sortKey;
+  const canSort = !!sortKey;
+  return (
+    <th onClick={canSort ? () => onSort(sortKey) : undefined}
+      style={{ textAlign:"left", padding:"8px 14px", fontSize:10, fontFamily:MONO, color: active ? T.accent : T.textMute, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:500, borderBottom:`1px solid ${T.border}`, background:T.panelHi, cursor: canSort ? "pointer" : "default", userSelect:"none" }}>
+      <span style={{ display:"inline-flex", alignItems:"center", gap:4 }}>
+        {children}
+        {canSort && <span style={{ fontSize:9, opacity: active?1:0.4, color: active?T.accent:T.textMute }}>{active?(sort.dir==="asc"?"▲":"▼"):"⇅"}</span>}
+      </span>
+    </th>
+  );
+};
+
 export default function GovernanceCenter() {
   const [agents, setAgents]     = useState([]);
   const [loading, setLoading]   = useState(true);
   const [tab, setTab]           = useState("approvals");
   const [claimTarget, setClaimTarget] = useState(null);
   const [toastMsg, setToastMsg] = useState("");
+  const [appSort, setAppSort]   = useState({ key: "first_seen_at", dir: "desc" });
+  const [unaSort, setUnaSort]   = useState({ key: "first_seen_at", dir: "desc" });
+  const toggleApp = (key) => setAppSort(s => s.key===key ? {key, dir: s.dir==="asc"?"desc":"asc"} : {key, dir:"desc"});
+  const toggleUna = (key) => setUnaSort(s => s.key===key ? {key, dir: s.dir==="asc"?"desc":"asc"} : {key, dir:"desc"});
 
   const toast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(""), 3000); };
 
@@ -185,15 +216,15 @@ export default function GovernanceCenter() {
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    <TH>Agent</TH>
-                    <TH>Action Required</TH>
-                    <TH>Team</TH>
-                    <TH>First Seen</TH>
-                    <TH>Actions</TH>
+                    <STH sortKey="agent_name" sort={appSort} onSort={toggleApp}>Agent</STH>
+                    <STH sortKey="lifecycle_status" sort={appSort} onSort={toggleApp}>Action Required</STH>
+                    <STH sortKey="team" sort={appSort} onSort={toggleApp}>Team</STH>
+                    <STH sortKey="first_seen_at" sort={appSort} onSort={toggleApp}>First Seen</STH>
+                    <STH>Actions</STH>
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingApprovals.map(agent => {
+                  {sortItems(pendingApprovals, appSort.key, appSort.dir).map(agent => {
                     const isPending = agent.lifecycle_status === "needs_validation";
                     return (
                       <tr key={agent.agent_id || agent.id}>
@@ -263,15 +294,15 @@ export default function GovernanceCenter() {
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    <TH>Agent</TH>
-                    <TH>Team</TH>
-                    <TH>Environment</TH>
-                    <TH>First Seen</TH>
-                    <TH>Assign</TH>
+                    <STH sortKey="agent_name" sort={unaSort} onSort={toggleUna}>Agent</STH>
+                    <STH sortKey="team" sort={unaSort} onSort={toggleUna}>Team</STH>
+                    <STH sortKey="environment" sort={unaSort} onSort={toggleUna}>Environment</STH>
+                    <STH sortKey="first_seen_at" sort={unaSort} onSort={toggleUna}>First Seen</STH>
+                    <STH>Assign</STH>
                   </tr>
                 </thead>
                 <tbody>
-                  {unassigned.map(agent => (
+                  {sortItems(unassigned, unaSort.key, unaSort.dir).map(agent => (
                     <tr key={agent.agent_id || agent.id}>
                       <TD><span style={{ fontFamily: MONO, color: T.yellow }}>{agent.agent_name || agent.agent_id_raw}</span></TD>
                       <TD><span style={{ color: T.textDim }}>{agent.team || "—"}</span></TD>

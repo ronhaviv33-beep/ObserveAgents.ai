@@ -321,6 +321,36 @@ const TD = ({ children, style }) => (
   </td>
 );
 
+function sortItems(list, key, dir) {
+  if (!key) return list;
+  const mul = dir === "asc" ? 1 : -1;
+  const SEV_RANK = { critical: 3, warning: 2, info: 1 };
+  return [...list].sort((a, b) => {
+    let va = a[key], vb = b[key];
+    if (key === "sev")  { va = SEV_RANK[va]  ?? 0; vb = SEV_RANK[vb]  ?? 0; }
+    if (["confidence_score", "cost_usd"].includes(key)) { va = +(va||0); vb = +(vb||0); }
+    if (["last_seen_at","last_seen","first_seen_at","created_at"].includes(key)) {
+      va = va ? new Date(va).getTime() : 0; vb = vb ? new Date(vb).getTime() : 0;
+    }
+    if (typeof va === "number" && typeof vb === "number") return (va - vb) * mul;
+    return String(va || "").toLowerCase().localeCompare(String(vb || "").toLowerCase()) * mul;
+  });
+}
+
+const STH = ({ children, sortKey, sort, onSort, style }) => {
+  const active = sort?.key === sortKey;
+  const canSort = !!sortKey;
+  return (
+    <th onClick={canSort ? () => onSort(sortKey) : undefined}
+      style={{ textAlign:"left", padding:"8px 12px", fontSize:10, fontFamily:MONO, color: active ? T.accent : T.textMute, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:500, borderBottom:`1px solid ${T.border}`, background:T.panelHi, cursor: canSort ? "pointer" : "default", userSelect:"none", ...style }}>
+      <span style={{ display:"inline-flex", alignItems:"center", gap:4 }}>
+        {children}
+        {canSort && <span style={{ fontSize:9, opacity: active?1:0.4, color: active?T.accent:T.textMute }}>{active?(sort.dir==="asc"?"▲":"▼"):"⇅"}</span>}
+      </span>
+    </th>
+  );
+};
+
 export default function DiscoveryCenter() {
   const [agents, setAgents]             = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -333,6 +363,10 @@ export default function DiscoveryCenter() {
   const [busy, setBusy]                       = useState({});
   const [toastMsg, setToastMsg]               = useState("");
   const [environments, setEnvironments] = useState(["production", "staging", "development"]);
+  const [vSort, setVSort] = useState({ key: "cost_usd",          dir: "desc" });
+  const [pSort, setPSort] = useState({ key: "confidence_score",  dir: "desc" });
+  const toggleV = (key) => setVSort(s => s.key===key ? {key, dir: s.dir==="asc"?"desc":"asc"} : {key, dir:"desc"});
+  const toggleP = (key) => setPSort(s => s.key===key ? {key, dir: s.dir==="asc"?"desc":"asc"} : {key, dir:"desc"});
 
   const toast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(""), 3000); };
 
@@ -354,10 +388,12 @@ export default function DiscoveryCenter() {
   const potential = useMemo(() => agents.filter(a => a.discovery_status !== "verified"), [agents]);
 
   const filtered = useMemo(() => {
+    const sort = tab === "verified" ? vSort : pSort;
     const list = tab === "verified" ? verified : potential;
     const q = search.toLowerCase();
-    return q ? list.filter(a => (a.agent_name || "").toLowerCase().includes(q) || (a.team || "").toLowerCase().includes(q) || (a.discovery_source || "").toLowerCase().includes(q)) : list;
-  }, [tab, verified, potential, search]);
+    const searched = q ? list.filter(a => (a.agent_name || "").toLowerCase().includes(q) || (a.team || "").toLowerCase().includes(q) || (a.discovery_source || "").toLowerCase().includes(q)) : list;
+    return sortItems(searched, sort.key, sort.dir);
+  }, [tab, verified, potential, search, vSort, pSort]);
 
   const handleClaim = async (agentId, body) => {
     await claimInventoryAgent(agentId, body);
@@ -453,23 +489,24 @@ export default function DiscoveryCenter() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <TH>Agent Name</TH>
                 {tab === "verified" ? (
                   <>
-                    <TH>Team</TH>
-                    <TH>Environment</TH>
-                    <TH>Owner</TH>
-                    <TH>Last Seen</TH>
-                    <TH style={{ textAlign: "right" }}>Monthly Cost</TH>
-                    <TH>Status</TH>
-                    <TH style={{ textAlign: "right" }}>Actions</TH>
+                    <STH sortKey="agent_name" sort={vSort} onSort={toggleV}>Agent Name</STH>
+                    <STH sortKey="team" sort={vSort} onSort={toggleV}>Team</STH>
+                    <STH sortKey="environment" sort={vSort} onSort={toggleV}>Environment</STH>
+                    <STH sortKey="owner" sort={vSort} onSort={toggleV}>Owner</STH>
+                    <STH sortKey="last_seen_at" sort={vSort} onSort={toggleV}>Last Seen</STH>
+                    <STH sortKey="cost_usd" sort={vSort} onSort={toggleV} style={{ textAlign: "right" }}>Monthly Cost</STH>
+                    <STH sortKey="lifecycle_status" sort={vSort} onSort={toggleV}>Status</STH>
+                    <STH sort={vSort} onSort={toggleV} style={{ textAlign: "right" }}>Actions</STH>
                   </>
                 ) : (
                   <>
-                    <TH>Source</TH>
-                    <TH>Confidence</TH>
-                    <TH>First Detected</TH>
-                    <TH style={{ textAlign: "right" }}>Actions</TH>
+                    <STH sortKey="agent_name" sort={pSort} onSort={toggleP}>Agent Name</STH>
+                    <STH sortKey="discovery_source" sort={pSort} onSort={toggleP}>Source</STH>
+                    <STH sortKey="confidence_score" sort={pSort} onSort={toggleP}>Confidence</STH>
+                    <STH sortKey="first_seen_at" sort={pSort} onSort={toggleP}>First Detected</STH>
+                    <STH sort={pSort} onSort={toggleP} style={{ textAlign: "right" }}>Actions</STH>
                   </>
                 )}
               </tr>

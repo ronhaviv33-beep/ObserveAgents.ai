@@ -236,8 +236,47 @@ function TrendChart({ data }) {
   )
 }
 
+// ── Sort utility ───────────────────────────────────────────────────────────────
+function sortBilling(list, key, dir) {
+  if (!key) return list;
+  const mul = dir === "asc" ? 1 : -1;
+  return [...list].sort((a, b) => {
+    let va, vb;
+    if (key === "reconciliation_status") {
+      const ORDER = { healthy: 3, warning: 2, investigate: 1, no_data: 0 };
+      va = ORDER[a.reconciliation?.status] ?? -1;
+      vb = ORDER[b.reconciliation?.status] ?? -1;
+    } else {
+      va = a[key]; vb = b[key];
+    }
+    if (key === "actual_billed_cost_usd") { va = +(va||0); vb = +(vb||0); }
+    if (["billing_period_start","created_at"].includes(key)) {
+      va = va ? new Date(va).getTime() : 0; vb = vb ? new Date(vb).getTime() : 0;
+    }
+    if (typeof va === "number" && typeof vb === "number") return (va - vb) * mul;
+    return String(va || "").toLowerCase().localeCompare(String(vb || "").toLowerCase()) * mul;
+  });
+}
+
+function BillSTH({ label, sortKey, sort, onSort }) {
+  const active = sort?.key === sortKey;
+  const canSort = !!sortKey;
+  return (
+    <th onClick={canSort ? () => onSort(sortKey) : undefined}
+      style={{ padding:'6px 8px', textAlign:'left', fontSize:10, fontFamily:FONT_MONO, color: active ? T.accent : T.textMute, letterSpacing:'0.06em', textTransform:'uppercase', cursor: canSort ? 'pointer' : 'default', userSelect:'none', whiteSpace:'nowrap' }}>
+      <span style={{ display:'inline-flex', alignItems:'center', gap:4 }}>
+        {label}
+        {canSort && <span style={{ fontSize:9, opacity: active?1:0.4, color: active?T.accent:T.textMute }}>{active?(sort.dir==='asc'?'▲':'▼'):'⇅'}</span>}
+      </span>
+    </th>
+  );
+}
+
 // ── Billing history table ──────────────────────────────────────────────────────
 function BillingTable({ records, onEdit }) {
+  const [sort, setSort] = useState({ key: 'billing_period_start', dir: 'desc' });
+  const toggle = (key) => setSort(s => s.key===key ? {key, dir: s.dir==='asc'?'desc':'asc'} : {key, dir:'desc'});
+  const sorted = sortBilling(records, sort.key, sort.dir);
   if (!records || records.length === 0) {
     return (
       <div style={{ padding: '24px 0', textAlign: 'center', color: T.textMute, fontSize: 13 }}>
@@ -249,13 +288,17 @@ function BillingTable({ records, onEdit }) {
     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead>
         <tr style={{ borderBottom: `1px solid ${T.border}` }}>
-          {['Provider', 'Period', 'Billed (Actual)', 'Source', 'Reconciliation', 'Imported', ''].map(h => (
-            <th key={h} style={{ padding: '6px 8px', textAlign: 'left', fontSize: 10, fontFamily: FONT_MONO, color: T.textMute, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{h}</th>
-          ))}
+          <BillSTH label="Provider"         sortKey="provider"                sort={sort} onSort={toggle} />
+          <BillSTH label="Period"           sortKey="billing_period_start"    sort={sort} onSort={toggle} />
+          <BillSTH label="Billed (Actual)"  sortKey="actual_billed_cost_usd"  sort={sort} onSort={toggle} />
+          <BillSTH label="Source"           sortKey="source"                  sort={sort} onSort={toggle} />
+          <BillSTH label="Reconciliation"   sortKey="reconciliation_status"   sort={sort} onSort={toggle} />
+          <BillSTH label="Imported"         sortKey="created_at"              sort={sort} onSort={toggle} />
+          <BillSTH label="" />
         </tr>
       </thead>
       <tbody>
-        {records.map(r => {
+        {sorted.map(r => {
           const recon = r.reconciliation
           const recon_color = recon ? (RECON_COLOR[recon.status] || T.textDim) : T.textMute
           return (

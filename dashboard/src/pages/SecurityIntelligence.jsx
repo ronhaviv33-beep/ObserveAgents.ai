@@ -82,12 +82,41 @@ const TD = ({ children, style }) => (
   </td>
 );
 
+function sortItems(list, key, dir) {
+  if (!key) return list;
+  const mul = dir === "asc" ? 1 : -1;
+  const SEV_RANK = { critical: 3, warning: 2, info: 1 };
+  return [...list].sort((a, b) => {
+    let va = a[key], vb = b[key];
+    if (key === "sev") { va = SEV_RANK[va] ?? 0; vb = SEV_RANK[vb] ?? 0; }
+    if (key === "ts") { va = va ? (typeof va === "number" ? va : new Date(va).getTime()) : 0; vb = vb ? (typeof vb === "number" ? vb : new Date(vb).getTime()) : 0; }
+    if (typeof va === "number" && typeof vb === "number") return (va - vb) * mul;
+    return String(va || "").toLowerCase().localeCompare(String(vb || "").toLowerCase()) * mul;
+  });
+}
+
+const STH = ({ children, sortKey, sort, onSort, style }) => {
+  const active = sort?.key === sortKey;
+  const canSort = !!sortKey;
+  return (
+    <th onClick={canSort ? () => onSort(sortKey) : undefined}
+      style={{ textAlign:"left", padding:"8px 14px", fontSize:10, fontFamily:MONO, color: active ? T.accent : T.textMute, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:500, borderBottom:`1px solid ${T.border}`, background:T.panelHi, cursor: canSort ? "pointer" : "default", userSelect:"none", ...style }}>
+      <span style={{ display:"inline-flex", alignItems:"center", gap:4 }}>
+        {children}
+        {canSort && <span style={{ fontSize:9, opacity: active?1:0.4, color: active?T.accent:T.textMute }}>{active?(sort.dir==="asc"?"▲":"▼"):"⇅"}</span>}
+      </span>
+    </th>
+  );
+};
+
 export default function SecurityIntelligence() {
   const [alerts, setAlerts]   = useState([]);
   const [agents, setAgents]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [sevFilter, setSevFilter] = useState("all");
+  const [alertSort, setAlertSort] = useState({ key: "ts", dir: "desc" });
+  const toggleSort = (key) => setAlertSort(s => s.key===key ? {key, dir: s.dir==="asc"?"desc":"asc"} : {key, dir:"desc"});
 
   useEffect(() => {
     (async () => {
@@ -130,7 +159,10 @@ export default function SecurityIntelligence() {
     findingsByType[a.type].entities.add(a.entity);
   });
 
-  const filtered = sevFilter === "all" ? alerts : alerts.filter(a => a.sev === sevFilter);
+  const filtered = useMemo(() => {
+    const base = sevFilter === "all" ? alerts : alerts.filter(a => a.sev === sevFilter);
+    return sortItems(base, alertSort.key, alertSort.dir);
+  }, [alerts, sevFilter, alertSort]);
 
   if (loading) return (
     <div style={{ color: T.textMute, fontFamily: MONO, fontSize: 13, padding: "32px 0", textAlign: "center" }}>
@@ -221,11 +253,11 @@ export default function SecurityIntelligence() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <TH>Severity</TH>
-                <TH>Finding</TH>
-                <TH>Agent / Entity</TH>
-                <TH>Signal</TH>
-                <TH>When</TH>
+                <STH sortKey="sev" sort={alertSort} onSort={toggleSort}>Severity</STH>
+                <STH sortKey="type" sort={alertSort} onSort={toggleSort}>Finding</STH>
+                <STH sortKey="entity" sort={alertSort} onSort={toggleSort}>Agent / Entity</STH>
+                <STH sort={alertSort} onSort={toggleSort}>Signal</STH>
+                <STH sortKey="ts" sort={alertSort} onSort={toggleSort}>When</STH>
               </tr>
             </thead>
             <tbody>
