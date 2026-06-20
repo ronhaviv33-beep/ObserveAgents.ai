@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { fetchAgents, claimInventoryAgent, validateInventoryAgent, rejectInventoryAgent } from "../api.js";
+import { fetchAgents, claimInventoryAgent, validateInventoryAgent, rejectInventoryAgent, fetchOrgConfig } from "../api.js";
 
 const T = {
   bg: "#0A0B0F", panel: "#0F1117", panelHi: "#141823",
@@ -81,46 +81,103 @@ function ActionBtn({ label, color, onClick }) {
   );
 }
 
-function ClaimModal({ agent, onClose, onSave }) {
-  const [owner, setOwner] = useState("");
-  const [team, setTeam]   = useState(agent?.team || "");
+function ModalOverlay({ onClose, children }) {
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto", fontFamily: FONT }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ModalField({ label, children, required }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: "block", fontSize: 11, fontFamily: MONO, color: T.textMute, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 5 }}>
+        {label}{required && <span style={{ color: T.crit }}> *</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const claimInputStyle = { width: "100%", background: T.panelHi, border: `1px solid ${T.border}`, color: T.text, padding: "8px 10px", borderRadius: 5, fontSize: 13, fontFamily: FONT, outline: "none", boxSizing: "border-box" };
+
+function ClaimModal({ agent, onClose, onSave, environments = ["production", "staging", "development"] }) {
+  const [form, setForm] = useState({
+    owner: "",
+    team: agent?.team && agent.team !== "Unknown" ? agent.team : "",
+    environment: agent?.environment && agent.environment !== "Unknown" ? agent.environment : "",
+    criticality: "",
+    business_purpose: "",
+  });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
   const submit = async () => {
-    if (!owner.trim()) { setErr("Owner is required"); return; }
+    if (!form.owner.trim()) { setErr("Owner is required"); return; }
     setSaving(true);
+    setErr("");
     try {
-      await onSave(agent.agent_id, { owner_name: owner, team, agent_name: agent.agent_name });
+      await onSave(agent.agent_id, { ...form, agent_name: agent.agent_name });
       onClose();
     } catch (e) { setErr(e.message); }
     finally { setSaving(false); }
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000A", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-      <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: 28, minWidth: 360, fontFamily: FONT }}>
-        <div style={{ fontSize: 16, fontWeight: 600, color: T.text, marginBottom: 18 }}>Claim Agent</div>
-        <div style={{ fontSize: 13, color: T.textDim, marginBottom: 20 }}>Assign ownership to <strong style={{ color: T.text, fontFamily: MONO }}>{agent?.agent_name}</strong></div>
-        {[
-          { label: "Owner", value: owner, set: setOwner, placeholder: "Email or name" },
-          { label: "Team",  value: team,  set: setTeam,  placeholder: "Team name" },
-        ].map(({ label, value, set, placeholder }) => (
-          <div key={label} style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, color: T.textMute, fontFamily: MONO, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
-            <input value={value} onChange={e => set(e.target.value)} placeholder={placeholder}
-              style={{ width: "100%", background: T.panelHi, border: `1px solid ${T.border}`, color: T.text, padding: "8px 12px", borderRadius: 4, fontSize: 13, fontFamily: FONT }} />
-          </div>
-        ))}
-        {err && <div style={{ color: T.crit, fontSize: 12, fontFamily: MONO, marginBottom: 10 }}>{err}</div>}
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
-          <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.textDim, padding: "8px 16px", borderRadius: 4, fontSize: 13, cursor: "pointer" }}>Cancel</button>
-          <button onClick={submit} disabled={saving} style={{ background: T.accent, color: T.bg, border: "none", padding: "8px 16px", borderRadius: 4, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-            {saving ? "Claiming…" : "Claim"}
-          </button>
-        </div>
+    <ModalOverlay onClose={onClose}>
+      <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 4, color: T.text }}>Claim Agent</div>
+      <div style={{ fontSize: 12, color: T.textMute, fontFamily: MONO, marginBottom: 20 }}>
+        Assign ownership to <strong style={{ color: T.text }}>{agent?.agent_name}</strong>
       </div>
-    </div>
+
+      {err && (
+        <div style={{ background: "#FF5C7A18", border: "1px solid #FF5C7A44", borderRadius: 5, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: T.crit, fontFamily: MONO }}>
+          {err}
+        </div>
+      )}
+
+      <div style={{ background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", marginBottom: 20, fontSize: 11, color: T.textMute, fontFamily: MONO }}>
+        <div><span style={{ color: T.accent }}>●</span> Source: {(agent?.discovery_source || "gateway").replace(/_/g, " ")}</div>
+        <div><span style={{ color: T.accent }}>●</span> Confidence: {(agent?.confidence_score || 95).toFixed(0)}%</div>
+        <div style={{ marginTop: 6, fontSize: 10, color: T.textMute }}>Claiming only writes to the registry. Historical telemetry is never modified.</div>
+      </div>
+
+      <ModalField label="Owner" required>
+        <input style={claimInputStyle} value={form.owner} onChange={set("owner")} placeholder="owner@company.com" />
+      </ModalField>
+      <ModalField label="Team">
+        <input style={claimInputStyle} value={form.team} onChange={set("team")} placeholder={agent?.team && agent.team !== "Unknown" ? agent.team : "engineering"} />
+      </ModalField>
+      <ModalField label="Environment">
+        <select style={{ ...claimInputStyle, appearance: "none" }} value={form.environment} onChange={set("environment")}>
+          <option value="">Select…</option>
+          {environments.map(e => <option key={e} value={e}>{e.charAt(0).toUpperCase() + e.slice(1)}</option>)}
+        </select>
+      </ModalField>
+      <ModalField label="Criticality">
+        <select style={{ ...claimInputStyle, appearance: "none" }} value={form.criticality} onChange={set("criticality")}>
+          <option value="">Select…</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </ModalField>
+      <ModalField label="Business Purpose">
+        <textarea style={{ ...claimInputStyle, minHeight: 72, resize: "vertical" }} value={form.business_purpose} onChange={set("business_purpose")} placeholder="What does this agent do?" />
+      </ModalField>
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
+        <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.textDim, padding: "8px 16px", borderRadius: 5, fontSize: 13, cursor: "pointer", fontFamily: FONT }}>Cancel</button>
+        <button onClick={submit} disabled={!form.owner || saving} style={{ background: T.accent, color: T.bg, border: "none", padding: "8px 20px", borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: form.owner && !saving ? "pointer" : "not-allowed", opacity: !form.owner || saving ? 0.6 : 1, fontFamily: FONT }}>
+          {saving ? "Claiming…" : "Claim Agent →"}
+        </button>
+      </div>
+    </ModalOverlay>
   );
 }
 
@@ -171,14 +228,15 @@ const TD = ({ children, style }) => (
 );
 
 export default function DiscoveryCenter() {
-  const [agents, setAgents]       = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [tab, setTab]             = useState("verified");
-  const [search, setSearch]       = useState("");
-  const [claimAgent, setClaimAgent] = useState(null);
+  const [agents, setAgents]             = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [tab, setTab]                   = useState("verified");
+  const [search, setSearch]             = useState("");
+  const [claimAgent, setClaimAgent]     = useState(null);
   const [evidenceAgent, setEvidenceAgent] = useState(null);
-  const [busy, setBusy]           = useState({});
-  const [toastMsg, setToastMsg]   = useState("");
+  const [busy, setBusy]                 = useState({});
+  const [toastMsg, setToastMsg]         = useState("");
+  const [environments, setEnvironments] = useState(["production", "staging", "development"]);
 
   const toast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(""), 3000); };
 
@@ -191,6 +249,10 @@ export default function DiscoveryCenter() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    fetchOrgConfig().then(cfg => { if (cfg?.environments?.length) setEnvironments(cfg.environments); }).catch(() => {});
+  }, []);
 
   const verified  = useMemo(() => agents.filter(a => a.discovery_status === "verified"), [agents]);
   const potential = useMemo(() => agents.filter(a => a.discovery_status !== "verified"), [agents]);
@@ -228,7 +290,7 @@ export default function DiscoveryCenter() {
           {toastMsg}
         </div>
       )}
-      {claimAgent && <ClaimModal agent={claimAgent} onClose={() => setClaimAgent(null)} onSave={handleClaim} />}
+      {claimAgent && <ClaimModal agent={claimAgent} onClose={() => setClaimAgent(null)} onSave={handleClaim} environments={environments} />}
       {evidenceAgent && <EvidenceDrawer agent={evidenceAgent} onClose={() => setEvidenceAgent(null)} />}
 
       {/* Header */}
