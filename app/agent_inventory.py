@@ -38,6 +38,8 @@ def _to_inventory_record(asset: dict) -> dict:
     return {
         "id":               asset.get("asset_key") or asset["agent_name"],
         "name":             asset["agent_name"],
+        "agent_name":       asset["agent_name"],   # alias for frontend compatibility
+        "agent_id_raw":     asset.get("agent_id_raw") or asset["agent_name"],
         "team":             asset.get("team") or "Unknown",
         "owner":            asset.get("owner") or "Unassigned",
         "environment":      asset.get("environment") or "Unknown",
