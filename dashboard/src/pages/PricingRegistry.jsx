@@ -458,7 +458,7 @@ export default function PricingRegistry() {
         <KpiChip label="Providers"      value={providers.length} color={T.teal} />
         <KpiChip label="Org Overrides"  value={overrides.length} color={overrides.length > 0 ? T.warn : T.textMute} />
         <KpiChip label="Critical Alerts" value={criticalWarnings.length} color={criticalWarnings.length > 0 ? T.crit : T.success} />
-        <KpiChip label="Last Updated"   value={status?.pricing_updated || '—'} color={T.textDim} />
+        <KpiChip label="Last Updated"   value={status?.last_sync_at ? new Date(status.last_sync_at).toLocaleDateString() : (status?.pricing_updated || '—')} color={T.textDim} />
       </div>
 
       {/* Main grid: table + sync status */}

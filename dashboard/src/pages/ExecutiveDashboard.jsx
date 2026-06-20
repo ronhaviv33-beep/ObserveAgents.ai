@@ -121,11 +121,11 @@ export default function ExecutiveDashboard({ onNavigate }) {
   );
 
   // ── Derived metrics ──────────────────────────────────────────────────────────
-  const total            = summary?.total ?? agents.length ?? 0;
-  const managed          = summary?.managed ?? 0;
-  const unassigned       = summary?.unassigned ?? 0;
-  const needsValidation  = summary?.needs_validation ?? 0;
-  const retired          = summary?.retired ?? 0;
+  const total            = (summary?.verified_agents?.total ?? 0) + (summary?.potential_agents?.total ?? 0) || agents.length;
+  const managed          = summary?.managed_agents ?? summary?.verified_agents?.managed ?? 0;
+  const unassigned       = summary?.verified_agents?.unassigned ?? 0;
+  const needsValidation  = summary?.potential_agents?.needs_validation ?? 0;
+  const retired          = summary?.retired_agents ?? 0;
   const monthlyCost      = costData?.overview?.runtime_cost?.total_usd ?? 0;
 
   // Lifecycle donut
@@ -285,7 +285,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
         {topCosts.length > 0 ? (
           <div>
             {topCosts.map((item, i) => {
-              const name = item.agent_name || item.label || item.agent_id || "—";
+              const name = item.name || item.agent_name || item.label || item.agent_id || "—";
               const pct  = monthlyCost > 0 ? (item.cost_usd || 0) / monthlyCost : 0;
               return (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: i < topCosts.length - 1 ? `1px solid ${T.border}` : "none" }}>
