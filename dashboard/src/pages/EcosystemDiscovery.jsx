@@ -239,14 +239,7 @@ export default function EcosystemDiscovery() {
         )}
       </div>
 
-      {/* ── Integration guidance ────────────────────────────────────────────── */}
-      <div style={{ padding: "16px 20px", background: T.info + "0D", border: `1px solid ${T.info}33`, borderRadius: 8 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: T.info, marginBottom: 6 }}>Expand Your Discovery Coverage</div>
-        <div style={{ fontSize: 12, color: T.textDim, lineHeight: 1.6 }}>
-          Connect additional platforms via the <strong style={{ color: T.text }}>Settings → Discovery Sources</strong> panel.
-          Each source adds visibility signals that surface AI agents before they become unmanaged risks.
-        </div>
-      </div>
+
     </div>
   );
 }
