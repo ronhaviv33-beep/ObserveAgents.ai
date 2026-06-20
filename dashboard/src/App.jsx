@@ -1888,9 +1888,9 @@ const useRoles = () => useContext(RolesContext);
 const ROLES = {
   // pages  — controls navigation visibility and page-level UI gates
   // can    — explicit data/action capabilities not expressible as page visibility
-  admin:   { label:"Admin",   color: T.crit,   pages: ["dashboard","agent_inventory","discovery","governance","cost","security_intel","ecosystem","budgets","pricing","security","users","apikeys","settings","home","overview","agents","models","workflows","alerts","assets","chat","integrations","onboarding"], can: ["view_all_sessions"], team_scoped: false },
-  analyst: { label:"Analyst", color: T.warn,   pages: ["dashboard","agent_inventory","discovery","governance","cost","security_intel","ecosystem","home","overview","agents","models","workflows","alerts","assets","chat","integrations","onboarding"],                                                           can: [], team_scoped: true },
-  viewer:  { label:"Viewer",  color: T.info,   pages: ["dashboard","agent_inventory","discovery","governance","cost","security_intel","ecosystem","home","overview","agents","models","workflows","alerts","assets"],                                                                                            can: [], team_scoped: true },
+  admin:   { label:"Admin",   color: T.crit,   pages: ["dashboard","welcome","agent_inventory","discovery","governance","cost","security_intel","ecosystem","budgets","pricing","security","users","apikeys","settings","home","overview","agents","models","workflows","alerts","assets","chat","integrations","onboarding"], can: ["view_all_sessions"], team_scoped: false },
+  analyst: { label:"Analyst", color: T.warn,   pages: ["dashboard","welcome","agent_inventory","discovery","governance","cost","security_intel","ecosystem","home","overview","agents","models","workflows","alerts","assets","chat","integrations","onboarding"],                                                           can: [], team_scoped: true },
+  viewer:  { label:"Viewer",  color: T.info,   pages: ["dashboard","welcome","agent_inventory","discovery","governance","cost","security_intel","ecosystem","home","overview","agents","models","workflows","alerts","assets"],                                                                                            can: [], team_scoped: true },
 };
 
 // deny-by-default: unknown/null role → false, never crashes, never leaks.
@@ -5192,10 +5192,188 @@ function AssetsPage() {
   );
 }
 
+// ─── Customer Welcome / Platform Guide ───────────────────────────────────────
+function CustomerWelcomePage({ onNavigate }) {
+  const features = [
+    { icon: "◈", color: T.accent,  title: "Agent Inventory",        page: "agent_inventory", desc: "See every AI agent running in your organization — who owns it, what it costs, and how risky it is." },
+    { icon: "⊙", color: T.yellow,  title: "Discovery Center",        page: "discovery",       desc: "Automatically surface AI agents that were created without going through official channels." },
+    { icon: "⊛", color: T.info,    title: "Governance Center",       page: "governance",      desc: "Review and approve new agents before they go live. Assign owners, set policies." },
+    { icon: "$", color: T.accent,  title: "Cost Intelligence",       page: "cost",            desc: "Track how much each team and agent is spending on AI APIs each month." },
+    { icon: "⚑", color: T.crit,   title: "Security Intelligence",   page: "security_intel",  desc: "Get alerts on unusual activity, prompt injection attempts, and policy violations." },
+    { icon: "◎", color: T.purple,  title: "Ecosystem Discovery",     page: "ecosystem",       desc: "See which AI providers your org is connected to and how agents are distributed across them." },
+  ];
+  const steps = [
+    { n:"1", title:"Connect your AI gateway", desc:"Point your AI agent code at our gateway instead of directly at OpenAI or Anthropic. One line of code change.", cta:"See Integration Guide →", page:"integrations" },
+    { n:"2", title:"Tag your agents",          desc:"Add two headers to every request — your team name and an agent ID. This tells us which agent sent which request.", cta:null, page:null },
+    { n:"3", title:"Invite your team",         desc:"Add colleagues as Viewers or Analysts so they can see the agents their team owns.", cta:"Manage Users →", page:"users" },
+    { n:"4", title:"Explore your inventory",   desc:"Within minutes of sending the first request through the gateway, agents appear in the inventory automatically.", cta:"View Agent Inventory →", page:"agent_inventory" },
+  ];
+  return (
+    <div style={{ maxWidth:880, margin:"0 auto", padding:"32px 24px", fontFamily:FONT_UI }}>
+      {/* Hero */}
+      <div style={{ marginBottom:36, padding:"36px 40px", background:T.panel, border:`1px solid ${T.border}`, borderRadius:12, position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute", top:-50, right:-50, width:220, height:220, borderRadius:"50%", background:`${T.accent}07`, pointerEvents:"none" }} />
+        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.accent, letterSpacing:"0.15em", textTransform:"uppercase", marginBottom:10 }}>Welcome to</div>
+        <div style={{ fontSize:30, fontWeight:700, color:T.text, marginBottom:10, lineHeight:1.2 }}>AI Asset Management</div>
+        <div style={{ fontSize:14, color:T.textDim, lineHeight:1.7, maxWidth:540, marginBottom:22 }}>
+          One place to see, track, and govern every AI agent in your organization — from the ones your team built intentionally to the ones that appeared without anyone knowing.
+        </div>
+        <button onClick={() => onNavigate("agent_inventory")}
+          style={{ background:T.accent, color:"#000", border:"none", borderRadius:6, padding:"10px 22px", fontSize:13, fontWeight:600, fontFamily:FONT_UI, cursor:"pointer" }}>
+          Open Agent Inventory →
+        </button>
+      </div>
+      {/* Features */}
+      <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>What you can do</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))", gap:12, marginBottom:36 }}>
+        {features.map(f => (
+          <button key={f.page} onClick={() => onNavigate(f.page)}
+            style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:10, padding:"20px", textAlign:"left", cursor:"pointer", transition:"border-color 0.15s" }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = f.color+"55"}
+            onMouseLeave={e => e.currentTarget.style.borderColor = T.border}>
+            <div style={{ fontSize:20, marginBottom:10, color:f.color }}>{f.icon}</div>
+            <div style={{ fontSize:14, fontWeight:600, color:T.text, marginBottom:6 }}>{f.title}</div>
+            <div style={{ fontSize:12, color:T.textDim, lineHeight:1.6 }}>{f.desc}</div>
+          </button>
+        ))}
+      </div>
+      {/* Getting started */}
+      <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>Getting started</div>
+      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+        {steps.map(s => (
+          <div key={s.n} style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:10, padding:"16px 20px", display:"flex", gap:14, alignItems:"flex-start" }}>
+            <div style={{ width:28, height:28, borderRadius:"50%", background:`${T.accent}15`, border:`1px solid ${T.accent}30`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:12, fontWeight:700, color:T.accent, fontFamily:FONT_MONO }}>{s.n}</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:600, color:T.text, marginBottom:4 }}>{s.title}</div>
+              <div style={{ fontSize:12, color:T.textDim, lineHeight:1.6 }}>{s.desc}</div>
+            </div>
+            {s.cta && (
+              <button onClick={() => onNavigate(s.page)}
+                style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.accent, borderRadius:5, padding:"6px 14px", fontSize:11, fontFamily:FONT_MONO, cursor:"pointer", flexShrink:0, whiteSpace:"nowrap" }}>
+                {s.cta}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Simple Integration Setup Page ───────────────────────────────────────────
+function SimpleIntegrationsPage({ onNavigate }) {
+  const gatewayUrl  = typeof BASE !== "undefined" && BASE.startsWith("http") ? BASE : window.location.origin;
+  const [copied, setCopied] = useState(null);
+  const copy = (id, text) => { navigator.clipboard.writeText(text).catch(() => {}); setCopied(id); setTimeout(() => setCopied(null), 2000); };
+
+  const codeSnippet =
+`import openai
+
+client = openai.OpenAI(
+    base_url="${gatewayUrl}/v1",   # ← your gateway URL
+    api_key="gk-…",                # ← your key from API Keys page
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_headers={
+        "X-Guard-Team":  "my-team",   # ← your team name
+        "X-Guard-Agent": "my-agent",  # ← a name for this agent
+    },
+)
+print(response.choices[0].message.content)`;
+
+  const steps = [
+    {
+      n:"1", color:T.accent,
+      title:"Create an API Key",
+      desc:"Go to Administration → API Keys and generate a new key. Copy it — you'll paste it in the code.",
+      cta:{ label:"Go to API Keys →", page:"apikeys" },
+    },
+    {
+      n:"2", color:T.warn,
+      title:"Change one line in your code",
+      desc:`Replace your AI provider's URL with the gateway URL below. That's the only required change.`,
+      code:`${gatewayUrl}/v1`,
+      codeId:"url",
+    },
+    {
+      n:"3", color:T.info,
+      title:"Add two headers and run",
+      desc:"Add X-Guard-Team and X-Guard-Agent headers so we know which team and agent the request comes from. Use the example below.",
+    },
+  ];
+
+  return (
+    <div style={{ maxWidth:760, margin:"0 auto", padding:"32px 24px", fontFamily:FONT_UI }}>
+      <div style={{ marginBottom:28 }}>
+        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>Administration</div>
+        <div style={{ fontSize:24, fontWeight:700, color:T.text, marginBottom:8 }}>Connect an Agent</div>
+        <div style={{ fontSize:13, color:T.textDim, lineHeight:1.65, maxWidth:500 }}>
+          Route your AI requests through the gateway to make them visible in the inventory. It takes about 5 minutes.
+        </div>
+      </div>
+
+      {steps.map((s, i) => (
+        <div key={s.n} style={{ display:"flex", gap:0, marginBottom:0 }}>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", marginRight:18, flexShrink:0 }}>
+            <div style={{ width:32, height:32, borderRadius:"50%", background:`${s.color}15`, border:`1.5px solid ${s.color}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:700, color:s.color, fontFamily:FONT_MONO }}>{s.n}</div>
+            {i < steps.length - 1 && <div style={{ width:1, flex:1, minHeight:16, background:T.border, margin:"6px 0" }} />}
+          </div>
+          <div style={{ flex:1, paddingBottom:26 }}>
+            <div style={{ fontSize:15, fontWeight:600, color:T.text, marginBottom:5 }}>{s.title}</div>
+            <div style={{ fontSize:12, color:T.textDim, lineHeight:1.65, marginBottom:10 }}>{s.desc}</div>
+            {s.cta && (
+              <button onClick={() => onNavigate(s.cta.page)}
+                style={{ background:T.panelHi, border:`1px solid ${T.border}`, color:T.accent, borderRadius:5, padding:"7px 16px", fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                {s.cta.label}
+              </button>
+            )}
+            {s.code && (
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <code style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:4, padding:"4px 10px", fontSize:12, fontFamily:FONT_MONO, color:T.accent }}>{s.code}</code>
+                <button onClick={() => copy(s.codeId, s.code)}
+                  style={{ background:"transparent", border:`1px solid ${T.border}`, color:copied===s.codeId?T.accent:T.textMute, borderRadius:4, padding:"3px 10px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                  {copied===s.codeId?"✓ copied":"copy"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {/* Code block */}
+      <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:10, overflow:"hidden", marginTop:4, marginBottom:16 }}>
+        <div style={{ borderBottom:`1px solid ${T.border}`, padding:"10px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.08em" }}>Python · OpenAI SDK</div>
+          <button onClick={() => copy("main", codeSnippet)}
+            style={{ background:copied==="main"?`${T.accent}15`:"transparent", border:`1px solid ${copied==="main"?T.accent+"44":T.border}`, color:copied==="main"?T.accent:T.textMute, borderRadius:4, padding:"3px 12px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
+            {copied==="main"?"✓ copied":"copy"}
+          </button>
+        </div>
+        <pre style={{ margin:0, padding:"16px", fontSize:12, fontFamily:FONT_MONO, color:T.text, lineHeight:1.7, overflow:"auto" }}>{codeSnippet}</pre>
+      </div>
+
+      <div style={{ background:`${T.info}0d`, border:`1px solid ${T.info}28`, borderRadius:8, padding:"12px 16px", fontSize:12, color:T.textDim, lineHeight:1.65 }}>
+        <strong style={{ color:T.info }}>Using Anthropic or another provider?</strong>{" "}
+        Same steps — just change <code style={{ fontFamily:FONT_MONO, fontSize:11 }}>base_url</code> to{" "}
+        <code style={{ fontFamily:FONT_MONO, fontSize:11 }}>{gatewayUrl}</code> (no <code style={{ fontFamily:FONT_MONO, fontSize:11 }}>/v1</code>).
+        {" "}See the{" "}
+        <button onClick={() => onNavigate("onboarding")}
+          style={{ background:"none", border:"none", color:T.accent, fontFamily:FONT_UI, fontSize:12, cursor:"pointer", padding:0, textDecoration:"underline" }}>
+          full setup guide
+        </button>{" "}for all SDK examples.
+      </div>
+    </div>
+  );
+}
+
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 // PAGES: flat list for canAccess checks + header label lookup (includes legacy)
 const PAGES = [
   { id:"dashboard",      label:"Dashboard" },
+  { id:"welcome",        label:"Platform Guide" },
   { id:"agent_inventory",label:"AI Agent Inventory" },
   { id:"discovery",      label:"Discovery Center" },
   { id:"governance",     label:"Governance Center" },
@@ -5225,7 +5403,10 @@ const PAGES = [
 const NAV_GROUPS = [
   {
     label: null,
-    items: [{ id: "dashboard", label: "Dashboard" }],
+    items: [
+      { id: "dashboard", label: "Dashboard" },
+      { id: "welcome",   label: "Platform Guide" },
+    ],
   },
   {
     label: "INVENTORY",
@@ -5246,12 +5427,13 @@ const NAV_GROUPS = [
   {
     label: "ADMINISTRATION",
     items: [
-      { id: "budgets",  label: "Budgets" },
-      { id: "pricing",  label: "Pricing Registry" },
-      { id: "security", label: "Security & Audit" },
-      { id: "users",    label: "Users" },
-      { id: "apikeys",  label: "API Keys" },
-      { id: "settings", label: "Settings" },
+      { id: "budgets",      label: "Budgets" },
+      { id: "pricing",      label: "Pricing Registry" },
+      { id: "security",     label: "Security & Audit" },
+      { id: "users",        label: "Users" },
+      { id: "apikeys",      label: "API Keys" },
+      { id: "integrations", label: "Integrations" },
+      { id: "settings",     label: "Settings" },
     ],
   },
 ];
@@ -5411,6 +5593,7 @@ export default function App() {
     switch (page) {
       // ── New primary pages ───────────────────────────────────────────────
       case "dashboard":      return <ExecutiveDashboard onNavigate={setPage} />;
+      case "welcome":        return <CustomerWelcomePage onNavigate={setPage} />;
       case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); setPage(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
       case "governance":     return <GovernanceCenter />;
@@ -5433,7 +5616,7 @@ export default function App() {
       case "models":    return <ModelUsage A={A} />;
       case "workflows": return <WorkflowHealth {...pageProps} />;
       case "alerts":    return <AlertsPage alerts={alerts} sevFilter={filters.sev} />;
-      case "integrations":  return <IntegrationsPage onNavigate={setPage} />;
+      case "integrations":  return <SimpleIntegrationsPage onNavigate={setPage} />;
       case "onboarding":    return <OnboardingPage onNavigate={setPage} />;
       default:              return null;
     }
