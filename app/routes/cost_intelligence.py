@@ -129,6 +129,28 @@ async def get_billing_period(
     return record
 
 
+@router.put("/billing/periods/{period_id}")
+async def update_billing_period(
+    period_id: int,
+    body: dict,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update an existing billing record and re-run reconciliation."""
+    org_id, team_scope = _org_and_scope(user, db)
+    if is_deny_sentinel(team_scope):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    try:
+        result = ci.update_provider_billing(db, org_id, period_id, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return result
+
+
 # ── Per-agent cost ────────────────────────────────────────────────────────────
 
 @router.get("/agents/{agent_id}/cost")

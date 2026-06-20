@@ -437,6 +437,72 @@ def import_provider_billing(
     }
 
 
+def update_provider_billing(
+    db: Session,
+    org_id: int,
+    period_id: int,
+    data: dict,
+) -> dict:
+    """Update an existing billing record and re-run reconciliation."""
+    billing = db.query(ProviderBilling).filter(
+        ProviderBilling.id == period_id,
+        ProviderBilling.organization_id == org_id,
+    ).first()
+    if not billing:
+        raise ValueError(f"Billing period {period_id} not found")
+
+    if "billing_period_start" in data:
+        billing.billing_period_start = _aware(datetime.fromisoformat(str(data["billing_period_start"])))
+    if "billing_period_end" in data:
+        billing.billing_period_end = _aware(datetime.fromisoformat(str(data["billing_period_end"])))
+    if "actual_billed_cost_usd" in data:
+        billing.actual_billed_cost_usd = float(data["actual_billed_cost_usd"])
+    if "currency" in data:
+        billing.currency = data["currency"]
+    if "source" in data:
+        billing.source = data["source"]
+    if "notes" in data:
+        billing.notes = data["notes"]
+
+    db.flush()
+
+    # Re-run reconciliation
+    runtime_cost = _runtime_cost_query(db, org_id, billing.billing_period_start, billing.billing_period_end, provider=billing.provider)
+    billed_cost  = billing.actual_billed_cost_usd
+    variance_abs = round(runtime_cost - billed_cost, 6)
+    variance_pct = round((variance_abs / billed_cost) * 100, 2) if billed_cost > 0 else 0.0
+    status       = _recon_status(variance_pct)
+
+    recon = db.query(CostReconciliation).filter(CostReconciliation.billing_id == period_id).first()
+    if recon:
+        recon.runtime_cost_estimate_usd = runtime_cost
+        recon.provider_billed_cost_usd  = billed_cost
+        recon.variance_absolute_usd     = variance_abs
+        recon.variance_percent          = variance_pct
+        recon.status                    = status
+    else:
+        db.add(CostReconciliation(
+            organization_id=org_id, billing_id=period_id,
+            period_start=billing.billing_period_start, period_end=billing.billing_period_end,
+            provider=billing.provider,
+            runtime_cost_estimate_usd=runtime_cost, provider_billed_cost_usd=billed_cost,
+            variance_absolute_usd=variance_abs, variance_percent=variance_pct, status=status,
+        ))
+
+    db.commit()
+    return {
+        "status":     "updated",
+        "billing_id": period_id,
+        "reconciliation": {
+            "status":               status,
+            "runtime_estimate_usd": runtime_cost,
+            "provider_billed_usd":  billed_cost,
+            "variance_absolute_usd": variance_abs,
+            "variance_percent":     variance_pct,
+        },
+    }
+
+
 def get_billing_periods(db: Session, org_id: int) -> list[dict]:
     """List all billing records for the org, most-recent first."""
     records = db.query(ProviderBilling).filter(

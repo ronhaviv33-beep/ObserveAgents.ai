@@ -7,6 +7,7 @@ import {
   fetchCostIntelligence,
   importProviderBilling,
   fetchBillingPeriods,
+  updateBillingPeriod,
 } from '../api.js'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
@@ -236,7 +237,7 @@ function TrendChart({ data }) {
 }
 
 // ── Billing history table ──────────────────────────────────────────────────────
-function BillingTable({ records }) {
+function BillingTable({ records, onEdit }) {
   if (!records || records.length === 0) {
     return (
       <div style={{ padding: '24px 0', textAlign: 'center', color: T.textMute, fontSize: 13 }}>
@@ -248,7 +249,7 @@ function BillingTable({ records }) {
     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead>
         <tr style={{ borderBottom: `1px solid ${T.border}` }}>
-          {['Provider', 'Period', 'Billed (Actual)', 'Source', 'Reconciliation', 'Imported'].map(h => (
+          {['Provider', 'Period', 'Billed (Actual)', 'Source', 'Reconciliation', 'Imported', ''].map(h => (
             <th key={h} style={{ padding: '6px 8px', textAlign: 'left', fontSize: 10, fontFamily: FONT_MONO, color: T.textMute, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{h}</th>
           ))}
         </tr>
@@ -278,6 +279,16 @@ function BillingTable({ records }) {
               </td>
               <td style={{ padding: '10px 8px', fontSize: 11, color: T.textMute }}>
                 {fmtDate(r.created_at)}{r.imported_by ? ` · ${r.imported_by}` : ''}
+              </td>
+              <td style={{ padding: '10px 8px' }}>
+                <button
+                  onClick={() => onEdit(r)}
+                  style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.textDim, padding: '3px 10px', borderRadius: 4, fontSize: 11, fontFamily: FONT_MONO, cursor: 'pointer' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = T.accent; e.currentTarget.style.color = T.accent }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.textDim }}
+                >
+                  Edit
+                </button>
               </td>
             </tr>
           )
@@ -394,6 +405,94 @@ function ImportModal({ onClose, onSubmit, saving }) {
   )
 }
 
+// ── Edit billing modal ─────────────────────────────────────────────────────────
+function EditBillingModal({ record, onClose, onSubmit, saving }) {
+  const toDateInput = iso => iso ? iso.split('T')[0] : ''
+  const [form, setForm] = useState({
+    billing_period_start:   toDateInput(record.billing_period_start),
+    billing_period_end:     toDateInput(record.billing_period_end),
+    actual_billed_cost_usd: record.actual_billed_cost_usd ?? '',
+    currency: record.currency || 'USD',
+    source:   record.source   || 'manual_upload',
+    notes:    record.notes    || '',
+  })
+  const [err, setErr] = useState(null)
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setErr(null)
+    const amount = parseFloat(form.actual_billed_cost_usd)
+    if (isNaN(amount) || amount < 0) { setErr('Invalid amount.'); return }
+    try {
+      await onSubmit(record.id, {
+        billing_period_start:   form.billing_period_start,
+        billing_period_end:     form.billing_period_end,
+        actual_billed_cost_usd: amount,
+        currency: form.currency,
+        source:   form.source,
+        notes:    form.notes || undefined,
+      })
+    } catch (e) { setErr(e.message) }
+  }
+
+  const inputStyle = { width: '100%', padding: '8px 10px', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 4, color: T.text, fontSize: 12, fontFamily: FONT_MONO, boxSizing: 'border-box' }
+  const labelStyle = { fontSize: 11, color: T.textDim, marginBottom: 4, display: 'block', fontFamily: FONT_MONO }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+      <div style={{ background: T.panel, border: `1px solid ${T.borderHi}`, borderRadius: 8, padding: 24, width: 460, maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>
+            Edit Billing — <span style={{ color: PROVIDER_COLORS[record.provider] || T.accent, textTransform: 'capitalize' }}>{record.provider}</span>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.textMute, cursor: 'pointer', fontSize: 16 }}>✕</button>
+        </div>
+        {err && <div style={{ background: `${T.crit}18`, border: `1px solid ${T.crit}`, borderRadius: 4, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: T.crit }}>{err}</div>}
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Billing Period Start</label>
+              <input type="date" value={form.billing_period_start} onChange={e => set('billing_period_start', e.target.value)} style={inputStyle} required />
+            </div>
+            <div>
+              <label style={labelStyle}>Billing Period End</label>
+              <input type="date" value={form.billing_period_end} onChange={e => set('billing_period_end', e.target.value)} style={inputStyle} required />
+            </div>
+            <div>
+              <label style={labelStyle}>Actual Billed Amount *</label>
+              <input type="number" step="0.01" min="0" value={form.actual_billed_cost_usd} onChange={e => set('actual_billed_cost_usd', e.target.value)} style={inputStyle} required />
+            </div>
+            <div>
+              <label style={labelStyle}>Currency</label>
+              <input value={form.currency} onChange={e => set('currency', e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ gridColumn: '1/-1' }}>
+              <label style={labelStyle}>Source</label>
+              <select value={form.source} onChange={e => set('source', e.target.value)} style={inputStyle}>
+                <option value="manual_upload">Manual Upload</option>
+                <option value="csv_import">CSV Import</option>
+                <option value="api">API</option>
+                <option value="webhook">Webhook</option>
+              </select>
+            </div>
+            <div style={{ gridColumn: '1/-1' }}>
+              <label style={labelStyle}>Notes (optional)</label>
+              <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={onClose} disabled={saving} style={{ padding: '8px 16px', background: 'none', border: `1px solid ${T.border}`, borderRadius: 4, color: T.textDim, cursor: 'pointer', fontSize: 12 }}>Cancel</button>
+            <button type="submit" disabled={saving} style={{ padding: '8px 16px', background: T.accent, border: 'none', borderRadius: 4, color: T.bg, fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>
+              {saving ? 'Saving…' : 'Save & Reconcile'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ── Reconciliation detail ──────────────────────────────────────────────────────
 function ReconciliationDetail({ data }) {
   if (!data || Object.keys(data).length === 0) return null
@@ -453,6 +552,7 @@ export default function CostIntelligence() {
   const [error, setError]             = useState(null)
   const [breakdownBy, setBreakdownBy] = useState('agent')
   const [showImport, setShowImport]   = useState(false)
+  const [editRecord, setEditRecord]   = useState(null)
   const [saving, setSaving]           = useState(false)
 
   const loadData = useCallback(async (bBy = breakdownBy) => {
@@ -489,6 +589,17 @@ export default function CostIntelligence() {
     try {
       await importProviderBilling(provider, formData)
       setShowImport(false)
+      await loadData(breakdownBy)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleEditSave(periodId, formData) {
+    setSaving(true)
+    try {
+      await updateBillingPeriod(periodId, formData)
+      setEditRecord(null)
       await loadData(breakdownBy)
     } finally {
       setSaving(false)
@@ -569,14 +680,22 @@ export default function CostIntelligence() {
           </button>
         }
       >
-        <BillingTable records={billingPeriods} />
+        <BillingTable records={billingPeriods} onEdit={setEditRecord} />
       </Card>
 
-      {/* Import modal */}
       {showImport && (
         <ImportModal
           onClose={() => setShowImport(false)}
           onSubmit={handleImport}
+          saving={saving}
+        />
+      )}
+
+      {editRecord && (
+        <EditBillingModal
+          record={editRecord}
+          onClose={() => setEditRecord(null)}
+          onSubmit={handleEditSave}
           saving={saving}
         />
       )}

@@ -420,6 +420,18 @@ export async function fetchBillingPeriod(periodId) {
   return r.json()
 }
 
+export async function updateBillingPeriod(periodId, data) {
+  const r = await authFetch(`${BASE}/billing/periods/${periodId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+  if (!r || !r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to update billing record')
+  }
+  return r.json()
+}
+
 export async function fetchAgentCostDetail(agentId, days = 90) {
   const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}/cost?days=${days}`)
   if (!r || !r.ok) throw new Error(`Failed to fetch cost data for agent: ${agentId}`)
