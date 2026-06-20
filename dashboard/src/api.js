@@ -384,3 +384,44 @@ export async function rejectInventoryAgent(agentId, rejectionReason) {
   if (!r || !r.ok) throw new Error('Failed to reject agent')
   return r.json()
 }
+
+// ── Cost Intelligence ─────────────────────────────────────────────────────────
+
+export async function fetchCostIntelligence(params = {}) {
+  const q = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  const r = await authFetch(`${BASE}/cost-intelligence${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch cost intelligence')
+  return r.json()
+}
+
+export async function importProviderBilling(provider, data) {
+  const r = await authFetch(`${BASE}/billing/${encodeURIComponent(provider)}/import`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+  if (!r || !r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to import billing data')
+  }
+  return r.json()
+}
+
+export async function fetchBillingPeriods() {
+  const r = await authFetch(`${BASE}/billing/periods`)
+  if (!r || !r.ok) throw new Error('Failed to fetch billing periods')
+  return r.json()
+}
+
+export async function fetchBillingPeriod(periodId) {
+  const r = await authFetch(`${BASE}/billing/periods/${periodId}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch billing period')
+  return r.json()
+}
+
+export async function fetchAgentCostDetail(agentId, days = 90) {
+  const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}/cost?days=${days}`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch cost data for agent: ${agentId}`)
+  return r.json()
+}

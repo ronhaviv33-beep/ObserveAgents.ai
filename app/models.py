@@ -395,3 +395,50 @@ class ChatSessionMessage(Base):
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+
+
+class ProviderBilling(Base):
+    """
+    Actual provider invoice data — ground truth for cost reconciliation.
+    Runtime telemetry gives estimates; this table holds what was actually billed.
+    """
+    __tablename__ = "provider_billing"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(32))                # openai | anthropic | gemini | bedrock | azure | google
+    billing_period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    billing_period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    actual_billed_cost_usd: Mapped[float] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(8), default="USD")
+    billing_breakdown: Mapped[str | None] = mapped_column(Text, nullable=True)   # JSON — optional model/token breakdown
+    source: Mapped[str] = mapped_column(String(32), default="manual_upload")     # api | manual_upload | csv_import | webhook
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    imported_by: Mapped[str | None] = mapped_column(String(256), nullable=True)  # email of importer
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class CostReconciliation(Base):
+    """
+    Variance analysis between runtime cost estimates and provider invoices.
+    Created automatically whenever a ProviderBilling record is imported.
+    """
+    __tablename__ = "cost_reconciliation"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    billing_id: Mapped[int] = mapped_column(Integer, ForeignKey("provider_billing.id"), nullable=False, index=True)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    provider: Mapped[str] = mapped_column(String(32))
+    runtime_cost_estimate_usd: Mapped[float] = mapped_column(Float)   # sum of telemetry cost_usd for period
+    provider_billed_cost_usd: Mapped[float] = mapped_column(Float)    # from ProviderBilling
+    variance_absolute_usd: Mapped[float] = mapped_column(Float)       # runtime - billed
+    variance_percent: Mapped[float] = mapped_column(Float)            # (variance / billed) * 100
+    status: Mapped[str] = mapped_column(String(32))                   # healthy | warning | investigate
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )

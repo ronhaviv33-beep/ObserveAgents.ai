@@ -18,6 +18,7 @@ class PageErrorBoundary extends Component {
 }
 import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams, fetchAssets, fetchAssetsSummary, fetchAssetTelemetry, fetchUnassignedAssets, claimAsset, updateAssetRegistry } from "./api.js";
 import AgentInventory from "./pages/AgentInventory.jsx";
+import CostIntelligence from "./pages/CostIntelligence.jsx";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -5310,7 +5311,7 @@ export default function App() {
       case "chat":           return <ChatPage />;
       case "assets":    return <AssetsPage />;
       case "overview":  return <Overview  {...pageProps} />;
-      case "cost":      return <CostIntel {...pageProps} />;
+      case "cost":      return <CostIntelligence />;
       case "agents":    return <AgentActivity {...pageProps} />;
       case "models":    return <ModelUsage A={A} />;
       case "workflows": return <WorkflowHealth {...pageProps} />;
@@ -5426,7 +5427,7 @@ export default function App() {
           </div>
         </header>
 
-        {!["home","agent_inventory","budgets","security","chat","users","apikeys","settings","integrations","onboarding"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
+        {!["home","agent_inventory","cost","budgets","security","chat","users","apikeys","settings","integrations","onboarding"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
 
         <PageErrorBoundary key={page}>{renderPage()}</PageErrorBoundary>
       </main>
