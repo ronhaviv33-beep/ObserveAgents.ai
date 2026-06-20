@@ -20,6 +20,11 @@ import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteU
 import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
+import ExecutiveDashboard from "./pages/ExecutiveDashboard.jsx";
+import DiscoveryCenter from "./pages/DiscoveryCenter.jsx";
+import GovernanceCenter from "./pages/GovernanceCenter.jsx";
+import SecurityIntelligence from "./pages/SecurityIntelligence.jsx";
+import EcosystemDiscovery from "./pages/EcosystemDiscovery.jsx";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -1860,9 +1865,9 @@ const useRoles = () => useContext(RolesContext);
 const ROLES = {
   // pages  — controls navigation visibility and page-level UI gates
   // can    — explicit data/action capabilities not expressible as page visibility
-  admin:   { label:"Admin",   color: T.crit,   pages: ["home","agent_inventory","chat","assets","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","pricing","settings","integrations","onboarding"], can: ["view_all_sessions"], team_scoped: false },
-  analyst: { label:"Analyst", color: T.warn,   pages: ["home","agent_inventory","chat","assets","overview","cost","agents","models","workflows","alerts","security","integrations","onboarding"],                can: [], team_scoped: true },
-  viewer:  { label:"Viewer",  color: T.info,   pages: ["home","agent_inventory","assets","overview","cost","agents","models","workflows","alerts","security"],                                                    can: [], team_scoped: true },
+  admin:   { label:"Admin",   color: T.crit,   pages: ["dashboard","agent_inventory","discovery","governance","cost","security_intel","ecosystem","budgets","pricing","security","users","apikeys","settings","home","overview","agents","models","workflows","alerts","assets","chat","integrations","onboarding"], can: ["view_all_sessions"], team_scoped: false },
+  analyst: { label:"Analyst", color: T.warn,   pages: ["dashboard","agent_inventory","discovery","governance","cost","security_intel","ecosystem","home","overview","agents","models","workflows","alerts","assets","chat","integrations","onboarding"],                                                           can: [], team_scoped: true },
+  viewer:  { label:"Viewer",  color: T.info,   pages: ["dashboard","agent_inventory","discovery","governance","cost","security_intel","ecosystem","home","overview","agents","models","workflows","alerts","assets"],                                                                                            can: [], team_scoped: true },
 };
 
 // deny-by-default: unknown/null role → false, never crashes, never leaks.
@@ -5132,30 +5137,72 @@ function AssetsPage() {
 }
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
+// PAGES: flat list for canAccess checks + header label lookup (includes legacy)
 const PAGES = [
-  { id:"home",            label:"Home" },
-  { id:"agent_inventory", label:"Agent Inventory" },
-  { id:"chat",            label:"Chat" },
-  { id:"assets",          label:"Asset Inventory" },
-  { id:"overview",  label:"Overview" },
-  { id:"cost",      label:"Cost Intelligence" },
-  { id:"agents",    label:"Agent Activity" },
-  { id:"models",    label:"Model Usage" },
-  { id:"workflows", label:"Workflow Health" },
-  { id:"alerts",    label:"Alerts" },
-  { id:"budgets",   label:"Budgets" },
-  { id:"security",  label:"Security" },
-  { id:"users",     label:"Users" },
-  { id:"apikeys",   label:"API Keys" },
-  { id:"pricing",       label:"Pricing Registry" },
-  { id:"settings",     label:"Settings" },
-  { id:"integrations", label:"Integrations" },
-  { id:"onboarding",   label:"Setup Guide" },
+  { id:"dashboard",      label:"Dashboard" },
+  { id:"agent_inventory",label:"AI Agent Inventory" },
+  { id:"discovery",      label:"Discovery Center" },
+  { id:"governance",     label:"Governance Center" },
+  { id:"cost",           label:"Cost Intelligence" },
+  { id:"security_intel", label:"Security Intelligence" },
+  { id:"ecosystem",      label:"Ecosystem Discovery" },
+  { id:"budgets",        label:"Budgets" },
+  { id:"pricing",        label:"Pricing Registry" },
+  { id:"security",       label:"Security & Audit" },
+  { id:"users",          label:"Users" },
+  { id:"apikeys",        label:"API Keys" },
+  { id:"settings",       label:"Settings" },
+  // Legacy pages (not in primary nav but still routable)
+  { id:"home",           label:"Home" },
+  { id:"overview",       label:"Overview" },
+  { id:"agents",         label:"Agent Activity" },
+  { id:"models",         label:"Model Usage" },
+  { id:"workflows",      label:"Workflow Health" },
+  { id:"alerts",         label:"Alerts" },
+  { id:"assets",         label:"Asset Inventory" },
+  { id:"chat",           label:"Chat" },
+  { id:"integrations",   label:"Integrations" },
+  { id:"onboarding",     label:"Setup Guide" },
+];
+
+// NAV_GROUPS: sidebar rendering — only primary navigation, grouped by section
+const NAV_GROUPS = [
+  {
+    label: null,
+    items: [{ id: "dashboard", label: "Dashboard" }],
+  },
+  {
+    label: "INVENTORY",
+    items: [
+      { id: "agent_inventory", label: "Agents" },
+      { id: "discovery",       label: "Discovery Center" },
+      { id: "governance",      label: "Governance Center" },
+    ],
+  },
+  {
+    label: "INTELLIGENCE",
+    items: [
+      { id: "cost",          label: "Cost Intelligence" },
+      { id: "security_intel",label: "Security Intelligence" },
+      { id: "ecosystem",     label: "Ecosystem Discovery" },
+    ],
+  },
+  {
+    label: "ADMINISTRATION",
+    items: [
+      { id: "budgets",  label: "Budgets" },
+      { id: "pricing",  label: "Pricing Registry" },
+      { id: "security", label: "Security & Audit" },
+      { id: "users",    label: "Users" },
+      { id: "apikeys",  label: "API Keys" },
+      { id: "settings", label: "Settings" },
+    ],
+  },
 ];
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [page, setPage]       = useState("home");
+  const [page, setPage]       = useState("dashboard");
   const [filters, setFilters] = useState({ team:"all", model:"all", agent:"all", sev:"all", range:30 });
 
   // ── Real JWT auth ──
@@ -5305,22 +5352,30 @@ export default function App() {
       );
     }
     switch (page) {
-      case "home":           return <Home onNavigate={setPage} />;
-      case "agent_inventory": return <AgentInventory />;
-      case "chat":           return <ChatPage />;
-      case "assets":    return <AssetsPage />;
-      case "overview":  return <Overview  {...pageProps} />;
+      // ── New primary pages ───────────────────────────────────────────────
+      case "dashboard":      return <ExecutiveDashboard onNavigate={setPage} />;
+      case "agent_inventory":return <AgentInventory />;
+      case "discovery":      return <DiscoveryCenter />;
+      case "governance":     return <GovernanceCenter />;
+      case "security_intel": return <SecurityIntelligence />;
+      case "ecosystem":      return <EcosystemDiscovery />;
+      // ── Existing pages (unchanged) ──────────────────────────────────────
       case "cost":      return <CostIntelligence />;
       case "pricing":   return <PricingRegistry />;
-      case "agents":    return <AgentActivity {...pageProps} />;
-      case "models":    return <ModelUsage A={A} />;
-      case "workflows": return <WorkflowHealth {...pageProps} />;
-      case "alerts":    return <AlertsPage alerts={alerts} sevFilter={filters.sev} />;
       case "budgets":   return <BudgetsPage />;
       case "security":  return <SecurityPage />;
       case "users":     return <UsersPage />;
       case "apikeys":   return <ApiKeysPage />;
       case "settings":      return <SettingsPage />;
+      // ── Legacy pages (still routable, removed from primary nav) ────────
+      case "home":           return <Home onNavigate={setPage} />;
+      case "chat":           return <ChatPage />;
+      case "assets":    return <AssetsPage />;
+      case "overview":  return <Overview  {...pageProps} />;
+      case "agents":    return <AgentActivity {...pageProps} />;
+      case "models":    return <ModelUsage A={A} />;
+      case "workflows": return <WorkflowHealth {...pageProps} />;
+      case "alerts":    return <AlertsPage alerts={alerts} sevFilter={filters.sev} />;
       case "integrations":  return <IntegrationsPage onNavigate={setPage} />;
       case "onboarding":    return <OnboardingPage onNavigate={setPage} />;
       default:              return null;
@@ -5355,23 +5410,34 @@ export default function App() {
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:32, padding:"0 6px" }}>
           <div style={{ width:22, height:22, background:T.accent, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT_MONO, fontWeight:600, fontSize:12, color:T.bg }}>◆</div>
           <div>
-            <div style={{ fontSize:13, fontWeight:500, letterSpacing:"-0.01em" }}>AI Asset Management</div>
-            <div style={{ fontSize:9, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.1em", textTransform:"uppercase", marginTop:1 }}>control center</div>
+            <div style={{ fontSize:13, fontWeight:600, letterSpacing:"-0.01em" }}>AI Agent Inventory</div>
+            <div style={{ fontSize:9, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.08em", textTransform:"uppercase", marginTop:1 }}>Runtime Intelligence</div>
           </div>
         </div>
 
-        <div style={{ fontSize:9, letterSpacing:"0.14em", textTransform:"uppercase", color:T.textMute, fontFamily:FONT_MONO, padding:"0 8px 10px" }}>Telemetry</div>
-
-        <nav style={{ display:"flex", flexDirection:"column", gap:2 }}>
-          {PAGES.filter(p => canAccess(user?.role, p.id, rolesMap)).map((p)=>(
-            <button key={p.id} onClick={()=>setPage(p.id)}
-              style={{ background:page===p.id?T.panelHi:"transparent", border:"none", color:page===p.id?T.text:T.textDim, textAlign:"left", padding:"9px 10px", fontSize:13, borderRadius:4, cursor:"pointer", fontFamily:FONT_UI, display:"flex", alignItems:"center", gap:10, borderLeft:page===p.id?`2px solid ${T.accent}`:"2px solid transparent", transition:"all 0.12s" }}>
-              {p.label}
-              {p.id==="alerts" && critCount>0 && (
-                <span style={{ marginLeft:"auto", background:T.crit, color:T.bg, fontSize:10, fontFamily:FONT_MONO, padding:"1px 6px", borderRadius:8, fontWeight:600 }}>{critCount}</span>
-              )}
-            </button>
-          ))}
+        <nav style={{ display:"flex", flexDirection:"column", gap:0, flex:1, overflowY:"auto" }}>
+          {NAV_GROUPS.map((group, gi) => {
+            const visibleItems = group.items.filter(item => canAccess(user?.role, item.id, rolesMap));
+            if (visibleItems.length === 0) return null;
+            return (
+              <div key={gi} style={{ marginBottom: group.label ? 6 : 8 }}>
+                {group.label && (
+                  <div style={{ fontSize:8, letterSpacing:"0.18em", textTransform:"uppercase", color:T.textMute, fontFamily:FONT_MONO, padding:"10px 10px 5px", fontWeight:500 }}>
+                    {group.label}
+                  </div>
+                )}
+                {visibleItems.map(item => (
+                  <button key={item.id} onClick={()=>setPage(item.id)}
+                    style={{ background:page===item.id?T.panelHi:"transparent", border:"none", color:page===item.id?T.text:T.textDim, textAlign:"left", padding:"8px 10px", fontSize:12, borderRadius:4, cursor:"pointer", fontFamily:FONT_UI, display:"flex", alignItems:"center", gap:10, borderLeft:page===item.id?`2px solid ${T.accent}`:"2px solid transparent", transition:"all 0.1s", width:"100%" }}>
+                    {item.label}
+                    {item.id==="alerts" && critCount>0 && (
+                      <span style={{ marginLeft:"auto", background:T.crit, color:T.bg, fontSize:10, fontFamily:FONT_MONO, padding:"1px 6px", borderRadius:8, fontWeight:600 }}>{critCount}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            );
+          })}
         </nav>
 
         <div style={{ marginTop:"auto", padding:"12px 8px", display:"flex", flexDirection:"column", gap:10 }}>
@@ -5427,7 +5493,7 @@ export default function App() {
           </div>
         </header>
 
-        {!["home","agent_inventory","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
+        {!["dashboard","home","agent_inventory","discovery","governance","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
 
         <PageErrorBoundary key={page}>{renderPage()}</PageErrorBoundary>
       </main>
