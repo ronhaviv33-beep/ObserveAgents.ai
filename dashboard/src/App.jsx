@@ -2079,26 +2079,18 @@ function ApiKeysPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-      {/* ── Info banner ── */}
-      <div style={{ background: `${T.info}0D`, border: `1px solid ${T.info}30`, borderRadius: 8, padding: "14px 18px",
-        display: "flex", gap: 14, alignItems: "flex-start" }}>
-        <div style={{ fontFamily: FONT_MONO, fontSize: 18, color: T.info, lineHeight: 1, marginTop: 2 }}>⌁</div>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 4 }}>Gateway API Keys</div>
-          <div style={{ fontSize: 12, color: T.textDim, lineHeight: 1.65, maxWidth: 720 }}>
-            Each AI agent authenticates requests through the gateway using a <code style={{ fontFamily: FONT_MONO, fontSize: 11, color: T.accent }}>gk-…</code> key.
-            Assign one key per agent or team. The key is shown <strong style={{ color: T.warn }}>once</strong> at creation — store it in your secrets manager immediately.
-            All traffic from this key is attributed to the named agent in telemetry.
-          </div>
-        </div>
+      {/* ── Page header ── */}
+      <div>
+        <div style={{ fontSize: 20, fontWeight: 500, color: T.text, letterSpacing: "-0.01em" }}>API Keys</div>
+        <div style={{ fontSize: 12, color: T.textDim, marginTop: 4 }}>Keys authenticate AI agents through the runtime gateway. Each key is shown once — copy it immediately.</div>
       </div>
 
       {/* ── Create key ── */}
-      <Card title="Generate Key" subtitle="Stored as a SHA-256 hash — the raw key is never retrievable after creation">
+      <Card title="New Key">
         <form onSubmit={handleCreate} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
           {[
-            { label: "Agent / Key Name *", key: "name", placeholder: "e.g. soc-agent-prod" },
-            { label: "Team",               key: "team", placeholder: "e.g. SOC" },
+            { label: "Name *", key: "name", placeholder: "e.g. soc-agent-prod" },
+            { label: "Team",   key: "team", placeholder: "e.g. SOC" },
           ].map(({ label, key, placeholder }) => (
             <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label style={{ fontSize: 9, fontFamily: FONT_MONO, letterSpacing: "0.12em", textTransform: "uppercase", color: T.textMute }}>{label}</label>
@@ -2109,14 +2101,14 @@ function ApiKeysPage() {
           ))}
           <button type="submit" disabled={saving}
             style={{ background: T.accent, color: T.bg, border: "none", padding: "8px 18px", borderRadius: 4, fontSize: 12, fontFamily: FONT_MONO, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
-            {saving ? "Generating…" : "+ Generate Key"}
+            {saving ? "Generating…" : "+ Generate"}
           </button>
         </form>
         {err && <div style={{ color: T.crit, fontFamily: FONT_MONO, fontSize: 12, marginTop: 10 }}>{err}</div>}
       </Card>
 
       {/* ── Keys table ── */}
-      <Card title="Active Keys" subtitle={`${keys.length} key${keys.length === 1 ? "" : "s"} — revoke immediately if a key is lost or compromised`}>
+      <Card title={`Keys · ${keys.length}`}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${T.border}` }}>
@@ -2163,9 +2155,9 @@ function ApiKeysPage() {
       {newKey && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
           <div style={{ background: T.panel, border: `1px solid ${T.accent}66`, borderRadius: 8, padding: 28, maxWidth: 540, width: "90%", display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ fontFamily: FONT_MONO, fontWeight: 700, color: T.accent, fontSize: 14 }}>⚠ Copy your API key — shown only once</div>
-            <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: T.textDim, lineHeight: 1.6 }}>
-              This key will <strong style={{ color: T.text }}>never be shown again</strong>. Copy it now and store it in a secrets manager (e.g. Render Secret Files, GitHub Actions secrets).
+            <div style={{ fontFamily: FONT_MONO, fontWeight: 700, color: T.accent, fontSize: 14 }}>Copy your key — shown once only</div>
+            <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: T.textDim }}>
+              This will not be shown again. Store it in your secrets manager now.
             </div>
             <div style={{ background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 4, padding: "10px 14px", fontFamily: FONT_MONO, fontSize: 12, color: T.text, wordBreak: "break-all", userSelect: "all" }}>
               {newKey}
@@ -4022,29 +4014,20 @@ function SettingsPage() {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14, maxWidth:860 }}>
 
-      {/* Provider key status overview */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
-        {[
-          { label:"Configured",  count: keys.filter(k=>k.configured&&!k.placeholder).length, color:T.accent },
-          { label:"Placeholder", count: keys.filter(k=>k.placeholder).length,                color:T.warn  },
-          { label:"Not set",     count: keys.filter(k=>!k.configured).length,                color:T.crit  },
-          { label:"Total providers", count: keys.length,                                     color:T.info  },
-        ].map(s => (
-          <div key={s.label} style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:16 }}>
-            <div style={{ fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textDim }}>{s.label}</div>
-            <div style={{ fontSize:32, fontFamily:FONT_MONO, fontWeight:500, color:s.color, marginTop:8, lineHeight:1 }}>{s.count}</div>
-          </div>
-        ))}
+      {/* Page header */}
+      <div>
+        <div style={{ fontSize:20, fontWeight:500, color:T.text, letterSpacing:"-0.01em" }}>Settings</div>
+        <div style={{ fontSize:12, color:T.textDim, marginTop:4 }}>Configure provider keys, guard modes, and platform behaviour.</div>
       </div>
 
       {/* Provider API keys (BYOK) */}
       <ProviderCredentialsSection />
 
-      {/* Guard modes (Visibility First → Governance Later) */}
+      {/* Guard modes */}
       <GuardModesSection />
 
       {/* Keys table */}
-      <Card title="LLM Provider Keys" subtitle="Bring Your Own Key — stored encrypted in .env, value never exposed after save">
+      <Card title="Provider Keys" subtitle="Values are write-only — status only shown after save">
         {err && <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12, marginBottom:12 }}>{err}</div>}
         <table style={{ width:"100%", borderCollapse:"collapse" }}>
           <thead>
@@ -4117,37 +4100,6 @@ function SettingsPage() {
         </table>
       </Card>
 
-      {/* Discovery sources info */}
-      <Card title="Discovery Sources" subtitle="How AI Agent Inventory detects agents in your environment">
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
-          {[
-            {
-              icon:"⌁", color:T.accent,
-              label:"Gateway Telemetry",
-              desc:"Agents routed through this gateway are automatically registered. Confidence: 95%. This is the highest-fidelity source.",
-            },
-            {
-              icon:"◈", color:T.info,
-              label:"Platform Signals",
-              desc:"GitHub Actions, n8n, Slack workflows, and cloud functions are scanned for AI API calls. Confidence: 30–70%.",
-            },
-            {
-              icon:"◇", color:T.purple,
-              label:"Manual Registration",
-              desc:"Agents can be registered directly via the API or imported from a CSV. Confidence: 100% (human-verified).",
-            },
-          ].map(s => (
-            <div key={s.label} style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:6, padding:"14px 16px" }}>
-              <div style={{ fontSize:16, marginBottom:8, color:s.color }}>{s.icon}</div>
-              <div style={{ fontSize:12, fontWeight:600, color:T.text, marginBottom:6 }}>{s.label}</div>
-              <div style={{ fontSize:11, color:T.textDim, lineHeight:1.6 }}>{s.desc}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop:12, fontSize:11, color:T.textMute, fontFamily:FONT_MONO }}>
-          Agent records are deduplicated by <code style={{ color:T.accent }}>asset_key = sha256(org_id + ":" + agent_id)</code> — the same agent discovered from multiple sources merges into one record.
-        </div>
-      </Card>
     </div>
   );
 }
