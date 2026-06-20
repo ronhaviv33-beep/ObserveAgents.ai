@@ -267,6 +267,39 @@ except Exception as _e:
     _logging.getLogger("ai_asset_mgmt").warning("asset registry discovery fields migration warning (non-fatal): %s", _e)
 
 
+# ── Pricing Registry: seed + start background sync ────────────────────────────
+
+def _seed_pricing_registry() -> None:
+    """Seed ModelPricing table from built-in COST_PER_1M on first boot. Idempotent."""
+    from app.database import SessionLocal
+    from app import pricing_registry as _pr
+    db = SessionLocal()
+    try:
+        created = _pr.seed_defaults(db)
+        if created:
+            import logging as _l
+            _l.getLogger("ai_asset_mgmt").info("Pricing registry: %d models seeded", created)
+    except Exception as exc:
+        import logging as _l
+        _l.getLogger("ai_asset_mgmt").warning("Pricing registry seed warning (non-fatal): %s", exc)
+    finally:
+        db.close()
+
+
+try:
+    _seed_pricing_registry()
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("ai_asset_mgmt").warning("Pricing seed non-fatal: %s", _e)
+
+try:
+    from app import pricing_registry as _pr_mod
+    _pr_mod.start_background_sync()
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("ai_asset_mgmt").warning("Pricing sync thread non-fatal: %s", _e)
+
+
 # ── In-memory cache: known (org_id, asset_key) pairs already in asset_registry ──
 # Avoids a DB round-trip on every proxy request after first discovery.
 _known_assets: set[tuple[int, str]] = set()
@@ -569,6 +602,9 @@ app.include_router(agent_inventory_routes.router)
 
 from app.routes import cost_intelligence as cost_intelligence_routes  # noqa: E402
 app.include_router(cost_intelligence_routes.router)
+
+from app.routes import pricing_registry as pricing_registry_routes  # noqa: E402
+app.include_router(pricing_registry_routes.router)
 
 _ALLOWED_ORIGINS = (
     [_FRONTEND_ORIGIN] if _FRONTEND_ORIGIN

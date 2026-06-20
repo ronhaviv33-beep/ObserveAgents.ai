@@ -19,6 +19,7 @@ class PageErrorBoundary extends Component {
 import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams, fetchAssets, fetchAssetsSummary, fetchAssetTelemetry, fetchUnassignedAssets, claimAsset, updateAssetRegistry } from "./api.js";
 import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
+import PricingRegistry from "./pages/PricingRegistry.jsx";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -1859,7 +1860,7 @@ const useRoles = () => useContext(RolesContext);
 const ROLES = {
   // pages  — controls navigation visibility and page-level UI gates
   // can    — explicit data/action capabilities not expressible as page visibility
-  admin:   { label:"Admin",   color: T.crit,   pages: ["home","agent_inventory","chat","assets","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations","onboarding"], can: ["view_all_sessions"], team_scoped: false },
+  admin:   { label:"Admin",   color: T.crit,   pages: ["home","agent_inventory","chat","assets","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","pricing","settings","integrations","onboarding"], can: ["view_all_sessions"], team_scoped: false },
   analyst: { label:"Analyst", color: T.warn,   pages: ["home","agent_inventory","chat","assets","overview","cost","agents","models","workflows","alerts","security","integrations","onboarding"],                can: [], team_scoped: true },
   viewer:  { label:"Viewer",  color: T.info,   pages: ["home","agent_inventory","assets","overview","cost","agents","models","workflows","alerts","security"],                                                    can: [], team_scoped: true },
 };
@@ -5149,6 +5150,7 @@ const PAGES = [
   { id:"security",  label:"Security" },
   { id:"users",     label:"Users" },
   { id:"apikeys",   label:"API Keys" },
+  { id:"pricing",       label:"Pricing Registry" },
   { id:"settings",     label:"Settings" },
   { id:"integrations", label:"Integrations" },
   { id:"onboarding",   label:"Setup Guide" },
@@ -5312,6 +5314,7 @@ export default function App() {
       case "assets":    return <AssetsPage />;
       case "overview":  return <Overview  {...pageProps} />;
       case "cost":      return <CostIntelligence />;
+      case "pricing":   return <PricingRegistry />;
       case "agents":    return <AgentActivity {...pageProps} />;
       case "models":    return <ModelUsage A={A} />;
       case "workflows": return <WorkflowHealth {...pageProps} />;
@@ -5427,7 +5430,7 @@ export default function App() {
           </div>
         </header>
 
-        {!["home","agent_inventory","cost","budgets","security","chat","users","apikeys","settings","integrations","onboarding"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
+        {!["home","agent_inventory","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
 
         <PageErrorBoundary key={page}>{renderPage()}</PageErrorBoundary>
       </main>

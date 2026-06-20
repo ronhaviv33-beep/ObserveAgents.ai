@@ -397,6 +397,84 @@ class ChatSessionMessage(Base):
     )
 
 
+class ModelPricing(Base):
+    """
+    Versioned pricing registry for all LLM models.
+    Never update a row — always create a new version when prices change.
+    organization_id=NULL means global (built-in / synced); non-NULL is an org-specific override.
+    """
+    __tablename__ = "model_pricing"
+    __table_args__ = (
+        UniqueConstraint("provider", "model_name", "version", "organization_id",
+                         name="uq_provider_model_version_org"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32), index=True)     # openai | anthropic | google | bedrock | azure | local | custom
+    model_name: Mapped[str] = mapped_column(String(128), index=True)  # gpt-4o, claude-sonnet-4-6, etc.
+
+    # Pricing per million tokens (USD)
+    input_cost_per_million_tokens: Mapped[float] = mapped_column(Float)
+    output_cost_per_million_tokens: Mapped[float] = mapped_column(Float)
+    cache_read_cost_per_million_tokens: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cache_write_cost_per_million_tokens: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Versioning — one immutable row per price point
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    effective_from: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    effective_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)  # NULL = still active
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Provenance
+    source: Mapped[str] = mapped_column(String(64), default="builtin")  # builtin | sync | admin_override | fallback
+    source_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    last_checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    sync_status: Mapped[str] = mapped_column(String(32), default="ok")  # ok | failed | pending | override
+    sync_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Audit
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    created_by: Mapped[str] = mapped_column(String(256), default="system")  # "system" or user email
+    override_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class PricingChangeLog(Base):
+    """Audit trail for every pricing version change."""
+    __tablename__ = "pricing_change_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    provider: Mapped[str] = mapped_column(String(32))
+    model_name: Mapped[str] = mapped_column(String(128))
+    old_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    new_version: Mapped[int] = mapped_column(Integer)
+    change_reason: Mapped[str] = mapped_column(String(64))  # initial_seed | provider_updated | admin_override | sync_detected
+    input_price_old: Mapped[float | None] = mapped_column(Float, nullable=True)
+    input_price_new: Mapped[float] = mapped_column(Float)
+    output_price_old: Mapped[float | None] = mapped_column(Float, nullable=True)
+    output_price_new: Mapped[float] = mapped_column(Float)
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    created_by: Mapped[str] = mapped_column(String(256), default="system")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class ProviderBilling(Base):
     """
     Actual provider invoice data — ground truth for cost reconciliation.

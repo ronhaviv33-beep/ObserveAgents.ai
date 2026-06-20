@@ -425,3 +425,50 @@ export async function fetchAgentCostDetail(agentId, days = 90) {
   if (!r || !r.ok) throw new Error(`Failed to fetch cost data for agent: ${agentId}`)
   return r.json()
 }
+
+// ── Pricing Registry ──────────────────────────────────────────────────────────
+
+export async function fetchPricingRegistry(params = {}) {
+  const q = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  const r = await authFetch(`${BASE}/pricing-registry${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch pricing registry')
+  return r.json()
+}
+
+export async function fetchPricingModelHistory(provider, model) {
+  const r = await authFetch(`${BASE}/pricing-registry/${encodeURIComponent(provider)}/${encodeURIComponent(model)}/history`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch pricing history for ${provider}/${model}`)
+  return r.json()
+}
+
+export async function fetchPricingStatus() {
+  const r = await authFetch(`${BASE}/pricing-registry/status`)
+  if (!r || !r.ok) throw new Error('Failed to fetch pricing status')
+  return r.json()
+}
+
+export async function overridePricing(data) {
+  const r = await authFetch(`${BASE}/pricing-registry/override`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+  if (!r || !r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to apply pricing override')
+  }
+  return r.json()
+}
+
+export async function triggerPricingSync() {
+  const r = await authFetch(`${BASE}/pricing-registry/sync`, { method: 'POST' })
+  if (!r || !r.ok) throw new Error('Failed to trigger pricing sync')
+  return r.json()
+}
+
+export async function fetchPricingSyncStatus() {
+  const r = await authFetch(`${BASE}/pricing-registry/sync-status`)
+  if (!r || !r.ok) throw new Error('Failed to fetch sync status')
+  return r.json()
+}
