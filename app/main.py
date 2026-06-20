@@ -320,9 +320,16 @@ _known_assets: set[tuple[int, str]] = set()
 
 def _discover_asset(
     db: Session, org_id: int, asset_key: str, agent_id_raw: str,
+    team: str | None = None, environment: str | None = None,
+    owner: str | None = None, source_hint: str | None = None,
     evidence_data: dict | None = None,
 ) -> None:
-    """Idempotent: insert a verified unassigned asset_registry row on first sight of an agent."""
+    """Idempotent: insert a verified unassigned asset_registry row on first sight of an agent.
+
+    API key identifies the organization / environment.
+    Agent identity comes from X-Agent-* (or legacy X-Guard-*) request headers.
+    Multiple agents can share one API key — they are distinguished by headers alone.
+    """
     if (org_id, asset_key) in _known_assets:
         return
     import json as _json
@@ -337,11 +344,14 @@ def _discover_asset(
                 asset_key=asset_key,
                 agent_id_raw=agent_id_raw,
                 agent_name=agent_id_raw,
+                team=team,
+                environment=environment,
+                owner=owner,
                 status="unassigned",
-                source="discovered",
+                source=source_hint or "gateway_runtime",
                 discovery_status="verified",
-                discovery_source="gateway_telemetry",
-                discovery_reason="Agent detected from gateway traffic",
+                discovery_source="gateway_runtime",
+                discovery_reason="Agent auto-discovered from runtime gateway traffic",
                 evidence=_json.dumps(evidence_data or {}),
                 confidence_score=95.0,
             ))
@@ -629,7 +639,14 @@ app.add_middleware(
     allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Guard-Team", "X-Guard-Agent", "X-Guard-Agent-Version", "X-Guard-Environment"],
+    allow_headers=[
+        "Authorization", "Content-Type",
+        # New canonical agent-identity headers
+        "X-Agent-Name", "X-Agent-Team", "X-Agent-Owner",
+        "X-Agent-Environment", "X-Agent-Version", "X-Agent-Source",
+        # Legacy X-Guard-* headers (still accepted for backward compatibility)
+        "X-Guard-Team", "X-Guard-Agent", "X-Guard-Agent-Version", "X-Guard-Environment",
+    ],
 )
 
 
@@ -1956,10 +1973,19 @@ async def openai_compat_chat(
     messages = body.get("messages", [])
     stream   = body.pop("stream", False)  # pop so body can be forwarded cleanly
 
-    agent_id_raw    = request.headers.get("X-Guard-Agent") or _caller_name(current_user) or "unknown"
-    agent_version   = request.headers.get("X-Guard-Agent-Version")
-    team_raw        = request.headers.get("X-Guard-Team")
-    environment_raw = request.headers.get("X-Guard-Environment")
+    # X-Agent-* are the canonical headers; X-Guard-* are accepted for backward compat.
+    agent_id_raw    = (request.headers.get("X-Agent-Name")
+                       or request.headers.get("X-Guard-Agent")
+                       or _caller_name(current_user)
+                       or "unknown-agent")
+    agent_version   = (request.headers.get("X-Agent-Version")
+                       or request.headers.get("X-Guard-Agent-Version"))
+    team_raw        = (request.headers.get("X-Agent-Team")
+                       or request.headers.get("X-Guard-Team"))
+    environment_raw = (request.headers.get("X-Agent-Environment")
+                       or request.headers.get("X-Guard-Environment"))
+    owner_raw       = request.headers.get("X-Agent-Owner")
+    source_raw      = request.headers.get("X-Agent-Source")
     team  = team_raw  or _caller_team(current_user) or "unknown"
     agent = agent_id_raw
 
@@ -1972,12 +1998,19 @@ async def openai_compat_chat(
     org_client = get_client_for_org(org_id, model, db)
     _register_team(db, org_id, team)
 
-    # Asset discovery — idempotent, non-fatal
+    # Asset discovery — idempotent, non-fatal.
+    # API key = org identity; agent identity comes entirely from request headers.
+    # Many agents can share one API key — they are distinguished by X-Agent-Name alone.
     asset_key = hashlib.sha256(f"{org_id}:{agent_id_raw}".encode()).hexdigest()
-    _discover_asset(db, org_id, asset_key, agent_id_raw, evidence_data={
-        k: v for k, v in {"agent_version": agent_version, "team_hint": team_raw,
-                          "environment_hint": environment_raw}.items() if v is not None
-    })
+    _discover_asset(db, org_id, asset_key, agent_id_raw,
+        team=team_raw, environment=environment_raw, owner=owner_raw,
+        source_hint=source_raw or "gateway_runtime",
+        evidence_data={k: v for k, v in {
+            "agent_version": agent_version, "team": team_raw,
+            "environment": environment_raw, "owner": owner_raw,
+            "source": source_raw,
+        }.items() if v is not None}
+    )
 
     # Enforcement pipeline
     last_user = ""
@@ -2152,10 +2185,19 @@ async def anthropic_compat_messages(
             content = " ".join(text_parts)
         oai_messages.append({"role": m["role"], "content": content})
 
-    agent_id_raw    = request.headers.get("X-Guard-Agent") or _caller_name(current_user) or "unknown"
-    agent_version   = request.headers.get("X-Guard-Agent-Version")
-    team_raw        = request.headers.get("X-Guard-Team")
-    environment_raw = request.headers.get("X-Guard-Environment")
+    # X-Agent-* are the canonical headers; X-Guard-* are accepted for backward compat.
+    agent_id_raw    = (request.headers.get("X-Agent-Name")
+                       or request.headers.get("X-Guard-Agent")
+                       or _caller_name(current_user)
+                       or "unknown-agent")
+    agent_version   = (request.headers.get("X-Agent-Version")
+                       or request.headers.get("X-Guard-Agent-Version"))
+    team_raw        = (request.headers.get("X-Agent-Team")
+                       or request.headers.get("X-Guard-Team"))
+    environment_raw = (request.headers.get("X-Agent-Environment")
+                       or request.headers.get("X-Guard-Environment"))
+    owner_raw       = request.headers.get("X-Agent-Owner")
+    source_raw      = request.headers.get("X-Agent-Source")
     team  = team_raw  or _caller_team(current_user) or "unknown"
     agent = agent_id_raw
 
@@ -2165,12 +2207,18 @@ async def anthropic_compat_messages(
     org_client = get_client_for_org(org_id, model, db)
     _register_team(db, org_id, team)
 
-    # Asset discovery — idempotent, non-fatal
+    # Asset discovery — idempotent, non-fatal.
+    # API key = org identity; agent identity comes entirely from request headers.
     asset_key = hashlib.sha256(f"{org_id}:{agent_id_raw}".encode()).hexdigest()
-    _discover_asset(db, org_id, asset_key, agent_id_raw, evidence_data={
-        k: v for k, v in {"agent_version": agent_version, "team_hint": team_raw,
-                          "environment_hint": environment_raw}.items() if v is not None
-    })
+    _discover_asset(db, org_id, asset_key, agent_id_raw,
+        team=team_raw, environment=environment_raw, owner=owner_raw,
+        source_hint=source_raw or "gateway_runtime",
+        evidence_data={k: v for k, v in {
+            "agent_version": agent_version, "team": team_raw,
+            "environment": environment_raw, "owner": owner_raw,
+            "source": source_raw,
+        }.items() if v is not None}
+    )
 
     # Enforcement
     last_user = ""

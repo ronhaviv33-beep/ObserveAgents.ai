@@ -5268,176 +5268,307 @@ function SimpleIntegrationsPage({ onNavigate }) {
   const copy = (id, text) => { navigator.clipboard.writeText(text).catch(() => {}); setCopied(id); setTimeout(() => setCopied(null), 2000); };
   const toggle = (k) => setOpen(o => ({ ...o, [k]: !o[k] }));
 
+  const REQ_HEADERS = [
+    { name:"X-Agent-Name",        req:true,  desc:"Agent identifier",        example:"soc-investigation-agent" },
+  ];
+  const OPT_HEADERS = [
+    { name:"X-Agent-Team",        req:false, desc:"Team or department",       example:"Security" },
+    { name:"X-Agent-Owner",       req:false, desc:"Owner email or name",      example:"alice@acme.com" },
+    { name:"X-Agent-Environment", req:false, desc:"prod / staging / dev",     example:"prod" },
+    { name:"X-Agent-Version",     req:false, desc:"Version tag",              example:"v1.2.0" },
+    { name:"X-Agent-Source",      req:false, desc:"Source system",            example:"github" },
+  ];
+  const ALL_HEADERS = [...REQ_HEADERS, ...OPT_HEADERS];
+
   const snippets = {
     openai:
 `import openai
 
+# One API key for your whole organization or environment.
+# Different agents are identified by their headers — not separate keys.
+ORG_KEY = "gk-…"
+
 client = openai.OpenAI(
-    base_url="${gatewayUrl}/v1",   # ← your gateway URL
-    api_key="gk-…",                # ← your key from API Keys page
+    base_url="${gatewayUrl}/v1",
+    api_key=ORG_KEY,
 )
 
-response = client.chat.completions.create(
+# Agent A — SOC investigation
+client.chat.completions.create(
     model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "Hello"}],
+    messages=[{"role": "user", "content": "Analyze this alert"}],
     extra_headers={
-        "X-Guard-Team":  "my-team",   # ← your team name
-        "X-Guard-Agent": "my-agent",  # ← a name for this agent
+        "X-Agent-Name":        "soc-investigation-agent",
+        "X-Agent-Team":        "Security",
+        "X-Agent-Environment": "prod",
     },
 )
-print(response.choices[0].message.content)`,
+
+# Agent B — customer support (same key, different headers)
+client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Help this customer"}],
+    extra_headers={
+        "X-Agent-Name":        "customer-support-agent",
+        "X-Agent-Team":        "Support",
+        "X-Agent-Environment": "prod",
+    },
+)`,
 
     anthropic:
 `import anthropic
 
+# One API key, many agents — identified by headers.
 client = anthropic.Anthropic(
-    base_url="${gatewayUrl}",      # ← your gateway URL (no /v1)
-    api_key="gk-…",                # ← your gateway key, NOT your Anthropic key
+    base_url="${gatewayUrl}",   # no /v1 for Anthropic SDK
+    api_key="gk-…",
 )
 
-message = client.messages.create(
+# Agent A
+client.messages.create(
     model="claude-haiku-4-5",
     max_tokens=1024,
-    messages=[{"role": "user", "content": "Hello"}],
+    messages=[{"role": "user", "content": "Summarize this doc"}],
     extra_headers={
-        "X-Guard-Team":  "my-team",   # ← your team name
-        "X-Guard-Agent": "my-agent",  # ← a name for this agent
+        "X-Agent-Name":        "doc-summariser",
+        "X-Agent-Team":        "Engineering",
+        "X-Agent-Environment": "staging",
     },
-)
-print(message.content[0].text)`,
+)`,
 
     typescript:
 `import OpenAI from "openai";
 
-const client = new OpenAI({
-  baseURL: "${gatewayUrl}/v1",  // ← your gateway URL
-  apiKey:  "gk-…",               // ← your key from API Keys page
+// One org key — set agent headers per request or per client instance.
+const ORG_KEY = "gk-…";
+
+// Option A: set default headers on the client (all requests = same agent)
+const agentClient = new OpenAI({
+  baseURL: "${gatewayUrl}/v1",
+  apiKey:  ORG_KEY,
   defaultHeaders: {
-    "X-Guard-Team":  "my-team",  // ← your team name
-    "X-Guard-Agent": "my-agent", // ← a name for this agent
+    "X-Agent-Name":        "email-assistant",
+    "X-Agent-Team":        "Product",
+    "X-Agent-Environment": "prod",
   },
 });
 
-const response = await client.chat.completions.create({
+// Option B: different agents, same client instance
+const sharedClient = new OpenAI({ baseURL: "${gatewayUrl}/v1", apiKey: ORG_KEY });
+
+await sharedClient.chat.completions.create({
   model:    "gpt-4o-mini",
   messages: [{ role: "user", content: "Hello" }],
-});
-console.log(response.choices[0].message.content);`,
+  headers: {
+    "X-Agent-Name": "code-review-bot",
+    "X-Agent-Team": "DevOps",
+  },
+});`,
 
     curl:
-`curl ${gatewayUrl}/v1/chat/completions \\
+`# One API key — pass agent identity as headers.
+
+curl ${gatewayUrl}/v1/chat/completions \\
   -H "Authorization: Bearer gk-…" \\
   -H "Content-Type: application/json" \\
-  -H "X-Guard-Team: my-team" \\
-  -H "X-Guard-Agent: my-agent" \\
+  -H "X-Agent-Name: soc-investigation-agent" \\
+  -H "X-Agent-Team: Security" \\
+  -H "X-Agent-Environment: prod" \\
   -d '{
     "model": "gpt-4o-mini",
-    "messages": [{"role":"user","content":"Hello"}]
+    "messages": [{"role":"user","content":"Analyze this alert"}]
   }'`,
   };
 
   const sdkList = [
-    { key:"openai",      label:"Python · OpenAI SDK",     lang:"python",     color:T.info   },
-    { key:"anthropic",   label:"Python · Anthropic SDK",  lang:"python",     color:T.accent },
-    { key:"typescript",  label:"TypeScript · OpenAI SDK", lang:"typescript", color:T.yellow },
-    { key:"curl",        label:"cURL",                    lang:"bash",       color:T.purple },
+    { key:"openai",     label:"Python · OpenAI SDK",     color:T.info   },
+    { key:"anthropic",  label:"Python · Anthropic SDK",  color:T.accent },
+    { key:"typescript", label:"TypeScript · OpenAI SDK", color:T.yellow },
+    { key:"curl",       label:"cURL",                         color:T.purple },
   ];
 
   const steps = [
     {
       n:"1", color:T.accent,
-      title:"Create an API Key",
-      desc:"Go to Administration → API Keys and generate a new key. Copy it — you'll paste it into your code.",
+      title:"Create an Organization API Key",
+      desc:"Use one key per organization, team, or environment. You do not need a separate key for every agent — agents are identified by request headers, not keys.",
       cta:{ label:"Go to API Keys →", page:"apikeys" },
     },
     {
       n:"2", color:T.warn,
-      title:"Change one line in your code",
-      desc:"Replace your AI provider's URL with the gateway URL below. That's the only required code change.",
+      title:"Route Traffic Through the Gateway",
+      desc:"Change the base URL in your AI SDK from the provider’s URL to the gateway URL below. That’s the only code change required.",
       code:`${gatewayUrl}/v1`,
       codeId:"url",
     },
     {
       n:"3", color:T.info,
-      title:"Add two headers and run",
-      desc:"Add X-Guard-Team and X-Guard-Agent to your requests so we know which team and agent the call came from. Pick your language below.",
+      title:"Add Agent Metadata Headers",
+      desc:"Send lightweight headers with each request so the gateway can identify which agent made the call. X-Agent-Name is the only required header.",
+    },
+    {
+      n:"4", color:T.yellow,
+      title:"Automatic Discovery",
+      desc:"When a new agent name appears for the first time, the gateway automatically creates an Agent Inventory record: Verified · Unassigned. No manual registration needed.",
+      cta:{ label:"View Agent Inventory →", page:"agent_inventory" },
+    },
+    {
+      n:"5", color:T.purple,
+      title:"Admin Claims the Agent",
+      desc:"An admin reviews the auto-discovered agent, assigns owner, team, environment, criticality, and business purpose, then marks it as Managed.",
+      cta:{ label:"Open Discovery Center →", page:"discovery" },
     },
   ];
 
+  const flowNodes = [
+    { label:"Organization API Key",   sub:"gk-…",                           color:T.accent },
+    { label:"Gateway",                sub:gatewayUrl,                             color:T.info   },
+    { label:"Agent Metadata Headers", sub:"X-Agent-Name · X-Agent-Team …",  color:T.warn   },
+    { label:"Auto Discovery",         sub:"Verified · Unassigned",           color:T.yellow },
+    { label:"Admin Claim",            sub:"→ Managed",                       color:T.purple },
+  ];
+
   return (
-    <div style={{ maxWidth:780, margin:"0 auto", padding:"32px 24px", fontFamily:FONT_UI }}>
+    <div style={{ maxWidth:820, margin:"0 auto", padding:"32px 24px", fontFamily:FONT_UI }}>
+
       {/* Header */}
-      <div style={{ marginBottom:28 }}>
-        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>Administration</div>
-        <div style={{ fontSize:24, fontWeight:700, color:T.text, marginBottom:8 }}>Connect an Agent</div>
-        <div style={{ fontSize:13, color:T.textDim, lineHeight:1.65, maxWidth:520 }}>
-          Route your AI requests through the gateway to make them visible in the inventory. It takes about 5 minutes.
+      <div style={{ marginBottom:24 }}>
+        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>Administration · Gateway Setup</div>
+        <div style={{ fontSize:26, fontWeight:700, color:T.text, marginBottom:10, lineHeight:1.2 }}>Connect Your AI Runtime</div>
+        <div style={{ fontSize:13, color:T.textDim, lineHeight:1.7, maxWidth:560 }}>
+          Route AI traffic through the gateway once. Agents will be discovered automatically from request metadata — no manual registration per agent required.
+        </div>
+      </div>
+
+      {/* Warning */}
+      <div style={{ background:`${T.warn}0d`, border:`1px solid ${T.warn}33`, borderRadius:8, padding:"14px 18px", marginBottom:28, display:"flex", gap:12, alignItems:"flex-start" }}>
+        <span style={{ color:T.warn, fontSize:16, flexShrink:0, lineHeight:1 }}>⚠</span>
+        <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7 }}>
+          <strong style={{ color:T.warn }}>One API key can represent many agents.</strong>{" "}
+          Do not create one API key per agent unless you intentionally want strict per-agent credential isolation. For large organizations, agent identity should be passed through metadata headers — not manually managed through API keys.
+        </div>
+      </div>
+
+      {/* Flow diagram */}
+      <div style={{ marginBottom:32 }}>
+        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>How it works</div>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", gap:0 }}>
+          {flowNodes.map((node, i) => (
+            <div key={node.label} style={{ display:"flex", flexDirection:"column", alignItems:"flex-start" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                <div style={{ width:10, height:10, borderRadius:"50%", background:node.color, flexShrink:0 }} />
+                <div style={{ background:T.panel, border:`1px solid ${node.color}33`, borderRadius:6, padding:"8px 16px", display:"flex", flexDirection:"column", gap:2, minWidth:260 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:T.text }}>{node.label}</div>
+                  <div style={{ fontSize:11, fontFamily:FONT_MONO, color:node.color, opacity:0.8 }}>{node.sub}</div>
+                </div>
+              </div>
+              {i < flowNodes.length - 1 && (
+                <div style={{ width:1, height:20, background:T.border, marginLeft:4 }} />
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Steps */}
-      {steps.map((s, i) => (
-        <div key={s.n} style={{ display:"flex", gap:0, marginBottom:0 }}>
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", marginRight:18, flexShrink:0 }}>
-            <div style={{ width:32, height:32, borderRadius:"50%", background:`${s.color}15`, border:`1.5px solid ${s.color}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:700, color:s.color, fontFamily:FONT_MONO }}>{s.n}</div>
-            {i < steps.length - 1 && <div style={{ width:1, flex:1, minHeight:16, background:T.border, margin:"6px 0" }} />}
-          </div>
-          <div style={{ flex:1, paddingBottom:26 }}>
-            <div style={{ fontSize:15, fontWeight:600, color:T.text, marginBottom:5 }}>{s.title}</div>
-            <div style={{ fontSize:12, color:T.textDim, lineHeight:1.65, marginBottom:10 }}>{s.desc}</div>
-            {s.cta && (
-              <button onClick={() => onNavigate(s.cta.page)}
-                style={{ background:T.panelHi, border:`1px solid ${T.border}`, color:T.accent, borderRadius:5, padding:"7px 16px", fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
-                {s.cta.label}
-              </button>
-            )}
-            {s.code && (
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <code style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:4, padding:"4px 10px", fontSize:12, fontFamily:FONT_MONO, color:T.accent }}>{s.code}</code>
-                <button onClick={() => copy(s.codeId, s.code)}
-                  style={{ background:"transparent", border:`1px solid ${T.border}`, color:copied===s.codeId?T.accent:T.textMute, borderRadius:4, padding:"3px 10px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
-                  {copied===s.codeId?"✓ copied":"copy"}
+      <div style={{ marginBottom:28 }}>
+        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>Setup Steps</div>
+        {steps.map((s, i) => (
+          <div key={s.n} style={{ display:"flex", gap:0 }}>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", marginRight:18, flexShrink:0 }}>
+              <div style={{ width:32, height:32, borderRadius:"50%", background:`${s.color}15`, border:`1.5px solid ${s.color}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:700, color:s.color, fontFamily:FONT_MONO }}>{s.n}</div>
+              {i < steps.length - 1 && <div style={{ width:1, flex:1, minHeight:16, background:T.border, margin:"6px 0" }} />}
+            </div>
+            <div style={{ flex:1, paddingBottom:24 }}>
+              <div style={{ fontSize:14, fontWeight:600, color:T.text, marginBottom:5 }}>{s.title}</div>
+              <div style={{ fontSize:12, color:T.textDim, lineHeight:1.65, marginBottom:10 }}>{s.desc}</div>
+              {s.code && (
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:s.cta ? 10 : 0 }}>
+                  <code style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:4, padding:"4px 10px", fontSize:12, fontFamily:FONT_MONO, color:T.accent }}>{s.code}</code>
+                  <button onClick={() => copy(s.codeId, s.code)}
+                    style={{ background:"transparent", border:`1px solid ${T.border}`, color:copied===s.codeId?T.accent:T.textMute, borderRadius:4, padding:"3px 10px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                    {copied===s.codeId?"copied":"copy"}
+                  </button>
+                </div>
+              )}
+              {s.cta && (
+                <button onClick={() => onNavigate(s.cta.page)}
+                  style={{ background:T.panelHi, border:`1px solid ${T.border}`, color:s.color, borderRadius:5, padding:"6px 14px", fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                  {s.cta.label}
                 </button>
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
-
-      {/* SDK Examples — collapsible */}
-      <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:12, marginTop:4 }}>
-        SDK Examples
-      </div>
-      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-        {sdkList.map(sdk => (
-          <div key={sdk.key} style={{ border:`1px solid ${open[sdk.key] ? sdk.color+"44" : T.border}`, borderRadius:8, overflow:"hidden", transition:"border-color 0.15s" }}>
-            {/* Accordion header */}
-            <button
-              onClick={() => toggle(sdk.key)}
-              style={{ width:"100%", background:open[sdk.key] ? T.panelHi : T.panel, border:"none", padding:"12px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
-              <span style={{ width:8, height:8, borderRadius:"50%", background:sdk.color, flexShrink:0 }} />
-              <span style={{ fontSize:12, fontFamily:FONT_MONO, color:open[sdk.key] ? T.text : T.textDim, flex:1, letterSpacing:"0.04em" }}>{sdk.label}</span>
-              <span style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.06em" }}>
-                {open[sdk.key] ? "▲ close" : "▼ open"}
-              </span>
-            </button>
-            {/* Code panel */}
-            {open[sdk.key] && (
-              <div style={{ position:"relative", borderTop:`1px solid ${T.border}` }}>
-                <pre style={{ margin:0, padding:"16px 16px 16px 16px", fontSize:12, fontFamily:FONT_MONO, color:T.text, lineHeight:1.7, overflow:"auto", background:T.bg, maxHeight:360 }}>{snippets[sdk.key]}</pre>
-                <button
-                  onClick={() => copy(sdk.key, snippets[sdk.key])}
-                  style={{ position:"absolute", top:8, right:8, background:copied===sdk.key?`${sdk.color}18`:"transparent", border:`1px solid ${copied===sdk.key?sdk.color+"55":T.border}`, color:copied===sdk.key?sdk.color:T.textMute, borderRadius:4, padding:"3px 12px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
-                  {copied===sdk.key?"✓ copied":"copy"}
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Header reference */}
+      <div style={{ marginBottom:28 }}>
+        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:12 }}>Agent Metadata Headers</div>
+        <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, overflow:"hidden" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse" }}>
+            <thead>
+              <tr style={{ background:T.panelHi }}>
+                {["Header","Required","Description","Example"].map(h => (
+                  <th key={h} style={{ padding:"9px 14px", textAlign:"left", fontSize:10, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.1em", textTransform:"uppercase", borderBottom:`1px solid ${T.border}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ALL_HEADERS.map((row, i) => (
+                <tr key={row.name} style={{ background: i % 2 === 0 ? T.panel : T.bg }}>
+                  <td style={{ padding:"9px 14px", borderBottom:`1px solid ${T.border}` }}>
+                    <code style={{ fontSize:11, fontFamily:FONT_MONO, color:row.req ? T.accent : T.textDim }}>{row.name}</code>
+                  </td>
+                  <td style={{ padding:"9px 14px", borderBottom:`1px solid ${T.border}` }}>
+                    {row.req
+                      ? <span style={{ background:`${T.accent}15`, color:T.accent, fontSize:9, fontFamily:FONT_MONO, padding:"2px 7px", borderRadius:3, textTransform:"uppercase", letterSpacing:"0.08em" }}>required</span>
+                      : <span style={{ color:T.textMute, fontSize:11, fontFamily:FONT_MONO }}>optional</span>}
+                  </td>
+                  <td style={{ padding:"9px 14px", borderBottom:`1px solid ${T.border}`, fontSize:12, color:T.textDim }}>{row.desc}</td>
+                  <td style={{ padding:"9px 14px", borderBottom:`1px solid ${T.border}` }}>
+                    <code style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute }}>"{row.example}"</code>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ padding:"10px 14px", background:T.panelHi, borderTop:`1px solid ${T.border}`, fontSize:11, color:T.textMute, fontFamily:FONT_MONO }}>
+            Legacy <code style={{ color:T.textDim }}>X-Guard-Agent</code> / <code style={{ color:T.textDim }}>X-Guard-Team</code> headers are still accepted for backward compatibility.
+          </div>
+        </div>
+      </div>
+
+      {/* SDK Examples */}
+      <div>
+        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:12 }}>SDK Examples</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {sdkList.map(sdk => (
+            <div key={sdk.key} style={{ border:`1px solid ${open[sdk.key] ? sdk.color+"44" : T.border}`, borderRadius:8, overflow:"hidden", transition:"border-color 0.15s" }}>
+              <button onClick={() => toggle(sdk.key)}
+                style={{ width:"100%", background:open[sdk.key] ? T.panelHi : T.panel, border:"none", padding:"12px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+                <span style={{ width:8, height:8, borderRadius:"50%", background:sdk.color, flexShrink:0 }} />
+                <span style={{ fontSize:12, fontFamily:FONT_MONO, color:open[sdk.key] ? T.text : T.textDim, flex:1, letterSpacing:"0.04em" }}>{sdk.label}</span>
+                <span style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute }}>{open[sdk.key] ? "▲ close" : "▼ open"}</span>
+              </button>
+              {open[sdk.key] && (
+                <div style={{ position:"relative", borderTop:`1px solid ${T.border}` }}>
+                  <pre style={{ margin:0, padding:"16px", fontSize:12, fontFamily:FONT_MONO, color:T.text, lineHeight:1.7, overflow:"auto", background:T.bg, maxHeight:420 }}>{snippets[sdk.key]}</pre>
+                  <button onClick={() => copy(sdk.key, snippets[sdk.key])}
+                    style={{ position:"absolute", top:8, right:8, background:copied===sdk.key?`${sdk.color}18`:"transparent", border:`1px solid ${copied===sdk.key?sdk.color+"55":T.border}`, color:copied===sdk.key?sdk.color:T.textMute, borderRadius:4, padding:"3px 12px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                    {copied===sdk.key?"copied":"copy"}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }
+
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 // PAGES: flat list for canAccess checks + header label lookup (includes legacy)
@@ -5465,7 +5596,7 @@ const PAGES = [
   { id:"alerts",         label:"Alerts" },
   { id:"assets",         label:"Asset Inventory" },
   { id:"chat",           label:"Chat" },
-  { id:"integrations",   label:"Integrations" },
+  { id:"integrations",   label:"Gateway Setup" },
   { id:"onboarding",     label:"Setup Guide" },
 ];
 
@@ -5502,7 +5633,7 @@ const NAV_GROUPS = [
       { id: "security",     label: "Security & Audit" },
       { id: "users",        label: "Users" },
       { id: "apikeys",      label: "API Keys" },
-      { id: "integrations", label: "Integrations" },
+      { id: "integrations", label: "Gateway Setup" },
       { id: "settings",     label: "Settings" },
     ],
   },
