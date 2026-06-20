@@ -69,9 +69,15 @@ def _to_inventory_record(asset: dict) -> dict:
 
 def _registry_to_potential_record(reg: AssetRegistry) -> dict:
     """Build an inventory record for a potential agent (no telemetry — registry only)."""
+    _name = reg.agent_name or reg.agent_id_raw or reg.asset_key
+    # discovery_source column preferred; fall back to source column for older rows
+    _dsource = (getattr(reg, "discovery_source", None) or
+                getattr(reg, "source", None) or "unknown")
     return {
         "id":               reg.asset_key,
-        "name":             reg.agent_name or reg.agent_id_raw,
+        "name":             _name,
+        "agent_name":       _name,
+        "agent_id_raw":     reg.agent_id_raw or reg.asset_key,
         "team":             reg.team or "Unknown",
         "owner":            reg.owner or "Unassigned",
         "environment":      reg.environment or "Unknown",
@@ -79,7 +85,7 @@ def _registry_to_potential_record(reg: AssetRegistry) -> dict:
         "risk":             None,
         "lifecycle_status": reg.status or "needs_validation",
         "discovery_status": "potential",
-        "discovery_source": getattr(reg, "discovery_source", None) or "unknown",
+        "discovery_source": _dsource,
         "discovery_reason": getattr(reg, "discovery_reason", None),
         "evidence":         _parse_evidence(getattr(reg, "evidence", None)),
         "confidence_score": getattr(reg, "confidence_score", None) or 50.0,

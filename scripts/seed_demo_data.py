@@ -446,6 +446,7 @@ def seed_registry_row(db, org_id, now, agent_id_raw, meta, discovery_status,
         agent_name=agent_id_raw,
         status=lifecycle,
         source=source,
+        discovery_source=source,   # mirrors source so the frontend badge is correct
         discovery_status=discovery_status,
         confidence_score=confidence,
         evidence=json.dumps(evidence) if evidence else None,
