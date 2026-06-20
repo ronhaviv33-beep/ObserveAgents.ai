@@ -1622,6 +1622,7 @@ function SecurityPage() {
   const [pForm,     setPForm]     = useState({ team:"", rule_type:"block_model", value:"*" });
   const [saving,    setSaving]    = useState(false);
   const [loading,   setLoading]   = useState(true);
+  const [alertsOpen, setAlertsOpen] = useState(false);
 
   const loadAudit = useCallback(async (offset = 0, append = false) => {
     if (!isAdmin) return;
@@ -1722,27 +1723,49 @@ function SecurityPage() {
         );
       })()}
 
-      {/* Live alerts */}
-      <Card title="Live Security Alerts" subtitle="Detected from real telemetry data">
-        {alerts.length === 0 ? (
-          <div style={{ color:T.accent, fontFamily:FONT_MONO, fontSize:13, padding:"16px 0" }}>✓ No security alerts detected</div>
-        ) : (
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {alerts.map((a, i) => (
-              <div key={i} style={{ padding:"12px 14px", background:T.panelHi, borderLeft:`2px solid ${alertColor(a.sev)}`, borderRadius:4 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                  <div>
-                    <div style={{ fontFamily:FONT_MONO, fontSize:10, color:alertColor(a.sev), letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>{a.type}</div>
-                    <div style={{ fontSize:13, color:T.text }}>{a.msg}</div>
-                    <div style={{ fontSize:11, color:T.textMute, marginTop:4 }}>Agent: {a.entity} · {a.action}</div>
+      {/* Live alerts — collapsible */}
+      <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:6, overflow:"hidden" }}>
+        <button
+          onClick={() => setAlertsOpen(o => !o)}
+          style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 18px", background:"transparent", border:"none", cursor:"pointer", textAlign:"left" }}
+        >
+          <div>
+            <div style={{ fontSize:11, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textDim, fontFamily:FONT_MONO, fontWeight:500 }}>
+              Live Security Alerts
+              {alerts.length > 0 && (
+                <span style={{ marginLeft:8, background:T.crit+"22", color:T.crit, border:`1px solid ${T.crit}44`, borderRadius:4, padding:"1px 7px", fontSize:10 }}>
+                  {alerts.length}
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize:13, color:T.textMute, marginTop:4, fontFamily:FONT_MONO }}>Detected from real telemetry data</div>
+          </div>
+          <span style={{ color:T.textDim, fontSize:16, transition:"transform 0.2s", transform:alertsOpen?"rotate(180deg)":"rotate(0deg)", display:"block" }}>▾</span>
+        </button>
+
+        {alertsOpen && (
+          <div style={{ padding:"0 18px 18px" }}>
+            {alerts.length === 0 ? (
+              <div style={{ color:T.accent, fontFamily:FONT_MONO, fontSize:13, padding:"16px 0" }}>✓ No security alerts detected</div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {alerts.map((a, i) => (
+                  <div key={i} style={{ padding:"12px 14px", background:T.panelHi, borderLeft:`2px solid ${alertColor(a.sev)}`, borderRadius:4 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                      <div>
+                        <div style={{ fontFamily:FONT_MONO, fontSize:10, color:alertColor(a.sev), letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:4 }}>{a.type}</div>
+                        <div style={{ fontSize:13, color:T.text }}>{a.msg}</div>
+                        <div style={{ fontSize:11, color:T.textMute, marginTop:4 }}>Agent: {a.entity} · {a.action}</div>
+                      </div>
+                      <Pill color={alertColor(a.sev)}>{a.sev}</Pill>
+                    </div>
                   </div>
-                  <Pill color={alertColor(a.sev)}>{a.sev}</Pill>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
-      </Card>
+      </div>
 
       {/* PII Scanner */}
       <Card title="PII / Sensitive Data Scanner" subtitle="Test any text for credentials, PII, and sensitive patterns">
