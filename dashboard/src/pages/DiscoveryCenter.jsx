@@ -271,6 +271,7 @@ export default function DiscoveryCenter() {
                 {tab === "verified" ? (
                   <>
                     <TH>Team</TH>
+                    <TH>Environment</TH>
                     <TH>Owner</TH>
                     <TH>Last Seen</TH>
                     <TH style={{ textAlign: "right" }}>Monthly Cost</TH>
@@ -301,6 +302,11 @@ export default function DiscoveryCenter() {
                   <tr key={id}>
                     <TD><span style={{ fontFamily: MONO, color: T.accent }}>{agent.agent_name || agent.agent_id_raw || id}</span></TD>
                     <TD><span style={{ color: T.textDim }}>{agent.team || "—"}</span></TD>
+                    <TD>
+                      {agent.environment && agent.environment !== "Unknown"
+                        ? <span style={{ fontSize: 11, fontFamily: MONO, color: T.info, background: "#0D1F3D", padding: "2px 7px", borderRadius: 3 }}>{agent.environment}</span>
+                        : <span style={{ color: T.textMute }}>—</span>}
+                    </TD>
                     <TD><span style={{ color: agent.owner ? T.text : T.textMute }}>{agent.owner || "Unassigned"}</span></TD>
                     <TD><span style={{ fontFamily: MONO, color: T.textDim, fontSize: 12 }}>{relativeTime(agent.last_seen_at || agent.last_seen)}</span></TD>
                     <TD style={{ textAlign: "right" }}><span style={{ fontFamily: MONO }}>{fmtUSD(agent.cost_usd || 0)}</span></TD>
