@@ -116,8 +116,10 @@ function ClaimModal({ agent, onClose, onSave, environments = ["production", "sta
   const [err, setErr] = useState("");
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
+  const canSubmit = form.owner.trim() || form.team.trim();
+
   const submit = async () => {
-    if (!form.owner.trim()) { setErr("Owner is required"); return; }
+    if (!canSubmit) { setErr("Enter an owner or a team — at least one is required"); return; }
     setSaving(true);
     setErr("");
     try {
@@ -146,8 +148,11 @@ function ClaimModal({ agent, onClose, onSave, environments = ["production", "sta
         <div style={{ marginTop: 6, fontSize: 10, color: T.textMute }}>Claiming only writes to the registry. Historical telemetry is never modified.</div>
       </div>
 
-      <ModalField label="Owner" required>
+      <ModalField label="Owner">
         <input style={claimInputStyle} value={form.owner} onChange={set("owner")} placeholder="owner@company.com" />
+        <div style={{ fontSize: 10, color: T.textMute, fontFamily: MONO, marginTop: 4 }}>
+          Unknown individual? Leave blank and assign to the team below.
+        </div>
       </ModalField>
       <ModalField label="Team">
         <input style={claimInputStyle} value={form.team} onChange={set("team")} placeholder={agent?.team && agent.team !== "Unknown" ? agent.team : "engineering"} />
@@ -173,7 +178,7 @@ function ClaimModal({ agent, onClose, onSave, environments = ["production", "sta
 
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
         <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.textDim, padding: "8px 16px", borderRadius: 5, fontSize: 13, cursor: "pointer", fontFamily: FONT }}>Cancel</button>
-        <button onClick={submit} disabled={!form.owner || saving} style={{ background: T.accent, color: T.bg, border: "none", padding: "8px 20px", borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: form.owner && !saving ? "pointer" : "not-allowed", opacity: !form.owner || saving ? 0.6 : 1, fontFamily: FONT }}>
+        <button onClick={submit} disabled={!canSubmit || saving} style={{ background: T.accent, color: T.bg, border: "none", padding: "8px 20px", borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: canSubmit && !saving ? "pointer" : "not-allowed", opacity: !canSubmit || saving ? 0.6 : 1, fontFamily: FONT }}>
           {saving ? "Claiming…" : "Claim Agent →"}
         </button>
       </div>

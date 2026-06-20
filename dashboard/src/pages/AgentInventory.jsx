@@ -436,6 +436,7 @@ const inputStyle = { width: "100%", background: T.panelHi, border: `1px solid ${
 function ClaimModal({ agent, onSave, onClose, saving, environments = ["production","staging","development"], error }) {
   const [form, setForm] = useState({ owner: "", team: agent?.team !== "Unknown" ? (agent?.team || "") : "", environment: agent?.environment !== "Unknown" ? (agent?.environment || "") : "", criticality: "", business_purpose: "" });
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const canSubmit = form.owner.trim() || form.team.trim();
 
   return (
     <ModalOverlay onClose={onClose}>
@@ -449,7 +450,10 @@ function ClaimModal({ agent, onSave, onClose, saving, environments = ["productio
         <div style={{ marginTop: 6, fontSize: 10, color: T.textMute }}>Claiming only writes to the registry. Historical telemetry is never modified.</div>
       </div>
 
-      <ModalField label="Owner" required><input style={inputStyle} value={form.owner} onChange={set("owner")} placeholder="owner@company.com" /></ModalField>
+      <ModalField label="Owner">
+        <input style={inputStyle} value={form.owner} onChange={set("owner")} placeholder="owner@company.com" />
+        <div style={{ fontSize: 10, color: T.textMute, fontFamily: FONT_MONO, marginTop: 4 }}>Unknown individual? Leave blank and assign to the team below.</div>
+      </ModalField>
       <ModalField label="Team"><input style={inputStyle} value={form.team} onChange={set("team")} placeholder={agent?.team !== "Unknown" ? agent?.team : "engineering"} /></ModalField>
       <ModalField label="Environment">
         <select style={{ ...inputStyle, appearance: "none" }} value={form.environment} onChange={set("environment")}>
@@ -472,7 +476,7 @@ function ClaimModal({ agent, onSave, onClose, saving, environments = ["productio
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
         <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.textDim, padding: "8px 16px", borderRadius: 5, fontSize: 13, cursor: "pointer", fontFamily: FONT_UI }}>Cancel</button>
-        <button onClick={() => onSave(agent.id, form)} disabled={!form.owner || saving} style={{ background: T.accent, border: "none", color: T.bg, padding: "8px 20px", borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: form.owner && !saving ? "pointer" : "not-allowed", opacity: !form.owner || saving ? 0.6 : 1, fontFamily: FONT_UI }}>
+        <button onClick={() => onSave(agent.id, form)} disabled={!canSubmit || saving} style={{ background: T.accent, border: "none", color: T.bg, padding: "8px 20px", borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: canSubmit && !saving ? "pointer" : "not-allowed", opacity: !canSubmit || saving ? 0.6 : 1, fontFamily: FONT_UI }}>
           {saving ? "Claiming…" : "Claim Agent →"}
         </button>
       </div>
