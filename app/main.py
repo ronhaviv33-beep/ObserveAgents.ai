@@ -58,25 +58,38 @@ _SEED_ROLES = [
         "name": "admin",
         "label": "Admin",
         "color": "#FF5C7A",
-        "pages": json.dumps(["home","chat","assets","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations","onboarding"]),
+        "pages": json.dumps([
+            "dashboard","agent_inventory","discovery","governance",
+            "cost","security_intel","ecosystem",
+            "budgets","pricing","security","users","apikeys","settings",
+            "home","chat","assets","overview","agents","models","workflows","alerts","integrations","onboarding",
+        ]),
         "can":   json.dumps(["view_all_sessions"]),
-        "team_scoped": False,   # org-wide: admin sees all teams
+        "team_scoped": False,
     },
     {
         "name": "analyst",
         "label": "Analyst",
         "color": "#FFB547",
-        "pages": json.dumps(["home","chat","assets","overview","cost","agents","models","workflows","alerts","security"]),
+        "pages": json.dumps([
+            "dashboard","agent_inventory","discovery","governance",
+            "cost","security_intel","ecosystem",
+            "home","chat","assets","overview","agents","models","workflows","alerts",
+        ]),
         "can":   json.dumps([]),
-        "team_scoped": True,    # team-scoped: analyst sees only own team's data
+        "team_scoped": True,
     },
     {
         "name": "viewer",
         "label": "Viewer",
         "color": "#6FA8FF",
-        "pages": json.dumps(["home","assets","overview","cost","agents","models","workflows","alerts","security"]),
+        "pages": json.dumps([
+            "dashboard","agent_inventory","discovery","governance",
+            "cost","security_intel","ecosystem",
+            "home","assets","overview","agents","models","workflows","alerts",
+        ]),
         "can":   json.dumps([]),
-        "team_scoped": True,    # team-scoped: viewer sees only own team's data
+        "team_scoped": True,
     },
 ]
 
