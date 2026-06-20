@@ -148,7 +148,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
     .map(([key, count]) => ({ key, count, meta: SOURCE_META[key] || { label: key, color: T.textDim } }));
 
   // Top cost drivers
-  const breakdown = (costData?.breakdown || []).sort((a, b) => (b.cost_usd || 0) - (a.cost_usd || 0));
+  const breakdown = (costData?.breakdown?.items || costData?.breakdown || []).sort((a, b) => (b.cost_usd || 0) - (a.cost_usd || 0));
   const topCosts  = breakdown.slice(0, 10);
   const otherCost = Math.max(0, monthlyCost - topCosts.reduce((s, x) => s + (x.cost_usd || 0), 0));
 

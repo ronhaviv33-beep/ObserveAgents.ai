@@ -139,7 +139,7 @@ export default function EcosystemDiscovery() {
 
   // Providers: from cost breakdown or derived from agent model usage
   const providerData = useMemo(() => {
-    const breakdown = costData?.breakdown || [];
+    const breakdown = costData?.breakdown?.items || costData?.breakdown || [];
     const provCosts = {};
     const provAgents = {};
 
