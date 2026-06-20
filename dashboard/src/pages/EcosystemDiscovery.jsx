@@ -80,10 +80,16 @@ function PlatformCard({ meta, count, agentNames, maxCount }) {
   );
 }
 
-function ProviderCard({ meta, agentCount, costUsd, maxCount }) {
+function ProviderCard({ meta, agentCount, costUsd, maxCount, onClick }) {
   const pct = maxCount > 0 ? (agentCount / maxCount) * 100 : 0;
+  const [hover, setHover] = useState(false);
   return (
-    <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "18px 20px" }}>
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ background: hover ? T.panelHi : T.panel, border: `1px solid ${hover ? meta.color + "66" : T.border}`, borderRadius: 8, padding: "18px 20px", cursor: "pointer", transition: "all 0.15s" }}
+    >
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
         <span style={{ fontSize: 16, color: meta.color }}>{meta.icon}</span>
         <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{meta.label}</div>
@@ -96,14 +102,112 @@ function ProviderCard({ meta, agentCount, costUsd, maxCount }) {
         <span>{agentCount} agent{agentCount !== 1 ? "s" : ""}</span>
         {costUsd > 0 && <span style={{ color: T.textDim }}>${costUsd.toFixed(2)}/mo</span>}
       </div>
+      {agentCount > 0 && (
+        <div style={{ marginTop: 10, fontSize: 10, fontFamily: MONO, color: hover ? meta.color : T.textMute, letterSpacing: "0.06em" }}>
+          View agents →
+        </div>
+      )}
+    </div>
+  );
+}
+
+function relativeTime(iso) {
+  if (!iso) return "—";
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000), h = Math.floor(diff / 3600000), d = Math.floor(diff / 86400000);
+  if (m < 2) return "just now";
+  if (m < 60) return `${m}m ago`;
+  if (h < 24) return `${h}h ago`;
+  if (d < 30) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+const LIFECYCLE_MAP = {
+  unassigned:       { label: "Unassigned",  color: "#FFB547", bg: "#3D2E0D" },
+  needs_validation: { label: "Needs Val.",  color: "#B47AFF", bg: "#1E1A3D" },
+  managed:          { label: "Managed",     color: "#7CFFB2", bg: "#1A3D2B" },
+  retired:          { label: "Retired",     color: "#4B5468", bg: "#141823" },
+};
+
+function ProviderAgentsModal({ provider, agents, onClose }) {
+  if (!provider) return null;
+  const { meta, costUsd } = provider;
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 1000, padding: "0 0 0 0" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderTop: `2px solid ${meta.color}`, borderRadius: "12px 12px 0 0", width: "100%", maxWidth: 900, maxHeight: "75vh", display: "flex", flexDirection: "column", fontFamily: FONT }}>
+
+        {/* Header */}
+        <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 20, color: meta.color }}>{meta.icon}</span>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: T.text }}>{meta.label} Agents</div>
+            <div style={{ fontSize: 11, color: T.textMute, fontFamily: MONO, marginTop: 2 }}>
+              {agents.length} agent{agents.length !== 1 ? "s" : ""} using this provider
+              {costUsd > 0 && <span style={{ marginLeft: 12, color: T.textDim }}>${costUsd.toFixed(2)}/mo total</span>}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ marginLeft: "auto", background: "transparent", border: `1px solid ${T.border}`, color: T.textDim, padding: "6px 14px", borderRadius: 5, fontSize: 12, fontFamily: MONO, cursor: "pointer" }}>
+            ✕ Close
+          </button>
+        </div>
+
+        {/* Table */}
+        <div style={{ overflowY: "auto", flex: 1 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                {["Agent", "Team", "Environment", "Owner", "Status", "Risk", "Monthly Cost", "Last Seen"].map(h => (
+                  <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontFamily: MONO, color: T.textMute, letterSpacing: "0.1em", textTransform: "uppercase", borderBottom: `1px solid ${T.border}`, background: T.panelHi, whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {agents.map((a, i) => {
+                const lc = LIFECYCLE_MAP[a.lifecycle_status] || LIFECYCLE_MAP.unassigned;
+                const risk = a.risk || "—";
+                const riskColor = risk === "high" ? T.crit : risk === "medium" ? T.warn : risk === "low" ? T.accent : T.textMute;
+                return (
+                  <tr key={a.id || a.name || i} style={{ background: i % 2 === 0 ? T.panel : "#0C0E14" }}
+                    onMouseEnter={e => e.currentTarget.style.background = T.panelHi}
+                    onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? T.panel : "#0C0E14"}>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
+                      <div style={{ fontSize: 13, fontFamily: MONO, color: T.text, fontWeight: 500 }}>{a.name || a.agent_name}</div>
+                      <span style={{ display: "inline-block", background: lc.bg, color: lc.color, fontSize: 9, fontFamily: MONO, fontWeight: 600, padding: "1px 6px", borderRadius: 3, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 3 }}>{lc.label}</span>
+                    </td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 12, color: T.textDim, fontFamily: MONO }}>{a.team || "—"}</td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
+                      {a.environment && a.environment !== "Unknown"
+                        ? <span style={{ fontSize: 11, fontFamily: MONO, color: T.info, background: "#0D1F3D", padding: "2px 7px", borderRadius: 3 }}>{a.environment}</span>
+                        : <span style={{ fontSize: 11, color: T.textMute }}>—</span>}
+                    </td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 12, color: T.textDim }}>{a.owner === "Unassigned" ? <span style={{ color: T.warn, fontSize: 11, fontFamily: MONO }}>Unassigned</span> : (a.owner || "—")}</td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
+                      <span style={{ background: a.status === "active" ? "#1A3D2B" : "#141823", color: a.status === "active" ? T.accent : T.textDim, fontSize: 11, fontFamily: MONO, fontWeight: 600, padding: "2px 8px", borderRadius: 4, textTransform: "capitalize" }}>{a.status || "—"}</span>
+                    </td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
+                      <span style={{ fontSize: 11, fontFamily: MONO, color: riskColor, textTransform: "capitalize" }}>{risk}</span>
+                    </td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 13, fontFamily: MONO, color: a.monthly_cost_usd > 0 ? T.text : T.textMute }}>
+                      {a.monthly_cost_usd > 0 ? `$${(+a.monthly_cost_usd).toFixed(2)}` : "—"}
+                    </td>
+                    <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 11, fontFamily: MONO, color: T.textDim }}>{relativeTime(a.last_seen)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function EcosystemDiscovery() {
-  const [agents, setAgents]     = useState([]);
-  const [costData, setCostData] = useState(null);
-  const [loading, setLoading]   = useState(true);
+  const [agents, setAgents]           = useState([]);
+  const [costData, setCostData]       = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [selectedProvider, setSelectedProvider] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -151,7 +255,7 @@ export default function EcosystemDiscovery() {
       provCosts[prov] = (provCosts[prov] || 0) + (item.cost_usd || 0);
     });
 
-    // Always derive agent counts from agents' models_used array
+    // Always derive agent counts from agents' models_used array, keep full objects
     const provAgents = {};
     agents.forEach(a => {
       const models = a.models_used || (a.model ? [a.model] : []);
@@ -160,8 +264,12 @@ export default function EcosystemDiscovery() {
         const prov = providerFromModel(m);
         if (prov && !seen.has(prov)) {
           seen.add(prov);
-          provAgents[prov] = (provAgents[prov] || new Set());
-          provAgents[prov].add(a.id || a.agent_name || a.name);
+          if (!provAgents[prov]) provAgents[prov] = [];
+          // dedupe by agent id
+          const agentKey = a.id || a.agent_name || a.name;
+          if (!provAgents[prov].some(x => (x.id || x.agent_name || x.name) === agentKey)) {
+            provAgents[prov].push(a);
+          }
         }
       });
     });
@@ -171,7 +279,8 @@ export default function EcosystemDiscovery() {
       .filter(Boolean)
       .map(p => ({
         key: p,
-        agentCount: provAgents[p]?.size || 0,
+        agentCount: provAgents[p]?.length || 0,
+        agentList:  provAgents[p] || [],
         costUsd: provCosts[p] || 0,
         meta: PROVIDER_META[p] || { label: p, color: T.textDim, icon: "○" },
       }))
@@ -234,7 +343,7 @@ export default function EcosystemDiscovery() {
         {providerData.length > 0 ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
             {providerData.map(p => (
-              <ProviderCard key={p.key} meta={p.meta} agentCount={p.agentCount} costUsd={p.costUsd} maxCount={maxProviderCount} />
+              <ProviderCard key={p.key} meta={p.meta} agentCount={p.agentCount} costUsd={p.costUsd} maxCount={maxProviderCount} onClick={() => p.agentCount > 0 && setSelectedProvider(p)} />
             ))}
           </div>
         ) : (
@@ -244,7 +353,13 @@ export default function EcosystemDiscovery() {
         )}
       </div>
 
-
+      {selectedProvider && (
+        <ProviderAgentsModal
+          provider={selectedProvider}
+          agents={selectedProvider.agentList}
+          onClose={() => setSelectedProvider(null)}
+        />
+      )}
     </div>
   );
 }
