@@ -122,12 +122,11 @@ async def trigger_sync(
     if state["is_running"]:
         return {"status": "already_running", "message": "Sync is already in progress"}
     pr.trigger_sync_async()
+    providers = sorted({r["provider"] for r in pr.get_all_pricing(db, active_only=True)})
     return {
-        "status":   "sync_started",
-        "message":  "Pricing sync triggered — compares built-in table against DB records",
-        "providers": list({p for _, p, _, _ in [(x[0], x[0], x[1], x[2]) for x in [
-            (r["provider"],) for r in pr.get_all_pricing(db, active_only=True)[:1]
-        ]]}) if True else ["openai", "anthropic", "google", "local"],
+        "status":    "sync_started",
+        "message":   "Pricing sync triggered",
+        "providers": providers or ["openai", "anthropic", "google", "local"],
     }
 
 
