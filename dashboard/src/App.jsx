@@ -5410,7 +5410,7 @@ export default function App() {
     switch (page) {
       // ── New primary pages ───────────────────────────────────────────────
       case "dashboard":      return <ExecutiveDashboard onNavigate={setPage} />;
-      case "agent_inventory":return <AgentInventory />;
+      case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} />;
       case "discovery":      return <DiscoveryCenter />;
       case "governance":     return <GovernanceCenter />;
       case "security_intel": return <SecurityIntelligence />;

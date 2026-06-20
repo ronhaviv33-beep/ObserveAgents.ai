@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import {
   fetchAgents, fetchAgentsSummary,
   claimInventoryAgent, validateInventoryAgent, rejectInventoryAgent,
-  fetchOrgConfig,
+  updateInventoryAgent, fetchOrgConfig,
 } from "../api.js";
 
 // ─── Design tokens — mirror App.jsx T ────────────────────────────────────────
@@ -199,7 +199,7 @@ function TabBar({ active, tabs, onChange }) {
 }
 
 // ─── Table: Verified Agents ──────────────────────────────────────────────────
-function VerifiedTable({ agents, onClaim }) {
+function VerifiedTable({ agents, onClaim, onEdit }) {
   if (agents.length === 0) {
     return <EmptyState message="No verified agents in this view." />;
   }
@@ -248,9 +248,12 @@ function VerifiedTable({ agents, onClaim }) {
               </Td>
               <Td><span style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textDim }}>{relativeTime(a.last_seen)}</span></Td>
               <Td>
-                {a.lifecycle_status === "unassigned" && (
-                  <ActionBtn label="Claim →" color={T.accent} onClick={() => onClaim(a)} />
-                )}
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                  {a.lifecycle_status === "unassigned" && (
+                    <ActionBtn label="Claim →" color={T.accent} onClick={() => onClaim(a)} />
+                  )}
+                  {onEdit && <ActionBtn label="Edit" color={T.info} onClick={() => onEdit(a)} />}
+                </div>
               </Td>
             </tr>
           ))}
@@ -261,7 +264,7 @@ function VerifiedTable({ agents, onClaim }) {
 }
 
 // ─── Table: Potential Agents ──────────────────────────────────────────────────
-function PotentialTable({ agents, onValidate, onReject }) {
+function PotentialTable({ agents, onValidate, onReject, onEdit }) {
   if (agents.length === 0) {
     return (
       <div style={{ padding: "48px 24px", textAlign: "center" }}>
@@ -305,6 +308,7 @@ function PotentialTable({ agents, onValidate, onReject }) {
                 <div style={{ display: "flex", gap: 6 }}>
                   <ActionBtn label="Validate ✓" color={T.accent} onClick={() => onValidate(a)} />
                   <ActionBtn label="Reject ✗"  color={T.crit}  onClick={() => onReject(a)} />
+                  {onEdit && <ActionBtn label="Edit" color={T.info} onClick={() => onEdit(a)} />}
                 </div>
               </Td>
             </tr>
@@ -316,7 +320,7 @@ function PotentialTable({ agents, onValidate, onReject }) {
 }
 
 // ─── Table: Managed Agents ────────────────────────────────────────────────────
-function ManagedTable({ agents }) {
+function ManagedTable({ agents, onEdit }) {
   if (agents.length === 0) return <EmptyState message="No managed agents yet. Claim verified agents to see them here." />;
   return (
     <div style={{ overflowX: "auto" }}>
@@ -329,6 +333,7 @@ function ManagedTable({ agents }) {
           <Th label="Criticality" />
           <Th label="Monthly Cost" style={{ textAlign: "right" }} />
           <Th label="Last Seen" />
+          {onEdit && <Th label="" />}
         </tr></thead>
         <tbody>
           {agents.map((a, i) => (
@@ -357,6 +362,7 @@ function ManagedTable({ agents }) {
                 <span style={{ fontSize: 13, fontFamily: FONT_MONO, color: a.monthly_cost_usd > 0 ? T.text : T.textMute }}>{fmtCost(a.monthly_cost_usd)}</span>
               </Td>
               <Td><span style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textDim }}>{relativeTime(a.last_seen)}</span></Td>
+              {onEdit && <Td><ActionBtn label="Edit" color={T.info} onClick={() => onEdit(a)} /></Td>}
             </tr>
           ))}
         </tbody>
@@ -366,7 +372,7 @@ function ManagedTable({ agents }) {
 }
 
 // ─── Table: Retired Agents ────────────────────────────────────────────────────
-function RetiredTable({ agents }) {
+function RetiredTable({ agents, onEdit }) {
   if (agents.length === 0) return <EmptyState message="No retired agents." />;
   return (
     <div style={{ overflowX: "auto" }}>
@@ -377,6 +383,7 @@ function RetiredTable({ agents }) {
           <Th label="Owner" />
           <Th label="Purpose / Reason" />
           <Th label="Last Active" />
+          {onEdit && <Th label="" />}
         </tr></thead>
         <tbody>
           {agents.map((a, i) => (
@@ -395,6 +402,7 @@ function RetiredTable({ agents }) {
                 </span>
               </Td>
               <Td><span style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textMute }}>{relativeTime(a.last_seen)}</span></Td>
+              {onEdit && <Td><ActionBtn label="Edit" color={T.info} onClick={() => onEdit(a)} /></Td>}
             </tr>
           ))}
         </tbody>
@@ -557,8 +565,77 @@ function RejectModal({ agent, onSave, onClose, saving }) {
   );
 }
 
+// ─── EditModal (admin only) ───────────────────────────────────────────────────
+function EditModal({ agent, onSave, onClose, saving, environments = ["production","staging","development"], error }) {
+  const [form, setForm] = useState({
+    agent_name:       agent?.name || "",
+    owner:            agent?.owner === "Unassigned" ? "" : (agent?.owner || ""),
+    team:             agent?.team  === "Unknown"    ? "" : (agent?.team  || ""),
+    environment:      agent?.environment === "Unknown" ? "" : (agent?.environment || ""),
+    criticality:      agent?.criticality || "",
+    business_purpose: agent?.business_purpose || "",
+    lifecycle_status: agent?.lifecycle_status || "unassigned",
+  });
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  return (
+    <ModalOverlay onClose={onClose}>
+      <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 4 }}>Edit Agent</div>
+      <div style={{ fontSize: 12, color: T.textMute, fontFamily: FONT_MONO, marginBottom: 20 }}>
+        Editing registry metadata for <strong style={{ color: T.text }}>{agent?.name}</strong>
+        <span style={{ marginLeft: 8, background: "#3D2A0D", color: T.warn, fontSize: 10, padding: "1px 7px", borderRadius: 3, textTransform: "uppercase", letterSpacing: "0.08em" }}>Admin</span>
+      </div>
+
+      {error && <div style={{ background: "#FF5C7A18", border: "1px solid #FF5C7A44", borderRadius: 5, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: "#FF5C7A", fontFamily: FONT_MONO }}>{error}</div>}
+
+      <ModalField label="Agent Name" required>
+        <input style={inputStyle} value={form.agent_name} onChange={set("agent_name")} placeholder="agent-name" />
+      </ModalField>
+      <ModalField label="Owner">
+        <input style={inputStyle} value={form.owner} onChange={set("owner")} placeholder="owner@company.com" />
+        <div style={{ fontSize: 10, color: T.textMute, fontFamily: FONT_MONO, marginTop: 4 }}>Unknown individual? Leave blank and assign to the team below.</div>
+      </ModalField>
+      <ModalField label="Team">
+        <input style={inputStyle} value={form.team} onChange={set("team")} placeholder="engineering" />
+      </ModalField>
+      <ModalField label="Environment">
+        <select style={{ ...inputStyle, appearance: "none" }} value={form.environment} onChange={set("environment")}>
+          <option value="">Select…</option>
+          {environments.map(e => <option key={e} value={e}>{e.charAt(0).toUpperCase() + e.slice(1)}</option>)}
+        </select>
+      </ModalField>
+      <ModalField label="Criticality">
+        <select style={{ ...inputStyle, appearance: "none" }} value={form.criticality} onChange={set("criticality")}>
+          <option value="">Select…</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </ModalField>
+      <ModalField label="Business Purpose">
+        <textarea style={{ ...inputStyle, minHeight: 72, resize: "vertical" }} value={form.business_purpose} onChange={set("business_purpose")} placeholder="What does this agent do?" />
+      </ModalField>
+      <ModalField label="Lifecycle Status">
+        <select style={{ ...inputStyle, appearance: "none" }} value={form.lifecycle_status} onChange={set("lifecycle_status")}>
+          <option value="unassigned">Unassigned</option>
+          <option value="managed">Managed</option>
+          <option value="retired">Retired</option>
+        </select>
+      </ModalField>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+        <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.textDim, padding: "8px 16px", borderRadius: 5, fontSize: 13, cursor: "pointer", fontFamily: FONT_UI }}>Cancel</button>
+        <button onClick={() => onSave(agent.id, form)} disabled={!form.agent_name || saving} style={{ background: T.info, border: "none", color: "#fff", padding: "8px 20px", borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: form.agent_name && !saving ? "pointer" : "not-allowed", opacity: !form.agent_name || saving ? 0.6 : 1, fontFamily: FONT_UI }}>
+          {saving ? "Saving…" : "Save Changes →"}
+        </button>
+      </div>
+    </ModalOverlay>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function AgentInventory() {
+export default function AgentInventory({ isAdmin = false }) {
   const [agents,       setAgents]       = useState([]);
   const [summary,      setSummary]      = useState(null);
   const [loading,      setLoading]      = useState(true);
@@ -571,6 +648,8 @@ export default function AgentInventory() {
   const [claimTarget,    setClaimTarget]    = useState(null);
   const [validateTarget, setValidateTarget] = useState(null);
   const [rejectTarget,   setRejectTarget]   = useState(null);
+  const [editTarget,     setEditTarget]     = useState(null);
+  const [editError,      setEditError]      = useState(null);
 
   useEffect(() => {
     fetchOrgConfig().then(cfg => { if (cfg?.environments?.length) setEnvironments(cfg.environments); }).catch(() => {});
@@ -644,6 +723,20 @@ export default function AgentInventory() {
       await loadData();
     } catch (e) {
       alert(`Rejection failed: ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = async (agentId, form) => {
+    setSaving(true);
+    setEditError(null);
+    try {
+      await updateInventoryAgent(agentId, form);
+      setEditTarget(null);
+      await loadData();
+    } catch (e) {
+      setEditError(e.message);
     } finally {
       setSaving(false);
     }
@@ -726,10 +819,10 @@ export default function AgentInventory() {
         </div>
 
         {/* ── Tab content ─────────────────────────────────────────────────── */}
-        {tab === "verified"  && <VerifiedTable  agents={applySearch(verified)}  onClaim={setClaimTarget} />}
-        {tab === "potential" && <PotentialTable agents={applySearch(potential)} onValidate={setValidateTarget} onReject={setRejectTarget} />}
-        {tab === "managed"   && <ManagedTable   agents={applySearch(managed)} />}
-        {tab === "retired"   && <RetiredTable   agents={applySearch(retired)} />}
+        {tab === "verified"  && <VerifiedTable  agents={applySearch(verified)}  onClaim={setClaimTarget} onEdit={isAdmin ? setEditTarget : null} />}
+        {tab === "potential" && <PotentialTable agents={applySearch(potential)} onValidate={setValidateTarget} onReject={setRejectTarget} onEdit={isAdmin ? setEditTarget : null} />}
+        {tab === "managed"   && <ManagedTable   agents={applySearch(managed)}   onEdit={isAdmin ? setEditTarget : null} />}
+        {tab === "retired"   && <RetiredTable   agents={applySearch(retired)}   onEdit={isAdmin ? setEditTarget : null} />}
 
         {/* Footer */}
         <div style={{ borderTop: `1px solid ${T.border}`, padding: "10px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -746,6 +839,7 @@ export default function AgentInventory() {
       {claimTarget    && <ClaimModal    agent={claimTarget}    onSave={handleClaim}    onClose={() => { setClaimTarget(null); setClaimError(null); }}    saving={saving} environments={environments} error={claimError} />}
       {validateTarget && <ValidateModal agent={validateTarget} onSave={handleValidate} onClose={() => setValidateTarget(null)} saving={saving} environments={environments} />}
       {rejectTarget   && <RejectModal   agent={rejectTarget}   onSave={handleReject}   onClose={() => setRejectTarget(null)}   saving={saving} />}
+      {editTarget     && <EditModal     agent={editTarget}     onSave={handleEdit}     onClose={() => { setEditTarget(null); setEditError(null); }}     saving={saving} environments={environments} error={editError} />}
     </div>
   );
 }

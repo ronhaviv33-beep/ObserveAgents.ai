@@ -355,6 +355,19 @@ export async function fetchAgentDetail(agentId, days = 90) {
   return r.json()
 }
 
+export async function updateInventoryAgent(agentId, data) {
+  const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!r || !r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || 'Failed to update agent')
+  }
+  return r.json()
+}
+
 export async function claimInventoryAgent(agentId, body) {
   const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}/claim`, {
     method: 'POST',

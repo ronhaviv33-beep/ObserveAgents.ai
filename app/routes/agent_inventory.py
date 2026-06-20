@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth import get_current_user, resolve_team_scope, is_deny_sentinel
+from app.auth import get_current_user, resolve_team_scope, is_deny_sentinel, require_admin
 from app import agent_inventory as inv
 from app.models import AssetRegistry
 
@@ -288,3 +288,35 @@ async def reject_agent(
         "rejected_at":      now.isoformat(),
         "rejection_reason": body.get("rejection_reason", ""),
     }
+
+
+# ── Admin: Edit Agent ─────────────────────────────────────────────────────────
+
+_EDITABLE_FIELDS = ("agent_name", "owner", "team", "environment", "criticality", "business_purpose")
+_VALID_LIFECYCLE  = {"unassigned", "managed", "retired"}
+
+
+@router.patch("/agents/{agent_id}")
+async def update_agent(
+    agent_id: str,
+    body: dict,
+    user=Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Admin-only: update registry metadata for any agent."""
+    org_id, _ = _org_and_scope(user, db)
+
+    reg = _lookup_registry(db, org_id, agent_id)
+    if not reg:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
+
+    for field in _EDITABLE_FIELDS:
+        if field in body and body[field] is not None:
+            setattr(reg, field, body[field])
+
+    if "lifecycle_status" in body and body["lifecycle_status"] in _VALID_LIFECYCLE:
+        reg.status = body["lifecycle_status"]
+
+    db.commit()
+    result = inv.get_agent_by_id(db, org_id, reg.asset_key)
+    return result or {"asset_key": reg.asset_key, "updated": True}
