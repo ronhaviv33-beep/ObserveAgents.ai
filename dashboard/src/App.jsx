@@ -5263,10 +5263,13 @@ function CustomerWelcomePage({ onNavigate }) {
 // ─── Simple Integration Setup Page ───────────────────────────────────────────
 function SimpleIntegrationsPage({ onNavigate }) {
   const gatewayUrl  = typeof BASE !== "undefined" && BASE.startsWith("http") ? BASE : window.location.origin;
-  const [copied, setCopied] = useState(null);
+  const [copied, setCopied]   = useState(null);
+  const [open,   setOpen]     = useState({ openai: true, anthropic: false, typescript: false, curl: false });
   const copy = (id, text) => { navigator.clipboard.writeText(text).catch(() => {}); setCopied(id); setTimeout(() => setCopied(null), 2000); };
+  const toggle = (k) => setOpen(o => ({ ...o, [k]: !o[k] }));
 
-  const codeSnippet =
+  const snippets = {
+    openai:
 `import openai
 
 client = openai.OpenAI(
@@ -5282,39 +5285,97 @@ response = client.chat.completions.create(
         "X-Guard-Agent": "my-agent",  # ← a name for this agent
     },
 )
-print(response.choices[0].message.content)`;
+print(response.choices[0].message.content)`,
+
+    anthropic:
+`import anthropic
+
+client = anthropic.Anthropic(
+    base_url="${gatewayUrl}",      # ← your gateway URL (no /v1)
+    api_key="gk-…",                # ← your gateway key, NOT your Anthropic key
+)
+
+message = client.messages.create(
+    model="claude-haiku-4-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello"}],
+    extra_headers={
+        "X-Guard-Team":  "my-team",   # ← your team name
+        "X-Guard-Agent": "my-agent",  # ← a name for this agent
+    },
+)
+print(message.content[0].text)`,
+
+    typescript:
+`import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "${gatewayUrl}/v1",  // ← your gateway URL
+  apiKey:  "gk-…",               // ← your key from API Keys page
+  defaultHeaders: {
+    "X-Guard-Team":  "my-team",  // ← your team name
+    "X-Guard-Agent": "my-agent", // ← a name for this agent
+  },
+});
+
+const response = await client.chat.completions.create({
+  model:    "gpt-4o-mini",
+  messages: [{ role: "user", content: "Hello" }],
+});
+console.log(response.choices[0].message.content);`,
+
+    curl:
+`curl ${gatewayUrl}/v1/chat/completions \\
+  -H "Authorization: Bearer gk-…" \\
+  -H "Content-Type: application/json" \\
+  -H "X-Guard-Team: my-team" \\
+  -H "X-Guard-Agent: my-agent" \\
+  -d '{
+    "model": "gpt-4o-mini",
+    "messages": [{"role":"user","content":"Hello"}]
+  }'`,
+  };
+
+  const sdkList = [
+    { key:"openai",      label:"Python · OpenAI SDK",     lang:"python",     color:T.info   },
+    { key:"anthropic",   label:"Python · Anthropic SDK",  lang:"python",     color:T.accent },
+    { key:"typescript",  label:"TypeScript · OpenAI SDK", lang:"typescript", color:T.yellow },
+    { key:"curl",        label:"cURL",                    lang:"bash",       color:T.purple },
+  ];
 
   const steps = [
     {
       n:"1", color:T.accent,
       title:"Create an API Key",
-      desc:"Go to Administration → API Keys and generate a new key. Copy it — you'll paste it in the code.",
+      desc:"Go to Administration → API Keys and generate a new key. Copy it — you'll paste it into your code.",
       cta:{ label:"Go to API Keys →", page:"apikeys" },
     },
     {
       n:"2", color:T.warn,
       title:"Change one line in your code",
-      desc:`Replace your AI provider's URL with the gateway URL below. That's the only required change.`,
+      desc:"Replace your AI provider's URL with the gateway URL below. That's the only required code change.",
       code:`${gatewayUrl}/v1`,
       codeId:"url",
     },
     {
       n:"3", color:T.info,
       title:"Add two headers and run",
-      desc:"Add X-Guard-Team and X-Guard-Agent headers so we know which team and agent the request comes from. Use the example below.",
+      desc:"Add X-Guard-Team and X-Guard-Agent to your requests so we know which team and agent the call came from. Pick your language below.",
     },
   ];
 
   return (
-    <div style={{ maxWidth:760, margin:"0 auto", padding:"32px 24px", fontFamily:FONT_UI }}>
+    <div style={{ maxWidth:780, margin:"0 auto", padding:"32px 24px", fontFamily:FONT_UI }}>
+      {/* Header */}
       <div style={{ marginBottom:28 }}>
         <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>Administration</div>
         <div style={{ fontSize:24, fontWeight:700, color:T.text, marginBottom:8 }}>Connect an Agent</div>
-        <div style={{ fontSize:13, color:T.textDim, lineHeight:1.65, maxWidth:500 }}>
+        <div style={{ fontSize:13, color:T.textDim, lineHeight:1.65, maxWidth:520 }}>
           Route your AI requests through the gateway to make them visible in the inventory. It takes about 5 minutes.
         </div>
       </div>
 
+      {/* Steps */}
       {steps.map((s, i) => (
         <div key={s.n} style={{ display:"flex", gap:0, marginBottom:0 }}>
           <div style={{ display:"flex", flexDirection:"column", alignItems:"center", marginRight:18, flexShrink:0 }}>
@@ -5343,27 +5404,36 @@ print(response.choices[0].message.content)`;
         </div>
       ))}
 
-      {/* Code block */}
-      <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:10, overflow:"hidden", marginTop:4, marginBottom:16 }}>
-        <div style={{ borderBottom:`1px solid ${T.border}`, padding:"10px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.08em" }}>Python · OpenAI SDK</div>
-          <button onClick={() => copy("main", codeSnippet)}
-            style={{ background:copied==="main"?`${T.accent}15`:"transparent", border:`1px solid ${copied==="main"?T.accent+"44":T.border}`, color:copied==="main"?T.accent:T.textMute, borderRadius:4, padding:"3px 12px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
-            {copied==="main"?"✓ copied":"copy"}
-          </button>
-        </div>
-        <pre style={{ margin:0, padding:"16px", fontSize:12, fontFamily:FONT_MONO, color:T.text, lineHeight:1.7, overflow:"auto" }}>{codeSnippet}</pre>
+      {/* SDK Examples — collapsible */}
+      <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:12, marginTop:4 }}>
+        SDK Examples
       </div>
-
-      <div style={{ background:`${T.info}0d`, border:`1px solid ${T.info}28`, borderRadius:8, padding:"12px 16px", fontSize:12, color:T.textDim, lineHeight:1.65 }}>
-        <strong style={{ color:T.info }}>Using Anthropic or another provider?</strong>{" "}
-        Same steps — just change <code style={{ fontFamily:FONT_MONO, fontSize:11 }}>base_url</code> to{" "}
-        <code style={{ fontFamily:FONT_MONO, fontSize:11 }}>{gatewayUrl}</code> (no <code style={{ fontFamily:FONT_MONO, fontSize:11 }}>/v1</code>).
-        {" "}See the{" "}
-        <button onClick={() => onNavigate("onboarding")}
-          style={{ background:"none", border:"none", color:T.accent, fontFamily:FONT_UI, fontSize:12, cursor:"pointer", padding:0, textDecoration:"underline" }}>
-          full setup guide
-        </button>{" "}for all SDK examples.
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {sdkList.map(sdk => (
+          <div key={sdk.key} style={{ border:`1px solid ${open[sdk.key] ? sdk.color+"44" : T.border}`, borderRadius:8, overflow:"hidden", transition:"border-color 0.15s" }}>
+            {/* Accordion header */}
+            <button
+              onClick={() => toggle(sdk.key)}
+              style={{ width:"100%", background:open[sdk.key] ? T.panelHi : T.panel, border:"none", padding:"12px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+              <span style={{ width:8, height:8, borderRadius:"50%", background:sdk.color, flexShrink:0 }} />
+              <span style={{ fontSize:12, fontFamily:FONT_MONO, color:open[sdk.key] ? T.text : T.textDim, flex:1, letterSpacing:"0.04em" }}>{sdk.label}</span>
+              <span style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.06em" }}>
+                {open[sdk.key] ? "▲ close" : "▼ open"}
+              </span>
+            </button>
+            {/* Code panel */}
+            {open[sdk.key] && (
+              <div style={{ position:"relative", borderTop:`1px solid ${T.border}` }}>
+                <pre style={{ margin:0, padding:"16px 16px 16px 16px", fontSize:12, fontFamily:FONT_MONO, color:T.text, lineHeight:1.7, overflow:"auto", background:T.bg, maxHeight:360 }}>{snippets[sdk.key]}</pre>
+                <button
+                  onClick={() => copy(sdk.key, snippets[sdk.key])}
+                  style={{ position:"absolute", top:8, right:8, background:copied===sdk.key?`${sdk.color}18`:"transparent", border:`1px solid ${copied===sdk.key?sdk.color+"55":T.border}`, color:copied===sdk.key?sdk.color:T.textMute, borderRadius:4, padding:"3px 12px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                  {copied===sdk.key?"✓ copied":"copy"}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
