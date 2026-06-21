@@ -301,6 +301,35 @@ except Exception as _e:
     _logging.getLogger("ai_asset_mgmt").warning("platform admin migration warning (non-fatal): %s", _e)
 
 
+def _migrate_chat_sessions_isolation() -> None:
+    """
+    Idempotent: add organization_id and user_id to chat_sessions.
+
+    Existing rows are left with NULL organization_id — they are effectively
+    orphaned (no org can claim them) rather than assigned to a wrong org.
+    This is intentional: we cannot reliably infer which org a pre-migration
+    session belongs to from user_name alone.
+    """
+    from sqlalchemy import inspect as _inspect, text as _text
+    with engine.connect() as conn:
+        try:
+            cols = {c["name"] for c in _inspect(engine).get_columns("chat_sessions")}
+        except Exception:
+            return  # table doesn't exist yet — create_all will handle it
+        if "organization_id" not in cols:
+            conn.execute(_text("ALTER TABLE chat_sessions ADD COLUMN organization_id INTEGER REFERENCES organizations(id)"))
+        if "user_id" not in cols:
+            conn.execute(_text("ALTER TABLE chat_sessions ADD COLUMN user_id INTEGER REFERENCES users(id)"))
+        conn.commit()
+
+
+try:
+    _migrate_chat_sessions_isolation()
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("ai_asset_mgmt").warning("chat sessions isolation migration warning (non-fatal): %s", _e)
+
+
 # ── Pricing Registry: seed + start background sync ────────────────────────────
 
 def _seed_pricing_registry() -> None:
@@ -1349,28 +1378,30 @@ async def ask(req: AskRequest, db: Session = Depends(get_db), current_user=Depen
     )
 
     # 6. Attach to existing session or auto-create one
+    org_id = current_user.organization_id
     target_uuid = req.session_uuid
     if target_uuid:
-        s = sess.get_session(db, target_uuid)
+        s = sess.get_session(db, target_uuid, organization_id=org_id)
         if not (s and s.is_active):
-            target_uuid = None  # session gone — fall through to auto-create
+            target_uuid = None  # session gone or not in this org — fall through to auto-create
 
     if not target_uuid:
         new_session = sess.create_session(
             db, user_name=req.agent, user_role="analyst",
             team=req.team, agent=req.agent, model=req.model,
+            organization_id=org_id,
         )
         target_uuid = new_session.session_uuid
 
-    sess.add_message(db, session_uuid=target_uuid,
-                     role="user", content=req.prompt)
-    sess.add_message(db, session_uuid=target_uuid,
-                     role="assistant", content=result.content,
+    sess.add_message(db, session_uuid=target_uuid, role="user", content=req.prompt,
+                     organization_id=org_id)
+    sess.add_message(db, session_uuid=target_uuid, role="assistant", content=result.content,
                      prompt_tokens=result.prompt_tokens,
                      completion_tokens=result.completion_tokens,
                      cost_usd=record.cost_usd, latency_ms=result.latency_ms,
                      security_findings=findings_list,
-                     budget_warnings=budget_check["warnings"])
+                     budget_warnings=budget_check["warnings"],
+                     organization_id=org_id)
 
     return AskResponse(
         response=result.content,
@@ -1593,9 +1624,21 @@ def budget_status(db: Session = Depends(get_db), actor=Depends(get_current_user)
 
 # ─── Chat Sessions ────────────────────────────────────────────────────────────
 
-def _assert_session_owner(s, current_user):
-    """Non-admin users can only access their own sessions."""
-    if current_user.role != "admin" and s.user_name != current_user.name:
+def _assert_session_owner(s: "ChatSession", current_user) -> None:
+    """
+    Intra-org ownership check — only called after get_session() already
+    filtered by organization_id, so cross-org access is already blocked at
+    the DB layer.  This enforces the secondary rule: non-admins can only
+    access their own sessions within the org.
+    """
+    is_admin = current_user.role == "admin" or getattr(current_user, "is_platform_admin", False)
+    if is_admin:
+        return
+    # Use user_id (stable int) when available; fall back to user_name for
+    # sessions created before the migration added the user_id column.
+    owned_by_id   = s.user_id is not None and s.user_id == current_user.id
+    owned_by_name = s.user_id is None and s.user_name == current_user.name
+    if not (owned_by_id or owned_by_name):
         raise HTTPException(status_code=403, detail="Access denied")
 
 
@@ -1603,20 +1646,26 @@ def _assert_session_owner(s, current_user):
 def create_session(req: SessionCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     sess.expire_inactive(db)
     return sess.create_session(
-        db, user_name=current_user.name, user_role=current_user.role,
-        team=req.team, agent=req.agent, model=req.model,
+        db,
+        user_name=current_user.name,
+        user_role=current_user.role,
+        team=req.team,
+        agent=req.agent,
+        model=req.model,
+        organization_id=current_user.organization_id,
+        user_id=current_user.id,
     )
 
 
 @app.get("/sessions", response_model=list[SessionOut], tags=["GET — Read / Monitor"])
 def list_sessions(active_only: bool = Query(default=True), db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     sess.expire_inactive(db)
-    return sess.list_sessions(db, active_only=active_only)
+    return sess.list_sessions(db, active_only=active_only, organization_id=current_user.organization_id)
 
 
 @app.get("/sessions/{session_uuid}", response_model=SessionOut, tags=["GET — Read / Monitor"])
 def get_session_by_uuid(session_uuid: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    s = sess.get_session(db, session_uuid)
+    s = sess.get_session(db, session_uuid, organization_id=current_user.organization_id)
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
     _assert_session_owner(s, current_user)
@@ -1625,16 +1674,16 @@ def get_session_by_uuid(session_uuid: str, db: Session = Depends(get_db), curren
 
 @app.delete("/sessions/{session_uuid}", status_code=204, tags=["DELETE — Remove"])
 def close_session(session_uuid: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    s = sess.get_session(db, session_uuid)
+    s = sess.get_session(db, session_uuid, organization_id=current_user.organization_id)
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
     _assert_session_owner(s, current_user)
-    sess.close_session(db, session_uuid)
+    sess.close_session(db, session_uuid, organization_id=current_user.organization_id)
 
 
 @app.get("/sessions/{session_uuid}/messages", response_model=list[SessionMessageOut], tags=["GET — Read / Monitor"])
 def get_session_messages(session_uuid: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    s = sess.get_session(db, session_uuid)
+    s = sess.get_session(db, session_uuid, organization_id=current_user.organization_id)
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
     _assert_session_owner(s, current_user)
@@ -1643,8 +1692,8 @@ def get_session_messages(session_uuid: str, db: Session = Depends(get_db), curre
 
 @app.post("/sessions/{session_uuid}/chat", response_model=ChatResponse, tags=["POST — Ask / Create"])
 async def session_chat(session_uuid: str, req: SessionChatRequest, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    # Verify session exists, is active, and belongs to the requesting user
-    s = sess.get_session(db, session_uuid)
+    # Verify session exists, is active, and belongs to the requesting user's org
+    s = sess.get_session(db, session_uuid, organization_id=current_user.organization_id)
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
     _assert_session_owner(s, current_user)
@@ -1700,12 +1749,14 @@ async def session_chat(session_uuid: str, req: SessionChatRequest, db: Session =
                       organization_id=current_user.organization_id)
 
     # Persist user message + assistant reply in session
-    sess.add_message(db, session_uuid=session_uuid, role="user", content=last_user)
+    sess.add_message(db, session_uuid=session_uuid, role="user", content=last_user,
+                     organization_id=current_user.organization_id)
     sess.add_message(
         db, session_uuid=session_uuid, role="assistant", content=result.content,
         prompt_tokens=result.prompt_tokens, completion_tokens=result.completion_tokens,
         cost_usd=record.cost_usd, latency_ms=result.latency_ms,
         security_findings=findings_list, budget_warnings=budget_check["warnings"],
+        organization_id=current_user.organization_id,
     )
 
     return ChatResponse(

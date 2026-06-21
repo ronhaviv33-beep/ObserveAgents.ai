@@ -364,6 +364,14 @@ class ChatSession(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     session_uuid: Mapped[str] = mapped_column(String(36), unique=True, index=True,
                                                default=lambda: str(_uuid.uuid4()))
+    # Tenant isolation — required for all new sessions; nullable only for pre-migration rows.
+    organization_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("organizations.id"), nullable=True, index=True
+    )
+    # Stable ownership key — replaces the fragile user_name string check.
+    user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True, index=True
+    )
     user_name: Mapped[str] = mapped_column(String(128))
     user_role: Mapped[str] = mapped_column(String(32))   # admin | analyst | viewer
     team: Mapped[str] = mapped_column(String(128))
