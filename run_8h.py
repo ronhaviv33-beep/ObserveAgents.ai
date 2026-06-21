@@ -151,7 +151,7 @@ def make_sdk_client(gk: str):
         return None
     return _InventoryOpenAI(
         api_key=gk,
-        gateway_url=BACKEND,
+        gateway_url=f"{BACKEND}/v1",   # OpenAI SDK uses base_url as-is; /v1 required
         agent_name="soak-base",
         team="Engineering",
         environment="prod",
