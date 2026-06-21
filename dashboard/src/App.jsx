@@ -16,7 +16,7 @@ class PageErrorBoundary extends Component {
     return this.props.children;
   }
 }
-import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams, fetchAssets, fetchAssetsSummary, fetchAssetTelemetry, fetchUnassignedAssets, claimAsset, updateAssetRegistry, fetchOrgConfig, updateOrgConfig, getDemoMode, setDemoMode } from "./api.js";
+import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams, fetchAssets, fetchAssetsSummary, fetchAssetTelemetry, fetchUnassignedAssets, claimAsset, updateAssetRegistry, fetchOrgConfig, updateOrgConfig, getDemoMode, setDemoMode, fetchOrganizations, setViewOrg, getViewOrg } from "./api.js";
 import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
@@ -5903,6 +5903,10 @@ export default function App() {
   // init window never falls back to stale hardcoded permissions.
   const [rolesMap,     setRolesMap]     = useState(null);
 
+  // ── Platform admin org switching ──
+  const [viewOrgId,  setViewOrgId]  = useState(() => getViewOrg());
+  const [allOrgs,    setAllOrgs]    = useState([]);
+
   // When the logged-in user has a team-scoped role, lock the team filter to their team.
   // Runs whenever user or rolesMap changes (e.g. after login).
   useEffect(() => {
@@ -5913,6 +5917,12 @@ export default function App() {
       setFilters(f => f.team === teamId ? f : { ...f, team: teamId });
     }
   }, [user, rolesMap]);
+
+  // Fetch all orgs when logged in as platform admin
+  useEffect(() => {
+    if (!user?.is_platform_admin) return;
+    fetchOrganizations().then(setAllOrgs).catch(() => {});
+  }, [user]);
 
   // On mount, validate stored token; also listen for mid-session expiry
   useEffect(() => {
@@ -6144,13 +6154,38 @@ export default function App() {
         </nav>
 
         <div style={{ marginTop:"auto", padding:"12px 8px", display:"flex", flexDirection:"column", gap:10 }}>
+          {/* Platform admin org switcher */}
+          {user?.is_platform_admin && (
+            <div style={{ background:T.panelHi, border:`1px solid ${T.purple ?? "#a78bfa"}`, borderRadius:6, padding:"8px 10px" }}>
+              <div style={{ fontSize:8, fontFamily:FONT_MONO, color:T.purple ?? "#a78bfa", textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:5, fontWeight:600 }}>
+                ◆ Platform View
+              </div>
+              <select
+                value={viewOrgId || ""}
+                onChange={e => {
+                  const v = e.target.value || null;
+                  setViewOrgId(v);
+                  setViewOrg(v);
+                  refresh();
+                }}
+                style={{ width:"100%", background:T.panel, border:`1px solid ${T.border}`, color:T.text, padding:"4px 6px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}
+              >
+                <option value="">All / Platform</option>
+                {allOrgs.filter(o => !o.is_internal).map(o => (
+                  <option key={o.id} value={String(o.id)}>{o.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {/* User badge */}
           {user && (
             <div style={{ background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:6, padding:"8px 10px", display:"flex", alignItems:"center", gap:8 }}>
               <div style={{ width:8, height:8, borderRadius:"50%", background: rolesMap[user.role]?.color ?? T.textDim, flexShrink:0 }}/>
               <div style={{ flex:1, overflow:"hidden" }}>
                 <div style={{ fontSize:12, fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.name}</div>
-                <div style={{ fontSize:9, fontFamily:FONT_MONO, color: rolesMap[user.role]?.color ?? T.textDim, textTransform:"uppercase", letterSpacing:"0.1em" }}>{user.role} · {user.team}</div>
+                <div style={{ fontSize:9, fontFamily:FONT_MONO, color: user.is_platform_admin ? (T.purple ?? "#a78bfa") : (rolesMap[user.role]?.color ?? T.textDim), textTransform:"uppercase", letterSpacing:"0.1em" }}>
+                  {user.is_platform_admin ? "platform admin" : `${user.role} · ${user.team}`}
+                </div>
               </div>
               <button title="Sign out" onClick={handleLogout}
                 style={{ background:"transparent", border:"none", color:T.textMute, fontSize:12, cursor:"pointer", padding:"2px 4px", lineHeight:1, fontFamily:FONT_MONO }}>⏻</button>
@@ -6174,6 +6209,14 @@ export default function App() {
             <h1 style={{ fontSize:22, fontWeight:500, margin:"4px 0 0", letterSpacing:"-0.015em" }}>{PAGES.find((p)=>p.id===page)?.label}</h1>
           </div>
           <div style={{ display:"flex", gap:10, alignItems:"center", fontFamily:FONT_MONO, fontSize:11, color:T.textDim }}>
+            {user?.is_platform_admin && viewOrgId && (() => {
+              const org = allOrgs.find(o => String(o.id) === String(viewOrgId));
+              return org ? (
+                <span style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(167,139,250,0.12)", border:"1px solid rgba(167,139,250,0.3)", color:T.purple ?? "#a78bfa", padding:"3px 9px", borderRadius:4, fontSize:10 }}>
+                  ◆ Viewing: {org.name}
+                </span>
+              ) : null;
+            })()}
             {platformMode && (
               <>
                 <span title={GUARD_MODE_META[platformMode]?.desc}

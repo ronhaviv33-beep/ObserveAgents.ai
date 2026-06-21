@@ -198,6 +198,8 @@ class UserOut(BaseModel):
     role: str
     team: str
     is_active: bool
+    is_platform_admin: bool = False
+    organization_id: int | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -20,11 +20,23 @@ export function setToken(token) {
   else localStorage.removeItem('token')
 }
 
+// Platform admin org switching — stored in sessionStorage so it resets on tab close.
+export function getViewOrg() {
+  return sessionStorage.getItem('view_org_id') || null
+}
+
+export function setViewOrg(orgId) {
+  if (orgId) sessionStorage.setItem('view_org_id', String(orgId))
+  else sessionStorage.removeItem('view_org_id')
+}
+
 function authHeaders(extra = {}) {
   const token = getToken()
+  const viewOrg = getViewOrg()
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(viewOrg ? { 'X-View-Org': viewOrg } : {}),
     ...extra,
   }
 }
@@ -60,6 +72,12 @@ export async function login(email, password) {
 export async function fetchMe() {
   const r = await authFetch(`${BASE}/auth/me`)
   if (!r || !r.ok) return null
+  return r.json()
+}
+
+export async function fetchOrganizations() {
+  const r = await authFetch(`${BASE}/admin/organizations`)
+  if (!r || !r.ok) return []
   return r.json()
 }
 

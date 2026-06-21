@@ -7,7 +7,7 @@ import time
 import secrets
 from datetime import datetime, timezone
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -90,6 +90,7 @@ def _decode_token(token: str) -> dict:
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ):
@@ -115,12 +116,27 @@ async def get_current_user(
             detail="User has no organization assigned. Contact your administrator.",
         )
 
+    # Platform admins can view any org by passing X-View-Org: <org_id>.
+    # We detach the user from the session before overriding organization_id so
+    # SQLAlchemy's unit-of-work never persists the temporary change.
+    if user.is_platform_admin:
+        view_org = request.headers.get("x-view-org", "").strip()
+        if view_org.isdigit():
+            db.expunge(user)
+            user.organization_id = int(view_org)
+
     return user
 
 
 async def require_admin(user=Depends(get_current_user)):
-    if user.role != "admin":
+    if user.role != "admin" and not user.is_platform_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
+async def require_platform_admin(user=Depends(get_current_user)):
+    if not user.is_platform_admin:
+        raise HTTPException(status_code=403, detail="Platform admin access required")
     return user
 
 
@@ -139,11 +155,8 @@ def require_page_access(page: str):
         user=Depends(get_current_user),
         db: "Session" = Depends(get_db),
     ):
-        # Admin bypasses page checks unconditionally — admin must always be able
-        # to reach every endpoint regardless of what's in the DB roles table.
-        # This is an explicit bypass, not implicit via list membership, so editing
-        # admin's pages in the DB can never lock admin out of an endpoint.
-        if user.role == "admin":
+        # Admin and platform admins bypass page checks unconditionally.
+        if user.role == "admin" or user.is_platform_admin:
             return user
 
         from app.models import Role as RoleModel

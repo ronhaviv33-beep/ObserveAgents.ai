@@ -38,7 +38,7 @@ from app import policy as pol
 from app import sessions as sess
 from app.scanner import scan
 from app.client import complete, chat_complete
-from app.auth import hash_password, verify_password, create_token, get_current_user, require_admin, require_page_access, get_proxy_caller, generate_api_key, resolve_team_scope, is_deny_sentinel
+from app.auth import hash_password, verify_password, create_token, get_current_user, require_admin, require_platform_admin, require_page_access, get_proxy_caller, generate_api_key, resolve_team_scope, is_deny_sentinel
 from app.client import proxy_chat_complete, proxy_chat_stream, get_client_for_org, invalidate_org_client
 from app.models import calculate_cost, PRICING_LAST_UPDATED, Organization, ProviderCredential, encrypt_credential, decrypt_credential, Role as RoleModel, Team as TeamModel
 
@@ -278,6 +278,27 @@ try:
 except Exception as _e:
     import logging as _logging
     _logging.getLogger("ai_asset_mgmt").warning("asset registry discovery fields migration warning (non-fatal): %s", _e)
+
+
+def _migrate_platform_admin() -> None:
+    """Idempotent: add is_platform_admin column to users; mark seed admin as platform admin."""
+    from sqlalchemy import inspect as _inspect, text as _text
+    with engine.connect() as conn:
+        try:
+            cols = {c["name"] for c in _inspect(engine).get_columns("users")}
+        except Exception:
+            return
+        if "is_platform_admin" not in cols:
+            conn.execute(_text("ALTER TABLE users ADD COLUMN is_platform_admin BOOLEAN NOT NULL DEFAULT 0"))
+        conn.execute(_text("UPDATE users SET is_platform_admin=1 WHERE email='admin@ai-asset-mgmt.local'"))
+        conn.commit()
+
+
+try:
+    _migrate_platform_admin()
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("ai_asset_mgmt").warning("platform admin migration warning (non-fatal): %s", _e)
 
 
 # ── Pricing Registry: seed + start background sync ────────────────────────────
@@ -525,6 +546,7 @@ def _seed_admin():
                 hashed_password=hash_password(seed_pw),
                 role="admin",
                 team="Platform",
+                is_platform_admin=True,
             ))
             db.commit()
     finally:
@@ -672,6 +694,30 @@ async def security_headers(request: Request, call_next):
 @app.get("/", tags=["GET — Read / Monitor"])
 def root():
     return {"status": "AI Asset Management Gateway Running", "version": "0.5.0"}
+
+
+# ─── Platform Admin ────────────────────────────────────────────────────────────
+
+@app.get("/admin/organizations", tags=["Admin — Platform"])
+async def list_all_organizations(
+    actor=Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    """List all organizations on the platform. Platform admin only."""
+    from app.models import Organization, User
+    orgs = db.query(Organization).order_by(Organization.created_at).all()
+    result = []
+    for o in orgs:
+        user_count = db.query(User).filter(User.organization_id == o.id).count()
+        result.append({
+            "id":          o.id,
+            "name":        o.name,
+            "slug":        o.slug,
+            "is_internal": o.is_internal,
+            "user_count":  user_count,
+            "created_at":  o.created_at,
+        })
+    return result
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
