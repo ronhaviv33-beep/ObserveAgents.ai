@@ -17,6 +17,8 @@ from app.schemas import (
     ChatRequest, ChatResponse,
     SessionChatRequest,
 )
+from app.relationship_resolver import resolve_relationship
+from app.relationships import upsert_relationship
 from app import telemetry as tel
 from app import budget as bud
 from app import policy as pol
@@ -579,6 +581,14 @@ async def openai_compat_chat(
     )
     asset_key = _identity.agent_key
 
+    # ── Relationship capture (non-fatal) ──────────────────────────────────────
+    try:
+        _rel = resolve_relationship({k.lower(): v for k, v in request.headers.items()})
+        if _rel:
+            upsert_relationship(db, org_id, _rel, source_agent_id=asset_key)
+    except Exception:
+        pass
+
     last_user      = ""
     findings_list  = []
     budget_warnings = []
@@ -791,6 +801,14 @@ async def anthropic_compat_messages(
         },
     )
     asset_key = _identity.agent_key
+
+    # ── Relationship capture (non-fatal) ──────────────────────────────────────
+    try:
+        _rel = resolve_relationship({k.lower(): v for k, v in request.headers.items()})
+        if _rel:
+            upsert_relationship(db, org_id, _rel, source_agent_id=asset_key)
+    except Exception:
+        pass
 
     last_user       = ""
     findings_list   = []

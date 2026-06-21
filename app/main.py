@@ -403,6 +403,9 @@ from app.routes.proxy import _proxy_limiter, _circuit_state, _circuit  # noqa: E
 app.state.limiter = _proxy_limiter
 app.include_router(proxy_routes.router)
 
+from app.routes import relationships as relationships_routes  # noqa: E402
+app.include_router(relationships_routes.router)
+
 _ALLOWED_ORIGINS = (
     [o.strip() for o in _FRONTEND_ORIGIN.split(",") if o.strip()]
     if _FRONTEND_ORIGIN
