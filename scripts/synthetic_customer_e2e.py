@@ -1140,8 +1140,17 @@ def section_15_policy_enforcement(state: State, args: argparse.Namespace) -> Non
         endpoint="/policies", status=status,
     )
 
-    # Test that the block fires — expect 403
-    if raw_key and enforce_ok and state.policy_id:
+    # Test that the block fires — expect 403.
+    # Requires a live LLM credential: backend checks provider creds before policy,
+    # so without credentials it returns 402 instead of 403.
+    if args.skip_live_llm:
+        record_skip(
+            state, "POST /v1/chat/completions — blocked (expect 403)",
+            "Skipped with --skip-live-llm: policy block (403) can't be distinguished "
+            "from missing credential (402) without a live provider",
+            strict=False,
+        )
+    elif raw_key and enforce_ok and state.policy_id:
         extra = {
             "X-Agent-Name":        "support-triage-agent",
             "X-Agent-Team":        "Support",
@@ -1513,17 +1522,23 @@ def section_23_sessions(state: State, args: argparse.Namespace) -> None:
         endpoint=f"/sessions/{state.session_uuid}", status=status,
     )
 
-    # Chat in session
+    # Chat in session — schema: {session_uuid, team, agent, model, messages[{role,content}]}
     status, data = request_json(
         "POST", f"/sessions/{state.session_uuid}/chat",
         token=token,
-        body={"message": "What is 1+1? One word."},
+        body={
+            "session_uuid": state.session_uuid,
+            "team":         "Support",
+            "agent":        "support-triage-agent",
+            "model":        MODEL,
+            "messages":     [{"role": "user", "content": "What is 1+1? One word."}],
+        },
     )
     body = json.dumps(data)[:120] if isinstance(data, dict) else str(data)[:120]
     if status == 200:
         record_pass(state, "POST /sessions/{uuid}/chat",
                     endpoint=f"/sessions/{state.session_uuid}/chat", status=status)
-    elif status in (400, 503) and args.skip_live_llm:
+    elif status in (400, 402, 503) and args.skip_live_llm:
         record_skip(state, "POST /sessions/{uuid}/chat",
                     "No LLM provider credential (--skip-live-llm)", strict=args.strict)
     else:
