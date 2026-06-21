@@ -4,6 +4,11 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    // Vite defaults to 'assets/' which clashes with the FastAPI /assets/* API routes.
+    // Use '_app' so compiled bundles live at /_app/index-xxx.js with no conflict.
+    assetsDir: '_app',
+  },
   define: {
     // VITE_API_BASE: full URL (e.g. https://ai-asset-backend.onrender.com) set manually in Render.
     // VITE_API_URL: bare hostname auto-derived via fromService in render.yaml.
