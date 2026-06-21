@@ -334,3 +334,28 @@ class ScanFinding(BaseModel):
 class ScanResponse(BaseModel):
     is_sensitive: bool
     findings: list[ScanFinding]
+
+
+# ── Platform admin — org management ───────────────────────────────────────────
+
+class OrgCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=256, examples=["Acme Corp"])
+    admin_email: str = Field(..., examples=["admin@acme.com"])
+    admin_name: str = Field(default="Admin", max_length=128)
+    admin_password: str | None = Field(
+        default=None,
+        min_length=8,
+        description="Leave blank to auto-generate a random password (printed to server stdout).",
+    )
+
+
+class OrgCreated(BaseModel):
+    id: int
+    name: str
+    slug: str
+    admin_email: str
+    admin_user_id: int
+    admin_temporary_password: str | None = Field(
+        default=None,
+        description="Populated only when the password was auto-generated. Store it now — it will not be shown again.",
+    )
