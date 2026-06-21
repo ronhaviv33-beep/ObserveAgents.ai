@@ -1,30 +1,61 @@
-"""Run from the project root: python reset_admin.py"""
-import sqlite3
+"""
+Ensure the default admin user exists and reset its password.
+
+Local:  python reset_admin.py
+Render: run via the Shell tab on the ai-asset-backend (or ai-asset-app) service.
+"""
+import os
 import sys
 from passlib.context import CryptContext
 
-DB = "telemetry.db"
 EMAIL = "admin@ai-asset-mgmt.local"
 NEW_PASSWORD = "Admin123!"
+
+# Match the same DB-path resolution as app/database.py
+_db_url = os.environ.get("DATABASE_URL", "")
+if _db_url.startswith("sqlite:///"):
+    DB = _db_url.replace("sqlite:///", "")
+elif _db_url:
+    DB = _db_url
+elif os.path.isdir("/data"):          # Render persistent-disk mount
+    DB = "/data/telemetry.db"
+else:
+    DB = "telemetry.db"               # local dev fallback
 
 pwd = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 hashed = pwd.hash(NEW_PASSWORD)
 
 try:
+    import sqlite3
     conn = sqlite3.connect(DB)
     cur = conn.cursor()
+
+    # Try to update first
     cur.execute(
         "UPDATE users SET hashed_password=?, is_active=1 WHERE email=?",
         (hashed, EMAIL),
     )
     conn.commit()
-    rows = cur.rowcount
-    conn.close()
-    if rows:
-        print(f"Done! Login with:  {EMAIL}  /  {NEW_PASSWORD}")
+
+    if cur.rowcount:
+        print(f"Password reset.  Login with:  {EMAIL}  /  {NEW_PASSWORD}")
     else:
-        print(f"User '{EMAIL}' not found in {DB}.")
-        print("Check the email address or that you are in the right folder.")
+        # User doesn't exist — look up the platform org and insert
+        cur.execute("SELECT id FROM organizations WHERE is_internal=1 LIMIT 1")
+        row = cur.fetchone()
+        if not row:
+            print("ERROR: platform org not found. Run the app once so migrations create it.")
+            sys.exit(1)
+        org_id = row[0]
+        cur.execute(
+            """INSERT INTO users (email, name, hashed_password, role, team, organization_id, is_active)
+               VALUES (?, ?, ?, 'admin', 'platform', ?, 1)""",
+            (EMAIL, "Admin", hashed, org_id),
+        )
+        conn.commit()
+        print(f"Admin user created.  Login with:  {EMAIL}  /  {NEW_PASSWORD}")
+
+    conn.close()
 except FileNotFoundError:
-    print(f"ERROR: {DB} not found. Run this script from the project root folder.")
+    print(f"ERROR: database not found at {DB}.")
     sys.exit(1)
