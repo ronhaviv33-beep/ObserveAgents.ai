@@ -2004,6 +2004,8 @@ async def openai_compat_chat(
                      or request.headers.get("X-Guard-Agent-Version"))
     team  = _identity.team or _caller_team(current_user) or "unknown"
     agent = agent_id_raw
+    team_raw = _identity.team
+    environment_raw = _identity.environment
 
     org_client = get_client_for_org(org_id, model, db)
     _register_team(db, org_id, team)
@@ -2220,6 +2222,8 @@ async def anthropic_compat_messages(
                      or request.headers.get("X-Guard-Agent-Version"))
     team  = _identity.team or _caller_team(current_user) or "unknown"
     agent = agent_id_raw
+    team_raw = _identity.team
+    environment_raw = _identity.environment
 
     org_client = get_client_for_org(org_id, model, db)
     _register_team(db, org_id, team)
