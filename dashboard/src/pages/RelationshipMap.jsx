@@ -178,14 +178,36 @@ export default function RelationshipMap() {
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 11, fontFamily: FONT_MONO, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.textMute, marginBottom: 6 }}>
-          Inventory · Runtime
+          System of Record · Runtime Dependency Map
         </div>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: T.text }}>
-          Agent Relationship Map
+          Runtime Dependency Map
         </h1>
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: T.textDim }}>
-          Live runtime dependencies — what each AI agent calls, triggers, or writes to.
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: T.textDim, maxWidth: 600 }}>
+          We don't only discover AI agents. We map what they touch — every MCP server, tool, workflow, API, database, and CRM they interact with at runtime.
         </p>
+      </div>
+
+      {/* Field legend */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10,
+        marginBottom: 20, padding: '14px 16px',
+        background: T.panel, border: `1px solid ${T.border}`, borderRadius: 6,
+      }}>
+        {[
+          { label: 'Source Agent',     desc: 'The AI agent that initiated the interaction' },
+          { label: 'Target System',    desc: 'MCP tool, server, API, database, CRM, or workflow called' },
+          { label: 'Relationship Type',desc: 'How the agent interacts — calls, uses_tool, writes_to…' },
+          { label: 'Evidence Source',  desc: 'What signal proved this link — gateway, mcp_headers, sdk…' },
+          { label: 'Confidence',       desc: 'How certain we are this relationship is real (70–95%)' },
+          { label: 'Last Seen',        desc: 'When this interaction was last observed in live traffic' },
+          { label: 'Request Count',    desc: 'Total times this agent-to-target link has been observed' },
+        ].map(({ label, desc }) => (
+          <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ fontSize: 10, fontFamily: FONT_MONO, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.accent, fontWeight: 600 }}>{label}</span>
+            <span style={{ fontSize: 11, color: T.textDim, lineHeight: 1.5 }}>{desc}</span>
+          </div>
+        ))}
       </div>
 
       {/* Filters */}
@@ -257,24 +279,27 @@ function EmptyState() {
     }}>
       <div style={{ fontSize: 36, marginBottom: 16 }}>🔗</div>
       <div style={{ fontSize: 16, fontWeight: 600, color: T.text, marginBottom: 8 }}>
-        No relationships discovered yet
+        No dependencies mapped yet
       </div>
-      <div style={{ fontSize: 13, color: T.textDim, maxWidth: 560, margin: '0 auto 24px', lineHeight: 1.6 }}>
-        Add relationship headers to your gateway requests to start mapping agent dependencies.
+      <div style={{ fontSize: 13, color: T.textDim, maxWidth: 560, margin: '0 auto 6px', lineHeight: 1.6 }}>
+        AI Agent Inventory tells you which agents exist.
+        Runtime Dependency Map tells you what they interact with.
+      </div>
+      <div style={{ fontSize: 13, color: T.textMute, maxWidth: 560, margin: '0 auto 24px', lineHeight: 1.6 }}>
+        Add relationship headers to your gateway requests to start building the map.
       </div>
       <div style={{
         background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6,
-        padding: '16px 20px', textAlign: 'left', display: 'inline-block', maxWidth: 500,
+        padding: '16px 20px', textAlign: 'left', display: 'inline-block', maxWidth: 480,
       }}>
         <div style={{ fontSize: 10, fontFamily: FONT_MONO, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textMute, marginBottom: 10 }}>
-          Example headers
+          Example — MCP tool call
         </div>
         {[
-          ['X-Agent-Name',     'support-agent'],
-          ['X-MCP-Server',     'google-sheets-mcp'],
-          ['X-MCP-Tool',       'update_spreadsheet'],
-          ['X-Agent-Workflow', 'send-customer-email'],
-          ['X-Agent-Target',   'salesforce-crm'],
+          ['X-Agent-Name',     'sales-enrichment-agent'],
+          ['X-MCP-Server',     'hubspot-mcp'],
+          ['X-MCP-Tool',       'create_lead'],
+          ['X-Agent-Relation', 'uses_tool'],
         ].map(([k, v]) => (
           <div key={k} style={{ display: 'flex', gap: 8, marginBottom: 4, fontFamily: FONT_MONO, fontSize: 11 }}>
             <span style={{ color: T.accent }}>{k}:</span>
@@ -288,7 +313,7 @@ function EmptyState() {
 
 // ── Table ─────────────────────────────────────────────────────────────────────
 const HEADERS = [
-  'Source Agent', 'Relationship', 'Target Type', 'Target', 'Evidence', 'Confidence', 'Requests', 'Last Seen',
+  'Source Agent', 'Relationship Type', 'Target Type', 'Target System', 'Evidence Source', 'Confidence', 'Request Count', 'Last Seen',
 ]
 
 function RelationshipTable({ rows }) {

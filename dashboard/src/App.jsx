@@ -545,9 +545,9 @@ function Home({ onNavigate }) {
       {/* Header */}
       <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:24 }}>
         <div>
-          <div style={{ fontSize:22, fontWeight:600, letterSpacing:"-0.02em", color:T.text }}>AI Estate Overview</div>
+          <div style={{ fontSize:22, fontWeight:600, letterSpacing:"-0.02em", color:T.text }}>AI Agent System of Record</div>
           <div style={{ fontSize:12, color:T.textDim, marginTop:4, fontFamily:FONT_MONO }}>
-            System of record · {s.total_agents ?? 0} agents discovered · last 90 days
+            {s.total_agents ?? 0} agents discovered · runtime dependencies mapped · last 90 days
             {lastRefresh && <span style={{ color:T.textMute, marginLeft:12 }}>· {lastRefresh.toLocaleTimeString()}</span>}
           </div>
         </div>
@@ -4846,9 +4846,9 @@ function AssetsPage() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em" }}>AI Asset Inventory</div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em" }}>AI Agent Inventory</div>
           <div style={{ fontSize: 12, color: T2.textDim, marginTop: 2, fontFamily: FONT_MONO }}>
-            System of record for all AI agents — derived from proxy telemetry
+            Which agents exist · who owns them · what they cost · how they're governed
             {lastRefresh && <span style={{ marginLeft: 12, color: T2.textMute }}>· refreshed {lastRefresh.toLocaleTimeString()}</span>}
           </div>
         </div>
@@ -5303,33 +5303,42 @@ function AssetsPage() {
 // ─── Customer Welcome / Platform Guide ───────────────────────────────────────
 function CustomerWelcomePage({ onNavigate }) {
   const features = [
-    { icon: "◈", color: T.accent,  title: "Agent Inventory",        page: "agent_inventory", desc: "See every AI agent running in your organization — who owns it, what it costs, and how risky it is." },
-    { icon: "⊙", color: T.yellow,  title: "Discovery Center",        page: "discovery",       desc: "Automatically surface AI agents that were created without going through official channels." },
-    { icon: "⊛", color: T.info,    title: "Governance Center",       page: "governance",      desc: "Review and approve new agents before they go live. Assign owners, set policies." },
-    { icon: "$", color: T.accent,  title: "Cost Intelligence",       page: "cost",            desc: "Track how much each team and agent is spending on AI APIs each month." },
-    { icon: "⚑", color: T.crit,   title: "Security Intelligence",   page: "security_intel",  desc: "Get alerts on unusual activity, prompt injection attempts, and policy violations." },
-    { icon: "◎", color: T.purple,  title: "Ecosystem Discovery",     page: "ecosystem",       desc: "See which AI providers your org is connected to and how agents are distributed across them." },
+    { icon: "◈", color: T.accent,  title: "Agent Inventory",          page: "agent_inventory",  desc: "Which agents exist — who owns them, what they cost, how risky they are. The foundation of the system of record." },
+    { icon: "🔗", color: T.teal,   title: "Runtime Dependency Map",   page: "relationship_map",  desc: "What every agent touches — MCP servers, tools, workflows, APIs, databases, and CRMs mapped at runtime." },
+    { icon: "⊙", color: T.yellow,  title: "Discovery Center",         page: "discovery",         desc: "Automatically surface AI agents that were created without going through official channels." },
+    { icon: "⊛", color: T.info,    title: "Governance Center",        page: "governance",        desc: "Review and approve new agents before they go live. Assign owners, set policies." },
+    { icon: "$", color: T.accent,  title: "Cost Intelligence",        page: "cost",              desc: "Track how much each team and agent is spending on AI APIs each month." },
+    { icon: "⚑", color: T.crit,   title: "Security Intelligence",    page: "security_intel",    desc: "Get alerts on unusual activity, prompt injection attempts, and policy violations." },
   ];
   const steps = [
-    { n:"1", title:"Connect your AI gateway", desc:"Point your AI agent code at our gateway instead of directly at OpenAI or Anthropic. One line of code change.", cta:"See Integration Guide →", page:"integrations" },
-    { n:"2", title:"Tag your agents",          desc:"Add two headers to every request — your team name and an agent ID. This tells us which agent sent which request.", cta:null, page:null },
-    { n:"3", title:"Invite your team",         desc:"Add colleagues as Viewers or Analysts so they can see the agents their team owns.", cta:"Manage Users →", page:"users" },
-    { n:"4", title:"Explore your inventory",   desc:"Within minutes of sending the first request through the gateway, agents appear in the inventory automatically.", cta:"View Agent Inventory →", page:"agent_inventory" },
+    { n:"1", title:"Connect your AI gateway",    desc:"Point your AI agent code at our gateway instead of directly at OpenAI or Anthropic. One line of code change.", cta:"See Integration Guide →", page:"integrations" },
+    { n:"2", title:"Tag your agents",             desc:"Add identity headers to every request — team, agent name, and optionally the MCP server or tool being called. This tells us who sent what to where.", cta:null, page:null },
+    { n:"3", title:"Invite your team",            desc:"Add colleagues as Viewers or Analysts so they can see the agents their team owns.", cta:"Manage Users →", page:"users" },
+    { n:"4", title:"Explore inventory and deps",  desc:"Within minutes of sending the first request through the gateway, agents appear in the inventory and their dependencies start populating the Runtime Dependency Map.", cta:"View Agent Inventory →", page:"agent_inventory" },
   ];
   return (
     <div style={{ maxWidth:880, margin:"0 auto", padding:"32px 24px", fontFamily:FONT_UI }}>
       {/* Hero */}
       <div style={{ marginBottom:36, padding:"36px 40px", background:T.panel, border:`1px solid ${T.border}`, borderRadius:12, position:"relative", overflow:"hidden" }}>
         <div style={{ position:"absolute", top:-50, right:-50, width:220, height:220, borderRadius:"50%", background:`${T.accent}07`, pointerEvents:"none" }} />
-        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.accent, letterSpacing:"0.15em", textTransform:"uppercase", marginBottom:10 }}>Welcome to</div>
-        <div style={{ fontSize:30, fontWeight:700, color:T.text, marginBottom:10, lineHeight:1.2 }}>AI Asset Management</div>
-        <div style={{ fontSize:14, color:T.textDim, lineHeight:1.7, maxWidth:540, marginBottom:22 }}>
-          One place to see, track, and govern every AI agent in your organization — from the ones your team built intentionally to the ones that appeared without anyone knowing.
+        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.accent, letterSpacing:"0.15em", textTransform:"uppercase", marginBottom:10 }}>AI Agent System of Record</div>
+        <div style={{ fontSize:30, fontWeight:700, color:T.text, marginBottom:10, lineHeight:1.2 }}>Discover every agent.<br/>Map every dependency.</div>
+        <div style={{ fontSize:14, color:T.textDim, lineHeight:1.7, maxWidth:560, marginBottom:6 }}>
+          AI Agent Inventory tells you which agents exist. Runtime Dependency Map tells you what they interact with. Together, they become the system of record for enterprise AI operations.
         </div>
-        <button onClick={() => onNavigate("agent_inventory")}
-          style={{ background:T.accent, color:"#000", border:"none", borderRadius:6, padding:"10px 22px", fontSize:13, fontWeight:600, fontFamily:FONT_UI, cursor:"pointer" }}>
-          Open Agent Inventory →
-        </button>
+        <div style={{ fontSize:13, color:T.textMute, lineHeight:1.6, maxWidth:540, marginBottom:22 }}>
+          Govern every AI interaction — from the agents your team built intentionally to the ones that appeared without anyone knowing.
+        </div>
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          <button onClick={() => onNavigate("agent_inventory")}
+            style={{ background:T.accent, color:"#000", border:"none", borderRadius:6, padding:"10px 22px", fontSize:13, fontWeight:600, fontFamily:FONT_UI, cursor:"pointer" }}>
+            Open Agent Inventory →
+          </button>
+          <button onClick={() => onNavigate("relationship_map")}
+            style={{ background:"transparent", color:T.teal, border:`1px solid ${T.teal}55`, borderRadius:6, padding:"10px 22px", fontSize:13, fontWeight:600, fontFamily:FONT_UI, cursor:"pointer" }}>
+            View Dependency Map →
+          </button>
+        </div>
       </div>
       {/* Features */}
       <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>What you can do</div>
@@ -5902,8 +5911,9 @@ const PAGES = [
   { id:"governance",     label:"Governance Center" },
   { id:"cost",           label:"Cost Intelligence" },
   { id:"security_intel", label:"Security Intelligence" },
-  { id:"ecosystem",      label:"Ecosystem Discovery" },
-  { id:"budgets",        label:"Budgets" },
+  { id:"ecosystem",        label:"Ecosystem Discovery" },
+  { id:"relationship_map", label:"Runtime Dependency Map" },
+  { id:"budgets",          label:"Budgets" },
   { id:"pricing",        label:"Pricing Registry" },
   { id:"security",       label:"Security & Audit" },
   { id:"users",          label:"Users" },
@@ -5937,7 +5947,7 @@ const NAV_GROUPS = [
       { id: "agent_inventory",  label: "Agents" },
       { id: "discovery",        label: "Discovery Center" },
       { id: "governance",       label: "Governance Center" },
-      { id: "relationship_map", label: "Relationship Map" },
+      { id: "relationship_map", label: "Dependency Map" },
     ],
   },
   {
