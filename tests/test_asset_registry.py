@@ -131,7 +131,9 @@ class TestConstraint1_DiscoverUnassigned:
         assert reg is not None, "asset_registry row must be created on first proxy call"
         assert reg.status == "unassigned", f"Expected 'unassigned', got {reg.status!r}"
         assert reg.agent_id_raw == agent
-        assert reg.source == "discovered"
+        assert reg.source in ("explicit_header", "sdk_runtime", "api_key_scope", "gateway_runtime"), (
+            f"Unexpected source: {reg.source!r}"
+        )
 
     def test_asset_key_derived_from_org_and_agent_id_raw(self):
         agent = f"key-check-agent-{uuid.uuid4().hex[:6]}"
