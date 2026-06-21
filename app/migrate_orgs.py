@@ -176,6 +176,23 @@ def run():
             except RuntimeError as e:
                 log.warning(f"  Cannot seed {provider} credential: {e}")
 
+        # ── 2b. Seed default admin user if org has no users yet ─────────────
+        existing_users = db.query(User).filter(User.organization_id == platform_org.id).count()
+        if existing_users == 0:
+            from app.auth import hash_password as _hash
+            admin = User(
+                email="admin@ai-asset-mgmt.local",
+                name="Admin",
+                hashed_password=_hash("Admin123!"),
+                role="admin",
+                team="platform",
+                organization_id=platform_org.id,
+                is_active=True,
+            )
+            db.add(admin)
+            db.flush()
+            log.info("Seeded default admin user: admin@ai-asset-mgmt.local / Admin123!")
+
         # ── 3. Backfill existing ApiKeys → platform org ───────────────────────
         unset_keys = db.query(ApiKey).filter(ApiKey.organization_id == None).all()  # noqa: E711
         if unset_keys:
