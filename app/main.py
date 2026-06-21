@@ -335,6 +335,19 @@ def _discover_asset(
         return
     import json as _json
     from app.models import AssetRegistry as _AssetRegistry
+
+    # Translate the identity-resolver source into the Connected Platforms category.
+    # sdk_runtime     → SDK Runtime platform
+    # explicit_header → Gateway Telemetry (header set manually, not via SDK)
+    # api_key_scope   → Gateway Telemetry
+    # anything else   → gateway_runtime (Gateway Telemetry catch-all)
+    _DSOURCE_MAP = {
+        "sdk_runtime":     "sdk_runtime",
+        "explicit_header": "gateway_telemetry",
+        "api_key_scope":   "gateway_telemetry",
+    }
+    disc_source = _DSOURCE_MAP.get(source_hint or "", "gateway_runtime")
+
     try:
         if not db.query(_AssetRegistry).filter(
             _AssetRegistry.organization_id == org_id,
@@ -351,7 +364,7 @@ def _discover_asset(
                 status="unassigned",
                 source=source_hint or "gateway_runtime",
                 discovery_status="verified",
-                discovery_source="gateway_runtime",
+                discovery_source=disc_source,
                 discovery_reason="Agent auto-discovered from runtime gateway traffic",
                 evidence=_json.dumps(evidence_data or {}),
                 confidence_score=round(confidence_score * 100, 1),
