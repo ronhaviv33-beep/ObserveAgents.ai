@@ -64,6 +64,7 @@ def _ensure_columns():
             ("agent_version",   "VARCHAR(128)"),
             ("team_raw",        "VARCHAR(128)"),
             ("environment_raw", "VARCHAR(64)"),
+            ("is_demo",         "BOOLEAN NOT NULL DEFAULT 0"),
         ]:
             if col_name not in t_cols:
                 conn.execute(_text(f"ALTER TABLE telemetry ADD COLUMN {col_name} {col_def}"))
@@ -79,6 +80,7 @@ def _ensure_columns():
             ("claimed_by",        "VARCHAR(256)"),
             ("claimed_at",        "DATETIME"),
             ("first_seen_at",     "DATETIME"),
+            ("is_demo",           "BOOLEAN NOT NULL DEFAULT 0"),
         ]:
             if col_name not in r_cols:
                 conn.execute(_text(f"ALTER TABLE asset_registry ADD COLUMN {col_name} {col_def}"))
@@ -594,6 +596,7 @@ def make_calls(agent_id_raw, team, profile, org_id, now, version=None, env=None)
             timestamp=ts,
             asset_key=key, agent_id_raw=agent_id_raw,
             agent_version=version, team_raw=team, environment_raw=env,
+            is_demo=True,
         ))
 
     p = profile
@@ -673,11 +676,13 @@ def seed_registry_row(db, org_id, now, agent_id_raw, meta, discovery_status,
     if existing:
         for k, v in fields.items():
             setattr(existing, k, v)
+        existing.is_demo = True
     else:
         db.add(AssetRegistry(
             organization_id=org_id,
             asset_key=key,
             first_seen_at=now - timedelta(days=random.randint(5, 90)),
+            is_demo=True,
             **fields,
         ))
 
@@ -699,13 +704,14 @@ def seed(clear=False):
         if clear:
             dt = db.query(Telemetry).filter(
                 Telemetry.organization_id == org_id,
-                Telemetry.prompt.like("[demo]%"),
+                Telemetry.is_demo == True,
             ).delete(synchronize_session=False)
             dr = db.query(AssetRegistry).filter(
                 AssetRegistry.organization_id == org_id,
+                AssetRegistry.is_demo == True,
             ).delete(synchronize_session=False)
             db.commit()
-            print(f"Cleared {dt} telemetry rows and {dr} registry rows.\n")
+            print(f"Cleared {dt} demo telemetry rows and {dr} demo registry rows.\n")
 
         now   = datetime.now(timezone.utc)
         total = 0
@@ -778,6 +784,20 @@ def seed(clear=False):
             print(f"  {pa['agent_id_raw']:<32} {pa['team']:<22} source={pa['source']:<18} confidence={pa['confidence']:.0f}%")
 
         db.commit()
+
+        # ── Set demo_mode = True in org config ────────────────────────────────
+        from app.models import OrgConfig
+        import json as _json
+        cfg_row = db.query(OrgConfig).filter(
+            OrgConfig.organization_id == org_id,
+            OrgConfig.key == "demo_mode",
+        ).first()
+        if cfg_row:
+            cfg_row.value = _json.dumps(True)
+        else:
+            db.add(OrgConfig(organization_id=org_id, key="demo_mode", value=_json.dumps(True)))
+        db.commit()
+        print("\ndemo_mode set to True in org config.")
 
         # ── Summary ───────────────────────────────────────────────────────────
         n_managed    = sum(1 for a in GATEWAY_REGISTRY.values() if a.get("lifecycle") == "managed")

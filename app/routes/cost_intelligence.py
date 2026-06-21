@@ -9,6 +9,7 @@ from app.database import get_db
 from app.auth import get_current_user, resolve_team_scope, is_deny_sentinel
 from app import cost_intelligence as ci
 from app.pricing import registry as pricing_registry
+from app.org_config import get_org_config
 
 router = APIRouter(tags=["cost_intelligence"])
 
@@ -47,9 +48,10 @@ async def get_cost_intelligence(
     if is_deny_sentinel(team_scope):
         return {**_EMPTY_OVERVIEW, "breakdown": {"by": breakdown_by, "items": []}, "trends": []}
 
-    overview  = ci.get_cost_overview(db, org_id, period_start, period_end, team_scope)
-    breakdown = ci.get_cost_breakdown(db, org_id, breakdown_by, period_start, period_end, team_scope)
-    trends    = ci.get_cost_trends(db, org_id, days=days, team_scope=team_scope)
+    demo_mode = bool(get_org_config(db, org_id, "demo_mode"))
+    overview  = ci.get_cost_overview(db, org_id, period_start, period_end, team_scope, demo_mode=demo_mode)
+    breakdown = ci.get_cost_breakdown(db, org_id, breakdown_by, period_start, period_end, team_scope, demo_mode=demo_mode)
+    trends    = ci.get_cost_trends(db, org_id, days=days, team_scope=team_scope, demo_mode=demo_mode)
 
     return {
         **overview,

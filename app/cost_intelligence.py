@@ -80,12 +80,14 @@ def _runtime_cost_query(
     end: datetime,
     team_scope: Optional[str] = None,
     provider: Optional[str] = None,
+    demo_mode: bool = False,
 ) -> float:
     """Sum telemetry.cost_usd for the given period."""
     q = db.query(func.sum(Telemetry.cost_usd)).filter(
         Telemetry.organization_id == org_id,
         Telemetry.timestamp >= start,
         Telemetry.timestamp <= end,
+        Telemetry.is_demo == demo_mode,
     )
     if team_scope:
         q = q.filter(Telemetry.team == team_scope)
@@ -102,6 +104,7 @@ def get_cost_overview(
     period_start: Optional[str] = None,
     period_end: Optional[str] = None,
     team_scope: Optional[str] = None,
+    demo_mode: bool = False,
 ) -> dict:
     """
     Top-level cost summary for the dashboard overview cards.
@@ -111,11 +114,11 @@ def get_cost_overview(
     period_days = max((end - start).days, 1)
 
     # Layer 1 — runtime (telemetry)
-    runtime_total = _runtime_cost_query(db, org_id, start, end, team_scope)
+    runtime_total = _runtime_cost_query(db, org_id, start, end, team_scope, demo_mode=demo_mode)
 
     # Trend vs previous same-length period
     prev_start = start - timedelta(days=period_days)
-    prev_total = _runtime_cost_query(db, org_id, prev_start, start, team_scope)
+    prev_total = _runtime_cost_query(db, org_id, prev_start, start, team_scope, demo_mode=demo_mode)
 
     if prev_total > 0:
         trend_pct = round(((runtime_total - prev_total) / prev_total) * 100, 1)
@@ -194,6 +197,7 @@ def get_cost_breakdown(
     period_start: Optional[str] = None,
     period_end: Optional[str] = None,
     team_scope: Optional[str] = None,
+    demo_mode: bool = False,
 ) -> list[dict]:
     """
     Cost breakdown ranked by cost desc.
@@ -205,6 +209,7 @@ def get_cost_breakdown(
         Telemetry.organization_id == org_id,
         Telemetry.timestamp >= start,
         Telemetry.timestamp <= end,
+        Telemetry.is_demo == demo_mode,
     )
     if team_scope:
         q = q.filter(Telemetry.team == team_scope)
@@ -249,6 +254,7 @@ def get_cost_trends(
     org_id: int,
     days: int = 30,
     team_scope: Optional[str] = None,
+    demo_mode: bool = False,
 ) -> list[dict]:
     """
     Daily cost totals for the last N days.
@@ -260,6 +266,7 @@ def get_cost_trends(
     q = db.query(Telemetry).filter(
         Telemetry.organization_id == org_id,
         Telemetry.timestamp >= start,
+        Telemetry.is_demo == demo_mode,
     )
     if team_scope:
         q = q.filter(Telemetry.team == team_scope)
@@ -289,6 +296,7 @@ def get_agent_cost_detail(
     org_id: int,
     agent_id: str,
     days: int = 90,
+    demo_mode: bool = False,
 ) -> Optional[dict]:
     """
     Per-agent cost detail: monthly/lifetime totals, MoM trend, model breakdown,
@@ -304,6 +312,7 @@ def get_agent_cost_detail(
         Telemetry.organization_id == org_id,
         Telemetry.agent == agent_id,
         Telemetry.timestamp >= cutoff_all,
+        Telemetry.is_demo == demo_mode,
     ).all()
 
     if not all_calls:

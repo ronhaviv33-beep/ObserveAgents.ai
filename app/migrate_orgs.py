@@ -109,6 +109,10 @@ def run():
             conn.execute(_text("CREATE INDEX IF NOT EXISTS ix_teams_organization_id ON teams(organization_id)"))
             log.info("teams.organization_id added.")
 
+        # Add is_demo flag to telemetry and asset_registry (default False = real data).
+        _add_column_if_missing(conn, "telemetry",      "is_demo", "BOOLEAN NOT NULL DEFAULT 0")
+        _add_column_if_missing(conn, "asset_registry", "is_demo", "BOOLEAN NOT NULL DEFAULT 0")
+
         # Same fix for budget_rules table.
         br_cols = {row[1] for row in conn.execute(_text("PRAGMA table_info(budget_rules)"))}
         if "organization_id" not in br_cols and br_cols:

@@ -13,6 +13,7 @@ from app.database import get_db
 from app.auth import get_current_user, resolve_team_scope, is_deny_sentinel
 from app import assets as asset_lib
 from app.models import Telemetry
+from app.org_config import get_org_config
 
 router = APIRouter(tags=["assets"])
 
@@ -52,9 +53,10 @@ async def list_assets(
     if is_deny_sentinel(team_scope):
         return []
 
+    demo_mode = bool(get_org_config(db, org_id, "demo_mode"))
     assets = asset_lib.get_all_assets_derived(
         db, org_id, days_lookback=days, team_scope=team_scope,
-        include_retired=include_retired,
+        include_retired=include_retired, demo_mode=demo_mode,
     )
 
     filters = {k: v for k, v in {
@@ -82,7 +84,8 @@ async def assets_summary(
             "total_cost_usd": 0.0, "monthly_cost_usd": 0.0,
             "agents_with_pii": 0, "agents_with_blocks": 0,
         }
-    return asset_lib.get_asset_summary(db, org_id, days_lookback=days, team_scope=team_scope)
+    demo_mode = bool(get_org_config(db, org_id, "demo_mode"))
+    return asset_lib.get_asset_summary(db, org_id, days_lookback=days, team_scope=team_scope, demo_mode=demo_mode)
 
 
 @router.get("/assets/{agent_name}")
@@ -97,7 +100,8 @@ async def get_asset(
     if is_deny_sentinel(team_scope):
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    asset = asset_lib.get_asset_by_name(db, org_id, agent_name, days_lookback=days)
+    demo_mode = bool(get_org_config(db, org_id, "demo_mode"))
+    asset = asset_lib.get_asset_by_name(db, org_id, agent_name, days_lookback=days, demo_mode=demo_mode)
     if not asset:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found in telemetry")
 
@@ -127,6 +131,7 @@ async def get_asset_telemetry(
     if is_deny_sentinel(team_scope):
         return {"items": [], "total": 0}
 
+    demo_mode = bool(get_org_config(db, org_id, "demo_mode"))
     since = datetime.now(timezone.utc) - timedelta(days=days)
     q = (
         db.query(Telemetry)
@@ -134,6 +139,7 @@ async def get_asset_telemetry(
             Telemetry.organization_id == org_id,
             Telemetry.agent == agent_name,
             Telemetry.timestamp >= since,
+            Telemetry.is_demo == demo_mode,
         )
     )
     if team_scope:
@@ -175,9 +181,11 @@ async def list_unassigned_assets(
     org_id, team_scope = _org_and_scope(user, db)
     if is_deny_sentinel(team_scope):
         return []
+    demo_mode = bool(get_org_config(db, org_id, "demo_mode"))
     q = db.query(AssetRegistry).filter(
         AssetRegistry.organization_id == org_id,
         AssetRegistry.status == "unassigned",
+        AssetRegistry.is_demo == demo_mode,
     )
     rows = q.order_by(AssetRegistry.first_seen_at.desc()).all()
     return [

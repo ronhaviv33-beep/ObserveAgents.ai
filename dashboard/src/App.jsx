@@ -16,7 +16,7 @@ class PageErrorBoundary extends Component {
     return this.props.children;
   }
 }
-import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams, fetchAssets, fetchAssetsSummary, fetchAssetTelemetry, fetchUnassignedAssets, claimAsset, updateAssetRegistry, fetchOrgConfig, updateOrgConfig } from "./api.js";
+import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams, fetchAssets, fetchAssetsSummary, fetchAssetTelemetry, fetchUnassignedAssets, claimAsset, updateAssetRegistry, fetchOrgConfig, updateOrgConfig, getDemoMode, setDemoMode } from "./api.js";
 import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
@@ -209,14 +209,16 @@ function useLiveData(intervalMs = 30_000) {
   const [serverAlerts, setServerAlerts] = useState([]);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [isLive, setIsLive] = useState(false);
+  const [demoMode, setDemoModeState] = useState(true);
 
   const load = useCallback(async () => {
     if (!getToken()) { setApiRecords([]); return; }
     try {
-      const [telR, teamsR, alertsR] = await Promise.all([
+      const [telR, teamsR, alertsR, dm] = await Promise.all([
         authFetch(`${BASE}/telemetry?limit=1000`),
         fetchTeams().catch(() => []),
         authFetch(`${BASE}/security/alerts`).catch(() => null),
+        getDemoMode().catch(() => true),
       ]);
       if (!telR || !telR.ok) throw new Error("API error");
       const data = await telR.json();
@@ -226,7 +228,8 @@ function useLiveData(intervalMs = 30_000) {
         const sa = await alertsR.json();
         setServerAlerts(Array.isArray(sa) ? sa : []);
       }
-      setIsLive(data.length > 0);
+      setDemoModeState(!!dm);
+      setIsLive(!dm);
       setLastRefresh(new Date());
     } catch {
       setApiRecords([]); // fall back to demo
@@ -239,7 +242,7 @@ function useLiveData(intervalMs = 30_000) {
     return () => clearInterval(id);
   }, [load, intervalMs]);
 
-  return { apiRecords, serverTeams, serverAlerts, lastRefresh, isLive, refresh: load };
+  return { apiRecords, serverTeams, serverAlerts, lastRefresh, isLive, demoMode, setDemoModeState, refresh: load };
 }
 
 // ─── Filter / aggregation helpers ────────────────────────────────────────────
@@ -5970,7 +5973,18 @@ export default function App() {
     setUser(null);
   };
 
-  const { apiRecords, serverTeams, serverAlerts, lastRefresh, isLive, refresh } = useLiveData(30_000);
+  const { apiRecords, serverTeams, serverAlerts, lastRefresh, isLive, demoMode, setDemoModeState, refresh } = useLiveData(30_000);
+
+  const handleToggleDemoMode = useCallback(async () => {
+    const next = !demoMode;
+    try {
+      await setDemoMode(next);
+      setDemoModeState(next);
+      refresh();
+    } catch (e) {
+      console.error("Failed to toggle demo mode", e);
+    }
+  }, [demoMode, setDemoModeState, refresh]);
 
   // Platform guard mode badge (best-effort — silent if unauthenticated)
   const [platformMode,       setPlatformMode]       = useState(null);
@@ -6143,10 +6157,11 @@ export default function App() {
             </div>
           )}
           <div style={{ fontSize:10, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.08em", lineHeight:1.8 }}>
-            <div style={{ color:isLive?T.accent:T.warn }}>● {isLive?"live data":"demo mode"}</div>
+            <div style={{ color:demoMode?T.warn:T.accent }}>● {demoMode?"demo mode":"live data"}</div>
             <span style={{ color:T.textMute }}>{filteredEvents.length.toLocaleString()} events / {filters.range}d</span>
             {lastRefresh && <div style={{ color:T.textMute, marginTop:2 }}>updated {lastRefresh.toLocaleTimeString()}</div>}
           </div>
+          <button onClick={handleToggleDemoMode} title={demoMode?"Switch to live data":"Switch to demo mode"} style={{ width:"100%", background:"transparent", border:`1px solid ${demoMode?T.warn:T.accentDim}`, color:demoMode?T.warn:T.accent, padding:"6px 10px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>{demoMode?"⇄ show live":"⇄ show demo"}</button>
           <button onClick={refresh} style={{ width:"100%", background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"6px 10px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>↻ Refresh</button>
         </div>
       </aside>
@@ -6172,7 +6187,7 @@ export default function App() {
             <span style={{ color:T.textMute }}>|</span>
             <span>last {filters.range}d</span>
             <span style={{ color:T.textMute }}>|</span>
-            <span style={{ color:isLive?T.accent:T.warn }}>● {isLive?"live":"demo"}</span>
+            <span style={{ color:demoMode?T.warn:T.accent }}>● {demoMode?"demo":"live"}</span>
             {pricingLastUpdated && (
               <>
                 <span style={{ color:T.textMute }}>|</span>
