@@ -163,17 +163,24 @@ def request_json(
     extra_headers: dict[str, str] | None = None,
 ) -> tuple[int, Any]:
     """Make an authenticated HTTP request; return (status_code, parsed_body)."""
-    with _client(token=token, api_key=api_key) as c:
-        hdrs = extra_headers or {}
-        kwargs: dict[str, Any] = {"headers": hdrs}
-        if body is not None:
-            kwargs["json"] = body
-        r = c.request(method.upper(), path, **kwargs)
-        try:
-            data = r.json()
-        except Exception:
-            data = r.text
-        return r.status_code, data
+    try:
+        with _client(token=token, api_key=api_key) as c:
+            hdrs = extra_headers or {}
+            kwargs: dict[str, Any] = {"headers": hdrs}
+            if body is not None:
+                kwargs["json"] = body
+            r = c.request(method.upper(), path, **kwargs)
+            try:
+                data = r.json()
+            except Exception:
+                data = r.text
+            return r.status_code, data
+    except httpx.ConnectError as e:
+        return 0, {"error": f"Connection refused — is the backend running at {BASE_URL}? ({e})"}
+    except httpx.TimeoutException as e:
+        return 0, {"error": f"Request timed out: {e}"}
+    except Exception as e:
+        return 0, {"error": f"Request error: {e}"}
 
 
 def login(email: str, password: str) -> str:
