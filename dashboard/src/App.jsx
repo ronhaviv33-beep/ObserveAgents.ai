@@ -3788,7 +3788,7 @@ function ProviderCredentialsSection() {
 
 
 // ─── Role management section ──────────────────────────────────────────────────
-const ALL_PAGES = ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations","onboarding"];
+const ALL_PAGES = ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations","onboarding","agent_inventory","discovery","governance","relationship_map","security_intel","ecosystem","pricing","welcome"];
 const ALL_CAPS  = ["view_all_sessions"];
 
 function RolesManagementSection() {
