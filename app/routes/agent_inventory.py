@@ -13,6 +13,7 @@ from app.database import get_db
 from app.auth import get_current_user, resolve_team_scope, is_deny_sentinel, require_admin
 from app import agent_inventory as inv
 from app.models import AssetRegistry
+from app.org_config import get_org_config
 
 router = APIRouter(tags=["agent_inventory"])
 
@@ -72,9 +73,10 @@ async def list_agents(
     if is_deny_sentinel(team_scope):
         return []
 
+    demo_mode = bool(get_org_config(db, org_id, "demo_mode"))
     agents = inv.get_inventory(
         db, org_id, days_lookback=days, team_scope=team_scope,
-        include_retired=include_retired, discovery_status=discovery_status,
+        include_retired=include_retired, discovery_status=discovery_status, demo_mode=demo_mode,
     )
 
     filters = {k: v for k, v in {
@@ -98,7 +100,8 @@ async def agents_summary(
     org_id, team_scope = _org_and_scope(user, db)
     if is_deny_sentinel(team_scope):
         return _EMPTY_SUMMARY
-    return inv.get_inventory_summary(db, org_id, days_lookback=days, team_scope=team_scope)
+    demo_mode = bool(get_org_config(db, org_id, "demo_mode"))
+    return inv.get_inventory_summary(db, org_id, days_lookback=days, team_scope=team_scope, demo_mode=demo_mode)
 
 
 @router.get("/agents/{agent_id}")
@@ -112,7 +115,8 @@ async def get_agent(
     if is_deny_sentinel(team_scope):
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    agent = inv.get_agent_by_id(db, org_id, agent_id, days_lookback=days)
+    demo_mode = bool(get_org_config(db, org_id, "demo_mode"))
+    agent = inv.get_agent_by_id(db, org_id, agent_id, days_lookback=days, demo_mode=demo_mode)
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
 

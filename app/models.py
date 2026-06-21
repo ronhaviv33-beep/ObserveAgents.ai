@@ -232,6 +232,7 @@ class Telemetry(Base):
     agent_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
     team_raw: Mapped[str | None] = mapped_column(String(128), nullable=True)
     environment_raw: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class User(Base):
@@ -353,6 +354,7 @@ class AssetRegistry(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class ChatSession(Base):

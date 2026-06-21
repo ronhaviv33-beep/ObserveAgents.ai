@@ -114,6 +114,7 @@ def get_inventory(
     team_scope: Optional[str] = None,
     include_retired: bool = False,
     discovery_status: Optional[str] = None,
+    demo_mode: bool = False,
 ) -> list[dict]:
     """
     Return all agent inventory records.
@@ -130,6 +131,7 @@ def get_inventory(
             days_lookback=days_lookback,
             team_scope=team_scope,
             include_retired=include_retired,
+            demo_mode=demo_mode,
         )
         result.extend(_to_inventory_record(a) for a in assets)
 
@@ -139,6 +141,7 @@ def get_inventory(
             q = db.query(AssetRegistry).filter(
                 AssetRegistry.organization_id == organization_id,
                 AssetRegistry.discovery_status == "potential",
+                AssetRegistry.is_demo == demo_mode,
             )
             if not include_retired:
                 q = q.filter(AssetRegistry.status != "retired")
@@ -158,6 +161,7 @@ def get_inventory(
                 AssetRegistry.organization_id == organization_id,
                 AssetRegistry.discovery_status == "verified",
                 AssetRegistry.source == "claimed",
+                AssetRegistry.is_demo == demo_mode,
             )
             if not include_retired:
                 q = q.filter(AssetRegistry.status != "retired")
@@ -180,11 +184,12 @@ def get_inventory_summary(
     organization_id: int,
     days_lookback: int = 90,
     team_scope: Optional[str] = None,
+    demo_mode: bool = False,
 ) -> dict:
     """Structured KPI summary for the Agent Inventory dashboard."""
     all_agents = get_inventory(
         db, organization_id, days_lookback=days_lookback,
-        team_scope=team_scope, include_retired=True,
+        team_scope=team_scope, include_retired=True, demo_mode=demo_mode,
     )
 
     verified  = [a for a in all_agents if a["discovery_status"] == "verified"]
@@ -219,13 +224,14 @@ def get_agent_by_id(
     organization_id: int,
     agent_id: str,
     days_lookback: int = 90,
+    demo_mode: bool = False,
 ) -> Optional[dict]:
     """
     Get a single inventory record by agent_id.
     Tries agent_name lookup first (verified path), then asset_key lookup (potential path).
     """
     # Verified: agent_id is agent_name / agent_id_raw
-    asset = _assets.get_asset_by_name(db, organization_id, agent_id, days_lookback=days_lookback)
+    asset = _assets.get_asset_by_name(db, organization_id, agent_id, days_lookback=days_lookback, demo_mode=demo_mode)
     if asset:
         return _to_inventory_record(asset)
 
@@ -234,6 +240,7 @@ def get_agent_by_id(
         reg = db.query(AssetRegistry).filter(
             AssetRegistry.organization_id == organization_id,
             AssetRegistry.asset_key == agent_id,
+            AssetRegistry.is_demo == demo_mode,
         ).first()
         if reg:
             ds = getattr(reg, "discovery_status", "verified") or "verified"

@@ -21,6 +21,7 @@ def save(
     agent_version: str | None = None,
     team_raw: str | None = None,
     environment_raw: str | None = None,
+    is_demo: bool = False,
 ) -> Telemetry:
     cost_usd, pricing_estimated = calculate_cost(result.model, result.prompt_tokens, result.completion_tokens)
     record = Telemetry(
@@ -44,6 +45,7 @@ def save(
         agent_version=agent_version,
         team_raw=team_raw,
         environment_raw=environment_raw,
+        is_demo=is_demo,
     )
     db.add(record)
     db.commit()
@@ -66,6 +68,7 @@ def save_blocked(
     agent_version: str | None = None,
     team_raw: str | None = None,
     environment_raw: str | None = None,
+    is_demo: bool = False,
 ) -> Telemetry:
     """Record a request that was blocked before reaching the LLM."""
     record = Telemetry(
@@ -82,6 +85,7 @@ def save_blocked(
         agent_version=agent_version,
         team_raw=team_raw,
         environment_raw=environment_raw,
+        is_demo=is_demo,
     )
     db.add(record)
     db.commit()
@@ -90,19 +94,21 @@ def save_blocked(
 
 
 def get_all(db: Session, organization_id: int | None, skip: int = 0, limit: int = 100,
-            team_scope: str | None = None) -> list[Telemetry]:
+            team_scope: str | None = None, demo_mode: bool = False) -> list[Telemetry]:
     q = db.query(Telemetry).order_by(Telemetry.timestamp.desc())
     q = q.filter(Telemetry.organization_id == organization_id)
+    q = q.filter(Telemetry.is_demo == demo_mode)
     if team_scope is not None:
         q = q.filter(Telemetry.team == team_scope)
     return q.offset(skip).limit(limit).all()
 
 
 def get_summary(db: Session, organization_id: int | None,
-                team_scope: str | None = None) -> TelemetrySummary:
+                team_scope: str | None = None, demo_mode: bool = False) -> TelemetrySummary:
     q = db.query(Telemetry).filter(
         Telemetry.blocked == False,
         Telemetry.organization_id == organization_id,
+        Telemetry.is_demo == demo_mode,
     )
     if team_scope is not None:
         q = q.filter(Telemetry.team == team_scope)
@@ -132,9 +138,11 @@ def get_audit(
     skip: int = 0,
     limit: int = 100,
     team_scope: str | None = None,
+    demo_mode: bool = False,
 ) -> list[Telemetry]:
     q = db.query(Telemetry).order_by(Telemetry.timestamp.desc())
     q = q.filter(Telemetry.organization_id == organization_id)
+    q = q.filter(Telemetry.is_demo == demo_mode)
     # team_scope (role-based) and team (query param) are independent — both apply
     if team_scope is not None:
         q = q.filter(Telemetry.team == team_scope)
@@ -150,13 +158,15 @@ def get_audit(
 
 
 def would_block_counts(db: Session, days: int = 30,
-                       organization_id: int | None = None) -> dict[str, int]:
+                       organization_id: int | None = None,
+                       demo_mode: bool = False) -> dict[str, int]:
     """Count shadow-block ('would_block') findings per team over the last N days."""
     from datetime import datetime, timezone, timedelta
     since = datetime.now(timezone.utc) - timedelta(days=days)
     q = db.query(Telemetry).filter(
         Telemetry.timestamp >= since,
         Telemetry.sensitive_findings.like('%would_block%'),
+        Telemetry.is_demo == demo_mode,
     )
     if organization_id is not None:
         q = q.filter(Telemetry.organization_id == organization_id)
@@ -168,7 +178,8 @@ def would_block_counts(db: Session, days: int = 30,
 
 
 def get_security_alerts(db: Session, organization_id: int | None,
-                        team_scope: str | None = None) -> list[dict]:
+                        team_scope: str | None = None,
+                        demo_mode: bool = False) -> list[dict]:
     """Run detection rules against real telemetry and return live alerts."""
     from datetime import datetime, timezone, timedelta
     alerts = []
@@ -177,7 +188,10 @@ def get_security_alerts(db: Session, organization_id: int | None,
     week_ago = now - timedelta(days=7)
 
     def _q():
-        q = db.query(Telemetry).filter(Telemetry.organization_id == organization_id)
+        q = db.query(Telemetry).filter(
+            Telemetry.organization_id == organization_id,
+            Telemetry.is_demo == demo_mode,
+        )
         if team_scope is not None:
             q = q.filter(Telemetry.team == team_scope)
         return q

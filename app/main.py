@@ -1107,7 +1107,8 @@ def list_guard_modes(db: Session = Depends(get_db), actor=Depends(require_page_a
             overrides = {g.team: g for g in db.query(GuardMode).all()}
         except Exception:
             overrides = {}
-    shadow = tel.would_block_counts(db, days=30, organization_id=actor.organization_id)
+    _dm = bool(_get_org_config(db, actor.organization_id, "demo_mode"))
+    shadow = tel.would_block_counts(db, days=30, organization_id=actor.organization_id, demo_mode=_dm)
     # Union of: telemetry teams + override teams + registered teams + api_key teams
     teams = set(shadow.keys()) | set(overrides.keys())
     try:
@@ -1200,7 +1201,8 @@ def set_guard_mode(team: str, req: GuardModeUpdate, db: Session = Depends(get_db
         organization_id=org_id,
     )
 
-    shadow = tel.would_block_counts(db, days=30, organization_id=org_id)
+    _dm2 = bool(_get_org_config(db, org_id, "demo_mode"))
+    shadow = tel.would_block_counts(db, days=30, organization_id=org_id, demo_mode=_dm2)
     return GuardModeOut(team=team, mode=effective, is_override=is_override,
                         would_block_30d=shadow.get(team, 0), updated_at=updated_at)
 
@@ -1421,8 +1423,9 @@ def get_telemetry(
     ts = resolve_team_scope(current_user, db)
     if is_deny_sentinel(ts):
         return []
+    _dm = bool(_get_org_config(db, current_user.organization_id, "demo_mode"))
     return _redact_sensitive_records(
-        tel.get_all(db, organization_id=current_user.organization_id, skip=skip, limit=limit, team_scope=ts),
+        tel.get_all(db, organization_id=current_user.organization_id, skip=skip, limit=limit, team_scope=ts, demo_mode=_dm),
         current_user,
     )
 
@@ -1434,7 +1437,8 @@ def get_summary(db: Session = Depends(get_db), current_user=Depends(get_current_
         from app.schemas import TelemetrySummary as _TS
         return _TS(total_requests=0, total_tokens=0, total_cost_usd=0.0,
                    avg_latency_ms=0.0, models_used=[], teams=[])
-    return tel.get_summary(db, organization_id=current_user.organization_id, team_scope=ts)
+    _dm = bool(_get_org_config(db, current_user.organization_id, "demo_mode"))
+    return tel.get_summary(db, organization_id=current_user.organization_id, team_scope=ts, demo_mode=_dm)
 
 
 # ─── Audit log ────────────────────────────────────────────────────────────────
@@ -1454,11 +1458,12 @@ def get_audit(
     ts = resolve_team_scope(current_user, db)
     if is_deny_sentinel(ts):
         return []
+    _dm = bool(_get_org_config(db, current_user.organization_id, "demo_mode"))
     records = tel.get_audit(
         db, organization_id=current_user.organization_id,
         team=team, agent=agent,
         sensitive_only=sensitive_only, blocked_only=blocked_only,
-        skip=skip, limit=limit, team_scope=ts,
+        skip=skip, limit=limit, team_scope=ts, demo_mode=_dm,
     )
     return _redact_sensitive_records(records, current_user)
 
@@ -1480,7 +1485,8 @@ def security_alerts(db: Session = Depends(get_db), current_user=Depends(get_curr
     ts = resolve_team_scope(current_user, db)
     if is_deny_sentinel(ts):
         return []
-    return tel.get_security_alerts(db, organization_id=current_user.organization_id, team_scope=ts)
+    _dm = bool(_get_org_config(db, current_user.organization_id, "demo_mode"))
+    return tel.get_security_alerts(db, organization_id=current_user.organization_id, team_scope=ts, demo_mode=_dm)
 
 
 # ─── Budgets ──────────────────────────────────────────────────────────────────
@@ -1773,37 +1779,20 @@ def update_key(req: KeyUpdateRequest, _=Depends(require_page_access("settings"))
 
 _ORG_CONFIG_DEFAULTS = {
     "environments": ["production", "staging", "development"],
+    "demo_mode": True,
 }
 
-def _get_org_config(db: Session, org_id: int, key: str):
-    from app.models import OrgConfig
-    row = db.query(OrgConfig).filter(OrgConfig.organization_id == org_id, OrgConfig.key == key).first()
-    if row is None:
-        return _ORG_CONFIG_DEFAULTS.get(key)
-    try:
-        return json.loads(row.value)
-    except Exception:
-        return row.value
-
-def _set_org_config(db: Session, org_id: int, key: str, value):
-    from app.models import OrgConfig
-    row = db.query(OrgConfig).filter(OrgConfig.organization_id == org_id, OrgConfig.key == key).first()
-    encoded = json.dumps(value)
-    if row:
-        row.value = encoded
-        row.updated_at = datetime.now(timezone.utc)
-    else:
-        db.add(OrgConfig(organization_id=org_id, key=key, value=encoded))
-    db.commit()
+from app.org_config import get_org_config as _get_org_config, set_org_config as _set_org_config
 
 @app.get("/settings/config", tags=["Auth — Users"])
-def get_org_config(user=Depends(get_current_user), db: Session = Depends(get_db)):
+def get_org_config_endpoint(user=Depends(get_current_user), db: Session = Depends(get_db)):
     """Return all org-level config values."""
     from app.models import OrgConfig, Organization
+    from app.org_config import DEFAULTS as _OC_DEFAULTS
     org = db.query(Organization).filter(Organization.id == user.organization_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organisation not found")
-    result = dict(_ORG_CONFIG_DEFAULTS)  # start with defaults
+    result = dict(_OC_DEFAULTS)  # start with defaults
     rows = db.query(OrgConfig).filter(OrgConfig.organization_id == org.id).all()
     for row in rows:
         try:
@@ -1813,7 +1802,7 @@ def get_org_config(user=Depends(get_current_user), db: Session = Depends(get_db)
     return result
 
 @app.put("/settings/config/{key}", tags=["Auth — Users"])
-def set_org_config(key: str, body: dict = Body(...), user=Depends(require_admin), db: Session = Depends(get_db)):
+def set_org_config_endpoint(key: str, body: dict = Body(...), user=Depends(require_admin), db: Session = Depends(get_db)):
     """Set a single org config value (admin only). Body: {\"value\": ...}"""
     from app.models import Organization
     org = db.query(Organization).filter(Organization.id == user.organization_id).first()
@@ -1821,6 +1810,22 @@ def set_org_config(key: str, body: dict = Body(...), user=Depends(require_admin)
         raise HTTPException(status_code=404, detail="Organisation not found")
     _set_org_config(db, org.id, key, body.get("value"))
     return {"key": key, "value": body.get("value")}
+
+
+@app.get("/settings/demo-mode", tags=["Auth — Users"])
+def get_demo_mode(user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """Return the current demo-mode setting for this organisation."""
+    org_id = user.organization_id
+    demo = _get_org_config(db, org_id, "demo_mode")
+    return {"demo_mode": bool(demo) if demo is not None else True}
+
+
+@app.patch("/settings/demo-mode", tags=["Auth — Users"])
+def set_demo_mode(body: dict = Body(...), user=Depends(require_admin), db: Session = Depends(get_db)):
+    """Toggle demo mode on/off (admin only). Body: {\"demo_mode\": true|false}"""
+    demo = bool(body.get("demo_mode", False))
+    _set_org_config(db, user.organization_id, "demo_mode", demo)
+    return {"demo_mode": demo}
 
 
 # ─── OpenAI-Compatible Proxy (/v1/chat/completions) ──────────────────────────
@@ -2075,6 +2080,8 @@ async def openai_compat_chat(
                     team_raw=team_raw,
                     environment_raw=environment_raw,
                 )
+                if org_id and _get_org_config(db, org_id, "demo_mode"):
+                    _set_org_config(db, org_id, "demo_mode", False)
 
         return StreamingResponse(
             relay(),
@@ -2130,6 +2137,8 @@ async def openai_compat_chat(
         team_raw=team_raw,
         environment_raw=environment_raw,
     )
+    if org_id and _get_org_config(db, org_id, "demo_mode"):
+        _set_org_config(db, org_id, "demo_mode", False)
 
     _cost_usd, _pricing_estimated = calculate_cost(resp_model, pt, ct)
     resp_dict["x_guard"] = {
@@ -2321,6 +2330,8 @@ async def anthropic_compat_messages(
                     team_raw=team_raw,
                     environment_raw=environment_raw,
                 )
+                if org_id and _get_org_config(db, org_id, "demo_mode"):
+                    _set_org_config(db, org_id, "demo_mode", False)
 
         return StreamingResponse(
             anthropic_relay(),
@@ -2375,6 +2386,8 @@ async def anthropic_compat_messages(
         team_raw=team_raw,
         environment_raw=environment_raw,
     )
+    if org_id and _get_org_config(db, org_id, "demo_mode"):
+        _set_org_config(db, org_id, "demo_mode", False)
 
     _anth_cost, _anth_pricing_estimated = calculate_cost(resp_model, pt, ct)
     return {

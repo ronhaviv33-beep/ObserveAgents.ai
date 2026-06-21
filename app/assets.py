@@ -182,6 +182,7 @@ def get_all_assets_derived(
     days_lookback: int = 90,
     team_scope: Optional[str] = None,
     include_retired: bool = False,
+    demo_mode: bool = False,
 ) -> list[dict]:
     """
     Main function: read telemetry, group by agent, derive asset inventory.
@@ -198,6 +199,7 @@ def get_all_assets_derived(
         .filter(
             Telemetry.organization_id == organization_id,
             Telemetry.timestamp >= since,
+            Telemetry.is_demo == demo_mode,
         )
     )
     if team_scope:
@@ -222,7 +224,10 @@ def get_all_assets_derived(
     try:
         registry_rows = (
             db.query(AssetRegistry)
-            .filter(AssetRegistry.organization_id == organization_id)
+            .filter(
+                AssetRegistry.organization_id == organization_id,
+                AssetRegistry.is_demo == demo_mode,
+            )
             .all()
         )
         registry_by_key: dict[str, AssetRegistry] = {r.asset_key: r for r in registry_rows}
@@ -250,6 +255,7 @@ def get_asset_by_name(
     organization_id: int,
     agent_name: str,
     days_lookback: int = 90,
+    demo_mode: bool = False,
 ) -> Optional[dict]:
     """
     Get a single agent asset by name, with governance metadata merged from asset_registry.
@@ -262,6 +268,7 @@ def get_asset_by_name(
             Telemetry.organization_id == organization_id,
             Telemetry.agent == agent_name,
             Telemetry.timestamp >= since,
+            Telemetry.is_demo == demo_mode,
         )
         .all()
     )
@@ -278,6 +285,7 @@ def get_asset_by_name(
         reg = db.query(AssetRegistry).filter(
             AssetRegistry.organization_id == organization_id,
             AssetRegistry.asset_key == key,
+            AssetRegistry.is_demo == demo_mode,
         ).first()
         if reg:
             _merge_registry(asset, reg)
@@ -292,9 +300,10 @@ def get_asset_summary(
     organization_id: int,
     days_lookback: int = 90,
     team_scope: Optional[str] = None,
+    demo_mode: bool = False,
 ) -> dict:
     """KPI metrics for the dashboard summary cards."""
-    assets = get_all_assets_derived(db, organization_id, days_lookback, team_scope)
+    assets = get_all_assets_derived(db, organization_id, days_lookback, team_scope, demo_mode=demo_mode)
     if not assets:
         return {
             "total_agents":    0,

@@ -138,6 +138,22 @@ export async function updateKey(key, value) {
   return r.json()
 }
 
+export async function getDemoMode() {
+  const r = await authFetch(`${BASE}/settings/demo-mode`)
+  if (!r || !r.ok) return true  // safe default: show demo when unknown
+  const data = await r.json()
+  return data.demo_mode
+}
+
+export async function setDemoMode(enabled) {
+  const r = await authFetch(`${BASE}/settings/demo-mode`, {
+    method: 'PATCH',
+    body: JSON.stringify({ demo_mode: enabled }),
+  })
+  if (!r || !r.ok) throw new Error('Failed to update demo mode')
+  return r.json()
+}
+
 // ── Provider credentials (BYOK) ──────────────────────────────────────────────
 
 export async function fetchProviderCredentials() {
