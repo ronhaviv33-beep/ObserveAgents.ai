@@ -577,11 +577,14 @@ def _check_login_rate_limit(ip: str):
 # ─── Startup seed ─────────────────────────────────────────────────────────────
 
 def _seed_admin():
+    import secrets as _secrets
     from app.models import User
     db = next(get_db())
     try:
         if not db.query(User).filter(User.email == "admin@ai-asset-mgmt.local").first():
-            seed_pw = os.getenv("ADMIN_SEED_PASSWORD", "Ch@ngeMe!FinOps2026#")
+            # If ADMIN_SEED_PASSWORD is set use it; otherwise generate a random one and
+            # print it once so the operator can capture it from the boot logs.
+            seed_pw = os.getenv("ADMIN_SEED_PASSWORD") or _secrets.token_urlsafe(20)
             db.add(User(
                 email="admin@ai-asset-mgmt.local",
                 name="Admin",
@@ -591,6 +594,20 @@ def _seed_admin():
                 is_platform_admin=True,
             ))
             db.commit()
+            if not os.getenv("ADMIN_SEED_PASSWORD"):
+                print(
+                    "\n"
+                    "╔══════════════════════════════════════════════════════════════╗\n"
+                    "║           PLATFORM ADMIN — FIRST-BOOT CREDENTIALS           ║\n"
+                    "║                                                              ║\n"
+                    f"║  email   : admin@ai-asset-mgmt.local                        ║\n"
+                    f"║  password: {seed_pw:<50} ║\n"
+                    "║                                                              ║\n"
+                    "║  Change this password immediately after first login.         ║\n"
+                    "║  Set ADMIN_SEED_PASSWORD env var to control the initial pw.  ║\n"
+                    "╚══════════════════════════════════════════════════════════════╝\n",
+                    flush=True,
+                )
     finally:
         db.close()
 
