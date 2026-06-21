@@ -442,11 +442,16 @@ def section_03_org_management(state: State, args: argparse.Namespace) -> None:
         record_fail(state, "GET /admin/organizations", f"Unexpected {status}: {body}",
                     endpoint="/admin/organizations", status=status, body=body)
 
-    # POST /admin/organizations
+    # POST /admin/organizations — schema: {name, admin_email, admin_name, admin_password}
     status, data = request_json(
         "POST", "/admin/organizations",
         token=state.platform_token,
-        body={"name": ACME_ORG_NAME, "slug": ACME_ORG_SLUG},
+        body={
+            "name":           ACME_ORG_NAME,
+            "admin_email":    ACME_ADMIN_EMAIL,
+            "admin_name":     "Acme Admin",
+            "admin_password": ACME_ADMIN_PASSWORD,
+        },
     )
     if status in (200, 201):
         org_id = data.get("id", 0) if isinstance(data, dict) else 0
@@ -692,14 +697,14 @@ def section_06_api_keys(state: State, args: argparse.Namespace) -> None:
         endpoint="/api-keys", status=status,
     )
 
-    # Patch the first key
+    # Patch the first key — endpoint only accepts is_active (bool)
     first_name = API_KEY_SPECS[0]["name"]
     if first_name in state.api_key_ids:
         key_id = state.api_key_ids[first_name]
         status, data = request_json(
             "PATCH", f"/api-keys/{key_id}",
             token=token,
-            body={"name": f"{first_name}-patched"},
+            body={"is_active": True},
         )
         body = json.dumps(data)[:120] if isinstance(data, dict) else str(data)[:120]
         assert_condition(
@@ -859,7 +864,7 @@ def _proxy_call(
     if status == 200:
         record_pass(state, label, endpoint="/v1/chat/completions", status=status)
         return True
-    if status in (400, 503) and skip_live:
+    if status in (400, 402, 503) and skip_live:
         record_skip(state, label, "No LLM provider credential (--skip-live-llm)", strict=strict)
         return False
     record_fail(state, label, f"Got {status}: {body}",
@@ -921,7 +926,7 @@ def section_10_anthropic_proxy(state: State, args: argparse.Namespace) -> None:
     label = "POST /v1/messages — Anthropic proxy"
     if status == 200:
         record_pass(state, label, endpoint="/v1/messages", status=status)
-    elif status in (400, 503) and args.skip_live_llm:
+    elif status in (400, 402, 503) and args.skip_live_llm:
         record_skip(state, label, "No LLM provider credential (--skip-live-llm)", strict=args.strict)
     else:
         record_fail(state, label, f"Got {status}: {body}",
@@ -1106,16 +1111,14 @@ def section_15_policy_enforcement(state: State, args: argparse.Namespace) -> Non
         endpoint="/guard-modes/Support", status=status, body=body,
     )
 
-    # Create a block policy for gpt-4 on Support team
+    # Create a block policy for Support team — schema: {team, rule_type, value}
     status, data = request_json(
         "POST", "/policies",
         token=token,
         body={
-            "team":       "Support",
-            "rule_type":  "block_model",
-            "model":      MODEL,
-            "action":     "block",
-            "reason":     "E2E policy enforcement test",
+            "team":      "Support",
+            "rule_type": "block_model",
+            "value":     MODEL,
         },
     )
     body = json.dumps(data)[:120] if isinstance(data, dict) else str(data)[:120]
@@ -1470,11 +1473,11 @@ def section_23_sessions(state: State, args: argparse.Namespace) -> None:
             record_skip(state, label, "No auth token", strict=args.strict)
         return
 
-    # Create session
+    # Create session — schema: {team, agent, model}
     status, data = request_json(
         "POST", "/sessions",
         token=token,
-        body={"name": "E2E test session", "description": "Synthetic customer e2e"},
+        body={"team": "Support", "agent": "support-triage-agent", "model": MODEL},
     )
     body = json.dumps(data)[:120] if isinstance(data, dict) else str(data)[:120]
     if status in (200, 201) and isinstance(data, dict):
