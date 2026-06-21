@@ -669,7 +669,8 @@ async def security_headers(request: Request, call_next):
 
 # ─── Health ───────────────────────────────────────────────────────────────────
 
-@app.get("/", tags=["GET — Read / Monitor"])
+@app.get("/health", tags=["GET — Read / Monitor"])
+@app.get("/api/health", tags=["GET — Read / Monitor"])
 def root():
     return {"status": "AI Asset Management Gateway Running", "version": "0.5.0"}
 
