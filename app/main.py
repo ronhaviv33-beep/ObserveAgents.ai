@@ -544,7 +544,11 @@ def _proxy_rate_limit_key(request: Request) -> str:
     return f"ip:{request.client.host if request.client else 'unknown'}"
 
 
-_proxy_limiter = Limiter(key_func=_proxy_rate_limit_key)
+_proxy_limiter = Limiter(key_func=_proxy_rate_limit_key, headers_enabled=True)
+# headers_enabled=True adds Retry-After + X-RateLimit-* headers to every 429 response.
+# NOTE: slowapi uses an in-memory backend by default — counters are per-worker and
+# reset on restart. This is acceptable for the current single-worker Render deployment.
+# TODO: swap in slowapi.wrappers.AsyncRedisStorage before scaling to multiple workers.
 
 
 # ─── Circuit breaker (protects callers during enforcement outages) ────────────
