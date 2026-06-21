@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import {
   fetchAgentsSummary, fetchAgents,
   fetchCostIntelligence, fetchSecurityAlerts,
+  fetchRelationships,
 } from "../api.js";
 
 const T = {
@@ -10,13 +11,24 @@ const T = {
   border: "#1E2230", borderHi: "#2A3142",
   text: "#E8ECF4", textDim: "#7A8499", textMute: "#4B5468",
   accent: "#7CFFB2", warn: "#FFB547", crit: "#FF5C7A",
-  info: "#6FA8FF", yellow: "#FFD700", purple: "#B47AFF",
+  info: "#6FA8FF", yellow: "#FFD700", purple: "#B47AFF", teal: "#5BD9C5",
 };
 const FONT = "'Geist','Söhne',-apple-system,sans-serif";
 const MONO = "'JetBrains Mono','IBM Plex Mono',monospace";
 
 const fmtUSD = (v) =>
   "$" + (+(v || 0)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const fmtRelDate = (iso) => {
+  if (!iso) return "—";
+  try {
+    const diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60000)   return "just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return new Date(iso).toLocaleDateString();
+  } catch { return iso; }
+};
 
 const SOURCE_META = {
   gateway_telemetry: { label: "Gateway Telemetry", color: T.accent },
@@ -86,28 +98,31 @@ function Panel({ children, style }) {
 }
 
 export default function ExecutiveDashboard({ onNavigate }) {
-  const [summary, setSummary]   = useState(null);
-  const [agents, setAgents]     = useState([]);
-  const [costData, setCostData] = useState(null);
-  const [alerts, setAlerts]     = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [summary, setSummary]         = useState(null);
+  const [agents, setAgents]           = useState([]);
+  const [costData, setCostData]       = useState(null);
+  const [alerts, setAlerts]           = useState([]);
+  const [relationships, setRels]      = useState([]);
+  const [loading, setLoading]         = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [s, a, c, al] = await Promise.allSettled([
+        const [s, a, c, al, r] = await Promise.allSettled([
           fetchAgentsSummary(30),
           fetchAgents({ limit: 500 }),
           fetchCostIntelligence({ breakdown_by: "agent", days: 30 }),
           fetchSecurityAlerts(),
+          fetchRelationships(),
         ]);
-        if (s.status === "fulfilled" && s.value) setSummary(s.value);
-        if (a.status === "fulfilled" && a.value) {
+        if (s.status  === "fulfilled" && s.value)  setSummary(s.value);
+        if (a.status  === "fulfilled" && a.value) {
           const raw = a.value;
           setAgents(Array.isArray(raw) ? raw : raw?.agents || raw?.items || []);
         }
-        if (c.status === "fulfilled" && c.value) setCostData(c.value);
-        if (al.status === "fulfilled" && al.value) setAlerts(Array.isArray(al.value) ? al.value : []);
+        if (c.status  === "fulfilled" && c.value)  setCostData(c.value);
+        if (al.status === "fulfilled" && al.value)  setAlerts(Array.isArray(al.value) ? al.value : []);
+        if (r.status  === "fulfilled" && Array.isArray(r.value)) setRels(r.value);
       } finally {
         setLoading(false);
       }
@@ -153,6 +168,14 @@ export default function ExecutiveDashboard({ onNavigate }) {
   const breakdown = (costData?.breakdown?.items || costData?.breakdown || []).sort((a, b) => (b.cost_usd || 0) - (a.cost_usd || 0));
   const topCosts  = breakdown.slice(0, 10);
   const otherCost = Math.max(0, monthlyCost - topCosts.reduce((s, x) => s + (x.cost_usd || 0), 0));
+
+  // Runtime Dependency Map metrics
+  const mcpToolsUsed       = new Set(relationships.filter(r => r.target_type === "mcp_tool").map(r => r.target_name)).size;
+  const workflowsTriggered = new Set(relationships.filter(r => r.target_type === "workflow").map(r => r.target_name)).size;
+  const externalSystems    = new Set(
+    relationships.filter(r => ["api","database","crm","spreadsheet","mcp_server"].includes(r.target_type)).map(r => r.target_name)
+  ).size;
+  const topRels = [...relationships].sort((a, b) => b.request_count - a.request_count).slice(0, 8);
 
   // Risk signals from security alerts
   const critAlerts = alerts.filter(a => a.sev === "critical");
@@ -200,14 +223,32 @@ export default function ExecutiveDashboard({ onNavigate }) {
         </div>
       </div>
 
-      {/* ── KPI Row ──────────────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <KpiCard label="Total AI Agents"    value={total}               sub="Across all teams"                     onClick={() => onNavigate?.("agent_inventory")} />
-        <KpiCard label="Managed Agents"     value={managed}             sub={total ? `${Math.round(managed / total * 100)}% of total` : "—"}  color={T.accent} onClick={() => onNavigate?.("agent_inventory")} />
-        <KpiCard label="Unassigned"         value={unassigned}          sub="Requires action"                      color={unassigned  > 0 ? T.yellow : T.accent} onClick={() => onNavigate?.("governance")} />
-        <KpiCard label="Needs Validation"   value={needsValidation}     sub="Requires review"                      color={needsValidation > 0 ? T.warn : T.accent} onClick={() => onNavigate?.("discovery")} />
-        <KpiCard label="Monthly AI Spend"   value={fmtUSD(monthlyCost)} sub="Runtime estimate (30d)"               color={T.info} onClick={() => onNavigate?.("cost")} />
-        <KpiCard label="High Risk Agents"   value={highRiskCount}       sub={highRiskCount > 0 ? "Immediate review" : "No critical risks"} color={highRiskCount > 0 ? T.crit : T.accent} onClick={() => onNavigate?.("security_intel")} />
+      {/* ── KPI Row — Agent Inventory ────────────────────────────────────────────── */}
+      <div>
+        <div style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>
+          Agent Inventory
+        </div>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <KpiCard label="Total AI Agents"   value={total}               sub="Across all teams"                                                                   onClick={() => onNavigate?.("agent_inventory")} />
+          <KpiCard label="Managed Agents"    value={managed}             sub={total ? `${Math.round(managed / total * 100)}% of total` : "—"}  color={T.accent}  onClick={() => onNavigate?.("agent_inventory")} />
+          <KpiCard label="Unassigned"        value={unassigned}          sub="Requires action"                      color={unassigned  > 0 ? T.yellow : T.accent} onClick={() => onNavigate?.("governance")} />
+          <KpiCard label="Needs Validation"  value={needsValidation}     sub="Requires review"                      color={needsValidation > 0 ? T.warn : T.accent} onClick={() => onNavigate?.("discovery")} />
+          <KpiCard label="Monthly AI Spend"  value={fmtUSD(monthlyCost)} sub="Runtime estimate (30d)"               color={T.info}                               onClick={() => onNavigate?.("cost")} />
+          <KpiCard label="High Risk Agents"  value={highRiskCount}       sub={highRiskCount > 0 ? "Immediate review" : "No critical risks"} color={highRiskCount > 0 ? T.crit : T.accent} onClick={() => onNavigate?.("security_intel")} />
+        </div>
+      </div>
+
+      {/* ── KPI Row — Runtime Dependency Map ─────────────────────────────────────── */}
+      <div>
+        <div style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>
+          Runtime Dependency Map
+        </div>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <KpiCard label="Total Relationships"     value={relationships.length} sub="Agent → system links mapped"    color={T.teal}   onClick={() => onNavigate?.("relationship_map")} />
+          <KpiCard label="MCP Tools Used"          value={mcpToolsUsed}         sub="Unique MCP tool targets"        color={T.purple} onClick={() => onNavigate?.("relationship_map")} />
+          <KpiCard label="Workflows Triggered"     value={workflowsTriggered}   sub="Unique workflow targets"        color={T.warn}   onClick={() => onNavigate?.("relationship_map")} />
+          <KpiCard label="External Systems Touched" value={externalSystems}     sub="APIs, DBs, CRMs, MCP servers"   color={T.info}   onClick={() => onNavigate?.("relationship_map")} />
+        </div>
       </div>
 
       {/* ── Lifecycle + Discovery ─────────────────────────────────────────────── */}
@@ -322,6 +363,111 @@ export default function ExecutiveDashboard({ onNavigate }) {
           </div>
         ) : (
           <div style={{ color: T.textMute, fontFamily: MONO, fontSize: 12 }}>No cost data for the last 30 days</div>
+        )}
+      </Panel>
+
+      {/* ── Runtime Dependency Map ───────────────────────────────────────────────── */}
+      <Panel>
+        <SectionTitle
+          title="Runtime Dependency Map"
+          sub="Top agent dependencies by traffic volume · real-time gateway data"
+          action="View Dependency Map →"
+          onAction={() => onNavigate?.("relationship_map")}
+        />
+        {topRels.length > 0 ? (
+          <div>
+            {/* Column headers */}
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 80px 80px", gap: 12, padding: "0 4px 10px", borderBottom: `1px solid ${T.border}`, marginBottom: 4 }}>
+              {["Source Agent → Target System", "Relationship", "Evidence", "Confidence", "Requests"].map(h => (
+                <div key={h} style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.12em", textTransform: "uppercase" }}>{h}</div>
+              ))}
+            </div>
+            {topRels.map((r, i) => {
+              const pct   = Math.round(r.confidence_score * 100);
+              const conf  = pct >= 80 ? T.accent : pct >= 70 ? T.warn : T.crit;
+              const REL_COLOR = {
+                calls: T.info, uses_tool: T.teal, invokes_workflow: T.warn,
+                triggers: T.warn, writes_to: T.crit, reads_from: T.accent, sends_event_to: T.purple,
+              };
+              const relColor = REL_COLOR[r.relationship_type] || T.textDim;
+              const TYPE_ICON = { mcp_tool: "🔧", mcp_server: "🖧", workflow: "⚡", api: "🌐", database: "🗄", crm: "📋", spreadsheet: "📊", agent: "🤖", unknown: "?" };
+              const icon = TYPE_ICON[r.target_type] || "◈";
+              return (
+                <div key={r.id} style={{
+                  display: "grid", gridTemplateColumns: "2fr 1fr 1fr 80px 80px", gap: 12,
+                  padding: "10px 4px", borderBottom: i < topRels.length - 1 ? `1px solid ${T.border}` : "none",
+                  alignItems: "center",
+                }}>
+                  {/* Source → Target */}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: T.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}
+                            title={r.source_agent_name}>{r.source_agent_name}</span>
+                      <span style={{ color: T.textMute, fontSize: 11 }}>→</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: T.textDim }}>{icon} {r.target_name}</span>
+                    </div>
+                    <div style={{ fontSize: 10, fontFamily: MONO, color: T.textMute, marginTop: 2 }}>
+                      Last seen {fmtRelDate(r.last_seen_at)}
+                    </div>
+                  </div>
+                  {/* Relationship type */}
+                  <div>
+                    <span style={{
+                      padding: "2px 8px", borderRadius: 3, fontSize: 10, fontFamily: MONO,
+                      background: relColor + "1A", color: relColor, border: `1px solid ${relColor}33`,
+                    }}>{r.relationship_type.replace(/_/g, " ")}</span>
+                  </div>
+                  {/* Evidence */}
+                  <div style={{ fontFamily: MONO, fontSize: 10, color: T.textMute }}>
+                    {r.evidence_source.replace(/_/g, " ")}
+                  </div>
+                  {/* Confidence */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ flex: 1, background: T.panelHi, borderRadius: 2, height: 4, overflow: "hidden" }}>
+                      <div style={{ width: `${pct}%`, height: "100%", background: conf, borderRadius: 2 }} />
+                    </div>
+                    <span style={{ fontFamily: MONO, fontSize: 10, color: T.textMute, flexShrink: 0 }}>{pct}%</span>
+                  </div>
+                  {/* Request count */}
+                  <div style={{ fontFamily: MONO, fontSize: 12, color: T.text, textAlign: "right" }}>
+                    {r.request_count.toLocaleString()}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ padding: "28px 0", textAlign: "center" }}>
+            <div style={{ fontSize: 28, marginBottom: 12 }}>🔗</div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: T.text, marginBottom: 8 }}>
+              No runtime dependencies discovered yet
+            </div>
+            <div style={{ fontSize: 12, color: T.textDim, maxWidth: 520, margin: "0 auto 20px", lineHeight: 1.7 }}>
+              Send gateway traffic with <code style={{ fontFamily: MONO, color: T.teal, background: T.panelHi, padding: "1px 5px", borderRadius: 3 }}>X-MCP-*</code> or{" "}
+              <code style={{ fontFamily: MONO, color: T.teal, background: T.panelHi, padding: "1px 5px", borderRadius: 3 }}>X-Agent-*</code> relationship headers to populate this map.
+            </div>
+            <div style={{ background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 6, padding: "12px 16px", display: "inline-block", textAlign: "left", marginBottom: 20 }}>
+              {[
+                ["X-Agent-Name",     "sales-enrichment-agent"],
+                ["X-MCP-Server",     "hubspot-mcp"],
+                ["X-MCP-Tool",       "create_lead"],
+                ["X-Agent-Relation", "uses_tool"],
+              ].map(([k, v]) => (
+                <div key={k} style={{ fontFamily: MONO, fontSize: 11, marginBottom: 3 }}>
+                  <span style={{ color: T.teal }}>{k}:</span>{" "}
+                  <span style={{ color: T.textDim }}>{v}</span>
+                </div>
+              ))}
+            </div>
+            <div>
+              <button
+                onClick={() => onNavigate?.("relationship_map")}
+                style={{ background: T.teal + "1A", border: `1px solid ${T.teal}55`, color: T.teal, padding: "7px 18px", borderRadius: 5, fontSize: 12, fontFamily: MONO, cursor: "pointer", letterSpacing: "0.04em" }}
+              >
+                View Dependency Map →
+              </button>
+            </div>
+          </div>
         )}
       </Panel>
 
