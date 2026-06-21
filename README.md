@@ -1,8 +1,10 @@
 # AI Asset Management
 
-**AI Runtime Intelligence Platform — inline governance, cost control, and security for every LLM call in your organisation.**
+**The AI Agent System of Record — discover every agent, map every dependency, govern every AI interaction.**
 
-> Closer to Cloudflare or Okta for AI traffic than to a dashboard tool. Every agent call flows *through* it — PII scanned, budget enforced, policy checked, fully audited — before it reaches the model.
+> We don't only discover AI agents. We map what they touch.
+
+AI Agent Inventory tells you which agents exist. Runtime Dependency Map tells you what they interact with. Together, they become the system of record for enterprise AI operations.
 
 ---
 
@@ -36,14 +38,14 @@ POST /v1/messages          (Anthropic-compatible)
       ├─ PII / sensitive data scan  (10 pattern types)
       ├─ Model policy check         (allowlist / blocklist per team)
       ├─ Budget enforcement         (daily / monthly per team + agent)
+      ├─ Relationship capture       (X-MCP-* / X-Agent-* / X-Workflow-* headers)
       ├─ Real upstream SSE streaming + disconnect detection
       └─ Telemetry saved to SQLite
                    │
            React Dashboard
-  (Overview · Cost Intelligence · Agent Inventory ·
-   Pricing Registry · Models · Workflows · Alerts ·
-   Budgets · Security · Audit · Users · Settings ·
-   Integrations · Chat)
+  (Agent Inventory · Runtime Dependency Map · Cost Intelligence ·
+   Security Intelligence · Governance · Discovery · Ecosystem ·
+   Pricing Registry · Budgets · Audit · Users · Settings · Chat)
 ```
 
 ---
@@ -80,6 +82,7 @@ POST /v1/messages          (Anthropic-compatible)
 3. **Budget check** — per-team and per-agent daily/monthly limits; `action=alert` warns, `action=block` returns HTTP 429
 4. **LLM call** — forwarded to the real provider
 5. **Telemetry** — tokens, cost (versioned per-model pricing), latency, team, agent, PII findings all persisted
+6. **Relationship capture** — non-fatal; extracts runtime dependencies from headers and upserts into `agent_relationships`
 
 ### Auth & Users
 - JWT login (`POST /auth/login`) with 8-hour expiry
@@ -89,17 +92,39 @@ POST /v1/messages          (Anthropic-compatible)
 - Settings page: live API key management (reads/writes `.env` without restart)
 
 ### AI Agent Inventory
-- **Two-tier discovery**: *Verified* agents (seen in gateway traffic, confidence 95%) vs *Potential* agents (platform signals, confidence 30-70%)
+- **Two-tier discovery**: *Verified* agents (seen in gateway traffic, confidence 95%) vs *Potential* agents (platform signals, confidence 30–70%)
 - **Stable identity**: `asset_key = sha256(org_id + ":" + agent_id_raw)` — survives restarts and renames
 - **Governance lifecycle**: `unassigned → managed → retired`; claim, retire, and annotate agents from the UI
 - **CMDB model**: immutable `telemetry` table (runtime facts) + mutable `asset_registry` (governance layer)
 - Filter by team, environment, discovery status, and confidence tier
 
+### Runtime Dependency Map
+The second pillar of the system of record — maps what every AI agent touches at runtime.
+
+- **Header-based detection** — reads `X-Agent-Name`, `X-MCP-Server`, `X-MCP-Tool`, `X-Agent-Workflow`, `X-Agent-Target`, and `X-Workflow-*` headers on every proxied call
+- **Target types**: `mcp_tool`, `mcp_server`, `workflow`, `api`, `database`, `crm`, `spreadsheet`, `unknown`
+- **Relationship types**: `calls`, `uses_tool`, `invokes_workflow`, `triggers`, `writes_to`, `reads_from`, `sends_event_to`
+- **Upsert with telemetry**: each rediscovery increments `request_count`, updates `last_seen_at`, and takes the max `confidence_score`
+- **Metadata safety**: never stores raw prompt or response content; only header-derived facts
+- **SDK support**: `build_headers()` accepts `mcp_server`, `mcp_tool`, `workflow_provider`, `workflow_name`, `parent_agent`, `target`, `tool`, `relation`
+- `GET /relationships` — filterable list (source agent, target type, relationship type)
+- `GET /relationships/graph` — nodes + edges for graph visualisation
+
+**Add relationship headers to any agent call:**
+```python
+extra_headers={
+    "X-Agent-Name":   "sales-enrichment-agent",
+    "X-MCP-Server":   "hubspot-mcp",
+    "X-MCP-Tool":     "create_lead",
+    "X-Agent-Relation": "uses_tool",
+}
+```
+
 ### Cost Intelligence
 Three-layer financial analysis:
 1. **Runtime estimate** — token counts × versioned pricing from the Pricing Registry
 2. **Provider billed** — import actual invoices (API / manual / CSV); stored in `provider_billing`
-3. **Reconciliation** — variance analysis per period per provider; healthy < 2%, warning 2-5%, investigate > 5%
+3. **Reconciliation** — variance analysis per period per provider; healthy < 2%, warning 2–5%, investigate > 5%
 
 - Cost breakdown by agent, team, model, environment, or provider
 - Daily cost trend charts (Recharts)
@@ -129,6 +154,7 @@ Three-layer financial analysis:
 | Home | Everyone |
 | Overview, Agents, Models, Workflows, Alerts | Everyone |
 | Agent Inventory | Everyone |
+| Runtime Dependency Map | Everyone |
 | Cost Intelligence | Everyone |
 | Security (alerts + PII scanner) | Everyone |
 | Security (policy rules + audit log) | Admin only |
@@ -209,6 +235,7 @@ Populates the database with demo organizations, users, agents, and telemetry rec
 | `provider_credentials` | Encrypted per-org LLM keys (Fernet / BYOK) |
 | `telemetry` | Immutable proxy call records — tokens, cost, latency, PII findings |
 | `asset_registry` | Governance layer for AI agents; lifecycle, owner, criticality |
+| `agent_relationships` | Runtime dependency map — what each agent calls, uses, or writes to |
 | `teams` | Auto-registering soft team registry |
 | `guard_modes` | Per-team governance mode (observe / alert / enforce) |
 | `policy_rules` | Model allowlist / blocklist per team |
@@ -235,21 +262,18 @@ client = openai.OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="gpt-4o-mini",   # or "claude-sonnet-4-6", "gemini-2.0-flash", etc.
-    messages=[{"role": "user", "content": "Hello"}],
-    extra_headers={"X-Guard-Team": "SOC", "X-Guard-Agent": "my-agent"},
-)
-print(response.choices[0].message.content)
-
-# Streaming
-stream = client.chat.completions.create(
     model="gpt-4o-mini",
     messages=[{"role": "user", "content": "Hello"}],
-    stream=True,
-    extra_headers={"X-Guard-Team": "SOC", "X-Guard-Agent": "my-agent"},
+    extra_headers={
+        "X-Guard-Team":     "SOC",
+        "X-Guard-Agent":    "my-agent",
+        # Relationship mapping (optional)
+        "X-MCP-Server":     "hubspot-mcp",
+        "X-MCP-Tool":       "create_lead",
+        "X-Agent-Relation": "uses_tool",
+    },
 )
-for chunk in stream:
-    print(chunk.choices[0].delta.content or "", end="")
+print(response.choices[0].message.content)
 ```
 
 ### Anthropic-compatible proxy
@@ -260,7 +284,10 @@ import anthropic
 client = anthropic.Anthropic(
     base_url="http://localhost:8000",
     api_key="<jwt>",
-    default_headers={"X-Guard-Team": "SOC", "X-Guard-Agent": "my-agent"},
+    default_headers={
+        "X-Guard-Team":  "SOC",
+        "X-Guard-Agent": "my-agent",
+    },
 )
 
 message = client.messages.create(
@@ -277,6 +304,14 @@ print(message.content[0].text)
 |---|---|
 | `X-Guard-Team` | Maps the call to a team for policy + budget enforcement |
 | `X-Guard-Agent` | Identifies the agent/workflow in telemetry and audit log |
+| `X-Agent-Name` | Primary agent identity for relationship mapping |
+| `X-MCP-Server` | MCP server the agent is connecting to |
+| `X-MCP-Tool` | Specific MCP tool being invoked |
+| `X-Agent-Workflow` | Workflow being triggered |
+| `X-Agent-Target` | Generic target system (API, database, CRM, etc.) |
+| `X-Agent-Relation` | Explicit relationship type override |
+| `X-Workflow-Provider` | Workflow platform (zapier, n8n, etc.) |
+| `X-Workflow-Name` | Workflow name within the platform |
 
 ### Key endpoints
 
@@ -291,8 +326,10 @@ GET  /security/alerts                     # Live detection rule results
 POST /budgets                             # Create budget rule
 GET  /budgets/status                      # Live spend vs limit per rule
 POST /policies                            # Create model allow/block rule
-GET  /agents                             # Agent inventory (verified + potential)
+GET  /agents                              # Agent inventory (verified + potential)
 GET  /agents/summary                      # Discovery stats
+GET  /relationships                       # Runtime dependency map (filterable)
+GET  /relationships/graph                 # Dependency graph — nodes + edges
 GET  /cost-intelligence                   # Cost overview, breakdown, trends
 POST /billing/{provider}/import           # Import provider invoice
 GET  /pricing-registry                    # All pricing records (org overrides merged)
@@ -344,6 +381,7 @@ Pricing for all models is seeded into the Pricing Registry on first start and ke
 | ✅ | Full audit log with expandable rows + pagination |
 | ✅ | Bring Your Own Key (BYOK) — per-org encrypted provider credentials |
 | ✅ | AI Agent Inventory — two-tier discovery (verified / potential), CMDB governance |
+| ✅ | Runtime Dependency Map — header-based relationship capture, graph API, dashboard page |
 | ✅ | Cost Intelligence — three-layer analysis (runtime / billed / reconciliation) |
 | ✅ | Pricing Registry — versioned, org-scoped, background sync, history |
 | ✅ | Sortable + searchable tables on every dashboard page |
@@ -351,6 +389,7 @@ Pricing for all models is seeded into the Pricing Registry on first start and ke
 | 🔜 | Per-tenant API key table (issue org keys, not user JWTs) |
 | 🔜 | Budget alerts via webhook (Slack / Teams at 80%) |
 | 🔜 | Cost forecasting (end-of-month projection from burn rate) |
+| 🔜 | MCP payload parsing for richer relationship evidence |
 | 🔜 | SSO (Okta / Google OAuth) |
 | 🔜 | HA / fail-over story for enterprise SLA conversations |
 
@@ -360,3 +399,7 @@ Pricing for all models is seeded into the Pricing Registry on first start and ke
 
 **Ron Haviv**  
 SOC Analyst · Security Operations · AI Runtime Intelligence
+
+---
+
+*Discover every AI agent. Map every dependency. Govern every AI interaction.*

@@ -188,10 +188,10 @@ export default function ExecutiveDashboard({ onNavigate }) {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: T.text, letterSpacing: "-0.025em" }}>
-            AI Agent Inventory
+            AI Agent System of Record
           </h2>
           <div style={{ fontSize: 12, color: T.textMute, fontFamily: MONO, marginTop: 5 }}>
-            The System of Record for Enterprise AI Operations · Powered by AI Runtime Intelligence
+            Discover every AI agent · Map every dependency · Govern every AI interaction
           </div>
         </div>
         <div style={{ fontSize: 11, color: T.textMute, fontFamily: MONO, textAlign: "right" }}>
