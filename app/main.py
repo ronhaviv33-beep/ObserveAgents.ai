@@ -322,13 +322,14 @@ def _discover_asset(
     db: Session, org_id: int, asset_key: str, agent_id_raw: str,
     team: str | None = None, environment: str | None = None,
     owner: str | None = None, source_hint: str | None = None,
+    confidence_score: float = 0.95,
     evidence_data: dict | None = None,
 ) -> None:
     """Idempotent: insert a verified unassigned asset_registry row on first sight of an agent.
 
-    API key identifies the organization / environment.
-    Agent identity comes from X-Agent-* (or legacy X-Guard-*) request headers.
-    Multiple agents can share one API key — they are distinguished by headers alone.
+    Agent identity is derived by identity_resolver.resolve_identity() — the caller
+    passes the resolved values here.  Multiple agents can share one API key;
+    they are distinguished by their resolved agent_name alone.
     """
     if (org_id, asset_key) in _known_assets:
         return
@@ -353,7 +354,7 @@ def _discover_asset(
                 discovery_source="gateway_runtime",
                 discovery_reason="Agent auto-discovered from runtime gateway traffic",
                 evidence=_json.dumps(evidence_data or {}),
-                confidence_score=95.0,
+                confidence_score=round(confidence_score * 100, 1),
             ))
             db.commit()
         _known_assets.add((org_id, asset_key))
@@ -1973,44 +1974,50 @@ async def openai_compat_chat(
     messages = body.get("messages", [])
     stream   = body.pop("stream", False)  # pop so body can be forwarded cleanly
 
-    # X-Agent-* are the canonical headers; X-Guard-* are accepted for backward compat.
-    agent_id_raw    = (request.headers.get("X-Agent-Name")
-                       or request.headers.get("X-Guard-Agent")
-                       or _caller_name(current_user)
-                       or "unknown-agent")
-    agent_version   = (request.headers.get("X-Agent-Version")
-                       or request.headers.get("X-Guard-Agent-Version"))
-    team_raw        = (request.headers.get("X-Agent-Team")
-                       or request.headers.get("X-Guard-Team"))
-    environment_raw = (request.headers.get("X-Agent-Environment")
-                       or request.headers.get("X-Guard-Environment"))
-    owner_raw       = request.headers.get("X-Agent-Owner")
-    source_raw      = request.headers.get("X-Agent-Source")
-    team  = team_raw  or _caller_team(current_user) or "unknown"
-    agent = agent_id_raw
-
-    # Resolve the org's provider client. Hard 401 if org_id is missing (should
-    # have been caught by get_proxy_caller, but never trust that implicitly).
-    # Hard 402 if the org has no credential for this provider.
+    # Resolve agent identity from all available runtime signals.
+    # Headers are optional — the resolver falls back through API key scope,
+    # framework detection, hostname, and a stable hash if no signal is found.
+    from app.identity_resolver import resolve_identity as _resolve_identity
     org_id = _caller_org_id(current_user)
     if org_id is None:
         raise HTTPException(status_code=401, detail="No organization resolved for this credential")
+
+    _identity = _resolve_identity(
+        org_id,
+        headers={k.lower(): v for k, v in request.headers.items()},
+        caller_name=_caller_name(current_user),
+        caller_team=_caller_team(current_user),
+        api_key_id=(current_user.get("id") if isinstance(current_user, dict)
+                    else str(getattr(current_user, "id", ""))),
+        user_agent=request.headers.get("user-agent", ""),
+        source_ip=(request.client.host if request.client else ""),
+        host=request.headers.get("host", ""),
+    )
+
+    agent_id_raw = _identity.agent_name
+    agent_version = (request.headers.get("X-Agent-Version")
+                     or request.headers.get("X-Guard-Agent-Version"))
+    team  = _identity.team or _caller_team(current_user) or "unknown"
+    agent = agent_id_raw
+
     org_client = get_client_for_org(org_id, model, db)
     _register_team(db, org_id, team)
 
     # Asset discovery — idempotent, non-fatal.
-    # API key = org identity; agent identity comes entirely from request headers.
-    # Many agents can share one API key — they are distinguished by X-Agent-Name alone.
-    asset_key = hashlib.sha256(f"{org_id}:{agent_id_raw}".encode()).hexdigest()
-    _discover_asset(db, org_id, asset_key, agent_id_raw,
-        team=team_raw, environment=environment_raw, owner=owner_raw,
-        source_hint=source_raw or "gateway_runtime",
-        evidence_data={k: v for k, v in {
-            "agent_version": agent_version, "team": team_raw,
-            "environment": environment_raw, "owner": owner_raw,
-            "source": source_raw,
-        }.items() if v is not None}
+    _discover_asset(db, org_id, _identity.agent_key, agent_id_raw,
+        team=_identity.team,
+        environment=_identity.environment,
+        owner=_identity.owner,
+        source_hint=_identity.source,
+        confidence_score=_identity.confidence_score,
+        evidence_data={
+            "resolution_method": _identity.resolution_method,
+            "needs_admin_review": _identity.needs_admin_review,
+            "evidence": _identity.evidence,
+            **({"agent_version": agent_version} if agent_version else {}),
+        },
     )
+    asset_key = _identity.agent_key
 
     # Enforcement pipeline
     last_user = ""
@@ -2185,40 +2192,47 @@ async def anthropic_compat_messages(
             content = " ".join(text_parts)
         oai_messages.append({"role": m["role"], "content": content})
 
-    # X-Agent-* are the canonical headers; X-Guard-* are accepted for backward compat.
-    agent_id_raw    = (request.headers.get("X-Agent-Name")
-                       or request.headers.get("X-Guard-Agent")
-                       or _caller_name(current_user)
-                       or "unknown-agent")
-    agent_version   = (request.headers.get("X-Agent-Version")
-                       or request.headers.get("X-Guard-Agent-Version"))
-    team_raw        = (request.headers.get("X-Agent-Team")
-                       or request.headers.get("X-Guard-Team"))
-    environment_raw = (request.headers.get("X-Agent-Environment")
-                       or request.headers.get("X-Guard-Environment"))
-    owner_raw       = request.headers.get("X-Agent-Owner")
-    source_raw      = request.headers.get("X-Agent-Source")
-    team  = team_raw  or _caller_team(current_user) or "unknown"
-    agent = agent_id_raw
-
+    # Resolve agent identity from all available runtime signals (same as OpenAI endpoint).
+    from app.identity_resolver import resolve_identity as _resolve_identity
     org_id = _caller_org_id(current_user)
     if org_id is None:
         raise HTTPException(status_code=401, detail="No organization resolved for this credential")
+
+    _identity = _resolve_identity(
+        org_id,
+        headers={k.lower(): v for k, v in request.headers.items()},
+        caller_name=_caller_name(current_user),
+        caller_team=_caller_team(current_user),
+        api_key_id=(current_user.get("id") if isinstance(current_user, dict)
+                    else str(getattr(current_user, "id", ""))),
+        user_agent=request.headers.get("user-agent", ""),
+        source_ip=(request.client.host if request.client else ""),
+        host=request.headers.get("host", ""),
+    )
+
+    agent_id_raw = _identity.agent_name
+    agent_version = (request.headers.get("X-Agent-Version")
+                     or request.headers.get("X-Guard-Agent-Version"))
+    team  = _identity.team or _caller_team(current_user) or "unknown"
+    agent = agent_id_raw
+
     org_client = get_client_for_org(org_id, model, db)
     _register_team(db, org_id, team)
 
-    # Asset discovery — idempotent, non-fatal.
-    # API key = org identity; agent identity comes entirely from request headers.
-    asset_key = hashlib.sha256(f"{org_id}:{agent_id_raw}".encode()).hexdigest()
-    _discover_asset(db, org_id, asset_key, agent_id_raw,
-        team=team_raw, environment=environment_raw, owner=owner_raw,
-        source_hint=source_raw or "gateway_runtime",
-        evidence_data={k: v for k, v in {
-            "agent_version": agent_version, "team": team_raw,
-            "environment": environment_raw, "owner": owner_raw,
-            "source": source_raw,
-        }.items() if v is not None}
+    _discover_asset(db, org_id, _identity.agent_key, agent_id_raw,
+        team=_identity.team,
+        environment=_identity.environment,
+        owner=_identity.owner,
+        source_hint=_identity.source,
+        confidence_score=_identity.confidence_score,
+        evidence_data={
+            "resolution_method": _identity.resolution_method,
+            "needs_admin_review": _identity.needs_admin_review,
+            "evidence": _identity.evidence,
+            **({"agent_version": agent_version} if agent_version else {}),
+        },
     )
+    asset_key = _identity.agent_key
 
     # Enforcement
     last_user = ""
