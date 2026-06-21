@@ -546,3 +546,37 @@ class CostReconciliation(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+
+
+class AgentRelationship(Base):
+    """
+    Runtime-discovered dependencies between AI agents and external systems.
+    Populated by the relationship resolver from proxy request headers.
+    """
+    __tablename__ = "agent_relationships"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "source_agent_name", "target_type", "target_name", "relationship_type",
+            name="uq_agent_relationship",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    source_agent_id: Mapped[str | None] = mapped_column(String(64), nullable=True)    # asset_key if known
+    source_agent_name: Mapped[str] = mapped_column(String(256), index=True)
+    target_type: Mapped[str] = mapped_column(String(32), index=True)    # agent|mcp_server|mcp_tool|workflow|api|database|crm|spreadsheet|unknown
+    target_name: Mapped[str] = mapped_column(String(256), index=True)
+    target_identifier: Mapped[str | None] = mapped_column(String(512), nullable=True)  # URL, ARN, etc.
+    relationship_type: Mapped[str] = mapped_column(String(64), index=True)  # calls|triggers|uses_tool|writes_to|reads_from|invokes_workflow|sends_event_to
+    evidence_source: Mapped[str] = mapped_column(String(32))             # gateway|sdk|mcp_headers|workflow_headers|telemetry|headers
+    confidence_score: Mapped[float] = mapped_column(Float, default=0.70)
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+    request_count: Mapped[int] = mapped_column(Integer, default=1)
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON; never stores prompts/responses

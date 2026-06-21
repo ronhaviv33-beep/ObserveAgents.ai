@@ -1,7 +1,21 @@
 """Per-org key-value config store, shared between main.py and route modules."""
 import json
+import os
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
+
+_VALID_GUARD_MODES = {"observe", "alert", "enforce"}
+
+
+def platform_default_mode() -> str:
+    raw = os.getenv("GUARD_MODE", "").lower().strip()
+    if raw in _VALID_GUARD_MODES:
+        return raw
+    legacy = os.getenv("GATEWAY_FAIL_MODE", "closed").lower().strip()
+    return "observe" if legacy == "open" else "enforce"
+
+
+PLATFORM_MODE: str = platform_default_mode()
 
 DEFAULTS: dict = {
     "environments": ["production", "staging", "development"],

@@ -280,3 +280,34 @@ def resolve_team_scope(user, db: "Session"):
 
 def is_deny_sentinel(v) -> bool:
     return v is _TEAM_SCOPE_DENY
+
+
+_tenancy_hardened_cache: bool | None = None
+
+
+def _check_tenancy() -> bool:
+    from sqlalchemy import text
+    from app.database import get_db
+    db = next(get_db())
+    try:
+        result = db.execute(text("SELECT COUNT(1) FROM telemetry WHERE organization_id IS NULL")).scalar()
+        return result == 0
+    except Exception:
+        return False
+    finally:
+        db.close()
+
+
+def require_tenancy_hardened() -> None:
+    """FastAPI dependency: blocks read paths with 503 until the DB schema is
+    hardened (organization_id NOT NULL on telemetry). Lazy — checked on first
+    request so startup order doesn't matter."""
+    global _tenancy_hardened_cache
+    if _tenancy_hardened_cache is None:
+        _tenancy_hardened_cache = _check_tenancy()
+    if not _tenancy_hardened_cache:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=503,
+            detail="Tenancy isolation not verified — run migrate_orgs.py before reading telemetry.",
+        )

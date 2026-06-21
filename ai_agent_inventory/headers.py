@@ -17,6 +17,16 @@ def build_headers(
     owner: str | None = None,
     environment: str | None = None,
     version: str | None = None,
+    # Relationship mapping fields
+    parent_agent: str | None = None,
+    target: str | None = None,
+    tool: str | None = None,
+    workflow: str | None = None,
+    relation: str | None = None,
+    mcp_server: str | None = None,
+    mcp_tool: str | None = None,
+    workflow_provider: str | None = None,
+    workflow_name: str | None = None,
 ) -> dict[str, str]:
     """
     Return a dict of X-Agent-* headers ready to pass to any HTTP client.
@@ -29,6 +39,15 @@ def build_headers(
         owner=owner,
         environment=environment,
         version=version,
+        parent_agent=parent_agent,
+        target=target,
+        tool=tool,
+        workflow=workflow,
+        relation=relation,
+        mcp_server=mcp_server,
+        mcp_tool=mcp_tool,
+        workflow_provider=workflow_provider,
+        workflow_name=workflow_name,
     )
 
     headers: dict[str, str] = {
@@ -45,6 +64,26 @@ def build_headers(
         headers["X-Agent-Environment"] = ctx["environment"]
     if ctx["version"]:
         headers["X-Agent-Version"] = ctx["version"]
+
+    # Relationship mapping headers
+    if ctx["parent_agent"]:
+        headers["X-Agent-Parent"] = ctx["parent_agent"]
+    if ctx["target"]:
+        headers["X-Agent-Target"] = ctx["target"]
+    if ctx["tool"]:
+        headers["X-Agent-Tool"] = ctx["tool"]
+    if ctx["workflow"]:
+        headers["X-Agent-Workflow"] = ctx["workflow"]
+    if ctx["relation"]:
+        headers["X-Agent-Relation"] = ctx["relation"]
+    if ctx["mcp_server"]:
+        headers["X-MCP-Server"] = ctx["mcp_server"]
+    if ctx["mcp_tool"]:
+        headers["X-MCP-Tool"] = ctx["mcp_tool"]
+    if ctx["workflow_provider"]:
+        headers["X-Workflow-Provider"] = ctx["workflow_provider"]
+    if ctx["workflow_name"]:
+        headers["X-Workflow-Name"] = ctx["workflow_name"]
 
     return headers
 

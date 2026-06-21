@@ -16,6 +16,16 @@ def collect_context(
     owner: str | None = None,
     environment: str | None = None,
     version: str | None = None,
+    # Relationship mapping fields
+    parent_agent: str | None = None,
+    target: str | None = None,
+    tool: str | None = None,
+    workflow: str | None = None,
+    relation: str | None = None,
+    mcp_server: str | None = None,
+    mcp_tool: str | None = None,
+    workflow_provider: str | None = None,
+    workflow_name: str | None = None,
 ) -> dict:
     """
     Return a dict of identity fields derived from explicit params,
@@ -58,12 +68,22 @@ def collect_context(
     runtime = f"python/{platform.python_version()}"
 
     return {
-        "agent_name":  name,
-        "team":        tm,
-        "owner":       ow,
-        "environment": env,
-        "version":     ver,
+        "agent_name":       name,
+        "team":             tm,
+        "owner":            ow,
+        "environment":      env,
+        "version":          ver,
         # metadata — not used as identity, stored in evidence
-        "hostname":    hostname,
-        "runtime":     runtime,
+        "hostname":         hostname,
+        "runtime":          runtime,
+        # relationship mapping
+        "parent_agent":     parent_agent,
+        "target":           target,
+        "tool":             tool,
+        "workflow":         workflow,
+        "relation":         relation,
+        "mcp_server":       mcp_server,
+        "mcp_tool":         mcp_tool,
+        "workflow_provider":workflow_provider,
+        "workflow_name":    workflow_name,
     }
