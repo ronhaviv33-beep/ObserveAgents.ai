@@ -174,6 +174,34 @@ except Exception as _e:
     _logging.getLogger("ai_asset_mgmt").warning("asset key backfill warning (non-fatal): %s", _e)
 
 
+def _backfill_discovery_source() -> None:
+    """
+    Data backfill: correct discovery_source for agents that were seen before SDK headers
+    were attached.  Runs at every startup — idempotent, touches only rows that need it.
+      source='sdk_runtime'     → discovery_source='sdk_runtime'
+      source in (explicit_header, api_key_scope) with gateway_runtime → gateway_telemetry
+    """
+    from sqlalchemy import text as _text
+    with engine.connect() as conn:
+        try:
+            conn.execute(_text(
+                "UPDATE asset_registry SET discovery_source='sdk_runtime' "
+                "WHERE source='sdk_runtime' AND discovery_source!='sdk_runtime'"
+            ))
+            conn.execute(_text(
+                "UPDATE asset_registry SET discovery_source='gateway_telemetry' "
+                "WHERE source IN ('explicit_header','api_key_scope') AND discovery_source='gateway_runtime'"
+            ))
+            conn.commit()
+        except Exception:
+            pass  # table may not exist yet on first boot — create_all handles it
+
+
+try:
+    _backfill_discovery_source()
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("ai_asset_mgmt").warning("discovery_source backfill non-fatal: %s", _e)
 
 
 # ── Pricing Registry: seed + start background sync ────────────────────────────

@@ -66,10 +66,11 @@ def _discover_asset(
     disc_source = _DSOURCE_MAP.get(source_hint or "", "gateway_runtime")
 
     try:
-        if not db.query(_AssetRegistry).filter(
+        existing = db.query(_AssetRegistry).filter(
             _AssetRegistry.organization_id == org_id,
             _AssetRegistry.asset_key == asset_key,
-        ).first():
+        ).first()
+        if not existing:
             db.add(_AssetRegistry(
                 organization_id=org_id,
                 asset_key=asset_key,
@@ -86,6 +87,12 @@ def _discover_asset(
                 evidence=_json.dumps(evidence_data or {}),
                 confidence_score=round(confidence_score * 100, 1),
             ))
+            db.commit()
+        elif existing.discovery_source == "gateway_runtime" and disc_source != "gateway_runtime":
+            # Agent was first seen without SDK headers; upgrade to the better classification now
+            existing.discovery_source = disc_source
+            if source_hint:
+                existing.source = source_hint
             db.commit()
         _known_assets.add((org_id, asset_key))
     except Exception:
