@@ -631,13 +631,18 @@ from app.routes import pricing_registry as pricing_registry_routes  # noqa: E402
 app.include_router(pricing_registry_routes.router)
 
 _ALLOWED_ORIGINS = (
-    [_FRONTEND_ORIGIN] if _FRONTEND_ORIGIN
+    [o.strip() for o in _FRONTEND_ORIGIN.split(",") if o.strip()]
+    if _FRONTEND_ORIGIN
     else ["http://localhost:5173", "http://127.0.0.1:5173"]
 )
+# When no explicit FRONTEND_ORIGIN is set, also permit any *.onrender.com origin
+# so the app works on Render without requiring manual env-var configuration.
+_CORS_ORIGIN_REGEX = None if _FRONTEND_ORIGIN else r"https://[a-z0-9-]+\.onrender\.com"
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
+    allow_origin_regex=_CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[
