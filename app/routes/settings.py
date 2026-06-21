@@ -42,7 +42,7 @@ def list_provider_credentials(
 
 
 @router.post("/provider-credentials", status_code=201, tags=["Auth — Users"])
-def upsert_provider_credential(
+async def upsert_provider_credential(
     body: dict = Body(...),
     db: Session = Depends(get_db),
     actor=Depends(require_page_access("settings")),
@@ -52,7 +52,6 @@ def upsert_provider_credential(
     The plaintext key is encrypted immediately and never stored.
     Validates the key with a cheap test call before saving.
     """
-    import asyncio as _asyncio
     from app.client import _validate_local_url
     from openai import AsyncOpenAI as _AsyncOpenAI
 
@@ -84,7 +83,7 @@ def upsert_provider_credential(
         )
 
     try:
-        _asyncio.run(_validate())
+        await _validate()
     except Exception as exc:
         msg = str(exc).lower()
         if "incorrect api key" in msg or "invalid api key" in msg or "unauthorized" in msg or "401" in msg:
