@@ -5409,12 +5409,13 @@ function SimpleIntegrationsPage({ onNavigate }) {
 
   const snippets = {
     sdk_openai:
-`# pip install openai   (ai_inventory/ is included in the project)
-from ai_inventory.openai_client import OpenAI
+`pip install ai-agent-inventory-sdk
+
+from ai_agent_inventory import OpenAI
 
 # Option A: explicit params
 client = OpenAI(
-    api_key="gk-...",
+    api_key="org_gateway_key",
     gateway_url="GATEWAY_URL/v1",
     agent_name="soc-investigation-agent",
     team="Security",
@@ -5424,7 +5425,7 @@ client = OpenAI(
 
 # Option B: zero-code env-var setup
 # SERVICE_NAME=soc-investigation-agent  TEAM=Security  ENVIRONMENT=prod
-client = OpenAI(api_key="gk-...", gateway_url="GATEWAY_URL/v1")
+client = OpenAI(api_key="org_gateway_key", gateway_url="GATEWAY_URL/v1")
 
 response = client.chat.completions.create(
     model="gpt-4o-mini",
@@ -5439,11 +5440,12 @@ response = client.chat.completions.create(
 )`,
 
     sdk_anthropic:
-`# pip install anthropic   (ai_inventory/ is included in the project)
-from ai_inventory.anthropic_client import Anthropic
+`pip install ai-agent-inventory-sdk anthropic
+
+from ai_agent_inventory import Anthropic
 
 client = Anthropic(
-    api_key="gk-...",
+    api_key="org_gateway_key",
     gateway_url="GATEWAY_URL",   # no /v1 — Anthropic SDK adds the path
     agent_name="document-summariser",
     team="Legal",
@@ -5464,15 +5466,16 @@ ENVIRONMENT=prod
 APP_VERSION=1.2.0
 
 # SDK reads them automatically:
-from ai_inventory.openai_client import OpenAI
-client = OpenAI(api_key="gk-...", gateway_url="GATEWAY_URL/v1")
+pip install ai-agent-inventory-sdk
+from ai_agent_inventory import OpenAI
+client = OpenAI(api_key="org_gateway_key", gateway_url="GATEWAY_URL/v1")
 
 # For LangChain / CrewAI / custom httpx clients:
 import httpx
-from ai_inventory.httpx_wrapper import wrap_httpx_client
+from ai_agent_inventory import wrap_httpx_client
 
 http = wrap_httpx_client(httpx.Client(), agent_name="langchain-rag-agent", team="DataEng")
-# Pass to: ChatOpenAI(http_client=http, openai_api_base="GATEWAY_URL/v1", openai_api_key="gk-...")`,
+# Pass to: ChatOpenAI(http_client=http, openai_api_base="GATEWAY_URL/v1", openai_api_key="org_gateway_key")`,
 
     manual_openai:
 `# Advanced override — use when you need per-request control without the SDK.
