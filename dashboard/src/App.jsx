@@ -4024,6 +4024,10 @@ function SettingsPage() {
   const [saved,     setSaved]     = useState(null);
   const [err,       setErr]       = useState(null);
 
+  // Gateway test state
+  const [gwTesting,  setGwTesting]  = useState(false);
+  const [gwResult,   setGwResult]   = useState(null); // null | {ok:bool, msg:string, status?:number}
+
   // Environments config
   const [environments, setEnvironments] = useState(["production", "staging", "development"]);
   const [envInput,     setEnvInput]     = useState("");
@@ -4071,6 +4075,37 @@ function SettingsPage() {
     finally { setSaving(false); }
   };
 
+  const testGateway = async () => {
+    setGwTesting(true);
+    setGwResult(null);
+    const t0 = performance.now();
+    try {
+      const resp = await authFetch(`${BASE}/v1/chat/completions`, {
+        method: "POST",
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: "ping" }],
+        }),
+      });
+      const ms = Math.round(performance.now() - t0);
+      if (!resp) {
+        setGwResult({ ok: false, msg: "Not authenticated or network error", status: null });
+      } else if (resp.ok || resp.status === 200) {
+        setGwResult({ ok: true, msg: `Gateway reachable — responded in ${ms}ms`, status: resp.status });
+      } else if (resp.status === 429) {
+        setGwResult({ ok: null, msg: `Rate limited (429) — gateway is reachable`, status: 429 });
+      } else {
+        const body = await resp.json().catch(() => ({}));
+        const detail = body.detail || body.error?.message || resp.statusText || "Unknown error";
+        setGwResult({ ok: false, msg: `Gateway error: ${detail}`, status: resp.status });
+      }
+    } catch (e) {
+      setGwResult({ ok: false, msg: `Gateway error: ${e.message}`, status: null });
+    } finally {
+      setGwTesting(false);
+    }
+  };
+
   const statusColor = (k) => {
     if (!k.configured)  return T.textMute;
     if (k.placeholder)  return T.warn;
@@ -4096,9 +4131,44 @@ function SettingsPage() {
     <div style={{ display:"flex", flexDirection:"column", gap:14, maxWidth:860 }}>
 
       {/* Page header */}
-      <div>
-        <div style={{ fontSize:20, fontWeight:500, color:T.text, letterSpacing:"-0.01em" }}>Settings</div>
-        <div style={{ fontSize:12, color:T.textDim, marginTop:4 }}>Configure provider keys, guard modes, and platform behaviour.</div>
+      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:16 }}>
+        <div>
+          <div style={{ fontSize:20, fontWeight:500, color:T.text, letterSpacing:"-0.01em" }}>Settings</div>
+          <div style={{ fontSize:12, color:T.textDim, marginTop:4 }}>Configure provider keys, guard modes, and platform behaviour.</div>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
+          {gwResult && (
+            <span style={{
+              fontFamily: FONT_MONO,
+              fontSize: 11,
+              color: gwResult.ok === true ? T.accent : gwResult.ok === null ? T.warn : T.crit,
+              background: gwResult.ok === true ? `${T.accent}15` : gwResult.ok === null ? `${T.warn}15` : `${T.crit}15`,
+              border: `1px solid ${gwResult.ok === true ? T.accent + "44" : gwResult.ok === null ? T.warn + "44" : T.crit + "44"}`,
+              borderRadius: 4,
+              padding: "5px 10px",
+              maxWidth: 340,
+              wordBreak: "break-word",
+            }}>{gwResult.msg}</span>
+          )}
+          <button
+            onClick={testGateway}
+            disabled={gwTesting}
+            style={{
+              background: `${T.info}15`,
+              border: `1px solid ${T.info}44`,
+              color: T.info,
+              padding: "7px 16px",
+              borderRadius: 4,
+              fontSize: 12,
+              fontFamily: FONT_MONO,
+              cursor: gwTesting ? "default" : "pointer",
+              opacity: gwTesting ? 0.6 : 1,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {gwTesting ? "Testing…" : "Test Gateway"}
+          </button>
+        </div>
       </div>
 
       {/* Provider API keys (BYOK) */}

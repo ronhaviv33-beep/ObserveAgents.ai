@@ -2248,6 +2248,7 @@ async def openai_compat_chat(
     if org_id is None:
         raise HTTPException(status_code=401, detail="No organization resolved for this credential")
 
+    _caller_trust = "low" if isinstance(current_user, dict) else "high"
     _identity = _resolve_identity(
         org_id,
         headers={k.lower(): v for k, v in request.headers.items()},
@@ -2258,6 +2259,7 @@ async def openai_compat_chat(
         user_agent=request.headers.get("user-agent", ""),
         source_ip=(request.client.host if request.client else ""),
         host=request.headers.get("host", ""),
+        caller_trust=_caller_trust,
     )
 
     agent_id_raw = _identity.agent_name
@@ -2471,6 +2473,7 @@ async def anthropic_compat_messages(
     if org_id is None:
         raise HTTPException(status_code=401, detail="No organization resolved for this credential")
 
+    _caller_trust = "low" if isinstance(current_user, dict) else "high"
     _identity = _resolve_identity(
         org_id,
         headers={k.lower(): v for k, v in request.headers.items()},
@@ -2481,6 +2484,7 @@ async def anthropic_compat_messages(
         user_agent=request.headers.get("user-agent", ""),
         source_ip=(request.client.host if request.client else ""),
         host=request.headers.get("host", ""),
+        caller_trust=_caller_trust,
     )
 
     agent_id_raw = _identity.agent_name

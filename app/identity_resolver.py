@@ -133,14 +133,109 @@ def resolve_identity(
     user_agent:  str = "",
     source_ip:   str = "",
     host:        str = "",
+    caller_trust: str = "high",       # "high" (JWT/dashboard) or "low" (API key)
 ) -> ResolvedIdentity:
     """
     Derive agent identity from available runtime context.
     Never raises — any error falls through to the fallback.
 
     Callers should pass headers with all keys lower-cased.
+
+    caller_trust controls how X-Agent-* headers are treated:
+    - "high" (JWT/dashboard callers): existing scoring logic unchanged
+    - "low" (API key callers): identity is derived exclusively from the API key's
+      registered name/team fields; X-Agent-Name/Team/Owner/Environment headers
+      are ignored entirely.
     """
     evidence: list[str] = []
+
+    # ── Trust tier: low (API key callers) — bypass all header signals ─────────
+    if caller_trust == "low":
+        if caller_name and caller_name.strip() and caller_name not in ("unknown", "api-key", ""):
+            name = _normalize(caller_name)
+            evidence.append(f"API key identity (trust=low): caller_name={caller_name!r}")
+            return ResolvedIdentity(
+                agent_name=name,
+                agent_key=_stable_key(org_id, name),
+                team=caller_team,
+                environment=caller_env,
+                source="api_key_scope",
+                confidence_score=1.0,
+                resolution_method="api_key_scope_trusted",
+                needs_admin_review=False,
+                evidence=evidence,
+            )
+        # API key has no meaningful name → fall through to framework/host/hash
+        # but still skip the X-Agent-* header checks (jump past 1a/1b)
+        ua = user_agent or headers.get("user-agent", "")
+        framework = _detect_framework(ua)
+        if framework:
+            name = framework
+            evidence.append(f"AI framework detected in User-Agent: {framework!r}")
+            evidence.append(f"User-Agent: {ua!r}")
+            return ResolvedIdentity(
+                agent_name=name,
+                agent_key=_stable_key(org_id, name),
+                team=caller_team,
+                environment=caller_env,
+                source="framework_metadata",
+                confidence_score=0.65,
+                resolution_method="framework_metadata",
+                needs_admin_review=True,
+                evidence=evidence,
+            )
+        candidate_host = host or headers.get("host", "")
+        clean_host = re.sub(r":\d+$", "", candidate_host)
+        is_ip = bool(re.match(r"^\d{1,3}(\.\d{1,3}){3}$", clean_host))
+        is_local = clean_host in ("localhost", "127.0.0.1", "::1", "")
+        if clean_host and not is_ip and not is_local:
+            labels = clean_host.split(".")
+            candidate_name = _normalize(labels[0])
+            if len(candidate_name) >= 4:
+                evidence.append(f"Request host: {candidate_host!r}")
+                return ResolvedIdentity(
+                    agent_name=candidate_name,
+                    agent_key=_stable_key(org_id, candidate_name),
+                    team=caller_team,
+                    environment=caller_env,
+                    source="request_origin",
+                    confidence_score=0.45,
+                    resolution_method="request_origin",
+                    needs_admin_review=True,
+                    evidence=evidence,
+                )
+        if ua and not _is_generic_client(ua):
+            name = _normalize(ua.split("/")[0])[:40]
+            if name and len(name) >= 3 and name != "unknown-agent":
+                evidence.append(f"Non-generic User-Agent: {ua!r}")
+                return ResolvedIdentity(
+                    agent_name=name,
+                    agent_key=_stable_key(org_id, name),
+                    team=caller_team,
+                    environment=caller_env,
+                    source="user_agent",
+                    confidence_score=0.30,
+                    resolution_method="user_agent",
+                    needs_admin_review=True,
+                    evidence=evidence,
+                )
+        name = _fallback_name(org_id, api_key_id, ua, source_ip)
+        evidence.append("No reliable identity signal — generated stable fallback hash")
+        if ua:
+            evidence.append(f"User-Agent: {ua!r}")
+        if source_ip:
+            evidence.append(f"Source IP: {source_ip}")
+        return ResolvedIdentity(
+            agent_name=name,
+            agent_key=_stable_key(org_id, name),
+            team=caller_team,
+            environment=caller_env,
+            source="fallback_hash",
+            confidence_score=0.15,
+            resolution_method="fallback_hash",
+            needs_admin_review=True,
+            evidence=evidence,
+        )
 
     # ── 1a. SDK-populated headers (X-Agent-Source starts with "sdk-") ────────
     #        Confidence 0.85 — identity auto-derived from runtime env vars.
