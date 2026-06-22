@@ -121,8 +121,6 @@ function buildRiskReasons(risk, signals = {}, capabilities = []) {
         : "Tool execution + cloud operations access — can modify infrastructure");
     if (hasTool && (hasDB || hasCode))
       reasons.push(hasCode ? "Tool execution + code execution capability" : "Tool execution + database write access");
-    if (signals.has_pii)
-      reasons.push(`Detected ${signals.pii_count || "multiple"} request(s) with sensitive / PII data`);
     if (signals.has_blocked)
       reasons.push(`${signals.blocked_count || "Some"} request(s) were blocked by the guard`);
     if (signals.has_loop)
