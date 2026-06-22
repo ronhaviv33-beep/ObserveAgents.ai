@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   fetchAgents, fetchAgentsSummary,
   claimInventoryAgent, validateInventoryAgent, rejectInventoryAgent,
@@ -94,15 +95,137 @@ const StatusPill = ({ status }) => {
   return <span style={{ background: bg, color: c, fontSize: 11, fontFamily: FONT_MONO, padding: "2px 8px", borderRadius: 4, fontWeight: 600, textTransform: "capitalize" }}>{status || "—"}</span>;
 };
 
-const RiskChip = ({ risk }) => {
-  const map = { critical: ["#B91C1C", "#2D0A0A"], high: [T.crit, "#3D0F1A"], medium: [T.warn, "#3D2E0D"], low: [T.accent, "#1A3D2B"] };
-  const [c, bg] = map[risk] || [T.textMute, T.panelHi];
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: bg, color: c, fontSize: 11, fontFamily: FONT_MONO, padding: "2px 8px", borderRadius: 4, fontWeight: 600, textTransform: "capitalize" }}>
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: c }} />{risk || "—"}
-    </span>
-  );
+const RISK_COLORS = {
+  critical: { fg: "#B91C1C", bg: "#2D0A0A" },
+  high:     { fg: T.crit,   bg: "#3D0F1A"  },
+  medium:   { fg: T.warn,   bg: "#3D2E0D"  },
+  low:      { fg: T.accent, bg: "#1A3D2B"  },
 };
+
+function buildRiskReasons(risk, signals = {}, capabilities = []) {
+  const caps = Array.isArray(capabilities) ? capabilities : [];
+  const reasons = [];
+  const hasTool   = caps.includes("tool_execution");
+  const hasCloud  = caps.includes("cloud_operations");
+  const hasSec    = caps.includes("security_operations");
+  const hasDB     = caps.includes("database_access");
+  const hasCode   = caps.includes("code_execution");
+  const hasRetr   = caps.includes("retrieval");
+  const hasExt    = caps.includes("external_api");
+  const hasFile   = caps.includes("file_access");
+
+  if (risk === "critical" || risk === "high") {
+    if (hasTool && (hasCloud || hasSec))
+      reasons.push(hasSec
+        ? "Tool execution + security operations access — highest blast radius"
+        : "Tool execution + cloud operations access — can modify infrastructure");
+    if (hasTool && (hasDB || hasCode))
+      reasons.push(hasCode ? "Tool execution + code execution capability" : "Tool execution + database write access");
+    if (signals.has_pii)
+      reasons.push(`Detected ${signals.pii_count || "multiple"} request(s) with sensitive / PII data`);
+    if (signals.has_blocked)
+      reasons.push(`${signals.blocked_count || "Some"} request(s) were blocked by the guard`);
+    if (signals.has_loop)
+      reasons.push(`Looping call pattern detected (max ${signals.loop_max_window || "?"} calls in window)`);
+    if (hasTool && !hasCloud && !hasSec && !hasDB && !hasCode)
+      reasons.push("Tool execution capability — agent can take external actions");
+  }
+
+  if (risk === "medium") {
+    if (hasRetr) reasons.push("Retrieval capability — agent reads from external data sources");
+    if (hasExt)  reasons.push("External API access — calls external services");
+    if (hasFile) reasons.push("File access capability");
+    if (hasDB)   reasons.push("Database access capability");
+    if (signals.after_hours_calls > 0)
+      reasons.push(`${signals.after_hours_calls} call(s) outside business hours (07:00–20:00 UTC)`);
+    if (signals.blocked_count > 0)
+      reasons.push(`${signals.blocked_count} blocked request(s) on record`);
+  }
+
+  if (risk === "low" || reasons.length === 0) {
+    reasons.push("No risk signals detected — inference only, no sensitive data or tool access observed");
+  }
+
+  return reasons;
+}
+
+function RiskChip({ risk, signals, capabilities }) {
+  const [anchor, setAnchor] = useState(null);
+  const chipRef = useRef(null);
+
+  const { fg, bg } = RISK_COLORS[risk] || { fg: T.textMute, bg: T.panelHi };
+  const reasons = buildRiskReasons(risk, signals || {}, capabilities || []);
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (anchor) { setAnchor(null); return; }
+    const rect = chipRef.current?.getBoundingClientRect();
+    setAnchor(rect ? { top: rect.bottom + 6, left: rect.left } : { top: e.clientY + 6, left: e.clientX });
+  };
+
+  useEffect(() => {
+    if (!anchor) return;
+    const close = (e) => { if (!chipRef.current?.contains(e.target)) setAnchor(null); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [anchor]);
+
+  return (
+    <>
+      <span
+        ref={chipRef}
+        onClick={handleClick}
+        title="Click to see why"
+        style={{ display: "inline-flex", alignItems: "center", gap: 4, background: bg, color: fg,
+          fontSize: 11, fontFamily: FONT_MONO, padding: "2px 8px", borderRadius: 4, fontWeight: 600,
+          textTransform: "capitalize", cursor: "pointer", userSelect: "none",
+          outline: anchor ? `1px solid ${fg}66` : "none" }}
+      >
+        <span style={{ width: 5, height: 5, borderRadius: "50%", background: fg }} />
+        {risk || "—"}
+      </span>
+
+      {anchor && typeof document !== "undefined" && (() => {
+        const popup = (
+          <div
+            style={{
+              position: "fixed", top: anchor.top, left: Math.min(anchor.left, window.innerWidth - 320),
+              zIndex: 9999, width: 300,
+              background: "#0F1117", border: `1px solid ${fg}55`,
+              borderRadius: 8, padding: "12px 14px", boxShadow: `0 8px 32px #00000088`,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: fg, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, fontFamily: FONT_MONO, color: fg, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                {risk} risk — why?
+              </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {reasons.map((r, i) => (
+                <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                  <span style={{ color: fg, fontSize: 10, flexShrink: 0, marginTop: 2 }}>▸</span>
+                  <span style={{ fontSize: 12, color: "#B0BAD0", lineHeight: 1.5 }}>{r}</span>
+                </div>
+              ))}
+            </div>
+            {capabilities && capabilities.length > 0 && (
+              <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid #1E2230` }}>
+                <div style={{ fontSize: 10, fontFamily: FONT_MONO, color: T.textMute, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.08em" }}>Capabilities</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {capabilities.map(c => (
+                    <span key={c} style={{ fontSize: 9, fontFamily: FONT_MONO, color: T.textDim, background: "#141823", border: "1px solid #1E2230", padding: "1px 6px", borderRadius: 3 }}>{c}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+        return createPortal(popup, document.body);
+      })()}
+    </>
+  );
+}
 
 const DiscoveryStatusBadge = ({ status }) => {
   const map = {
@@ -328,7 +451,7 @@ function VerifiedTable({ agents, onClaim, onEdit }) {
                   : <span style={{ fontSize: 12, color: T.textDim }}>{a.owner}</span>}
               </Td>
               <Td><StatusPill status={a.status} /></Td>
-              <Td><RiskChip risk={a.risk} /></Td>
+              <Td><RiskChip risk={a.risk} signals={a.signals} capabilities={a.capabilities} /></Td>
               <Td style={{ textAlign: "right" }}>
                 <span style={{ fontSize: 13, fontFamily: FONT_MONO, color: a.monthly_cost_usd > 0 ? T.text : T.textMute }}>
                   {fmtCost(a.monthly_cost_usd)}
