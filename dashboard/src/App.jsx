@@ -5409,27 +5409,26 @@ function SimpleIntegrationsPage({ onNavigate }) {
       badge: "Recommended",
       badgeColor: "#34d399",
       title: "Connect AI Applications",
-      customerDesc: "Most agents are applications. Install the lightweight SDK once and every AI call is automatically attributed to the right agent — name, team, environment, and runtime dependencies all mapped.",
+      customerDesc: "Best for production AI apps, copilots, and agents where you want the most accurate runtime identity.",
       benefits: [
-        "Strongest agent identity out of the box",
-        "Automatic runtime dependency mapping",
-        "Best cost attribution per agent",
-        "Supports OpenAI and Anthropic wrappers",
-        "Zero config via env vars",
+        "Identify AI apps and agents",
+        "Track owner, team, and environment",
+        "Attribute cost and usage",
+        "Map tools and dependencies",
       ],
-      cta: "See Install Guide →",
+      cta: "Install SDK →",
       color: "#34d399",
     },
     {
       id: "gateway",
       badge: null,
-      title: "Connect AI Traffic",
-      customerDesc: "Already routing AI traffic? Point any AI client at the gateway. We derive agent identity from request signals and map what your agents call — no code changes needed.",
+      title: "Route AI Traffic",
+      customerDesc: "Best for getting quick visibility by routing OpenAI or Anthropic-compatible traffic through the gateway.",
       benefits: [
-        "No SDK required",
-        "Works with all existing gateway traffic",
-        "Detects unknown agents automatically",
-        "Creates agents ready for admin review",
+        "Discover active AI assets",
+        "Capture usage and telemetry",
+        "Apply budgets and policies",
+        "Detect unknown runtime activity",
       ],
       cta: "Route Traffic →",
       color: T.info,
@@ -5438,14 +5437,14 @@ function SimpleIntegrationsPage({ onNavigate }) {
       id: "platform",
       badge: null,
       title: "Connect AI Ecosystem",
-      customerDesc: "Scan GitHub, n8n, Slack, Jira, and 12+ platforms for shadow AI usage. Surface potential agents outside the gateway before they become a governance risk.",
+      customerDesc: "Best for finding potential AI assets and shadow AI activity across platforms like GitHub, n8n, Slack, Jira, ServiceNow, and MCP servers.",
       benefits: [
-        "Finds AI usage outside the gateway",
-        "Detects shadow AI and unmanaged agents",
-        "No agent code changes required",
-        "Requires admin validation before entering inventory",
+        "Detect potential AI assets",
+        "Discover workflows and automations",
+        "Surface unmanaged dependencies",
+        "Send findings for validation",
       ],
-      cta: "Connect Platforms →",
+      cta: "Connect Ecosystem →",
       color: T.purple,
     },
   ];
@@ -5642,23 +5641,38 @@ curl GATEWAY_URL/v1/chat/completions \\
 
       {/* ── Page header ── */}
       <div style={{ marginBottom:28 }}>
-        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>Administration · Gateway Setup</div>
-        <div style={{ fontSize:24, fontWeight:700, color:T.text, marginBottom:10, lineHeight:1.2 }}>Build Your AI Agent System of Record</div>
-        <div style={{ fontSize:13, color:T.textDim, lineHeight:1.7, maxWidth:660 }}>
-          Connect your AI applications, route your AI traffic, and link your AI ecosystem.
-          Every agent you discover, every dependency you map, every interaction you govern — all in one place.
+        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>Administration · Setup</div>
+        <div style={{ fontSize:24, fontWeight:700, color:T.text, marginBottom:10, lineHeight:1.2 }}>Build Your AI Operations Record</div>
+        <div style={{ fontSize:13, color:T.textDim, lineHeight:1.7, maxWidth:660, marginBottom:18 }}>
+          Discover AI assets, map runtime dependencies, and understand how AI is operating across your organization.
+        </div>
+        <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:"14px 18px" }}>
+          <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Your AI Operations Record includes</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4px 24px" }}>
+            {[
+              "AI agents and copilots",
+              "AI applications and services",
+              "Workflows and automations",
+              "MCP tools and external systems",
+              "Runtime relationships between them",
+            ].map(item => (
+              <div key={item} style={{ display:"flex", alignItems:"center", gap:7, fontSize:12, color:T.textDim, lineHeight:1.6 }}>
+                <span style={{ width:4, height:4, borderRadius:"50%", background:T.accent, flexShrink:0 }} />{item}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* ── Your AI Estate summary panel ── */}
+      {/* ── Your AI Operations Record summary panel ── */}
       <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:10, padding:"18px 24px", marginBottom:32 }}>
-        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14 }}>Your AI Estate</div>
+        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14 }}>Your AI Operations Record</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:0 }}>
           {[
-            { label:"Agents Discovered",    value:fmtMetric(metrics.agents),       color:T.accent },
-            { label:"Dependencies Mapped",   value:fmtMetric(metrics.dependencies), color:"#5BD9C5" },
-            { label:"Workflows Tracked",     value:fmtMetric(metrics.workflows),    color:T.warn },
-            { label:"Discovery Channels",    value:fmtMetric(metrics.platforms),    color:T.info },
+            { label:"AI Assets",         value:fmtMetric(metrics.agents),       color:T.accent },
+            { label:"Dependencies",       value:fmtMetric(metrics.dependencies), color:"#5BD9C5" },
+            { label:"Workflows",          value:fmtMetric(metrics.workflows),    color:T.warn },
+            { label:"Discovery Sources",  value:fmtMetric(metrics.platforms),    color:T.info },
           ].map((m, i) => (
             <div key={m.label} style={{ padding:"0 20px 0 0", borderRight: i < 3 ? `1px solid ${T.border}` : "none", marginRight: i < 3 ? 20 : 0 }}>
               <div style={{ fontSize:26, fontWeight:700, color:m.color, fontFamily:FONT_MONO, letterSpacing:"-0.02em", lineHeight:1 }}>{m.value}</div>
@@ -5911,31 +5925,40 @@ curl GATEWAY_URL/v1/chat/completions \\
         )}
       </div>
 
-      {/* ── Not sure where to start? ── */}
-      <div style={{ background:`${T.accent}0a`, border:`1px solid ${T.accent}33`, borderRadius:10, padding:"22px 28px", marginTop:24 }}>
-        <div style={{ display:"flex", alignItems:"flex-start", gap:20 }}>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:6 }}>Not sure where to start?</div>
-            <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, maxWidth:520 }}>
-              Most teams start with the SDK — it takes under 5 minutes and gives you agent identity, cost attribution,
-              and runtime dependency mapping out of the box.
-              Once your first agent is sending traffic, explore the Dependency Map to see what it's touching.
+      {/* ── Recommended onboarding path ── */}
+      <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:10, padding:"22px 28px", marginTop:24 }}>
+        <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:14 }}>Recommended onboarding path</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:16 }}>
+          {[
+            { n:"1", text:"Route traffic first to see active AI usage." },
+            { n:"2", text:"Add SDK metadata for stronger identity and ownership." },
+            { n:"3", text:"Connect ecosystem sources to find shadow AI and potential assets." },
+            { n:"4", text:"Review and classify discovered records." },
+          ].map(({ n, text }) => (
+            <div key={n} style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
+              <div style={{ width:20, height:20, borderRadius:"50%", background:T.panelHi, border:`1px solid ${T.border}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
+                <span style={{ fontSize:10, fontFamily:FONT_MONO, color:T.accent, fontWeight:700 }}>{n}</span>
+              </div>
+              <span style={{ fontSize:12, color:T.textDim, lineHeight:1.6, paddingTop:2 }}>{text}</span>
             </div>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8, flexShrink:0 }}>
-            <button onClick={() => setSection(s => s === "sdk" ? null : "sdk")}
-              style={{ background:T.accent, border:"none", color:"#fff", borderRadius:6, padding:"9px 18px", fontSize:12, fontFamily:FONT_MONO, cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}>
-              Install the SDK →
-            </button>
-            <button onClick={() => onNavigate("agent_inventory")}
-              style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, borderRadius:6, padding:"7px 18px", fontSize:12, fontFamily:FONT_MONO, cursor:"pointer", whiteSpace:"nowrap" }}>
-              Explore Agent Inventory
-            </button>
-            <button onClick={() => onNavigate("relationship_map")}
-              style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, borderRadius:6, padding:"7px 18px", fontSize:12, fontFamily:FONT_MONO, cursor:"pointer", whiteSpace:"nowrap" }}>
-              View Dependency Map
-            </button>
-          </div>
+          ))}
+        </div>
+        <div style={{ padding:"10px 14px", background:`${T.info}0d`, border:`1px solid ${T.info}33`, borderRadius:6, fontSize:12, color:T.textDim, lineHeight:1.65 }}>
+          Some records are <strong style={{ color:T.text }}>verified runtime assets</strong>. Others are <strong style={{ color:T.text }}>potential dependencies or ecosystem signals</strong> that require validation.
+        </div>
+        <div style={{ display:"flex", gap:8, marginTop:14 }}>
+          <button onClick={() => setSection(s => s === "gateway" ? null : "gateway")}
+            style={{ background:`${T.info}14`, border:`1px solid ${T.info}44`, color:T.info, borderRadius:6, padding:"8px 16px", fontSize:12, fontFamily:FONT_MONO, cursor:"pointer", fontWeight:600 }}>
+            Route Traffic →
+          </button>
+          <button onClick={() => onNavigate("agent_inventory")}
+            style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, borderRadius:6, padding:"8px 16px", fontSize:12, fontFamily:FONT_MONO, cursor:"pointer" }}>
+            View Inventory
+          </button>
+          <button onClick={() => onNavigate("relationship_map")}
+            style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, borderRadius:6, padding:"8px 16px", fontSize:12, fontFamily:FONT_MONO, cursor:"pointer" }}>
+            View Dependency Map
+          </button>
         </div>
       </div>
 
@@ -5970,7 +5993,7 @@ const PAGES = [
   { id:"alerts",         label:"Alerts" },
   { id:"assets",         label:"Asset Inventory" },
   { id:"chat",           label:"Chat" },
-  { id:"integrations",   label:"Gateway Setup" },
+  { id:"integrations",   label:"Setup" },
   { id:"onboarding",     label:"Setup Guide" },
 ];
 
@@ -6008,7 +6031,7 @@ const NAV_GROUPS = [
       { id: "security",     label: "Security & Audit" },
       { id: "users",        label: "Users" },
       { id: "apikeys",      label: "API Keys" },
-      { id: "integrations", label: "Gateway Setup" },
+      { id: "integrations", label: "Setup" },
       { id: "settings",     label: "Settings" },
     ],
   },
