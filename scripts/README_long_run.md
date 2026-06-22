@@ -1,11 +1,12 @@
 # Long-Run Synthetic Customer Test
 
 Simulates **Acme AI Inc.** using the entire AI Asset Management Platform
-continuously for up to 8 hours through local backend APIs.  Covers every
+continuously for up to 12 hours through local backend APIs.  Covers every
 major feature: health, auth, org onboarding, users, teams, API keys, LLM
-gateway traffic, relationship mapping, agent inventory, telemetry, PII
-detection, budgets, policies, audit, security alerts, chat sessions,
-dashboard APIs, and multi-tenant isolation.
+gateway traffic, **asset inventory (System of Record)**, **runtime dependency
+map**, telemetry, PII detection, budgets, policies, audit, security alerts,
+chat sessions, pricing / cost intelligence, dashboard APIs, and multi-tenant
+isolation.
 
 ---
 
@@ -67,14 +68,39 @@ npm run dev
 | `PLATFORM_ADMIN_PASSWORD` | **Yes** | — | Password for the platform admin account |
 | `BASE_URL` | No | `http://localhost:8000` | Backend base URL |
 | `PLATFORM_ADMIN_EMAIL` | No | `admin@ai-asset-mgmt.local` | Platform admin email |
-| `ACME_ADMIN_EMAIL` | No | `admin@acme-ai.example.com` | Acme org admin email |
-| `ACME_ADMIN_PASSWORD` | No | `AcmeAdmin1!` | Acme org admin password |
+| `ACME_ADMIN_EMAIL` | No | `admin@acme.ai` | Acme org admin email |
+| `ACME_ADMIN_PASSWORD` | No | *(empty)* | Acme admin password. When set, the script auto-creates the user if absent |
 
-Set via the shell or a `.env` file (do not commit `.env`):
+**bash / zsh:**
 
 ```bash
 export PLATFORM_ADMIN_PASSWORD="your-admin-password-here"
+export ACME_ADMIN_EMAIL="admin@acme.ai"
+export ACME_ADMIN_PASSWORD="your-acme-password-here"
 export BASE_URL="http://localhost:8000"
+```
+
+**PowerShell:**
+
+```powershell
+$env:BASE_URL="http://localhost:8000"
+$env:PLATFORM_ADMIN_EMAIL="admin@ai-asset-mgmt.local"
+$env:PLATFORM_ADMIN_PASSWORD="YOUR_PLATFORM_ADMIN_PASSWORD"
+$env:ACME_ADMIN_EMAIL="admin@acme.ai"
+$env:ACME_ADMIN_PASSWORD="YOUR_ACME_ADMIN_PASSWORD"
+
+python scripts/long_run_synthetic_customer.py --fast-mode --duration-minutes 10 --skip-live-llm
+```
+
+---
+
+## Quick start (dry-run first)
+
+Check that the script can reach the backend without creating anything:
+
+```bash
+PLATFORM_ADMIN_PASSWORD='your-password' \
+  python scripts/long_run_synthetic_customer.py --dry-run
 ```
 
 ---
@@ -88,10 +114,12 @@ error)" in telemetry, which is sufficient to exercise the enforcement
 pipeline, relationship mapping, and agent discovery.
 
 ```bash
-# Terminal 3 — test runner
+# Terminal 3 — test runner (bash / zsh)
 cd /path/to/ai-asset-management
 
-PLATFORM_ADMIN_PASSWORD=your-password \
+PLATFORM_ADMIN_PASSWORD='your-password' \
+ACME_ADMIN_EMAIL='admin@acme.ai' \
+ACME_ADMIN_PASSWORD='your-acme-password' \
   python scripts/long_run_synthetic_customer.py \
   --fast-mode \
   --skip-live-llm
@@ -100,7 +128,8 @@ PLATFORM_ADMIN_PASSWORD=your-password \
 Override the duration while keeping fast intervals:
 
 ```bash
-PLATFORM_ADMIN_PASSWORD=your-password \
+PLATFORM_ADMIN_PASSWORD='your-password' \
+ACME_ADMIN_PASSWORD='your-acme-password' \
   python scripts/long_run_synthetic_customer.py \
   --fast-mode \
   --duration-minutes 2 \
@@ -109,12 +138,12 @@ PLATFORM_ADMIN_PASSWORD=your-password \
 
 ---
 
-## How to run the full 8-hour test
+## How to run the full 12-hour validation
 
 ```bash
 PLATFORM_ADMIN_PASSWORD=your-password \
   python scripts/long_run_synthetic_customer.py \
-  --duration-hours 8 \
+  --duration-hours 12 \
   --skip-live-llm
 ```
 
@@ -123,7 +152,7 @@ With real LLM provider credentials configured in the platform:
 ```bash
 PLATFORM_ADMIN_PASSWORD=your-password \
   python scripts/long_run_synthetic_customer.py \
-  --duration-hours 8
+  --duration-hours 12
 ```
 
 ---
@@ -144,19 +173,24 @@ usage: long_run_synthetic_customer.py [-h]
   [--skip-live-llm]
   [--include-rate-limit]
   [--fast-mode]
+  [--dry-run]
 ```
 
 | Flag | Description |
 |---|---|
-| `--duration-hours N` | Run for N hours (default 8) |
+| `--duration-hours N` | Run for N hours (default 12) |
 | `--duration-minutes N` | Run for N minutes (overrides hours) |
 | `--base-url URL` | Backend base URL (default `http://localhost:8000`) |
+| `--admin-email EMAIL` | Platform admin email (default `admin@ai-asset-mgmt.local`) |
+| `--acme-admin-email EMAIL` | Acme org admin email (default `admin@acme.ai`) |
+| `--acme-admin-password PW` | Acme admin password; auto-creates user if absent when set |
 | `--concurrency N` | Concurrent traffic workers (default 3) |
 | `--strict` | Treat endpoint-not-found (404) as a failure |
 | `--strict-live` | Fail if provider credentials are missing |
 | `--skip-live-llm` | Accept 502/503 from proxy (no provider creds needed) |
 | `--include-rate-limit` | Run rate-limit burst test after main loop |
 | `--fast-mode` | Short intervals; default 10-min duration |
+| `--dry-run` | Check health then exit without creating resources |
 
 ---
 
@@ -182,9 +216,16 @@ usage: long_run_synthetic_customer.py [-h]
 6. **API keys** — create one key per team; keep raw keys in memory only
 7. **Settings** — set `pii_redaction_mode=findings_only`; guard mode `observe`
 8. **Provider credentials** — check status; run mock/skip if missing
-9. **Runtime traffic** — 7 agent profiles with relationship headers; 3 concurrent workers
-10. **Relationship mapping** — validate every 5 min; check graph nodes/edges
-11. **Agent inventory** — validate every 5 min; check team attribution, `last_seen_at`
+9. **Runtime traffic** — 7 agent profiles; 3 concurrent workers
+10. **Asset Inventory (System of Record)** — validate every 15 min:
+    - `/assets` — risk levels (low/medium/high), lifecycle_status (unassigned/managed/retired), discovery_status (verified/potential)
+    - `/assets/summary` — KPI cards
+    - `/agents` — verified vs potential, discovery coverage
+    - `/assets/registry/unassigned` — discovery queue
+11. **Runtime Dependency Map** — validate every 5 min:
+    - `/relationships` — target types: `mcp_tool`, `workflow`, `api`, `crm`, `database`, `spreadsheet`
+    - `/relationships/graph` — nodes and edges, target type diversity
+    - `request_count` increases over time
 12. **Telemetry** — validate every 5 min; check totals increase, costs, latency
 13. **PII scenario** — fake PII every 30 min; verify findings; verify redaction
 14. **Budgets** — create cost-burner budget; validate status updates
@@ -192,8 +233,14 @@ usage: long_run_synthetic_customer.py [-h]
 16. **Audit** — validate every 10 min; check blocked/sensitive events
 17. **Security alerts** — validate every 10 min; verify shape
 18. **Sessions / chat** — create, read, verify, close every 20 min
-19. **Dashboard APIs** — read all dashboard endpoints every 10 min
-20. **Multi-tenant isolation** — verify Acme cannot see OtherCo data
+19. **Pricing / Cost Intelligence** — validate every 15 min:
+    - `/pricing-registry` — model pricing table
+    - `/pricing-registry/status` — freshness warnings
+    - `/cost-intelligence` — runtime cost overview
+    - `/billing/periods` — reconciliation (skip 404)
+20. **Dashboard APIs** — read all dashboard endpoints every 10 min
+21. **Multi-tenant isolation** — verify Acme cannot see OtherCo data
+22. **Checkpoints** — written every 15 min to `*_checkpoints.jsonl`
 
 ---
 
@@ -238,9 +285,26 @@ Key fields:
 | `total_requests` | All proxy calls made |
 | `success_rate_pct` | Percentage of 200 + acceptable-502/503 |
 | `agents_discovered` | Agents visible in `/agents` at last check |
+| `assets_discovered` | Assets in `/assets` at last check |
+| `asset_types_found` | Teams with active agents |
+| `capabilities_found` | Models used across all agents |
 | `relationships_discovered` | Relationships in `/relationships` at last check |
+| `rel_target_types` | Unique target types seen in dependency graph |
+| `top_rel_targets` | Top 10 dependencies by request count |
 | `cost_estimate_usd` | Sum of `x_guard.cost_usd` from 200 responses |
 | `checks.*.passed/total` | Per-feature check pass rate |
+
+### Checkpoint log
+
+```bash
+cat logs/long_run/*_checkpoints.jsonl | python3 -m json.tool
+```
+
+### Executive summary
+
+```bash
+cat logs/long_run/*_executive_summary.md
+```
 
 ---
 
@@ -295,6 +359,126 @@ log for the blocked request's `block_reason`.
 
 ---
 
+## Recommended local validation sequence
+
+Run these steps in order before committing to the full 12-hour run.
+Each step must pass before advancing to the next.
+
+### Step A — 2-minute smoke test
+
+Confirms all 13 checks pass end-to-end, no provider credentials needed.
+
+**bash / zsh:**
+
+```bash
+PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
+  python scripts/long_run_synthetic_customer.py \
+  --fast-mode --duration-minutes 2 --skip-live-llm
+```
+
+**PowerShell:**
+
+```powershell
+$env:PLATFORM_ADMIN_PASSWORD="Admin123!"
+$env:ACME_ADMIN_PASSWORD="AcmeAdmin1!"
+python scripts/long_run_synthetic_customer.py `
+  --fast-mode --duration-minutes 2 --skip-live-llm
+```
+
+Expected: `✅ PASS`, 13/13 checks, success rate 100%.
+
+---
+
+### Step B — 10-minute fast test
+
+Exercises every interval (telemetry, dashboard, audit, PII, relationships,
+pricing, asset inventory, isolation).
+
+**bash / zsh:**
+
+```bash
+PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
+  python scripts/long_run_synthetic_customer.py \
+  --fast-mode --duration-minutes 10 --skip-live-llm
+```
+
+**PowerShell:**
+
+```powershell
+$env:PLATFORM_ADMIN_PASSWORD="Admin123!"
+$env:ACME_ADMIN_PASSWORD="AcmeAdmin1!"
+python scripts/long_run_synthetic_customer.py `
+  --fast-mode --duration-minutes 10 --skip-live-llm
+```
+
+Expected: `✅ PASS`, at least one checkpoint written, all target types
+in the dependency map.
+
+---
+
+### Step C — 1-hour stability test
+
+Verifies checkpoint cadence, growing telemetry totals, and relationship
+request counts that increase over time.
+
+**bash / zsh:**
+
+```bash
+PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
+  python scripts/long_run_synthetic_customer.py \
+  --duration-minutes 60 --skip-live-llm
+```
+
+**PowerShell:**
+
+```powershell
+$env:PLATFORM_ADMIN_PASSWORD="Admin123!"
+$env:ACME_ADMIN_PASSWORD="AcmeAdmin1!"
+python scripts/long_run_synthetic_customer.py `
+  --duration-minutes 60 --skip-live-llm
+```
+
+Expected: `✅ PASS`, 4 checkpoints, all relationship target types present,
+growing telemetry totals.
+
+---
+
+### Step D — 12-hour full validation
+
+**bash / zsh:**
+
+```bash
+PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
+  python scripts/long_run_synthetic_customer.py \
+  --duration-hours 12 --skip-live-llm
+```
+
+**PowerShell:**
+
+```powershell
+$env:PLATFORM_ADMIN_PASSWORD="Admin123!"
+$env:ACME_ADMIN_PASSWORD="AcmeAdmin1!"
+python scripts/long_run_synthetic_customer.py `
+  --duration-hours 12 --skip-live-llm
+```
+
+With live LLM provider credentials (real cost incurred):
+
+```powershell
+$env:PLATFORM_ADMIN_PASSWORD="Admin123!"
+$env:ACME_ADMIN_PASSWORD="AcmeAdmin1!"
+python scripts/long_run_synthetic_customer.py `
+  --duration-hours 12 --strict --strict-live
+```
+
+Expected: `✅ PASS`, 48 checkpoints, 100% success rate.
+
+---
+
 ## Example commands
 
 ```bash
@@ -304,20 +488,37 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 # Terminal 2 — frontend (optional)
 cd dashboard && npm run dev
 
+# Terminal 3 — dry run (confirms backend is reachable)
+PLATFORM_ADMIN_PASSWORD=Admin123! \
+  python scripts/long_run_synthetic_customer.py --dry-run
+
 # Terminal 3 — fast 2-minute smoke test
 PLATFORM_ADMIN_PASSWORD=Admin123! \
   python scripts/long_run_synthetic_customer.py \
   --fast-mode --duration-minutes 2 --skip-live-llm
 
-# Terminal 3 — full 8-hour run
+# Terminal 3 — 10-minute fast test
 PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
   python scripts/long_run_synthetic_customer.py \
-  --duration-hours 8 --skip-live-llm
+  --fast-mode --duration-minutes 10 --skip-live-llm
+
+# Terminal 3 — 1-hour stability test
+PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
+  python scripts/long_run_synthetic_customer.py \
+  --duration-minutes 60 --skip-live-llm
+
+# Terminal 3 — full 12-hour validation
+PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
+  python scripts/long_run_synthetic_customer.py \
+  --duration-hours 12 --skip-live-llm
 
 # With live LLM + strict mode
 PLATFORM_ADMIN_PASSWORD=Admin123! \
   python scripts/long_run_synthetic_customer.py \
-  --duration-hours 8 --strict --strict-live
+  --duration-hours 12 --strict --strict-live
 
 # With rate-limit test and higher concurrency
 PLATFORM_ADMIN_PASSWORD=Admin123! \
