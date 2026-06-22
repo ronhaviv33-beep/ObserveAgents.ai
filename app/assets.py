@@ -59,25 +59,36 @@ def _count_after_hours(calls: list[Telemetry]) -> int:
     return count
 
 
-def _compute_risk(signals: dict, capabilities: list | None = None) -> str:
-    """Derive critical/high/medium/low risk from signals and capability profile."""
-    caps = set(capabilities or [])
-    has_tool = "tool_execution" in caps
-    has_write_access = bool(caps & {"cloud_operations", "security_operations", "database_access", "code_execution"})
+def _compute_risk(signals: dict, capabilities: list | None = None, pii_enabled: bool = False) -> str:
+    """Derive critical/high/medium/low risk from capability profile and operational signals.
 
-    # Critical: active tool execution + high-impact capability + security signal
-    if has_tool and has_write_access and (signals.get("has_pii") or signals.get("has_blocked") or signals.get("has_loop")):
-        return "critical"
-    # Critical: tool execution + cloud/security operations (high blast radius)
+    Primary drivers (always active):
+      - capabilities: tool_execution, cloud_operations, security_operations, etc.
+      - operational signals: has_blocked, has_loop, after_hours_calls, blocked_count
+
+    Secondary optional signal (only when pii_enabled=True):
+      - has_pii: contributes to risk only when org has pii_detection_enabled
+    """
+    caps = set(capabilities or [])
+    has_tool       = "tool_execution" in caps
+    has_write_cap  = bool(caps & {"cloud_operations", "security_operations", "database_access", "code_execution"})
+    has_ops_signal = signals.get("has_blocked") or signals.get("has_loop")
+    # PII only contributes when explicitly enabled per-org
+    has_pii_signal = pii_enabled and signals.get("has_pii")
+
+    # Critical: tool execution + high-blast-radius capability
     if has_tool and bool(caps & {"cloud_operations", "security_operations"}):
         return "critical"
-    # High: security signal regardless of capabilities
-    if signals.get("has_pii") or signals.get("has_blocked") or signals.get("has_loop"):
+    # Critical: tool execution + write capability + active operational signal
+    if has_tool and has_write_cap and has_ops_signal:
+        return "critical"
+    # High: operational signals (blocked / looping calls)
+    if has_ops_signal or has_pii_signal:
         return "high"
-    # High: tool execution alone
+    # High: tool execution alone — agent can take external actions
     if has_tool:
         return "high"
-    # Medium: retrieval/external/after-hours/blocks
+    # Medium: retrieval / external integrations / after-hours / blocked history
     if (signals.get("after_hours_calls", 0) > 5 or signals.get("blocked_count", 0) > 0
             or bool(caps & {"retrieval", "external_api", "file_access", "database_access"})):
         return "medium"

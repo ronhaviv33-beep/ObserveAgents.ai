@@ -29,7 +29,7 @@ const ALERT_META = {
   unusual_after_hours_usage: { label: "After-Hours Activity", icon: "◉", category: "Security Signal" },
   repeated_agent_loop:       { label: "Agent Loop",           icon: "⊙", category: "Reliability Risk" },
   unapproved_model_usage:    { label: "Unapproved Model",     icon: "⊗", category: "Governance Violation" },
-  sensitive_data_exposure:   { label: "Sensitive Data",       icon: "⚑", category: "Security Risk" },
+  sensitive_data_exposure:   { label: "Sensitive Content",    icon: "⚑", category: "Runtime Signal" },
 };
 
 const SEV_CONFIG = {
@@ -147,7 +147,7 @@ export default function SecurityIntelligence() {
   const riskScore = Math.min(100, Math.round(
     highRiskCount * 18 +
     medRiskCount  * 8 +
-    alerts.filter(a => a.type === "sensitive_data_exposure").length * 12 +
+    alerts.filter(a => a.type === "repeated_agent_loop").length * 8 +
     alerts.filter(a => a.type === "unapproved_model_usage").length * 6
   ));
 
@@ -173,6 +173,14 @@ export default function SecurityIntelligence() {
   return (
     <div style={{ fontFamily: FONT, display: "flex", flexDirection: "column", gap: 24 }}>
 
+      {/* ── Page header ────────────────────────────────────────────────────── */}
+      <div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>AI Operational Risk Center</div>
+        <div style={{ fontSize: 13, color: T.textMute, marginTop: 4 }}>
+          Runtime signals, policy violations, and behavioral anomalies across your AI agent fleet
+        </div>
+      </div>
+
       {/* ── Risk Overview ──────────────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 20 }}>
         <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "24px 28px", display: "flex", alignItems: "center" }}>
@@ -196,7 +204,7 @@ export default function SecurityIntelligence() {
 
       {/* ── Findings Breakdown ─────────────────────────────────────────────── */}
       <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "20px 24px" }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 16 }}>Security Findings by Category</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 16 }}>Operational Risk Findings by Category</div>
         {Object.keys(findingsByType).length > 0 ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
             {Object.entries(findingsByType).map(([type, counts]) => {

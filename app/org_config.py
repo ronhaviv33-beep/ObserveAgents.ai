@@ -24,6 +24,10 @@ DEFAULTS: dict = {
     # "findings_only": for PII-flagged records, replace prompt + response with a
     # redaction notice and keep only the findings metadata. Reduces PII at-rest exposure.
     "pii_redaction_mode": "full",
+    # pii_detection_enabled: when False (default), PII scanning runs but results are
+    # not used in risk scoring or surfaced as primary UI signals. Enable per-org for
+    # customers that want sensitive-content runtime safety signals.
+    "pii_detection_enabled": False,
 }
 
 

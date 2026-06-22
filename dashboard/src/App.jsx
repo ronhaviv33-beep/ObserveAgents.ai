@@ -267,7 +267,7 @@ const ALERT_META = {
   unusual_after_hours_usage: { title: "After-hours activity spike",          category: "Security Signal",              checks: "Counts requests outside business hours (before 07:00 or after 20:00) over the last 7 days.", matters: "Off-hours bursts can be a legitimate batch job — or an early indicator of a leaked API key or unauthorized access.", causes: ["Undocumented scheduled batch job", "Leaked or shared API credential being used externally", "Retry loop that only triggers under low-traffic conditions"], detail: (a) => `${a.entity} logged ${a.msg.toLowerCase()}. If this batch window is expected, suppress the rule; if not, rotate the key.` },
   repeated_agent_loop:      { title: "Agent stuck in a loop",               category: "Reliability Risk",             checks: "Buckets each agent's calls into 30-min windows. Fires when any window exceeds 40 calls from the same agent.", matters: "A looping agent burns tokens continuously with no useful output — one of the fastest ways to run up an unexpected bill.", causes: ["Tool-call retry with no max-attempts cap", "Missing or unreachable termination condition", "Agent re-planning indefinitely on an unsolvable step"], detail: (a) => `${a.entity} produced ${a.msg.toLowerCase()}. Add a hard call cap and termination check before re-enabling.` },
   unapproved_model_usage:   { title: "Unapproved model in use",             category: "Governance Violation",         checks: "Flags any request routed to a model not on the organization's approved allowlist.", matters: "Unapproved models may not meet data-residency, security, or contractual requirements.", causes: ["Developer testing a new provider in production", "Missing enforcement at the model gateway", "SDK default that bypassed the allowlist"], detail: (a) => `${a.msg}. Either add to the allowlist through governance review, or block at the gateway.` },
-  sensitive_data_exposure:  { title: "Sensitive data in AI requests",        category: "Security Risk",                checks: "Inspects request payloads for patterns matching PII or financial data.", matters: "Sending sensitive data to an external model can breach privacy regulations and contractual obligations.", causes: ["No PII redaction layer in front of the model call", "Raw documents passed through without scrubbing", "User input not sanitized before being added to context"], detail: (a) => `${a.entity} triggered this: ${a.msg.toLowerCase()}. Enable a redaction/DLP policy on this workflow immediately.` },
+  sensitive_data_exposure:  { title: "Sensitive content in AI requests",      category: "Runtime Signal",               checks: "Detects requests flagged with sensitive content patterns.", matters: "Sensitive content sent to external models may need review depending on your data policies.", causes: ["Unstructured user input passed to model without filtering", "Raw documents included in context"], detail: (a) => `${a.entity} triggered this: ${a.msg.toLowerCase()}. Review request patterns for this asset.` },
 };
 
 // ─── Detection engine ─────────────────────────────────────────────────────────
@@ -308,7 +308,7 @@ function runDetections(events) {
   const unapproved = events.filter((e) => !approvedModel(e.model));
   if (unapproved.length > 0) alerts.push({ type: "unapproved_model_usage", sev: "warning", entity: unapproved[0].agent, msg: `${unapproved.length} calls to non-allowlisted model "${unapproved[0].model}"`, action: "Block at gateway or request governance approval", ts: unapproved.reduce((max, e) => e.ts > max ? e.ts : max, 0) });
   const sensitive = events.filter((e) => e.sensitive);
-  if (sensitive.length > 0) alerts.push({ type: "sensitive_data_exposure", sev: "critical", entity: sensitive[0].agent, msg: `${sensitive.length} requests flagged with sensitive payload patterns`, action: "Enable PII redaction policy on this workflow", ts: sensitive.reduce((max, e) => e.ts > max ? e.ts : max, 0) });
+  if (sensitive.length > 0) alerts.push({ type: "sensitive_data_exposure", sev: "warning", entity: sensitive[0].agent, msg: `${sensitive.length} requests flagged with sensitive content patterns`, action: "Review asset request patterns", ts: sensitive.reduce((max, e) => e.ts > max ? e.ts : max, 0) });
   return alerts.sort((a, b) => { const o = { critical: 0, warning: 1, info: 2 }; return o[a.sev] - o[b.sev] || b.ts - a.ts; });
 }
 
@@ -621,7 +621,6 @@ function Home({ onNavigate }) {
                       <span style={{ fontSize:11, color:T.textDim, fontFamily:FONT_MONO }}>{a.team}</span>
                       <span style={{ color:T.textMute, fontSize:11 }}>·</span>
                       <span style={{ fontSize:11, color:T.purple, fontFamily:FONT_MONO }}>${(a.monthly_cost_usd||0).toFixed(3)}/mo</span>
-                      {sig.has_pii     && <span style={{ fontSize:10, background:`${T.crit}22`, color:T.crit, padding:"1px 7px", borderRadius:8, fontFamily:FONT_MONO }}>PII {sig.pii_count} calls</span>}
                       {sig.has_blocked && <span style={{ fontSize:10, background:`${T.warn}22`, color:T.warn, padding:"1px 7px", borderRadius:8, fontFamily:FONT_MONO }}>{sig.blocked_count} blocked</span>}
                       {sig.has_loop    && <span style={{ fontSize:10, background:`${T.crit}22`, color:T.crit, padding:"1px 7px", borderRadius:8, fontFamily:FONT_MONO }}>loop detected</span>}
                     </div>
@@ -1458,7 +1457,7 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
             <tr><td colSpan={9} style={{ padding:"20px 8px", color:T.textMute, fontFamily:FONT_MONO, fontSize:13 }}>{audit.length === 0 ? "No audit records yet." : "No records match your search."}</td></tr>
           ) : filtered.map((r) => {
             const isOpen = expanded === r.id;
-            const rowBg = r.blocked ? `${T.crit}08` : r.sensitive ? `${T.warn}08` : "transparent";
+            const rowBg = r.blocked ? `${T.crit}08` : "transparent";
             let findings = [];
             try { findings = JSON.parse(r.sensitive_findings || "[]"); } catch {}
             return (
@@ -1474,11 +1473,10 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
                   </td>
                   <td style={{ padding:"6px 8px" }}>
                     <div style={{ display:"flex", flexWrap:"wrap", gap:3 }}>
-                      {r.sensitive       && <Pill color={T.warn}>PII</Pill>}
                       {r.pricing_estimated && <Pill color="#f97316">unknown mdl</Pill>}
                       {isLoopRow(r)      && <Pill color="#eab308">loop</Pill>}
                       {isAfterHours(r)   && <Pill color={T.info}>after-hrs</Pill>}
-                      {!r.sensitive && !r.pricing_estimated && !isLoopRow(r) && !isAfterHours(r) && (
+                      {!r.pricing_estimated && !isLoopRow(r) && !isAfterHours(r) && (
                         <span style={{ color:T.textMute, fontFamily:FONT_MONO, fontSize:11 }}>—</span>
                       )}
                     </div>
@@ -1504,7 +1502,7 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
                     </div>
                   );
                   return (
-                    <tr style={{ background: r.blocked ? `${T.crit}06` : r.sensitive ? `${T.warn}06` : T.panelHi }}>
+                    <tr style={{ background: r.blocked ? `${T.crit}06` : T.panelHi }}>
                       <td colSpan={9} style={{ borderBottom:`1px solid ${T.border}`, padding:0 }}>
                         <div style={{ padding:"20px 24px", display:"flex", flexDirection:"column", gap:18, borderTop:`1px solid ${T.border}` }}>
 
@@ -1711,7 +1709,6 @@ function SecurityPage() {
           { label:"Live Alerts",    value:alerts.length,   color:alerts.length>0?T.crit:T.accent },
           ...(isAdmin ? [
             { label:"Policy Rules",   value:policies.length, color:T.info },
-            { label:"Sensitive Reqs", value:sensitiveCount,  color:sensitiveCount>0?T.warn:T.accent },
             { label:"Blocked Reqs",   value:blockedCount,    color:blockedCount>0?T.crit:T.accent },
           ] : []),
         ];
@@ -1771,19 +1768,19 @@ function SecurityPage() {
         )}
       </div>
 
-      {/* PII Scanner */}
-      <Card title="PII / Sensitive Data Scanner" subtitle="Test any text for credentials, PII, and sensitive patterns">
+      {/* Sensitive content check — optional, collapsed by default */}
+      <Card title="Sensitive Content Check" subtitle="Optional — test text for credential or sensitive-data patterns">
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <textarea
             value={scanText} onChange={(e) => setScanText(e.target.value)}
-            placeholder="Paste a prompt or document to scan for sensitive data…"
+            placeholder="Paste text to check for sensitive data patterns…"
             rows={4}
             style={{ width:"100%", background:T.panelHi, color:T.text, border:`1px solid ${T.border}`, borderRadius:4, padding:"10px 12px", fontSize:12, fontFamily:FONT_MONO, resize:"vertical", boxSizing:"border-box" }}
           />
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
             <button onClick={handleScan} disabled={scanning || !scanText.trim()}
               style={{ background:T.accent, color:T.bg, border:"none", padding:"8px 18px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:scanning?0.6:1 }}>
-              {scanning ? "Scanning…" : "Scan Text"}
+              {scanning ? "Scanning…" : "Check Text"}
             </button>
             {scanResult && (
               <Pill color={scanResult.is_sensitive ? T.crit : T.accent}>
@@ -3052,7 +3049,7 @@ function ChatPage() {
             <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", color:T.textMute, fontFamily:FONT_MONO, fontSize:13, gap:8, paddingTop:60 }}>
               <div style={{ fontSize:28, color: mode==="chat" ? T.accent : T.purple }}>{mode==="chat" ? "◈" : "◇"}</div>
               <div>{mode==="chat" ? "Start a conversation — history is preserved across turns" : "Send a single-shot prompt — no history, each message is independent"}</div>
-              <div style={{ fontSize:11 }}>PII scan · budget check · policy enforcement · cost tracking</div>
+              <div style={{ fontSize:11 }}>Budget check · policy enforcement · cost tracking · agent identity</div>
               {mode==="chat" && <div style={{ fontSize:10, marginTop:4 }}>Session auto-closes after 30 min of inactivity</div>}
               {mode==="ask"  && <div style={{ fontSize:10, marginTop:4 }}>Each send creates its own session — visible in Recent tab</div>}
             </div>
@@ -3414,7 +3411,7 @@ print(llm.invoke("Hello").content)`,
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4px 24px" }}>
           {[
             { n:"1", color:T.info,   label:"Auth",        desc:"JWT or API key validated; org resolved from DB" },
-            { n:"2", color:T.warn,   label:"PII scan",    desc:"Prompt scanned for secrets, PII, card numbers" },
+            { n:"2", color:T.warn,   label:"Safety check", desc:"Content safety and redaction check (if enabled)" },
             { n:"3", color:T.info,   label:"Policy",      desc:"Blocked model for this team → 403" },
             { n:"4", color:T.crit,   label:"Budget",      desc:"Over limit with action=block → 429" },
             { n:"5", color:T.accent, label:"Credential",  desc:"Your org's encrypted key decrypted; no fallback → 402 if missing" },
@@ -4890,7 +4887,6 @@ function AssetsPage() {
             { label: "Dormant",        value: summary.dormant_agents,     color: T2.warn },
             { label: "Inactive",       value: summary.inactive_agents,    color: T2.textMute },
             { label: "High Risk",      value: summary.high_risk_agents,   color: T2.crit },
-            { label: "With PII",       value: summary.agents_with_pii,    color: T2.crit },
             { label: "Monthly Cost",   value: `$${(summary.monthly_cost_usd || 0).toFixed(2)}`, color: T2.purple },
             { label: "Total Cost",     value: `$${(summary.total_cost_usd || 0).toFixed(2)}`,   color: T2.textDim },
             { label: "Unassigned",     value: unassignedCount,            color: T2.warn },
@@ -5039,7 +5035,6 @@ function AssetsPage() {
                           <td style={{ ...cell, color: T2.textDim }}>{lastSeenStr}</td>
                           <td style={cell}>
                             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                              {sig.has_pii && <span style={{ fontSize: 10, background: `${T2.crit}22`, color: T2.crit, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>PII</span>}
                               {sig.has_blocked && <span style={{ fontSize: 10, background: `${T2.warn}22`, color: T2.warn, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>blocked</span>}
                               {sig.has_loop && <span style={{ fontSize: 10, background: `${T2.crit}22`, color: T2.crit, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>loop</span>}
                               {sig.after_hours_calls > 5 && <span style={{ fontSize: 10, background: `${T2.info}22`, color: T2.info, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>after-hours</span>}
@@ -5101,11 +5096,6 @@ function AssetsPage() {
                                 <div style={{ marginBottom: 16 }}>
                                   <div style={{ fontSize: 11, color: T2.textMute, fontFamily: FONT_MONO, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Risk Signals</div>
                                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                    {sig.has_pii && (
-                                      <div style={{ background: `${T2.crit}15`, border: `1px solid ${T2.crit}44`, borderRadius: 6, padding: "6px 12px", fontSize: 12, color: T2.crit, fontFamily: FONT_MONO }}>
-                                        PII detected in {sig.pii_count} calls
-                                      </div>
-                                    )}
                                     {sig.has_blocked && (
                                       <div style={{ background: `${T2.warn}15`, border: `1px solid ${T2.warn}44`, borderRadius: 6, padding: "6px 12px", fontSize: 12, color: T2.warn, fontFamily: FONT_MONO }}>
                                         {sig.blocked_count} blocked requests
@@ -5121,7 +5111,7 @@ function AssetsPage() {
                                         {sig.after_hours_calls} after-hours calls
                                       </div>
                                     )}
-                                    {!sig.has_pii && !sig.has_blocked && !sig.has_loop && sig.after_hours_calls <= 0 && (
+                                    {!sig.has_blocked && !sig.has_loop && sig.after_hours_calls <= 0 && (
                                       <div style={{ color: T2.textMute, fontSize: 12, fontFamily: FONT_MONO }}>No risk signals detected</div>
                                     )}
                                   </div>
@@ -5151,7 +5141,6 @@ function AssetsPage() {
                                               <td style={{ padding: "4px 10px", color: T2.textDim }}>${(r.cost_usd || 0).toFixed(5)}</td>
                                               <td style={{ padding: "4px 10px", color: T2.textDim }}>{Math.round(r.latency_ms)}ms</td>
                                               <td style={{ padding: "4px 10px" }}>
-                                                {r.sensitive && <span style={{ color: T2.crit, marginRight: 4, fontSize: 10, background: `${T2.crit}22`, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>PII</span>}
                                                 {r.blocked   && <span style={{ color: T2.warn, marginRight: 4, fontSize: 10, background: `${T2.warn}22`, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>blocked</span>}
                                                 {(() => { const h = new Date(r.timestamp).getHours(); return (h < 7 || h >= 20); })() && <span style={{ color: T2.info, fontSize: 10, background: `${T2.info}22`, padding: "1px 6px", borderRadius: 8, fontFamily: FONT_MONO }}>after-hrs</span>}
                                               </td>

@@ -1,10 +1,10 @@
 # AI Asset Management
 
-**The AI Agent System of Record — discover every agent, map every dependency, govern every AI interaction.**
+**The AI Agent System of Record — discover every agent, map every dependency, assign ownership, understand risk, and govern AI operations.**
 
 > We don't only discover AI agents. We map what they touch.
 
-AI Agent Inventory tells you which agents exist. Runtime Dependency Map tells you what they interact with. Together, they become the system of record for enterprise AI operations.
+AI Agent Inventory tells you which agents exist, who owns them, and what risk they carry. Runtime Dependency Map tells you what they interact with at runtime. Together, they become the system of record for enterprise AI operations. Optional sensitive-content checks can be enabled for customers that want additional runtime safety signals.
 
 ---
 
@@ -77,12 +77,11 @@ POST /v1/messages          (Anthropic-compatible)
 - **Bring Your Own Key (BYOK)** — per-org provider credentials stored encrypted (Fernet); used in place of server-level env vars when present
 
 ### Enforcement Pipeline (every call)
-1. **PII scan** — emails, phone numbers, credit cards, SSNs, API keys, passwords, AWS keys, private keys, JWT tokens, IP addresses
-2. **Model policy** — per-team allowlist / blocklist; blocked calls return HTTP 403 and are logged
-3. **Budget check** — per-team and per-agent daily/monthly limits; `action=alert` warns, `action=block` returns HTTP 429
-4. **LLM call** — forwarded to the real provider
-5. **Telemetry** — tokens, cost (versioned per-model pricing), latency, team, agent, PII findings all persisted
-6. **Relationship capture** — non-fatal; extracts runtime dependencies from headers and upserts into `agent_relationships`
+1. **Safety check** — model policy enforcement; blocked calls return HTTP 403 and are logged. Optional sensitive-content scan (10 pattern types) can be enabled per org.
+2. **Budget check** — per-team and per-agent daily/monthly limits; `action=alert` warns, `action=block` returns HTTP 429
+3. **LLM call** — forwarded to the real provider
+4. **Telemetry** — tokens, cost (versioned per-model pricing), latency, team, agent, and findings all persisted
+5. **Relationship capture** — non-fatal; extracts runtime dependencies from headers and upserts into `agent_relationships`
 
 ### Auth & Users
 - JWT login (`POST /auth/login`) with 8-hour expiry
@@ -139,10 +138,12 @@ Three-layer financial analysis:
 - **Freshness warnings** — amber > 24 h, red > 48 h since last sync
 - 24 models seeded on first start across OpenAI, Anthropic, Google, and Local
 
-### Security & Compliance
-- 8 automated detection rules (cost spike, large prompt, workflow failure spike, premium model misuse, after-hours activity, agent loop, unapproved model, sensitive data)
+### AI Operational Risk & Compliance
+- **Operational risk center** — monitor unmanaged assets, high-capability agents, policy violations, budget anomalies, and unusual runtime behavior
+- 8 automated detection rules (cost spike, large prompt, workflow failure spike, premium model misuse, after-hours activity, agent loop, unapproved model, sensitive content)
 - Each alert includes root cause analysis and recommended remediation
-- Full audit log — expandable rows with prompt, response, block reason, PII findings; load-more pagination
+- Full audit log — expandable rows with prompt, response, block reason, and findings; load-more pagination
+- Optional sensitive-content checks — can be enabled per org for customers that want additional runtime safety signals
 - TLS via reverse proxy, HS256 JWT, secrets never returned via API, all data stays in your deployment
 
 ---
@@ -156,7 +157,7 @@ Three-layer financial analysis:
 | Agent Inventory | Everyone |
 | Runtime Dependency Map | Everyone |
 | Cost Intelligence | Everyone |
-| Security (alerts + PII scanner) | Everyone |
+| Security (operational risk + alerts) | Everyone |
 | Security (policy rules + audit log) | Admin only |
 | Pricing Registry | Admin only |
 | Budgets, Users, Settings | Admin only |
@@ -233,7 +234,7 @@ Populates the database with demo organizations, users, agents, and telemetry rec
 | `roles` | Custom role definitions per org; page + capability ACLs |
 | `api_keys` | Machine-to-machine auth; stored as SHA-256 hash |
 | `provider_credentials` | Encrypted per-org LLM keys (Fernet / BYOK) |
-| `telemetry` | Immutable proxy call records — tokens, cost, latency, PII findings |
+| `telemetry` | Immutable proxy call records — tokens, cost, latency, agent identity, policy findings |
 | `asset_registry` | Governance layer for AI agents; lifecycle, owner, criticality |
 | `agent_relationships` | Runtime dependency map — what each agent calls, uses, or writes to |
 | `teams` | Auto-registering soft team registry |
@@ -375,7 +376,7 @@ Pricing for all models is seeded into the Pricing Registry on first start and ke
 | ✅ | OpenAI-compatible proxy (`/v1/chat/completions`) with real streaming |
 | ✅ | Anthropic-compatible proxy (`/v1/messages`) with real streaming |
 | ✅ | JWT auth + RBAC (admin / analyst / viewer) |
-| ✅ | PII scanning (10 pattern types) |
+| ✅ | Safety checks — sensitive-content scan (10 pattern types, opt-in per org) |
 | ✅ | Budget enforcement (daily / monthly, alert / block) |
 | ✅ | Model policy (allowlist / blocklist per team) |
 | ✅ | Full audit log with expandable rows + pagination |

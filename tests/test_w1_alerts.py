@@ -111,24 +111,24 @@ for path, label in [
     check(f"{label} → 200 when hardened", r.status_code == 200,
           f"got {r.status_code}: {r.text[:60]}")
 
-# ── /security/alerts isolation ────────────────────────────────────────────────
-print("\n=== /security/alerts isolation ===")
+# ── /security/alerts isolation — sensitive content safety check ───────────────
+print("\n=== /security/alerts isolation: sensitive content safety check ===")
 
-# Acme: should have no alerts (no sensitive rows in Acme's org)
+# Acme: should have no alerts (no sensitive-content rows in Acme's org)
 r = client.get("/security/alerts", headers=AH)
 check("Acme alerts → 200", r.status_code == 200, f"got {r.status_code}")
 if r.status_code == 200:
     alerts = r.json()
-    check("Acme sees no alerts (Beta's sensitive row not visible)", alerts == [],
+    check("Acme sees no alerts (Beta's sensitive content row not visible)", alerts == [],
           f"got {len(alerts)} alerts: {alerts[:1]}")
 
-# Beta: should have the sensitive_data_exposure alert
+# Beta: should surface the sensitive_data_exposure runtime signal
 r = client.get("/security/alerts", headers=BH)
 check("Beta alerts → 200", r.status_code == 200, f"got {r.status_code}")
 if r.status_code == 200:
     alerts = r.json()
     types  = [a["type"] for a in alerts]
-    check("Beta sees sensitive_data_exposure alert",
+    check("Beta sees sensitive_data_exposure runtime signal",
           "sensitive_data_exposure" in types, f"got types={types}")
     check("Beta alert entity is 'bot'",
           any(a.get("entity") == "bot" for a in alerts if a["type"] == "sensitive_data_exposure"),
