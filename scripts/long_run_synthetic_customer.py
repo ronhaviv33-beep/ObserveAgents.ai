@@ -140,7 +140,7 @@ def _parse_args() -> argparse.Namespace:
     )
     dur = p.add_mutually_exclusive_group()
     dur.add_argument("--duration-hours",   type=float, default=None,
-                     help="Run duration in hours (default 8)")
+                     help="Run duration in hours (default 12)")
     dur.add_argument("--duration-minutes", type=float, default=None,
                      help="Run duration in minutes (overrides --duration-hours)")
 
@@ -2128,16 +2128,19 @@ async def _main() -> int:
     _log.info("=" * 60)
     _log.info("AI Asset Management — Long-Run Synthetic Customer Test")
     _log.info("=" * 60)
-    _log.info("Base URL:       %s", base)
-    _log.info("Platform admin: %s", args.admin_email)
-    _log.info("Acme admin:     %s", args.acme_admin_email)
-    _log.info("Acme password:  %s", "set" if args.acme_admin_password else "NOT SET (login will be attempted as-is)")
-    _log.info("Duration:       %.1f min (%.2f hr)", duration_secs / 60, duration_secs / 3600)
-    _log.info("Concurrency:    %d workers", args.concurrency)
-    _log.info("Fast mode:      %s", args.fast_mode)
-    _log.info("Skip live LLM:  %s", args.skip_live_llm)
-    _log.info("Dry run:        %s", args.dry_run)
-    _log.info("Event log:      %s", evlog_path)
+    _log.info("Base URL:           %s", base)
+    _log.info("Platform admin:     %s", args.admin_email)
+    _log.info("Acme admin:         %s", args.acme_admin_email)
+    _log.info("Acme password:      %s", "set" if args.acme_admin_password else "NOT SET (login will be attempted as-is)")
+    _log.info("Duration:           %.1f min (%.2f hr)", duration_secs / 60, duration_secs / 3600)
+    _log.info("Concurrency:        %d workers", args.concurrency)
+    _log.info("Fast mode:          %s", args.fast_mode)
+    _log.info("Skip live LLM:      %s", args.skip_live_llm)
+    _log.info("Strict mode:        %s", args.strict)
+    _log.info("Include rate-limit: %s", args.include_rate_limit)
+    _log.info("Dry run:            %s", args.dry_run)
+    _log.info("Log directory:      %s", log_dir.resolve())
+    _log.info("Event log:          %s", evlog_path)
     _log.info("")
 
     if args.dry_run:

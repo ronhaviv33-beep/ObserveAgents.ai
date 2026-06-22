@@ -359,6 +359,126 @@ log for the blocked request's `block_reason`.
 
 ---
 
+## Recommended local validation sequence
+
+Run these steps in order before committing to the full 12-hour run.
+Each step must pass before advancing to the next.
+
+### Step A — 2-minute smoke test
+
+Confirms all 13 checks pass end-to-end, no provider credentials needed.
+
+**bash / zsh:**
+
+```bash
+PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
+  python scripts/long_run_synthetic_customer.py \
+  --fast-mode --duration-minutes 2 --skip-live-llm
+```
+
+**PowerShell:**
+
+```powershell
+$env:PLATFORM_ADMIN_PASSWORD="Admin123!"
+$env:ACME_ADMIN_PASSWORD="AcmeAdmin1!"
+python scripts/long_run_synthetic_customer.py `
+  --fast-mode --duration-minutes 2 --skip-live-llm
+```
+
+Expected: `✅ PASS`, 13/13 checks, success rate 100%.
+
+---
+
+### Step B — 10-minute fast test
+
+Exercises every interval (telemetry, dashboard, audit, PII, relationships,
+pricing, asset inventory, isolation).
+
+**bash / zsh:**
+
+```bash
+PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
+  python scripts/long_run_synthetic_customer.py \
+  --fast-mode --duration-minutes 10 --skip-live-llm
+```
+
+**PowerShell:**
+
+```powershell
+$env:PLATFORM_ADMIN_PASSWORD="Admin123!"
+$env:ACME_ADMIN_PASSWORD="AcmeAdmin1!"
+python scripts/long_run_synthetic_customer.py `
+  --fast-mode --duration-minutes 10 --skip-live-llm
+```
+
+Expected: `✅ PASS`, at least one checkpoint written, all target types
+in the dependency map.
+
+---
+
+### Step C — 1-hour stability test
+
+Verifies checkpoint cadence, growing telemetry totals, and relationship
+request counts that increase over time.
+
+**bash / zsh:**
+
+```bash
+PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
+  python scripts/long_run_synthetic_customer.py \
+  --duration-minutes 60 --skip-live-llm
+```
+
+**PowerShell:**
+
+```powershell
+$env:PLATFORM_ADMIN_PASSWORD="Admin123!"
+$env:ACME_ADMIN_PASSWORD="AcmeAdmin1!"
+python scripts/long_run_synthetic_customer.py `
+  --duration-minutes 60 --skip-live-llm
+```
+
+Expected: `✅ PASS`, 4 checkpoints, all relationship target types present,
+growing telemetry totals.
+
+---
+
+### Step D — 12-hour full validation
+
+**bash / zsh:**
+
+```bash
+PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
+  python scripts/long_run_synthetic_customer.py \
+  --duration-hours 12 --skip-live-llm
+```
+
+**PowerShell:**
+
+```powershell
+$env:PLATFORM_ADMIN_PASSWORD="Admin123!"
+$env:ACME_ADMIN_PASSWORD="AcmeAdmin1!"
+python scripts/long_run_synthetic_customer.py `
+  --duration-hours 12 --skip-live-llm
+```
+
+With live LLM provider credentials (real cost incurred):
+
+```powershell
+$env:PLATFORM_ADMIN_PASSWORD="Admin123!"
+$env:ACME_ADMIN_PASSWORD="AcmeAdmin1!"
+python scripts/long_run_synthetic_customer.py `
+  --duration-hours 12 --strict --strict-live
+```
+
+Expected: `✅ PASS`, 48 checkpoints, 100% success rate.
+
+---
+
 ## Example commands
 
 ```bash
@@ -383,8 +503,15 @@ ACME_ADMIN_PASSWORD=AcmeAdmin1! \
   python scripts/long_run_synthetic_customer.py \
   --fast-mode --duration-minutes 10 --skip-live-llm
 
+# Terminal 3 — 1-hour stability test
+PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
+  python scripts/long_run_synthetic_customer.py \
+  --duration-minutes 60 --skip-live-llm
+
 # Terminal 3 — full 12-hour validation
 PLATFORM_ADMIN_PASSWORD=Admin123! \
+ACME_ADMIN_PASSWORD=AcmeAdmin1! \
   python scripts/long_run_synthetic_customer.py \
   --duration-hours 12 --skip-live-llm
 
