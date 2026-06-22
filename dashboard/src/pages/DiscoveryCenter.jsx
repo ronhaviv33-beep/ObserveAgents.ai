@@ -509,11 +509,6 @@ export default function DiscoveryCenter({ initialTab = "verified" }) {
       </div>
 
       {/* Context info */}
-      {tab === "verified" && (
-        <div style={{ marginBottom: 16, padding: "10px 14px", background: T.accent + "0D", border: `1px solid ${T.accent}33`, borderRadius: 6, fontSize: 12, color: T.textDim }}>
-          <span style={{ color: T.accent }}>●</span>&nbsp; Verified agents have been observed making real API calls through the runtime gateway. Confidence: 95%.
-        </div>
-      )}
       {tab === "likely" && (
         <div style={{ marginBottom: 16, padding: "10px 14px", background: "#2DD4BF0D", border: "1px solid #2DD4BF33", borderRadius: 6, fontSize: 12, color: T.textDim }}>
           <span style={{ color: "#2DD4BF" }}>●</span>&nbsp; Likely agents have multiple evidence sources or high confidence scores (≥70%) from platform signals. Strong candidates for validation.
