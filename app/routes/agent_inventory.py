@@ -19,6 +19,8 @@ router = APIRouter(tags=["agent_inventory"])
 
 _EMPTY_SUMMARY = {
     "verified_agents":  {"total": 0, "unassigned": 0, "managed": 0, "high_risk": 0, "monthly_cost_usd": 0.0},
+    "likely_agents":    {"total": 0},
+    "historical_agents": {"total": 0},
     "potential_agents": {"total": 0, "needs_validation": 0},
     "managed_agents": 0, "retired_agents": 0,
     "discovery_coverage": {},
@@ -54,11 +56,11 @@ def _caller_email(user) -> str | None:
 
 @router.get("/agents")
 async def list_agents(
-    discovery_status: Optional[str] = Query(None, pattern="^(verified|potential)$"),
+    discovery_status: Optional[str] = Query(None, pattern="^(verified|likely|potential|historical)$"),
     lifecycle_status: Optional[str] = Query(None, pattern="^(unassigned|needs_validation|managed|retired)$"),
     team:             Optional[str] = Query(None),
     status:           Optional[str] = Query(None, pattern="^(active|dormant|inactive)$"),
-    risk:             Optional[str] = Query(None, pattern="^(high|medium|low)$"),
+    risk:             Optional[str] = Query(None, pattern="^(critical|high|medium|low)$"),
     owner:            Optional[str] = Query(None),
     environment:      Optional[str] = Query(None),
     search:           Optional[str] = Query(None),

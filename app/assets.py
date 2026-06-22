@@ -59,11 +59,27 @@ def _count_after_hours(calls: list[Telemetry]) -> int:
     return count
 
 
-def _compute_risk(signals: dict) -> str:
-    """Derive high/medium/low risk from signal flags."""
+def _compute_risk(signals: dict, capabilities: list | None = None) -> str:
+    """Derive critical/high/medium/low risk from signals and capability profile."""
+    caps = set(capabilities or [])
+    has_tool = "tool_execution" in caps
+    has_write_access = bool(caps & {"cloud_operations", "security_operations", "database_access", "code_execution"})
+
+    # Critical: active tool execution + high-impact capability + security signal
+    if has_tool and has_write_access and (signals.get("has_pii") or signals.get("has_blocked") or signals.get("has_loop")):
+        return "critical"
+    # Critical: tool execution + cloud/security operations (high blast radius)
+    if has_tool and bool(caps & {"cloud_operations", "security_operations"}):
+        return "critical"
+    # High: security signal regardless of capabilities
     if signals.get("has_pii") or signals.get("has_blocked") or signals.get("has_loop"):
         return "high"
-    if signals.get("after_hours_calls", 0) > 5 or signals.get("blocked_count", 0) > 0:
+    # High: tool execution alone
+    if has_tool:
+        return "high"
+    # Medium: retrieval/external/after-hours/blocks
+    if (signals.get("after_hours_calls", 0) > 5 or signals.get("blocked_count", 0) > 0
+            or bool(caps & {"retrieval", "external_api", "file_access", "database_access"})):
         return "medium"
     return "low"
 
@@ -119,7 +135,7 @@ def _derive_asset(agent_name: str, team: str, calls: list[Telemetry], now: datet
         "estimated_pricing": any(getattr(c, "pricing_estimated", False) for c in calls),
     }
 
-    risk   = _compute_risk(signals)
+    risk   = _compute_risk(signals, capabilities=[])
     status = _status_from_last_seen(last_seen_ts)
 
     return {
@@ -310,6 +326,7 @@ def get_asset_summary(
             "active_agents":   0,
             "dormant_agents":  0,
             "inactive_agents": 0,
+            "critical_risk_agents": 0,
             "high_risk_agents":   0,
             "medium_risk_agents": 0,
             "low_risk_agents":    0,
@@ -323,6 +340,7 @@ def get_asset_summary(
         "active_agents":   sum(1 for a in assets if a["status"] == "active"),
         "dormant_agents":  sum(1 for a in assets if a["status"] == "dormant"),
         "inactive_agents": sum(1 for a in assets if a["status"] == "inactive"),
+        "critical_risk_agents": sum(1 for a in assets if a["risk"] == "critical"),
         "high_risk_agents":    sum(1 for a in assets if a["risk"] == "high"),
         "medium_risk_agents":  sum(1 for a in assets if a["risk"] == "medium"),
         "low_risk_agents":     sum(1 for a in assets if a["risk"] == "low"),
@@ -367,7 +385,7 @@ def sort_assets(
     if sort_by not in valid:
         sort_by = "monthly_cost_usd"
 
-    risk_order = {"high": 0, "medium": 1, "low": 2}
+    risk_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     status_order = {"active": 0, "dormant": 1, "inactive": 2}
 
     def key(a):

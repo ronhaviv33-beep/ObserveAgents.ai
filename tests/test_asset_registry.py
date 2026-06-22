@@ -38,7 +38,8 @@ from unittest.mock import patch, AsyncMock, MagicMock
 
 # ── App imports ────────────────────────────────────────────────────────────────
 from fastapi.testclient import TestClient
-from app.main import app, _seed_roles_for_org, _discover_asset
+from app.main import app, _seed_roles_for_org
+from app.routes.proxy import _discover_asset
 from app.database import SessionLocal
 from app.models import Organization, User, ApiKey, Telemetry, AssetRegistry
 from app.auth import hash_password, create_token, generate_api_key

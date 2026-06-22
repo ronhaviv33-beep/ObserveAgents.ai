@@ -95,11 +95,43 @@ const StatusPill = ({ status }) => {
 };
 
 const RiskChip = ({ risk }) => {
-  const map = { high: [T.crit, "#3D0F1A"], medium: [T.warn, "#3D2E0D"], low: [T.accent, "#1A3D2B"] };
+  const map = { critical: ["#B91C1C", "#2D0A0A"], high: [T.crit, "#3D0F1A"], medium: [T.warn, "#3D2E0D"], low: [T.accent, "#1A3D2B"] };
   const [c, bg] = map[risk] || [T.textMute, T.panelHi];
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: bg, color: c, fontSize: 11, fontFamily: FONT_MONO, padding: "2px 8px", borderRadius: 4, fontWeight: 600, textTransform: "capitalize" }}>
       <span style={{ width: 5, height: 5, borderRadius: "50%", background: c }} />{risk || "—"}
+    </span>
+  );
+};
+
+const DiscoveryStatusBadge = ({ status }) => {
+  const map = {
+    verified:  { label: "Verified",  color: T.accent,   bg: "#1A3D2B" },
+    likely:    { label: "Likely",    color: "#2DD4BF",  bg: "#0D2E2B" },
+    potential: { label: "Potential", color: T.warn,     bg: "#3D2E0D" },
+    historical: { label: "Historical", color: T.textDim, bg: T.panelHi },
+  };
+  const m = map[status] || { label: status || "—", color: T.textMute, bg: T.panelHi };
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: m.bg, color: m.color, fontSize: 10, fontFamily: FONT_MONO, fontWeight: 600, padding: "2px 8px", borderRadius: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+      <span style={{ width: 4, height: 4, borderRadius: "50%", background: m.color }} />
+      {m.label}
+    </span>
+  );
+};
+
+const AssetTypeBadge = ({ assetType }) => {
+  const map = {
+    agent:       { label: "Agent",       color: T.purple, bg: "#1E1A3D" },
+    workflow:    { label: "Workflow",     color: T.info,   bg: "#0D1F3D" },
+    application: { label: "App",         color: "#F472B6", bg: "#2D0D1E" },
+    copilot:     { label: "Copilot",     color: "#FB923C", bg: "#2D1A0A" },
+    service:     { label: "Service",     color: T.accent,  bg: "#1A3D2B" },
+  };
+  const m = map[assetType] || { label: assetType || "agent", color: T.textMute, bg: T.panelHi };
+  return (
+    <span style={{ display: "inline-block", background: m.bg, color: m.color, border: `1px solid ${m.color}33`, fontSize: 9, fontFamily: FONT_MONO, fontWeight: 600, padding: "1px 6px", borderRadius: 3, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+      {m.label}
     </span>
   );
 };
@@ -260,6 +292,8 @@ function VerifiedTable({ agents, onClaim, onEdit }) {
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead><tr>
           <Th label="Agent"        sortKey="name"             {...sp} style={{ paddingLeft: 20 }} />
+          <Th label="Type"         sortKey="asset_type"       {...sp} />
+          <Th label="Discovery"    sortKey="discovery_status" {...sp} />
           <Th label="Source"       sortKey="discovery_source" {...sp} />
           <Th label="Team"         sortKey="team"             {...sp} />
           <Th label="Environment"  sortKey="environment"      {...sp} />
@@ -279,6 +313,8 @@ function VerifiedTable({ agents, onClaim, onEdit }) {
                 <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.text, fontWeight: 500 }}>{a.name}</div>
                 <div style={{ marginTop: 4 }}><LifecycleBadge status={a.lifecycle_status} /></div>
               </Td>
+              <Td><AssetTypeBadge assetType={a.asset_type} /></Td>
+              <Td><DiscoveryStatusBadge status={a.discovery_status} /></Td>
               <Td><DiscoveryBadge source={a.discovery_source} /></Td>
               <Td><span style={{ fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>{a.team}</span></Td>
               <Td>
@@ -735,8 +771,8 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
   useEffect(() => { loadData(); }, [loadData]);
 
   // Segmented views
-  const verified  = useMemo(() => agents.filter(a => a.discovery_status === "verified" && a.lifecycle_status !== "retired"), [agents]);
-  const potential = useMemo(() => agents.filter(a => a.discovery_status === "potential" && a.lifecycle_status !== "retired"), [agents]);
+  const verified  = useMemo(() => agents.filter(a => (a.discovery_status === "verified" || a.discovery_status === "likely" || a.discovery_status === "historical") && a.lifecycle_status !== "retired"), [agents]);
+  const potential = useMemo(() => agents.filter(a => (a.discovery_status === "potential" || a.discovery_status === "likely") && a.lifecycle_status !== "retired"), [agents]);
   const managed   = useMemo(() => agents.filter(a => a.lifecycle_status === "managed"), [agents]);
   const retired   = useMemo(() => agents.filter(a => a.lifecycle_status === "retired"), [agents]);
 
