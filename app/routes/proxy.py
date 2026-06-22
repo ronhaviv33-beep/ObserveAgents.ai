@@ -45,12 +45,50 @@ router = APIRouter()
 _known_assets: set[tuple[int, str]] = set()
 
 
+# ── Asset taxonomy helpers ─────────────────────────────────────────────────────
+
+_WORKFLOW_UA = {"n8n", "make.com", "zapier", "langgraph-workflow", "temporal"}
+_COPILOT_UA  = {"copilot", "github-copilot", "salesforce-einstein", "ms-copilot"}
+_SERVICE_NAMES = {"-service", "-api", "translation-", "classification-", "summariz"}
+
+
+def _infer_asset_type(agent_name: str, user_agent: str) -> str:
+    """Classify asset type from available signals."""
+    ua  = (user_agent or "").lower()
+    nm  = (agent_name  or "").lower()
+    if any(x in ua for x in _WORKFLOW_UA) or any(x in nm for x in {"workflow", "pipeline", "orchestrat"}):
+        return "workflow"
+    if any(x in ua for x in _COPILOT_UA) or "copilot" in nm:
+        return "copilot"
+    if any(x in nm for x in _SERVICE_NAMES) or any(x in nm for x in {"-svc", "translate", "classif", "summar"}):
+        return "service"
+    if any(x in nm for x in {"chatbot", "chat-", "-chat", "assistant", "helpdesk"}):
+        return "application"
+    return "agent"
+
+
+def _infer_capabilities(headers: dict) -> str:
+    """Infer capabilities from request headers. Returns JSON array string."""
+    import json as _json
+    caps = {"inference"}  # every LLM call has inference capability
+    h = {k.lower(): v.lower() for k, v in headers.items()}
+    if h.get("x-mcp-tool") or h.get("x-mcp-server"):
+        caps.add("tool_execution")
+        caps.add("external_api")
+    if h.get("x-agent-workflow") or h.get("x-workflow-provider"):
+        caps.add("tool_execution")
+    if any(x in str(h) for x in ["retriev", "vector", "rag", "search"]):
+        caps.add("retrieval")
+    return _json.dumps(sorted(caps))
+
+
 def _discover_asset(
     db: Session, org_id: int, asset_key: str, agent_id_raw: str,
     team: str | None = None, environment: str | None = None,
     owner: str | None = None, source_hint: str | None = None,
     confidence_score: float = 0.95,
     evidence_data: dict | None = None,
+    request_headers: dict | None = None,
 ) -> None:
     """Idempotent: insert a verified unassigned asset_registry row on first sight of an agent."""
     if (org_id, asset_key) in _known_assets:
@@ -71,6 +109,7 @@ def _discover_asset(
             _AssetRegistry.asset_key == asset_key,
         ).first()
         if not existing:
+            _ua = (request_headers or {}).get("user-agent", "") if request_headers else ""
             db.add(_AssetRegistry(
                 organization_id=org_id,
                 asset_key=asset_key,
@@ -86,6 +125,8 @@ def _discover_asset(
                 discovery_reason="Agent auto-discovered from runtime gateway traffic",
                 evidence=_json.dumps(evidence_data or {}),
                 confidence_score=round(confidence_score * 100, 1),
+                asset_type=_infer_asset_type(agent_id_raw, _ua),
+                capabilities=_infer_capabilities(request_headers or {}),
             ))
             db.commit()
         elif existing.discovery_source == "gateway_runtime" and disc_source != "gateway_runtime":
@@ -585,6 +626,7 @@ async def openai_compat_chat(
             "evidence":           _identity.evidence,
             **({"agent_version": agent_version} if agent_version else {}),
         },
+        request_headers=dict(request.headers),
     )
     asset_key = _identity.agent_key
 
@@ -806,6 +848,7 @@ async def anthropic_compat_messages(
             "evidence":           _identity.evidence,
             **({"agent_version": agent_version} if agent_version else {}),
         },
+        request_headers=dict(request.headers),
     )
     asset_key = _identity.agent_key
 

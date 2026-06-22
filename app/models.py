@@ -343,6 +343,8 @@ class AssetRegistry(Base):
     discovery_reason: Mapped[str | None] = mapped_column(Text, nullable=True)             # human-readable explanation
     evidence: Mapped[str | None] = mapped_column(Text, nullable=True)                     # JSON — discovery signals
     confidence_score: Mapped[float] = mapped_column(Float, default=95.0)                  # 0–100
+    asset_type: Mapped[str] = mapped_column(String(32), default="agent")                  # agent | workflow | application | copilot | service
+    capabilities: Mapped[str | None] = mapped_column(Text, nullable=True)                 # JSON array: ["inference","retrieval","tool_execution",...]
     claimed_by: Mapped[str | None] = mapped_column(String(256), nullable=True)   # email of claimer
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     first_seen_at: Mapped[datetime] = mapped_column(

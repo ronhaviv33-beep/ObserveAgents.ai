@@ -33,8 +33,32 @@ def _parse_evidence(raw) -> dict:
         return {}
 
 
+def _parse_capabilities(raw) -> list:
+    if not raw:
+        return ["inference"]  # every LLM asset has at minimum inference capability
+    if isinstance(raw, list):
+        return raw
+    try:
+        result = json.loads(raw)
+        return result if isinstance(result, list) else ["inference"]
+    except Exception:
+        return ["inference"]
+
+
 def _to_inventory_record(asset: dict) -> dict:
     """Transform a verified agent (from telemetry+registry merge) into an inventory record."""
+    # Compute effective discovery status — historical if no activity for >90 days
+    _ds = asset.get("discovery_status", "verified")
+    _last_seen = asset.get("last_seen")
+    if _ds == "verified" and _last_seen:
+        try:
+            from datetime import datetime, timezone, timedelta as _td
+            _ls_dt = datetime.fromisoformat(_last_seen.replace("Z", "+00:00"))
+            if (datetime.now(timezone.utc) - _ls_dt) > _td(days=90):
+                _ds = "historical"
+        except Exception:
+            pass
+
     return {
         "id":               asset.get("asset_key") or asset["agent_name"],
         "name":             asset["agent_name"],
@@ -46,7 +70,7 @@ def _to_inventory_record(asset: dict) -> dict:
         "status":           asset["status"],
         "risk":             asset["risk"],
         "lifecycle_status": asset.get("lifecycle_status", "unassigned"),
-        "discovery_status": asset.get("discovery_status", "verified"),
+        "discovery_status": _ds,
         "discovery_source": asset.get("discovery_source", "gateway_telemetry"),
         "discovery_reason": asset.get("discovery_reason"),
         "evidence":         _parse_evidence(asset.get("evidence")),
@@ -64,6 +88,8 @@ def _to_inventory_record(asset: dict) -> dict:
         "asset_key":        asset.get("asset_key"),
         "claimed_by":       asset.get("claimed_by"),
         "claimed_at":       asset.get("claimed_at"),
+        "asset_type":       asset.get("asset_type", "agent"),
+        "capabilities":     _parse_capabilities(asset.get("capabilities")),
     }
 
 
@@ -73,6 +99,12 @@ def _registry_to_potential_record(reg: AssetRegistry) -> dict:
     # discovery_source column preferred; fall back to source column for older rows
     _dsource = (getattr(reg, "discovery_source", None) or
                 getattr(reg, "source", None) or "unknown")
+    # Compute effective discovery_status — "likely" if multiple evidence sources
+    _ev = _parse_evidence(getattr(reg, "evidence", None))
+    _conf = getattr(reg, "confidence_score", None) or 50.0
+    _ds = "potential"
+    if _conf >= 70.0 or len(_ev) >= 2:
+        _ds = "likely"
     return {
         "id":               reg.asset_key,
         "name":             _name,
@@ -84,11 +116,11 @@ def _registry_to_potential_record(reg: AssetRegistry) -> dict:
         "status":           None,   # no runtime telemetry
         "risk":             None,
         "lifecycle_status": reg.status or "needs_validation",
-        "discovery_status": "potential",
+        "discovery_status": _ds,
         "discovery_source": _dsource,
         "discovery_reason": getattr(reg, "discovery_reason", None),
-        "evidence":         _parse_evidence(getattr(reg, "evidence", None)),
-        "confidence_score": getattr(reg, "confidence_score", None) or 50.0,
+        "evidence":         _ev,
+        "confidence_score": _conf,
         "criticality":      reg.criticality,
         "business_purpose": reg.business_purpose,
         "monthly_cost_usd": 0.0,
@@ -102,6 +134,8 @@ def _registry_to_potential_record(reg: AssetRegistry) -> dict:
         "asset_key":        reg.asset_key,
         "claimed_by":       reg.claimed_by,
         "claimed_at":       reg.claimed_at.isoformat() if reg.claimed_at else None,
+        "asset_type":       getattr(reg, "asset_type", None) or "agent",
+        "capabilities":     _parse_capabilities(getattr(reg, "capabilities", None)),
     }
 
 
@@ -125,7 +159,8 @@ def get_inventory(
     result: list[dict] = []
 
     # Verified agents — runtime telemetry + registry merge
-    if discovery_status in (None, "verified"):
+    # Also fetch for "historical" since those are computed dynamically from verified records
+    if discovery_status in (None, "verified", "historical"):
         assets = _assets.get_all_assets_derived(
             db, organization_id,
             days_lookback=days_lookback,
@@ -136,7 +171,8 @@ def get_inventory(
         result.extend(_to_inventory_record(a) for a in assets)
 
     # Potential agents — registry only, no telemetry rows
-    if discovery_status in (None, "potential"):
+    # Also fetch for "likely" since those are computed dynamically from potential records
+    if discovery_status in (None, "potential", "likely"):
         try:
             q = db.query(AssetRegistry).filter(
                 AssetRegistry.organization_id == organization_id,
@@ -192,8 +228,10 @@ def get_inventory_summary(
         team_scope=team_scope, include_retired=True, demo_mode=demo_mode,
     )
 
-    verified  = [a for a in all_agents if a["discovery_status"] == "verified"]
-    potential = [a for a in all_agents if a["discovery_status"] == "potential"]
+    verified   = [a for a in all_agents if a["discovery_status"] == "verified"]
+    likely     = [a for a in all_agents if a["discovery_status"] == "likely"]
+    potential  = [a for a in all_agents if a["discovery_status"] == "potential"]
+    historical = [a for a in all_agents if a["discovery_status"] == "historical"]
 
     # Exclude retired from active/cost counts — retired are kept for audit only
     verified_active = [a for a in verified if a["lifecycle_status"] != "retired"]
@@ -205,8 +243,14 @@ def get_inventory_summary(
             "total":            len(verified_active),
             "unassigned":       sum(1 for a in verified_active if a["lifecycle_status"] == "unassigned"),
             "managed":          sum(1 for a in verified_active if a["lifecycle_status"] == "managed"),
-            "high_risk":        sum(1 for a in verified_active if a["risk"] == "high"),
+            "high_risk":        sum(1 for a in verified_active if a["risk"] in ("high", "critical")),
             "monthly_cost_usd": round(sum(a["monthly_cost_usd"] for a in verified_active), 6),
+        },
+        "likely_agents": {
+            "total": len(likely),
+        },
+        "historical_agents": {
+            "total": len(historical),
         },
         "potential_agents": {
             "total":            len(potential),
@@ -293,7 +337,7 @@ def sort_inventory(
     if sort_by not in valid:
         sort_by = "monthly_cost_usd"
 
-    risk_order   = {"high": 0, "medium": 1, "low": 2}
+    risk_order   = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     status_order = {"active": 0, "dormant": 1, "inactive": 2}
 
     def key(a):
