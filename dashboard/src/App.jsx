@@ -16,7 +16,7 @@ class PageErrorBoundary extends Component {
     return this.props.children;
   }
 }
-import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams, fetchAssets, fetchAssetsSummary, fetchAssetTelemetry, fetchUnassignedAssets, claimAsset, updateAssetRegistry, fetchOrgConfig, updateOrgConfig, getDemoMode, setDemoMode, fetchOrganizations, createOrganization, setViewOrg, getViewOrg, fetchAgentsSummary, fetchRelationships } from "./api.js";
+import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams, fetchAssets, fetchAssetsSummary, fetchAssetTelemetry, fetchUnassignedAssets, claimAsset, updateAssetRegistry, fetchOrgConfig, updateOrgConfig, getDemoMode, setDemoMode, fetchOrganizations, createOrganization, setViewOrg, getViewOrg, fetchAgentsSummary, fetchRelationships, populateOrganization, clearOrganizationDemoData } from "./api.js";
 import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
@@ -3998,6 +3998,44 @@ function OrganizationsPage() {
   const [saving,  setSaving]  = useState(false);
   const [created, setCreated] = useState(null); // holds OrgCreated response (has temp password)
 
+  // Populate / clear state — keyed by org id
+  const [populating, setPopulating] = useState({});   // { [orgId]: true }
+  const [clearing,   setClearing]   = useState({});   // { [orgId]: true }
+  const [popResult,  setPopResult]  = useState({});   // { [orgId]: {ok, msg} }
+
+  const handlePopulate = async (orgId, orgName) => {
+    setPopulating(p => ({ ...p, [orgId]: true }));
+    setPopResult(r => ({ ...r, [orgId]: null }));
+    try {
+      const res = await populateOrganization(orgId);
+      setPopResult(r => ({ ...r, [orgId]: {
+        ok: true,
+        msg: `Populated: ${res.assets_upserted} agents · ${res.telemetry_rows_added} telemetry rows · ${res.relationships_created} relationships`,
+      }}));
+    } catch (e) {
+      setPopResult(r => ({ ...r, [orgId]: { ok: false, msg: e.message } }));
+    } finally {
+      setPopulating(p => ({ ...p, [orgId]: false }));
+    }
+  };
+
+  const handleClear = async (orgId, orgName) => {
+    if (!window.confirm(`Clear all demo data from "${orgName}"?\n\nThis will delete demo telemetry, agents, relationships, and governance rules. Real customer data is not affected.`)) return;
+    setClearing(c => ({ ...c, [orgId]: true }));
+    setPopResult(r => ({ ...r, [orgId]: null }));
+    try {
+      const res = await clearOrganizationDemoData(orgId);
+      setPopResult(r => ({ ...r, [orgId]: {
+        ok: true,
+        msg: `Cleared: ${res.telemetry_deleted} telemetry · ${res.assets_deleted} agents · ${res.relationships_deleted} relationships`,
+      }}));
+    } catch (e) {
+      setPopResult(r => ({ ...r, [orgId]: { ok: false, msg: e.message } }));
+    } finally {
+      setClearing(c => ({ ...c, [orgId]: false }));
+    }
+  };
+
   const load = useCallback(async () => {
     setErr(null);
     try { setOrgs(await fetchOrganizations()); }
@@ -4149,7 +4187,33 @@ function OrganizationsPage() {
                   <td style={{ padding:"14px 16px", fontFamily:FONT_MONO_S, fontSize:12, color:T.textDim }}>{o.slug || "—"}</td>
                   <td style={{ padding:"14px 16px", fontSize:12, color:T.textDim }}>{fmtDate(o.created_at)}</td>
                   <td style={{ padding:"14px 16px", fontSize:12, color:T.textDim, fontFamily:FONT_MONO_S }}>{o.user_count ?? "—"}</td>
-                  <td style={{ padding:"14px 16px" }} />
+                  <td style={{ padding:"10px 16px" }}>
+                    {!o.is_internal && (
+                      <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                        <div style={{ display:"flex", gap:6 }}>
+                          <button
+                            onClick={() => handlePopulate(o.id, o.name)}
+                            disabled={populating[o.id] || clearing[o.id]}
+                            title="Seed realistic enterprise data: teams, agents, telemetry, relationships, budgets"
+                            style={{ background:T.accent, color:T.bg, border:"none", padding:"5px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO_S, fontWeight:600, cursor:"pointer", opacity:(populating[o.id]||clearing[o.id])?0.5:1, whiteSpace:"nowrap" }}>
+                            {populating[o.id] ? "Populating…" : "Populate Org"}
+                          </button>
+                          <button
+                            onClick={() => handleClear(o.id, o.name)}
+                            disabled={populating[o.id] || clearing[o.id]}
+                            title="Remove all demo data (is_demo=true) from this organization"
+                            style={{ background:"transparent", color:T.crit, border:`1px solid ${T.crit}55`, padding:"5px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO_S, cursor:"pointer", opacity:(populating[o.id]||clearing[o.id])?0.5:1, whiteSpace:"nowrap" }}>
+                            {clearing[o.id] ? "Clearing…" : "Clear Demo"}
+                          </button>
+                        </div>
+                        {popResult[o.id] && (
+                          <div style={{ fontSize:10, fontFamily:FONT_MONO_S, color: popResult[o.id].ok ? T.accent : T.crit, maxWidth:320 }}>
+                            {popResult[o.id].ok ? "✓ " : "✗ "}{popResult[o.id].msg}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -6347,6 +6411,37 @@ export default function App() {
   const [viewOrgId,  setViewOrgId]  = useState(() => getViewOrg());
   const [allOrgs,    setAllOrgs]    = useState([]);
 
+  // ── Populate / clear sidebar actions ──
+  const [sidebarPopping,   setSidebarPopping]   = useState(false);
+  const [sidebarClearing,  setSidebarClearing]  = useState(false);
+  const [sidebarPopResult, setSidebarPopResult] = useState(null); // {ok, msg}
+
+  const handleSidebarPopulate = useCallback(async () => {
+    if (!viewOrgId) return;
+    setSidebarPopping(true); setSidebarPopResult(null);
+    try {
+      const res = await populateOrganization(viewOrgId);
+      setSidebarPopResult({ ok: true, msg: `${res.assets_upserted} agents · ${res.telemetry_rows_added} rows · ${res.relationships_created} rels` });
+      refresh();
+    } catch (e) {
+      setSidebarPopResult({ ok: false, msg: e.message });
+    } finally { setSidebarPopping(false); }
+  }, [viewOrgId, refresh]);
+
+  const handleSidebarClear = useCallback(async () => {
+    const org = allOrgs.find(o => String(o.id) === String(viewOrgId));
+    const name = org?.name ?? `org ${viewOrgId}`;
+    if (!window.confirm(`Clear all demo data from "${name}"?\n\nThis will delete demo telemetry, agents, relationships, and governance rules. Real customer data is not affected.`)) return;
+    setSidebarClearing(true); setSidebarPopResult(null);
+    try {
+      const res = await clearOrganizationDemoData(viewOrgId);
+      setSidebarPopResult({ ok: true, msg: `Cleared ${res.telemetry_deleted} rows · ${res.assets_deleted} agents · ${res.relationships_deleted} rels` });
+      refresh();
+    } catch (e) {
+      setSidebarPopResult({ ok: false, msg: e.message });
+    } finally { setSidebarClearing(false); }
+  }, [viewOrgId, allOrgs, refresh]);
+
   // When the logged-in user has a team-scoped role, lock the team filter to their team.
   // Runs whenever user or rolesMap changes (e.g. after login).
   useEffect(() => {
@@ -6632,6 +6727,7 @@ export default function App() {
                   const v = e.target.value || null;
                   setViewOrgId(v);
                   setViewOrg(v);
+                  setSidebarPopResult(null);
                   refresh();
                 }}
                 style={{ width:"100%", background:T.panel, border:`1px solid ${T.border}`, color:T.text, padding:"4px 6px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}
@@ -6644,6 +6740,29 @@ export default function App() {
                     ))
                 }
               </select>
+              {viewOrgId && (
+                <div style={{ marginTop:6, display:"flex", flexDirection:"column", gap:4 }}>
+                  <button
+                    onClick={handleSidebarPopulate}
+                    disabled={sidebarPopping || sidebarClearing}
+                    title="Seed realistic enterprise data: 5 teams, 5 agents, 30 days of telemetry, 10 MCP relationships, budgets"
+                    style={{ width:"100%", background:T.accent, color:T.bg, border:"none", padding:"5px 8px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:(sidebarPopping||sidebarClearing)?0.5:1, letterSpacing:"0.06em" }}>
+                    {sidebarPopping ? "Populating…" : "Populate Organization"}
+                  </button>
+                  <button
+                    onClick={handleSidebarClear}
+                    disabled={sidebarPopping || sidebarClearing}
+                    title="Delete all demo data (is_demo=true). Real customer data is not affected."
+                    style={{ width:"100%", background:"transparent", color:T.crit, border:`1px solid ${T.crit}44`, padding:"5px 8px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", opacity:(sidebarPopping||sidebarClearing)?0.5:1, letterSpacing:"0.06em" }}>
+                    {sidebarClearing ? "Clearing…" : "Clear Demo Data"}
+                  </button>
+                  {sidebarPopResult && (
+                    <div style={{ fontSize:9, fontFamily:FONT_MONO, color: sidebarPopResult.ok ? T.accent : T.crit, lineHeight:1.4 }}>
+                      {sidebarPopResult.ok ? "✓ " : "✗ "}{sidebarPopResult.msg}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
           {/* User badge */}
