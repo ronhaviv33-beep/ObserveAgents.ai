@@ -4242,8 +4242,13 @@ function SettingsPage() {
         setGwResult({ ok: null, msg: `Rate limited (429) — gateway is reachable`, status: 429 });
       } else {
         const body = await resp.json().catch(() => ({}));
-        const detail = body.detail || body.error?.message || resp.statusText || "Unknown error";
-        setGwResult({ ok: false, msg: `Gateway error: ${detail}`, status: resp.status });
+        const err = body.detail?.error;
+        if (err?.type === "provider_not_configured") {
+          setGwResult({ ok: false, msg: `No ${err.provider || "AI"} provider credential is configured for this organization. Add it under Settings → Organization AI Providers.`, status: resp.status });
+        } else {
+          const detail = (typeof body.detail === "string" ? body.detail : body.detail?.error?.message) || body.error?.message || resp.statusText || "Unknown error";
+          setGwResult({ ok: false, msg: `Gateway error: ${detail}`, status: resp.status });
+        }
       }
     } catch (e) {
       setGwResult({ ok: false, msg: `Gateway error: ${e.message}`, status: null });
