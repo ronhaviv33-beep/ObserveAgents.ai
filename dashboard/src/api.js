@@ -583,3 +583,15 @@ export async function fetchRelationshipsGraph() {
   if (!r || !r.ok) throw new Error('Failed to fetch relationship graph')
   return r.json()
 }
+
+export async function populateOrganization(orgId) {
+  const r = await authFetch(`${BASE}/organizations/${orgId}/populate`, { method: 'POST' })
+  if (!r || !r.ok) throw new Error('Failed to populate organization')
+  return r.json()
+}
+
+export async function clearOrganizationDemoData(orgId) {
+  const r = await authFetch(`${BASE}/organizations/${orgId}/clear-demo`, { method: 'POST' })
+  if (!r || !r.ok) throw new Error('Failed to clear organization demo data')
+  return r.json()
+}
