@@ -585,13 +585,21 @@ export async function fetchRelationshipsGraph() {
 }
 
 export async function populateOrganization(orgId) {
-  const r = await authFetch(`${BASE}/organizations/${orgId}/populate`, { method: 'POST' })
-  if (!r || !r.ok) throw new Error('Failed to populate organization')
+  const r = await authFetch(`${BASE}/admin/organizations/${orgId}/populate`, { method: 'POST' })
+  if (!r) throw new Error('Not authenticated')
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || `Populate failed (HTTP ${r.status})`)
+  }
   return r.json()
 }
 
 export async function clearOrganizationDemoData(orgId) {
-  const r = await authFetch(`${BASE}/organizations/${orgId}/clear-demo`, { method: 'POST' })
-  if (!r || !r.ok) throw new Error('Failed to clear organization demo data')
+  const r = await authFetch(`${BASE}/admin/organizations/${orgId}/demo-data`, { method: 'DELETE' })
+  if (!r) throw new Error('Not authenticated')
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || `Clear failed (HTTP ${r.status})`)
+  }
   return r.json()
 }

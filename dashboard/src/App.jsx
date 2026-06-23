@@ -3999,9 +3999,9 @@ function OrganizationsPage() {
   const [created, setCreated] = useState(null); // holds OrgCreated response (has temp password)
 
   // Populate / clear state — keyed by org id
-  const [populating, setPopulating] = useState({});
-  const [clearing,   setClearing]   = useState({});
-  const [popResult,  setPopResult]  = useState({});
+  const [populating, setPopulating] = useState({});   // { [orgId]: true }
+  const [clearing,   setClearing]   = useState({});   // { [orgId]: true }
+  const [popResult,  setPopResult]  = useState({});   // { [orgId]: {ok, msg} }
 
   const handlePopulate = async (orgId, orgName) => {
     setPopulating(p => ({ ...p, [orgId]: true }));
@@ -4191,11 +4191,17 @@ function OrganizationsPage() {
                     {!o.is_internal && (
                       <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                         <div style={{ display:"flex", gap:6 }}>
-                          <button onClick={() => handlePopulate(o.id, o.name)} disabled={populating[o.id] || clearing[o.id]}
+                          <button
+                            onClick={() => handlePopulate(o.id, o.name)}
+                            disabled={populating[o.id] || clearing[o.id]}
+                            title="Seed realistic enterprise data: teams, agents, telemetry, relationships, budgets"
                             style={{ background:T.accent, color:T.bg, border:"none", padding:"5px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO_S, fontWeight:600, cursor:"pointer", opacity:(populating[o.id]||clearing[o.id])?0.5:1, whiteSpace:"nowrap" }}>
                             {populating[o.id] ? "Populating…" : "Populate Org"}
                           </button>
-                          <button onClick={() => handleClear(o.id, o.name)} disabled={populating[o.id] || clearing[o.id]}
+                          <button
+                            onClick={() => handleClear(o.id, o.name)}
+                            disabled={populating[o.id] || clearing[o.id]}
+                            title="Remove all demo data (is_demo=true) from this organization"
                             style={{ background:"transparent", color:T.crit, border:`1px solid ${T.crit}55`, padding:"5px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO_S, cursor:"pointer", opacity:(populating[o.id]||clearing[o.id])?0.5:1, whiteSpace:"nowrap" }}>
                             {clearing[o.id] ? "Clearing…" : "Clear Demo"}
                           </button>
@@ -6656,18 +6662,22 @@ export default function App() {
               </select>
               {viewOrgId && (
                 <div style={{ marginTop:6, display:"flex", flexDirection:"column", gap:4 }}>
-                  <div style={{ display:"flex", gap:4 }}>
-                    <button onClick={handleSidebarPopulate} disabled={sidebarPopping || sidebarClearing}
-                      style={{ flex:1, background:T.accent, color:T.bg, border:"none", padding:"5px 8px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:(sidebarPopping||sidebarClearing)?0.5:1, letterSpacing:"0.06em" }}>
-                      {sidebarPopping ? "Populating…" : "Populate"}
-                    </button>
-                    <button onClick={handleSidebarClear} disabled={sidebarPopping || sidebarClearing}
-                      style={{ flex:1, background:"transparent", color:T.crit, border:`1px solid ${T.crit}55`, padding:"5px 8px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", opacity:(sidebarPopping||sidebarClearing)?0.5:1, letterSpacing:"0.06em" }}>
-                      {sidebarClearing ? "Clearing…" : "Clear Demo"}
-                    </button>
-                  </div>
+                  <button
+                    onClick={handleSidebarPopulate}
+                    disabled={sidebarPopping || sidebarClearing}
+                    title="Seed realistic enterprise data: 5 teams, 5 agents, 30 days of telemetry, 10 MCP relationships, budgets"
+                    style={{ width:"100%", background:T.accent, color:T.bg, border:"none", padding:"5px 8px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:(sidebarPopping||sidebarClearing)?0.5:1, letterSpacing:"0.06em" }}>
+                    {sidebarPopping ? "Populating…" : "Populate Organization"}
+                  </button>
+                  <button
+                    onClick={handleSidebarClear}
+                    disabled={sidebarPopping || sidebarClearing}
+                    title="Delete all demo data (is_demo=true). Real customer data is not affected."
+                    style={{ width:"100%", background:"transparent", color:T.crit, border:`1px solid ${T.crit}44`, padding:"5px 8px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", opacity:(sidebarPopping||sidebarClearing)?0.5:1, letterSpacing:"0.06em" }}>
+                    {sidebarClearing ? "Clearing…" : "Clear Demo Data"}
+                  </button>
                   {sidebarPopResult && (
-                    <div style={{ fontSize:10, fontFamily:FONT_MONO, color: sidebarPopResult.ok ? T.accent : T.crit, lineHeight:1.4 }}>
+                    <div style={{ fontSize:9, fontFamily:FONT_MONO, color: sidebarPopResult.ok ? T.accent : T.crit, lineHeight:1.4 }}>
                       {sidebarPopResult.ok ? "✓ " : "✗ "}{sidebarPopResult.msg}
                     </div>
                   )}
