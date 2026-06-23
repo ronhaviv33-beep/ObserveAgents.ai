@@ -4251,6 +4251,8 @@ function SettingsPage() {
           setGwResult({ ok: false, msg: err.message || `Model not found or not available on this account.`, status: resp.status });
         } else if (err?.type === "provider_upstream_error") {
           setGwResult({ ok: false, msg: err.message || "Provider returned an error. Try again in a moment.", status: resp.status });
+        } else if (err?.type === "internal_gateway_error") {
+          setGwResult({ ok: false, msg: `Internal gateway error${err.trace_id ? ` (trace_id: ${err.trace_id})` : ""}. Check server logs.`, status: resp.status });
         } else {
           const msg =
             (body && typeof body.detail === "string" ? body.detail : null) ||
