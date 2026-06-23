@@ -6331,37 +6331,6 @@ export default function App() {
   const [viewOrgId,  setViewOrgId]  = useState(() => getViewOrg());
   const [allOrgs,    setAllOrgs]    = useState([]);
 
-  // ── Populate / clear sidebar actions ──
-  const [sidebarPopping,   setSidebarPopping]   = useState(false);
-  const [sidebarClearing,  setSidebarClearing]  = useState(false);
-  const [sidebarPopResult, setSidebarPopResult] = useState(null); // {ok, msg}
-
-  const handleSidebarPopulate = useCallback(async () => {
-    if (!viewOrgId) return;
-    setSidebarPopping(true); setSidebarPopResult(null);
-    try {
-      const res = await populateOrganization(viewOrgId);
-      setSidebarPopResult({ ok: true, msg: `${res.assets_upserted} agents · ${res.telemetry_rows_added} rows · ${res.relationships_created} rels` });
-      refresh();
-    } catch (e) {
-      setSidebarPopResult({ ok: false, msg: e.message });
-    } finally { setSidebarPopping(false); }
-  }, [viewOrgId, refresh]);
-
-  const handleSidebarClear = useCallback(async () => {
-    const org = allOrgs.find(o => String(o.id) === String(viewOrgId));
-    const name = org?.name ?? `org ${viewOrgId}`;
-    if (!window.confirm(`Clear all demo data from "${name}"?\n\nThis will delete demo telemetry, agents, relationships, and governance rules. Real customer data is not affected.`)) return;
-    setSidebarClearing(true); setSidebarPopResult(null);
-    try {
-      const res = await clearOrganizationDemoData(viewOrgId);
-      setSidebarPopResult({ ok: true, msg: `Cleared ${res.telemetry_deleted} rows · ${res.assets_deleted} agents · ${res.relationships_deleted} rels` });
-      refresh();
-    } catch (e) {
-      setSidebarPopResult({ ok: false, msg: e.message });
-    } finally { setSidebarClearing(false); }
-  }, [viewOrgId, allOrgs, refresh]);
-
   // When the logged-in user has a team-scoped role, lock the team filter to their team.
   // Runs whenever user or rolesMap changes (e.g. after login).
   useEffect(() => {
@@ -6450,6 +6419,37 @@ export default function App() {
   };
 
   const { apiRecords, serverTeams, serverAlerts, lastRefresh, isLive, demoMode, setDemoModeState, refresh } = useLiveData(30_000);
+
+  // ── Populate / clear sidebar actions (declared AFTER useLiveData so refresh is initialized) ──
+  const [sidebarPopping,   setSidebarPopping]   = useState(false);
+  const [sidebarClearing,  setSidebarClearing]  = useState(false);
+  const [sidebarPopResult, setSidebarPopResult] = useState(null);
+
+  const handleSidebarPopulate = useCallback(async () => {
+    if (!viewOrgId) return;
+    setSidebarPopping(true); setSidebarPopResult(null);
+    try {
+      const res = await populateOrganization(viewOrgId);
+      setSidebarPopResult({ ok: true, msg: `${res.assets_upserted} agents · ${res.telemetry_rows_added} rows · ${res.relationships_created} rels` });
+      refresh();
+    } catch (e) {
+      setSidebarPopResult({ ok: false, msg: e.message });
+    } finally { setSidebarPopping(false); }
+  }, [viewOrgId, refresh]);
+
+  const handleSidebarClear = useCallback(async () => {
+    const org = allOrgs.find(o => String(o.id) === String(viewOrgId));
+    const name = org?.name ?? `org ${viewOrgId}`;
+    if (!window.confirm(`Clear all demo data from "${name}"?\n\nThis will delete demo telemetry, agents, relationships, and governance rules. Real customer data is not affected.`)) return;
+    setSidebarClearing(true); setSidebarPopResult(null);
+    try {
+      const res = await clearOrganizationDemoData(viewOrgId);
+      setSidebarPopResult({ ok: true, msg: `Cleared ${res.telemetry_deleted} rows · ${res.assets_deleted} agents · ${res.relationships_deleted} rels` });
+      refresh();
+    } catch (e) {
+      setSidebarPopResult({ ok: false, msg: e.message });
+    } finally { setSidebarClearing(false); }
+  }, [viewOrgId, allOrgs, refresh]);
 
   const handleToggleDemoMode = useCallback(async () => {
     const next = !demoMode;
