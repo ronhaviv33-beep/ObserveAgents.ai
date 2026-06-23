@@ -672,33 +672,19 @@ async def session_chat(session_uuid: str, req: SessionChatRequest, db: Session =
 
 # ── /v1/chat/completions (OpenAI-compatible proxy) ───────────────────────────
 
-@router.post("/v1/chat/completions", tags=["POST — Ask / Create"])
-@_proxy_limiter.limit("60/minute")
-async def openai_compat_chat(
+async def _openai_compat_chat_impl(
     request: FastAPIRequest,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_proxy_caller),
-):
-    """
-    OpenAI-compatible chat completions endpoint.
+    db: Session,
+    current_user,
+) -> object:
+    """Implementation — called by the public route which adds trace-id logging."""
+    from app.identity_resolver import resolve_identity as _resolve_identity
+    from app.routes.auth import register_team as _register_team
 
-    Accepts any Bearer token — either a dashboard JWT or an opaque gateway key.
-    Forwards the **entire request body** to the upstream provider so tool_calls,
-    temperature, response_format, seed, etc. all pass through unchanged.
-
-    Full enforcement pipeline: PII scan → policy → budget → LLM → telemetry.
-
-    Headers:
-    - `X-Guard-Team`:  team name for cost attribution and policy lookup
-    - `X-Guard-Agent`: agent name for telemetry
-    """
     body     = await request.json()
     model    = body.get("model", "gpt-4o-mini")
     messages = body.get("messages", [])
     stream   = body.pop("stream", False)
-
-    from app.identity_resolver import resolve_identity as _resolve_identity
-    from app.routes.auth import register_team as _register_team
 
     org_id = _caller_org_id(current_user)
     if org_id is None:
@@ -869,33 +855,65 @@ async def openai_compat_chat(
     return resp_dict
 
 
-# ── /v1/messages (Anthropic-compatible proxy) ─────────────────────────────────
-
-@router.post("/v1/messages", tags=["POST — Ask / Create"])
+@router.post("/v1/chat/completions", tags=["POST — Ask / Create"])
 @_proxy_limiter.limit("60/minute")
-async def anthropic_compat_messages(
+async def openai_compat_chat(
     request: FastAPIRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_proxy_caller),
 ):
     """
-    Anthropic-compatible Messages API endpoint.
+    OpenAI-compatible chat completions endpoint.
 
-    Teams using the Anthropic SDK point here:
-    ```python
-    import anthropic
-    client = anthropic.Anthropic(base_url="http://your-server", api_key="<token>")
-    ```
-
-    Accepts the standard Anthropic request shape and returns the standard
-    Anthropic response shape, including SSE streaming.
+    Accepts any Bearer token — either a dashboard JWT or an opaque gateway key.
+    Forwards the **entire request body** to the upstream provider so tool_calls,
+    temperature, response_format, seed, etc. all pass through unchanged.
 
     Full enforcement pipeline: PII scan → policy → budget → LLM → telemetry.
 
     Headers:
-    - `X-Guard-Team`:  team name for cost attribution
+    - `X-Guard-Team`:  team name for cost attribution and policy lookup
     - `X-Guard-Agent`: agent name for telemetry
     """
+    _trace = _uuid_mod.uuid4().hex[:12]
+    try:
+        return await _openai_compat_chat_impl(request, db, current_user)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _safe_email = (
+            getattr(current_user, "email", None)
+            or (current_user.get("email") if isinstance(current_user, dict) else None)
+            or "unknown"
+        )
+        _log.exception(
+            "internal_gateway_error route=/v1/chat/completions trace_id=%s org_id=%s user=%s exc_type=%s",
+            _trace,
+            getattr(current_user, "organization_id", None)
+               or (current_user.get("organization_id") if isinstance(current_user, dict) else None),
+            _safe_email,
+            type(exc).__name__,
+        )
+        raise HTTPException(status_code=500, detail={
+            "error": {
+                "type": "internal_gateway_error",
+                "message": "Unexpected gateway error. Check server logs with trace_id.",
+                "trace_id": _trace,
+            }
+        })
+
+
+# ── /v1/messages (Anthropic-compatible proxy) ─────────────────────────────────
+
+async def _anthropic_compat_messages_impl(
+    request: FastAPIRequest,
+    db: Session,
+    current_user,
+) -> object:
+    """Implementation — called by the public route which adds trace-id logging."""
+    from app.identity_resolver import resolve_identity as _resolve_identity
+    from app.routes.auth import register_team as _register_team
+
     body   = await request.json()
     model  = body.get("model", "claude-haiku-4-5")
     system = body.get("system", None)
@@ -911,9 +929,6 @@ async def anthropic_compat_messages(
             text_parts = [b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"]
             content = " ".join(text_parts)
         oai_messages.append({"role": m["role"], "content": content})
-
-    from app.identity_resolver import resolve_identity as _resolve_identity
-    from app.routes.auth import register_team as _register_team
 
     org_id = _caller_org_id(current_user)
     if org_id is None:
@@ -1121,3 +1136,56 @@ async def anthropic_compat_messages(
             "security_findings": findings_list,
         },
     }
+
+
+@router.post("/v1/messages", tags=["POST — Ask / Create"])
+@_proxy_limiter.limit("60/minute")
+async def anthropic_compat_messages(
+    request: FastAPIRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_proxy_caller),
+):
+    """
+    Anthropic-compatible Messages API endpoint.
+
+    Teams using the Anthropic SDK point here:
+    ```python
+    import anthropic
+    client = anthropic.Anthropic(base_url="http://your-server", api_key="<token>")
+    ```
+
+    Accepts the standard Anthropic request shape and returns the standard
+    Anthropic response shape, including SSE streaming.
+
+    Full enforcement pipeline: PII scan → policy → budget → LLM → telemetry.
+
+    Headers:
+    - `X-Guard-Team`:  team name for cost attribution
+    - `X-Guard-Agent`: agent name for telemetry
+    """
+    _trace = _uuid_mod.uuid4().hex[:12]
+    try:
+        return await _anthropic_compat_messages_impl(request, db, current_user)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _safe_email = (
+            getattr(current_user, "email", None)
+            or (current_user.get("email") if isinstance(current_user, dict) else None)
+            or "unknown"
+        )
+        _log.exception(
+            "internal_gateway_error route=/v1/messages trace_id=%s org_id=%s user=%s exc_type=%s",
+            _trace,
+            getattr(current_user, "organization_id", None)
+               or (current_user.get("organization_id") if isinstance(current_user, dict) else None),
+            _safe_email,
+            type(exc).__name__,
+        )
+        raise HTTPException(status_code=500, detail={
+            "error": {
+                "type": "internal_gateway_error",
+                "message": "Unexpected gateway error. Check server logs with trace_id.",
+                "trace_id": _trace,
+            }
+        })
