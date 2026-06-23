@@ -12,7 +12,7 @@ load_dotenv()  # reads .env from project root before any os.getenv() calls
 
 from fastapi import FastAPI, Depends, HTTPException, Query, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -426,6 +426,31 @@ app = FastAPI(
 
 # Rate limiting exception handler — limiter registered after proxy router import below
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    """
+    Catch-all for exceptions that escape the route layer (e.g. from FastAPI
+    dependencies like get_db).  Without this, Starlette's ServerErrorMiddleware
+    returns plain-text "Internal Server Error", which the frontend cannot parse
+    as JSON and falls back to the generic "check server logs" message.
+    """
+    import uuid as _uuid_mod
+    import logging as _logging
+    trace_id = _uuid_mod.uuid4().hex[:12]
+    _logging.getLogger("ai_asset_mgmt").exception(
+        "unhandled_exception trace_id=%s path=%s method=%s exc=%s",
+        trace_id, request.url.path, request.method, type(exc).__name__,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": {"error": {
+            "type": "internal_gateway_error",
+            "message": "Unexpected gateway error. Check server logs for trace_id.",
+            "trace_id": trace_id,
+        }}},
+    )
 
 # Add Bearer token support to Swagger UI
 from fastapi.openapi.utils import get_openapi
