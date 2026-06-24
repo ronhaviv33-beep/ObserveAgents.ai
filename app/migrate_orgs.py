@@ -113,6 +113,15 @@ def run():
         _add_column_if_missing(conn, "telemetry",      "is_demo", "BOOLEAN NOT NULL DEFAULT 0")
         _add_column_if_missing(conn, "asset_registry", "is_demo", "BOOLEAN NOT NULL DEFAULT 0")
 
+        # Add columns introduced after the initial schema. Must run before the
+        # table-rebuild step below so COALESCE() can reference them safely.
+        _add_column_if_missing(conn, "telemetry", "pricing_estimated", "BOOLEAN DEFAULT 0")
+        _add_column_if_missing(conn, "telemetry", "asset_key",         "VARCHAR(64)")
+        _add_column_if_missing(conn, "telemetry", "agent_id_raw",      "VARCHAR(256)")
+        _add_column_if_missing(conn, "telemetry", "agent_version",     "VARCHAR(128)")
+        _add_column_if_missing(conn, "telemetry", "team_raw",          "VARCHAR(128)")
+        _add_column_if_missing(conn, "telemetry", "environment_raw",   "VARCHAR(64)")
+
         # Same fix for budget_rules table.
         br_cols = {row[1] for row in conn.execute(_text("PRAGMA table_info(budget_rules)"))}
         if "organization_id" not in br_cols and br_cols:
@@ -284,24 +293,36 @@ def run():
                         total_tokens INTEGER DEFAULT 0,
                         latency_ms FLOAT DEFAULT 0.0,
                         cost_usd FLOAT DEFAULT 0.0,
+                        pricing_estimated BOOLEAN DEFAULT 0,
                         sensitive BOOLEAN DEFAULT 0,
                         sensitive_findings TEXT,
                         blocked BOOLEAN DEFAULT 0,
                         block_reason TEXT,
-                        timestamp DATETIME
+                        timestamp DATETIME,
+                        asset_key VARCHAR(64),
+                        agent_id_raw VARCHAR(256),
+                        agent_version VARCHAR(128),
+                        team_raw VARCHAR(128),
+                        environment_raw VARCHAR(64),
+                        is_demo BOOLEAN DEFAULT 0
                     )
                 """))
                 db.execute(text("""
                     INSERT INTO telemetry_new
                     SELECT id, organization_id, team, agent, model, prompt, response,
                            prompt_tokens, completion_tokens, total_tokens, latency_ms,
-                           cost_usd, sensitive, sensitive_findings, blocked, block_reason, timestamp
+                           cost_usd,
+                           COALESCE(pricing_estimated, 0),
+                           sensitive, sensitive_findings, blocked, block_reason, timestamp,
+                           asset_key, agent_id_raw, agent_version, team_raw, environment_raw,
+                           COALESCE(is_demo, 0)
                     FROM telemetry
                 """))
                 db.execute(text("DROP TABLE telemetry"))
                 db.execute(text("ALTER TABLE telemetry_new RENAME TO telemetry"))
                 db.execute(text("CREATE INDEX IF NOT EXISTS ix_telemetry_id ON telemetry(id)"))
                 db.execute(text("CREATE INDEX IF NOT EXISTS ix_telemetry_organization_id ON telemetry(organization_id)"))
+                db.execute(text("CREATE INDEX IF NOT EXISTS ix_telemetry_asset_key ON telemetry(asset_key)"))
                 db.execute(text("PRAGMA foreign_keys=ON"))
                 db.commit()
                 log.info("Hardened telemetry.organization_id to NOT NULL.")
