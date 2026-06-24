@@ -27,7 +27,7 @@ const Pill = ({ children, color }) => (
 );
 
 // ── Guard Modes ───────────────────────────────────────────────────────────────
-const GUARD_MODE_META = {
+export const GUARD_MODE_META = {
   observe: { color: "#3b82f6", label: "Observe", desc: "Log & shadow-block only — never blocks" },
   alert:   { color: "#eab308", label: "Alert",   desc: "Logs + fires alerts — never blocks" },
   enforce: { color: "#ef4444", label: "Enforce", desc: "Actively blocks violations" },
