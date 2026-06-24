@@ -33,6 +33,7 @@ from app.auth import get_current_user, get_proxy_caller
 from app.models import calculate_cost
 from app.org_config import (
     get_org_config as _get_org_config,
+    get_org_config_multi as _get_org_config_multi,
     set_org_config as _set_org_config,
     PLATFORM_MODE as _PLATFORM_MODE,
     _VALID_GUARD_MODES as _VALID_MODES,
@@ -712,7 +713,9 @@ async def _openai_compat_chat_impl(
     team_raw        = _identity.team
     environment_raw = _identity.environment
 
-    _pii_redact = (_get_org_config(db, org_id, "pii_redaction_mode") or "full") == "findings_only"
+    _cfg        = _get_org_config_multi(db, org_id, ["pii_redaction_mode", "demo_mode"])
+    _pii_redact = (_cfg.get("pii_redaction_mode") or "full") == "findings_only"
+    _demo_mode  = _cfg.get("demo_mode")
     org_client  = get_client_for_org(org_id, model, db)
     _register_team(db, org_id, team)
 
@@ -788,7 +791,7 @@ async def _openai_compat_chat_impl(
                     environment_raw=environment_raw,
                     redact_pii_text=_pii_redact,
                 )
-                if org_id and _get_org_config(db, org_id, "demo_mode"):
+                if org_id and _demo_mode:
                     _set_org_config(db, org_id, "demo_mode", False)
 
         return StreamingResponse(
@@ -839,7 +842,7 @@ async def _openai_compat_chat_impl(
         environment_raw=environment_raw,
         redact_pii_text=_pii_redact,
     )
-    if org_id and _get_org_config(db, org_id, "demo_mode"):
+    if org_id and _demo_mode:
         _set_org_config(db, org_id, "demo_mode", False)
 
     _cost_usd, _pricing_estimated = calculate_cost(resp_model, pt, ct)
@@ -956,7 +959,9 @@ async def _anthropic_compat_messages_impl(
     team_raw        = _identity.team
     environment_raw = _identity.environment
 
-    _pii_redact = (_get_org_config(db, org_id, "pii_redaction_mode") or "full") == "findings_only"
+    _cfg        = _get_org_config_multi(db, org_id, ["pii_redaction_mode", "demo_mode"])
+    _pii_redact = (_cfg.get("pii_redaction_mode") or "full") == "findings_only"
+    _demo_mode  = _cfg.get("demo_mode")
     org_client  = get_client_for_org(org_id, model, db)
     _register_team(db, org_id, team)
 
@@ -1059,7 +1064,7 @@ async def _anthropic_compat_messages_impl(
                     environment_raw=environment_raw,
                     redact_pii_text=_pii_redact,
                 )
-                if org_id and _get_org_config(db, org_id, "demo_mode"):
+                if org_id and _demo_mode:
                     _set_org_config(db, org_id, "demo_mode", False)
 
         return StreamingResponse(
@@ -1110,7 +1115,7 @@ async def _anthropic_compat_messages_impl(
         environment_raw=environment_raw,
         redact_pii_text=_pii_redact,
     )
-    if org_id and _get_org_config(db, org_id, "demo_mode"):
+    if org_id and _demo_mode:
         _set_org_config(db, org_id, "demo_mode", False)
 
     _anth_cost, _anth_pricing_estimated = calculate_cost(resp_model, pt, ct)

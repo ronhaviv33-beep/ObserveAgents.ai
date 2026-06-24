@@ -55,7 +55,6 @@ def save(
     )
     db.add(record)
     db.commit()
-    db.refresh(record)
     return record
 
 
@@ -97,7 +96,6 @@ def save_blocked(
     )
     db.add(record)
     db.commit()
-    db.refresh(record)
     return record
 
 

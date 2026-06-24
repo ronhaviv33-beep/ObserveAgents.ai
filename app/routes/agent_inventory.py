@@ -34,18 +34,24 @@ def _org_and_scope(user, db):
 
 def _lookup_registry(db: Session, org_id: int, agent_id: str) -> AssetRegistry | None:
     """Look up registry row by asset_key, falling back to sha256(org_id:agent_id)."""
-    reg = db.query(AssetRegistry).filter(
-        AssetRegistry.organization_id == org_id,
-        AssetRegistry.asset_key == agent_id,
-    ).first()
-    if reg:
-        return reg
-    # Caller may pass agent_name instead of asset_key
+    from sqlalchemy import or_
     alt_key = hashlib.sha256(f"{org_id}:{agent_id}".encode()).hexdigest()
-    return db.query(AssetRegistry).filter(
+    rows = db.query(AssetRegistry).filter(
         AssetRegistry.organization_id == org_id,
-        AssetRegistry.asset_key == alt_key,
-    ).first()
+        or_(
+            AssetRegistry.asset_key == agent_id,
+            AssetRegistry.asset_key == alt_key,
+        ),
+    ).limit(2).all()
+    if not rows:
+        return None
+    if len(rows) == 1:
+        return rows[0]
+    # Both keys matched — prefer the direct (non-hashed) match
+    for row in rows:
+        if row.asset_key == agent_id:
+            return row
+    return rows[0]
 
 
 def _caller_email(user) -> str | None:

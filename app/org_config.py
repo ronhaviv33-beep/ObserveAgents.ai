@@ -31,6 +31,22 @@ DEFAULTS: dict = {
 }
 
 
+def get_org_config_multi(db: Session, org_id: int, keys: list) -> dict:
+    """Fetch multiple org config keys in a single query. Returns dict of key → value."""
+    from app.models import OrgConfig
+    rows = db.query(OrgConfig).filter(
+        OrgConfig.organization_id == org_id,
+        OrgConfig.key.in_(keys),
+    ).all()
+    result = {k: DEFAULTS.get(k) for k in keys}
+    for row in rows:
+        try:
+            result[row.key] = json.loads(row.value)
+        except Exception:
+            result[row.key] = row.value
+    return result
+
+
 def get_org_config(db: Session, org_id: int, key: str):
     from app.models import OrgConfig
     row = db.query(OrgConfig).filter(
