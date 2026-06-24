@@ -43,6 +43,7 @@ from app.models import (
     BudgetRule, PolicyRule, GuardMode,
 )
 from app.auth import hash_password, generate_api_key, create_token
+from app.org_config import set_org_config
 
 # ── Shared test client + startup ──────────────────────────────────────────────
 _client = TestClient(app, raise_server_exceptions=True)
@@ -76,6 +77,10 @@ for _o in [_acme_org, _beta_org, _gamma_org]:
 ACME_ID  = _acme_org.id
 BETA_ID  = _beta_org.id
 GAMMA_ID = _gamma_org.id
+
+# Disable demo_mode so real (is_demo=False) telemetry rows are returned by the API
+for _oid in [ACME_ID, BETA_ID, GAMMA_ID]:
+    set_org_config(_db, _oid, "demo_mode", False)
 
 # ── Admins ────────────────────────────────────────────────────────────────────
 

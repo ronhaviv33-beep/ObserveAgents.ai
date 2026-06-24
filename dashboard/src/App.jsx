@@ -39,7 +39,7 @@ import { useLiveData } from "./hooks/useLiveData.js";
 import { UserContext, useUser, RolesContext, useRoles, ROLES, canSeePage, userCan, canAccess } from "./auth.jsx";
 import CustomerWelcomePage from "./pages/PlatformGuide.jsx";
 import SimpleIntegrationsPage from "./pages/Setup.jsx";
-import SettingsPage from "./pages/Settings.jsx";
+import SettingsPage, { GUARD_MODE_META } from "./pages/Settings.jsx";
 
 
 // ─── Shared UI primitives ─────────────────────────────────────────────────────
