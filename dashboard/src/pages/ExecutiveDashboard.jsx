@@ -224,6 +224,23 @@ export default function ExecutiveDashboard({ onNavigate }) {
         </div>
       </div>
 
+      {/* ── Empty state — no agents discovered yet ──────────────────────────────── */}
+      {total === 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "22px 26px", background: `${T.accent}0D`, border: `1px solid ${T.accent}33`, borderRadius: 10 }}>
+          <div style={{ fontSize: 28 }}>🛰</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>No agents discovered yet.</div>
+            <div style={{ fontSize: 12, color: T.textDim, lineHeight: 1.6 }}>
+              Send your first request through the gateway and we'll discover agents automatically — no manual registration required.
+            </div>
+          </div>
+          <button onClick={() => onNavigate?.("integrations")}
+            style={{ background: T.accent, color: "#001b10", border: "none", borderRadius: 6, padding: "9px 20px", fontSize: 12, fontWeight: 600, fontFamily: FONT, cursor: "pointer", whiteSpace: "nowrap" }}>
+            Start Setup →
+          </button>
+        </div>
+      )}
+
       {/* ── KPI Row — Agent Inventory ────────────────────────────────────────────── */}
       <div>
         <div style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>
@@ -232,8 +249,8 @@ export default function ExecutiveDashboard({ onNavigate }) {
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <KpiCard label="Total AI Agents"   value={total}               sub="Across all teams"                                                                   onClick={() => onNavigate?.("agent_inventory")} />
           <KpiCard label="Managed Agents"    value={managed}             sub={total ? `${Math.round(managed / total * 100)}% of total` : "—"}  color={T.accent}  onClick={() => onNavigate?.("agent_inventory")} />
-          <KpiCard label="Unassigned"        value={unassigned}          sub="Requires action"                      color={unassigned  > 0 ? T.yellow : T.accent} onClick={() => onNavigate?.("governance")} />
-          <KpiCard label="Needs Validation"  value={needsValidation}     sub="Requires review"                      color={needsValidation > 0 ? T.warn : T.accent} onClick={() => onNavigate?.("discovery")} />
+          <KpiCard label="Needs Owner"       value={unassigned}          sub="Awaiting ownership review"            color={unassigned  > 0 ? T.yellow : T.accent} onClick={() => onNavigate?.("governance")} />
+          <KpiCard label="Needs Review"      value={needsValidation}     sub="Awaiting validation"                  color={needsValidation > 0 ? T.warn : T.accent} onClick={() => onNavigate?.("discovery")} />
           <KpiCard label="Monthly AI Spend"  value={fmtUSD(monthlyCost)} sub="Runtime estimate (30d)"               color={T.info}                               onClick={() => onNavigate?.("cost")} />
           <KpiCard label="High Risk Agents"  value={highRiskCount}       sub={highRiskCount > 0 ? "Immediate review" : "No critical risks"} color={highRiskCount > 0 ? T.crit : T.accent} onClick={() => onNavigate?.("security_intel")} />
         </div>
@@ -545,25 +562,27 @@ export default function ExecutiveDashboard({ onNavigate }) {
 
           {/* Governance coverage */}
           <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
-            <div style={{ fontSize: 9, color: T.textMute, fontFamily: MONO, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>Governance Coverage</div>
+            <div style={{ fontSize: 9, color: T.textMute, fontFamily: MONO, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>Governance Review</div>
             {[
-              { label: "Ownership",   pct: total > 0 ? Math.round(managed / total * 100) : 0, color: T.accent, target: 90 },
-              { label: "Validated",   pct: total > 0 ? Math.round((total - needsValidation) / total * 100) : 0, color: T.info, target: 95 },
-            ].map(({ label, pct, color, target }) => (
-              <div key={label} style={{ marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textDim, marginBottom: 5 }}>
-                  <span>{label}</span>
-                  <span style={{ fontFamily: MONO }}>
-                    <span style={{ color }}>{pct}%</span>
-                    <span style={{ color: T.textMute }}> / {target}% target</span>
-                  </span>
+              { label: "Ownership review", value: managed,                  color: T.accent },
+              { label: "Validation review", value: total - needsValidation, color: T.info },
+            ].map(({ label, value, color }) => {
+              const remaining = Math.max(0, total - value);
+              const fill = total > 0 ? (value / total) * 100 : 0;
+              return (
+                <div key={label} style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textDim, marginBottom: 5 }}>
+                    <span>{label}</span>
+                    <span style={{ fontFamily: MONO, color: remaining > 0 ? T.warn : T.accent }}>
+                      {remaining > 0 ? `${remaining} awaiting review` : "✓ all reviewed"}
+                    </span>
+                  </div>
+                  <div style={{ background: T.panelHi, borderRadius: 2, height: 5 }}>
+                    <div style={{ width: `${fill}%`, background: color, height: 5, borderRadius: 2, transition: "width 0.5s" }} />
+                  </div>
                 </div>
-                <div style={{ background: T.panelHi, borderRadius: 2, height: 5, position: "relative" }}>
-                  <div style={{ width: `${pct}%`, background: color, height: 5, borderRadius: 2, transition: "width 0.5s" }} />
-                  <div style={{ position: "absolute", top: -1, left: `${target}%`, width: 1, height: 7, background: T.textMute, opacity: 0.5 }} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Panel>
       </div>

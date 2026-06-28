@@ -570,10 +570,10 @@ export default function DiscoveryCenter({ initialTab = "verified" }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div style={{ display: "flex", gap: 0, background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 6, padding: 3 }}>
           {[
-            { id: "verified",   label: `Verified (${verified.length})` },
+            { id: "verified",   label: `Active (${verified.length})` },
             { id: "likely",     label: `Likely (${likely.length})` },
-            { id: "potential",  label: `Potential (${potential.length})` },
-            { id: "historical", label: `Historical (${historical.length})` },
+            { id: "potential",  label: `Needs Review (${potential.length})` },
+            { id: "historical", label: `Inactive (${historical.length})` },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               style={{ background: tab === t.id ? T.panel : "transparent", border: tab === t.id ? `1px solid ${T.border}` : "1px solid transparent", color: tab === t.id ? T.text : T.textDim, padding: "7px 16px", borderRadius: 4, fontSize: 12, fontFamily: MONO, cursor: "pointer", transition: "all 0.12s" }}>
@@ -598,7 +598,7 @@ export default function DiscoveryCenter({ initialTab = "verified" }) {
       )}
       {tab === "historical" && (
         <div style={{ marginBottom: 16, padding: "10px 14px", background: T.textDim + "0D", border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 12, color: T.textDim }}>
-          <span style={{ color: T.textDim }}>●</span>&nbsp; Historical agents were previously verified but have had no runtime activity for over 90 days. They may be decommissioned or hibernating.
+          <span style={{ color: T.textDim }}>●</span>&nbsp; Inactive agents were active before but have had no runtime activity for over 90 days. They may be decommissioned or hibernating.
         </div>
       )}
 
@@ -640,7 +640,7 @@ export default function DiscoveryCenter({ initialTab = "verified" }) {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} style={{ textAlign: "center", padding: 32, color: T.textMute, fontFamily: MONO, fontSize: 13 }}>
-                    {search ? "No agents match your search" : tab === "verified" ? "No verified agents yet" : tab === "historical" ? "No historical agents" : tab === "likely" ? "No likely agents" : "No potential agents to review"}
+                    {search ? "No agents match your search" : tab === "verified" ? "No agents discovered. Create a Gateway API Key and send your first request." : tab === "historical" ? "No inactive agents" : tab === "likely" ? "No likely agents" : "No agents to review"}
                   </td>
                 </tr>
               ) : filtered.map(agent => {
