@@ -16,7 +16,8 @@ class PageErrorBoundary extends Component {
     return this.props.children;
   }
 }
-import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams, fetchAssets, fetchAssetsSummary, fetchAssetTelemetry, fetchUnassignedAssets, claimAsset, updateAssetRegistry, fetchOrgConfig, updateOrgConfig, getDemoMode, setDemoMode, fetchOrganizations, createOrganization, setViewOrg, getViewOrg, fetchAgentsSummary, fetchRelationships, populateOrganization, clearOrganizationDemoData } from "./api.js";
+import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams, fetchAssets, fetchAssetsSummary, fetchAssetTelemetry, fetchUnassignedAssets, claimAsset, updateAssetRegistry, fetchOrgConfig, updateOrgConfig, getDemoMode, setDemoMode, fetchOrganizations, createOrganization, setViewOrg, getViewOrg, fetchAgentsSummary, fetchRelationships, populateOrganization, clearOrganizationDemoData, demoLogin } from "./api.js";
+import { isDemoMode, isDevelopment } from "./config.js";
 import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
@@ -3314,7 +3315,7 @@ function OrganizationsPage() {
                   <td style={{ padding:"14px 16px", fontSize:12, color:T.textDim }}>{fmtDate(o.created_at)}</td>
                   <td style={{ padding:"14px 16px", fontSize:12, color:T.textDim, fontFamily:FONT_MONO_S }}>{o.user_count ?? "—"}</td>
                   <td style={{ padding:"10px 16px" }}>
-                    {!o.is_internal && (
+                    {!o.is_internal && (isDemoMode() || isDevelopment()) && (
                       <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                         <div style={{ display:"flex", gap:6 }}>
                           <button
@@ -4042,8 +4043,9 @@ function AssetsPage() {
             {loading && !assets ? (
               <div style={{ padding: 40, textAlign: "center", color: T2.textMute, fontFamily: FONT_MONO }}>Loading agents…</div>
             ) : !assets || assets.length === 0 ? (
-              <div style={{ padding: 40, textAlign: "center", color: T2.textMute, fontFamily: FONT_MONO }}>
-                No agents found. Run <span style={{ color: T2.accent }}>python scripts/seed_demo_data.py</span> to create demo data.
+              <div style={{ padding: 40, textAlign: "center", color: T2.textMute, fontFamily: FONT_MONO, lineHeight: 1.7 }}>
+                No agents discovered yet.<br/>
+                Send your first request through the gateway and we'll discover agents automatically.
               </div>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -4478,6 +4480,11 @@ export default function App() {
   // On mount, validate stored token; also listen for mid-session expiry
   useEffect(() => {
     const check = async () => {
+      // Public demo service: no login required — silently mint a demo token.
+      if (!getToken() && isDemoMode()) {
+        const t = await demoLogin();
+        if (t) setToken(t);
+      }
       const token = getToken();
       if (token) {
         try {
@@ -4595,10 +4602,21 @@ export default function App() {
   // serverTeams (from /teams) always includes every registered team even if it
   // has no telemetry yet, so new teams appear in the filter dropdown immediately.
   const { allEvents, allTeams, allAgents } = useMemo(() => {
-    if (apiRecords === null) return { allEvents: [], allTeams: TEAMS, allAgents: AGENTS }; // still loading
+    // Synthetic fallback data is ONLY used in the demo/dev environment. Production
+    // never fabricates data — empty API → empty arrays → real empty states.
+    const allowSynthetic = isDemoMode() || isDevelopment();
+    if (apiRecords === null) {
+      // still loading
+      return allowSynthetic
+        ? { allEvents: [], allTeams: TEAMS, allAgents: AGENTS }
+        : { allEvents: [], allTeams: [], allAgents: [] };
+    }
     if (apiRecords.length === 0) {
-      // No live data — use demo, but still surface any server-registered teams
+      // No live data: in demo/dev fall back to synthetic; in production stay empty.
       const extraTeams = serverTeams.map(t => ({ id: `live_team_${t.name.replace(/\s+/g,"_").toLowerCase()}`, org: "org_live", name: t.name }));
+      if (!allowSynthetic) {
+        return { allEvents: [], allTeams: extraTeams, allAgents: [] };
+      }
       const merged = extraTeams.length > 0 ? extraTeams : TEAMS;
       return { allEvents: genDemoEvents(), allTeams: merged, allAgents: AGENTS };
     }
@@ -4776,7 +4794,7 @@ export default function App() {
                     ))
                 }
               </select>
-              {viewOrgId && (
+              {viewOrgId && (isDemoMode() || isDevelopment()) && (
                 <div style={{ marginTop:6, display:"flex", flexDirection:"column", gap:4 }}>
                   <button
                     onClick={handleSidebarPopulate}
@@ -4816,11 +4834,15 @@ export default function App() {
             </div>
           )}
           <div style={{ fontSize:10, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.08em", lineHeight:1.8 }}>
-            <div style={{ color:demoMode?T.warn:T.accent }}>● {demoMode?"demo mode":"live data"}</div>
+            {/* Demo-only status indicator — never shown in production */}
+            {isDemoMode() && <div style={{ color:T.warn }}>● demo mode</div>}
             <span style={{ color:T.textMute }}>{filteredEvents.length.toLocaleString()} events / {filters.range}d</span>
             {lastRefresh && <div style={{ color:T.textMute, marginTop:2 }}>updated {lastRefresh.toLocaleTimeString()}</div>}
           </div>
-          <button onClick={handleToggleDemoMode} title={demoMode?"Switch to live data":"Switch to demo mode"} style={{ width:"100%", background:"transparent", border:`1px solid ${demoMode?T.warn:T.accentDim}`, color:demoMode?T.warn:T.accent, padding:"6px 10px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>{demoMode?"⇄ show live":"⇄ show demo"}</button>
+          {/* Demo/live toggle is a demo control — only available in demo/dev */}
+          {(isDemoMode() || isDevelopment()) && (
+            <button onClick={handleToggleDemoMode} title={demoMode?"Switch to live data":"Switch to demo mode"} style={{ width:"100%", background:"transparent", border:`1px solid ${demoMode?T.warn:T.accentDim}`, color:demoMode?T.warn:T.accent, padding:"6px 10px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>{demoMode?"⇄ show live":"⇄ show demo"}</button>
+          )}
           <button onClick={refresh} style={{ width:"100%", background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"6px 10px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>↻ Refresh</button>
         </div>
       </aside>
@@ -4853,8 +4875,12 @@ export default function App() {
             <span>{filters.team==="all"?"all teams":allTeams.find((t)=>t.id===filters.team)?.name}</span>
             <span style={{ color:T.textMute }}>|</span>
             <span>last {filters.range}d</span>
-            <span style={{ color:T.textMute }}>|</span>
-            <span style={{ color:demoMode?T.warn:T.accent }}>● {demoMode?"demo":"live"}</span>
+            {isDemoMode() && (
+              <>
+                <span style={{ color:T.textMute }}>|</span>
+                <span style={{ color:T.warn }}>● demo</span>
+              </>
+            )}
             {pricingLastUpdated && (
               <>
                 <span style={{ color:T.textMute }}>|</span>

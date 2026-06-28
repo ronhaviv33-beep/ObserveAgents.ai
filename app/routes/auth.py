@@ -80,6 +80,27 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     return TokenResponse(access_token=create_token(user), user=UserOut.model_validate(user))
 
 
+@router.post("/auth/demo-login", response_model=TokenResponse)
+def demo_login(db: Session = Depends(get_db)):
+    """Issue a token for the synthetic demo admin — no credentials required.
+
+    Only active when the service runs in demo mode (the separate demo Render
+    service). Returns 404 everywhere else so production never exposes it.
+    """
+    from app.config import is_demo_mode
+    if not is_demo_mode():
+        raise HTTPException(status_code=404, detail="Not found")
+    from app.demo import get_demo_admin, ensure_demo_seed
+    user = get_demo_admin(db)
+    if not user:
+        # Lazily seed if the startup hook hasn't run yet (e.g. fresh DB).
+        ensure_demo_seed(db)
+        user = get_demo_admin(db)
+        if not user:
+            raise HTTPException(status_code=503, detail="Demo environment not ready")
+    return TokenResponse(access_token=create_token(user), user=UserOut.model_validate(user))
+
+
 @router.get("/auth/me", response_model=UserOut)
 async def me(current_user=Depends(get_current_user)):
     return current_user

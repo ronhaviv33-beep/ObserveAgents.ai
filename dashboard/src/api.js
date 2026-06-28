@@ -170,9 +170,25 @@ export async function updateKey(key, value) {
 
 export async function getDemoMode() {
   const r = await authFetch(`${BASE}/settings/demo-mode`)
-  if (!r || !r.ok) return true  // safe default: show demo when unknown
+  if (!r || !r.ok) return false  // safe default: never assume demo in production
   const data = await r.json()
   return data.demo_mode
+}
+
+// No-credential login for the public demo service. Returns a token string when the
+// backend is running in demo mode, otherwise null (production returns 404).
+export async function demoLogin() {
+  try {
+    const r = await fetch(`${BASE}/auth/demo-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (!r.ok) return null
+    const data = await r.json()
+    return data.access_token || null
+  } catch {
+    return null
+  }
 }
 
 export async function setDemoMode(enabled) {

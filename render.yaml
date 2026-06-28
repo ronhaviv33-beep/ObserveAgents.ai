@@ -1,6 +1,7 @@
 services:
-  # ── Combined app (FastAPI serves API + React frontend from same origin) ─────
-  # No CORS or VITE_API_BASE configuration needed — everything is same-origin.
+  # ── Production app (app.observeagents.ai + gateway.observeagents.ai) ─────────
+  # FastAPI serves API + React frontend from same origin. Real customer data only.
+  # DEMO_MODE must stay false here — demo lives in the separate service below.
   - type: web
     name: ai-asset-app
     runtime: python
@@ -11,6 +12,17 @@ services:
       mountPath: /data
       sizeGB: 1
     envVars:
+      # ── Environment separation ──────────────────────────────────────────────
+      - key: APP_ENV
+        value: production
+      - key: DEMO_MODE
+        value: "false"
+      - key: PUBLIC_APP_URL
+        value: https://app.observeagents.ai
+      - key: PUBLIC_GATEWAY_URL
+        value: https://gateway.observeagents.ai
+      - key: PUBLIC_MARKETING_URL
+        value: https://observeagents.ai
       - key: JWT_SECRET
         generateValue: true
       - key: GUARD_MODE
@@ -31,5 +43,38 @@ services:
       # Fernet key for encrypting per-org provider credentials (BYOK).
       # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
       # Set in Render dashboard (sync:false). Never commit the real value.
+      - key: CREDENTIAL_ENCRYPTION_KEY
+        sync: false
+
+  # ── Public demo (demo.observeagents.ai) ─────────────────────────────────────
+  # Separate service + separate disk/DB. No login, synthetic data, read-only.
+  # This is the ONLY place DEMO_MODE=true is set.
+  - type: web
+    name: ai-asset-demo
+    runtime: python
+    buildCommand: cd dashboard && npm install && npm run build && cd .. && pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    disk:
+      name: sqlite-data-demo
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      # ── Environment separation ──────────────────────────────────────────────
+      - key: APP_ENV
+        value: demo
+      - key: DEMO_MODE
+        value: "true"
+      - key: PUBLIC_APP_URL
+        value: https://demo.observeagents.ai
+      - key: PUBLIC_GATEWAY_URL
+        value: https://demo.observeagents.ai
+      - key: PUBLIC_MARKETING_URL
+        value: https://observeagents.ai
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GUARD_MODE
+        value: observe
+      # Demo never makes real provider calls (mutations are blocked), so no real
+      # API keys are configured. A throwaway encryption key keeps boot happy.
       - key: CREDENTIAL_ENCRYPTION_KEY
         sync: false
