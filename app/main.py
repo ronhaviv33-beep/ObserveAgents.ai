@@ -345,7 +345,8 @@ from app.routes import inventory as inventory_routes  # noqa: E402
 app.include_router(inventory_routes.router)
 
 from app.routes import proxy as proxy_routes  # noqa: E402
-from app.routes.proxy import _proxy_limiter, _circuit_state, _circuit  # noqa: E402
+from app.routes.proxy import _proxy_limiter  # noqa: E402
+from app.proxy_circuit import _circuit_state, _circuit  # noqa: E402
 app.state.limiter = _proxy_limiter
 app.include_router(proxy_routes.router)
 
