@@ -295,7 +295,8 @@ function BillingTable({ records, onEdit }) {
     )
   }
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
       <thead>
         <tr style={{ borderBottom: `1px solid ${T.border}` }}>
           <BillSTH label="Provider"         sortKey="provider"                sort={sort} onSort={toggle} />
@@ -354,6 +355,7 @@ function BillingTable({ records, onEdit }) {
         })}
       </tbody>
     </table>
+    </div>
   )
 }
 

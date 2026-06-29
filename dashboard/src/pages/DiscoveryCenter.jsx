@@ -606,8 +606,8 @@ export default function DiscoveryCenter({ initialTab = "verified" }) {
       {loading ? (
         <div style={{ color: T.textMute, fontFamily: MONO, fontSize: 13, padding: "32px 0", textAlign: "center" }}>Loading agents…</div>
       ) : (
-        <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 780 }}>
             <thead>
               <tr>
                 {(tab === "verified" || tab === "historical") ? (
