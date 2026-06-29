@@ -112,7 +112,7 @@ export default function DemoDashboard({ onNavigate }) {
           position: "relative", overflow: "hidden", borderRadius: 16,
           border: `1px solid ${T.borderHi}`,
           background: `radial-gradient(1200px 400px at 15% -20%, rgba(124,255,178,0.16), transparent 60%), radial-gradient(900px 360px at 95% 0%, rgba(180,122,255,0.14), transparent 55%), linear-gradient(180deg, ${T.panelHi}, ${T.panel})`,
-          padding: bp.isMobile ? "28px 20px" : "52px 44px", marginBottom: 28, ...fadeUp(0),
+          padding: bp.isMobile ? "24px 16px" : "52px 44px", marginBottom: 28, ...fadeUp(0),
         }}
       >
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 12px", borderRadius: 999, border: `1px solid ${T.border}`, background: "rgba(124,255,178,0.06)", marginBottom: 22 }}>

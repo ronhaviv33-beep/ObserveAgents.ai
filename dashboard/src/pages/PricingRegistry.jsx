@@ -7,6 +7,7 @@ import {
   triggerPricingSync,
   fetchPricingSyncStatus,
 } from '../api.js'
+import { useBreakpoint } from '../hooks/useBreakpoint.js'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const T = {
@@ -174,7 +175,8 @@ function HistoryDrawer({ provider, model, onClose }) {
         {err  && <div style={{ color: T.crit, fontSize: 12 }}>{err}</div>}
         {!history && !err && <div style={{ color: T.textMute, fontSize: 12 }}>Loading…</div>}
         {history && (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${T.border}` }}>
                 {['Ver', 'Input /M', 'Output /M', 'From', 'To', 'Source', 'Status'].map(h => (
@@ -196,6 +198,7 @@ function HistoryDrawer({ provider, model, onClose }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
         {history?.[0]?.override_reason && (
           <div style={{ marginTop: 12, fontSize: 12, color: T.textMute }}>Override reason: {history[0].override_reason}</div>
@@ -323,7 +326,8 @@ function PricingTable({ rows, onHistory, onOverride, filterProvider, search }) {
   }
 
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 680 }}>
       <thead>
         <tr style={{ borderBottom: `1px solid ${T.border}` }}>
           {['Provider', 'Model', 'Input /M', 'Output /M', 'Cache Read', 'Age', 'Ver', 'Source', 'Actions'].map(h => (
@@ -364,6 +368,7 @@ function PricingTable({ rows, onHistory, onOverride, filterProvider, search }) {
         })}
       </tbody>
     </table>
+    </div>
   )
 }
 
@@ -391,6 +396,7 @@ export default function PricingRegistry() {
   const [saving, setSaving]         = useState(false)
   const [syncing, setSyncing]       = useState(false)
   const [showOverrides, setShowOvr] = useState(false)
+  const bp = useBreakpoint()
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -453,7 +459,7 @@ export default function PricingRegistry() {
       {status?.warnings?.length > 0 && <WarningBanner warnings={status.warnings} />}
 
       {/* KPI row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 10, marginBottom: 16 }}>
         <KpiChip label="Total Models"   value={pricing.length} color={T.accent} />
         <KpiChip label="Providers"      value={providers.length} color={T.teal} />
         <KpiChip label="Org Overrides"  value={overrides.length} color={overrides.length > 0 ? T.warn : T.textMute} />
@@ -462,7 +468,7 @@ export default function PricingRegistry() {
       </div>
 
       {/* Main grid: table + sync status */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 12, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile || bp.isTablet ? '1fr' : '1fr 300px', gap: 12, alignItems: 'start' }}>
         {/* Pricing table */}
         <Card
           title="Model Pricing"
@@ -490,7 +496,7 @@ export default function PricingRegistry() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search models…"
-              style={{ padding: '5px 10px', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 4, color: T.text, fontSize: 11, fontFamily: FONT_MONO, width: 180 }}
+              style={{ padding: '5px 10px', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 4, color: T.text, fontSize: 11, fontFamily: FONT_MONO, flex: '1 1 140px', minWidth: 0 }}
             />
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: T.textDim, cursor: 'pointer' }}>
               <input type="checkbox" checked={showOverrides} onChange={e => setShowOvr(e.target.checked)} />
