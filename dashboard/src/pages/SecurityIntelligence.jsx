@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { fetchSecurityAlerts, fetchAgents } from "../api.js";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
+import CollapsiblePanel, { PanelGroupControls } from "../components/CollapsiblePanel.jsx";
 
 const T = {
   bg: "#0A0B0F", panel: "#0F1117", panelHi: "#141823",
@@ -181,6 +182,7 @@ export default function SecurityIntelligence() {
         <div style={{ fontSize: 13, color: T.textMute, marginTop: 4 }}>
           Runtime signals, policy violations, and behavioral anomalies across your AI agent fleet
         </div>
+        <PanelGroupControls group="security" style={{ marginTop: 12 }} />
       </div>
 
       {/* ── Risk Overview ──────────────────────────────────────────────────── */}
@@ -205,8 +207,8 @@ export default function SecurityIntelligence() {
       </div>
 
       {/* ── Findings Breakdown ─────────────────────────────────────────────── */}
-      <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "20px 24px" }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 16 }}>Operational Risk Findings by Category</div>
+      <CollapsiblePanel title="Operational Risk Findings by Category" group="security"
+        storageKey="oa-panel-security-findings" badge={Object.keys(findingsByType).length || null}>
         {Object.keys(findingsByType).length > 0 ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
             {Object.entries(findingsByType).map(([type, counts]) => {
@@ -234,12 +236,13 @@ export default function SecurityIntelligence() {
             <span style={{ fontSize: 18 }}>✓</span> No security findings detected
           </div>
         )}
-      </div>
+      </CollapsiblePanel>
 
       {/* ── Alert Feed ─────────────────────────────────────────────────────── */}
-      <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8 }}>
-        <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}`, display: "flex", flexDirection: bp.isMobile ? "column" : "row", alignItems: bp.isMobile ? "flex-start" : "center", justifyContent: "space-between", gap: bp.isMobile ? 10 : 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>Risk Signal Feed</div>
+      <CollapsiblePanel title="Risk Signal Feed" group="security" storageKey="oa-panel-security-feed"
+        badge={alerts.length}
+        bodyStyle={{ padding: 0, paddingTop: 0 }}
+        actions={
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {[
               { id: "all",      label: `All (${alerts.length})` },
@@ -253,8 +256,7 @@ export default function SecurityIntelligence() {
               </button>
             ))}
           </div>
-        </div>
-
+        }>
         {filtered.length === 0 ? (
           <div style={{ padding: "32px", textAlign: "center", color: T.textMute, fontFamily: MONO, fontSize: 13 }}>
             {sevFilter === "all" ? "No risk signals detected — security posture is healthy" : `No ${sevFilter} alerts`}
@@ -349,7 +351,7 @@ export default function SecurityIntelligence() {
           </table>
           </div>
         )}
-      </div>
+      </CollapsiblePanel>
     </div>
   );
 }
