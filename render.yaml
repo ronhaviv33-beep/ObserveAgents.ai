@@ -17,8 +17,10 @@ services:
         value: production
       - key: DEMO_MODE
         value: "false"
+      # Apex domain is the canonical customer-facing app URL (NOT app.*).
+      # app.observeagents.ai stays CORS-allowed via config.PUBLIC_ORIGINS.
       - key: PUBLIC_APP_URL
-        value: https://app.observeagents.ai
+        value: https://observeagents.ai
       - key: PUBLIC_GATEWAY_URL
         value: https://gateway.observeagents.ai
       - key: PUBLIC_MARKETING_URL
