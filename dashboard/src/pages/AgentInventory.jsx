@@ -999,6 +999,7 @@ function EditModal({ agent, onSave, onClose, saving, environments = ["production
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function AgentInventory({ isAdmin = false, onNavigate }) {
+  const bp = useBreakpoint();
   const [agents,       setAgents]       = useState([]);
   const [summary,      setSummary]      = useState(null);
   const [loading,      setLoading]      = useState(true);
@@ -1131,8 +1132,6 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
 
   const verifiedSummary = summary?.verified_agents || {};
   const potentialSummary = summary?.potential_agents || {};
-
-  const bp = useBreakpoint();
 
   return (
     <div style={{ fontFamily: FONT_UI, minWidth: 0 }}>
