@@ -447,7 +447,7 @@ export default function EcosystemDiscovery() {
     <div style={{ fontFamily: FONT, display: "flex", flexDirection: "column", gap: 28 }}>
 
       {/* ── Summary strip ──────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", gap: 12 }}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         {[
           { label: "Total Agents",        value: totalAgents,           color: T.text },
           { label: "Discovery Sources",   value: activePlatforms,       color: T.accent },

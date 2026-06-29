@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { fetchSecurityAlerts, fetchAgents } from "../api.js";
+import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import CollapsiblePanel, { PanelGroupControls } from "../components/CollapsiblePanel.jsx";
 
 const T = {
@@ -118,6 +119,7 @@ export default function SecurityIntelligence() {
   const [sevFilter, setSevFilter] = useState("all");
   const [alertSort, setAlertSort] = useState({ key: "ts", dir: "desc" });
   const toggleSort = (key) => setAlertSort(s => s.key===key ? {key, dir: s.dir==="asc"?"desc":"asc"} : {key, dir:"desc"});
+  const bp = useBreakpoint();
 
   useEffect(() => {
     (async () => {
@@ -184,12 +186,12 @@ export default function SecurityIntelligence() {
       </div>
 
       {/* ── Risk Overview ──────────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "auto 1fr", gap: 20 }}>
         <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "24px 28px", display: "flex", alignItems: "center" }}>
           <RiskScore score={riskScore} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12 }}>
           {[
             { label: "High Risk Agents",   count: highRiskCount, color: T.crit,   sub: "Immediate review" },
             { label: "Medium Risk Agents", count: medRiskCount,  color: T.warn,   sub: "Monitor closely" },
@@ -241,7 +243,7 @@ export default function SecurityIntelligence() {
         badge={alerts.length}
         bodyStyle={{ padding: 0, paddingTop: 0 }}
         actions={
-          <div style={{ display: "flex", gap: 4 }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {[
               { id: "all",      label: `All (${alerts.length})` },
               { id: "critical", label: `Critical (${critical.length})`, color: T.crit },
@@ -259,8 +261,42 @@ export default function SecurityIntelligence() {
           <div style={{ padding: "32px", textAlign: "center", color: T.textMute, fontFamily: MONO, fontSize: 13 }}>
             {sevFilter === "all" ? "No risk signals detected — security posture is healthy" : `No ${sevFilter} alerts`}
           </div>
+        ) : bp.isMobile ? (
+          <div>
+            {filtered.map((alert, i) => {
+              const meta   = ALERT_META[alert.type] || { label: alert.type, icon: "●" };
+              const cfg    = SEV_CONFIG[alert.sev]  || SEV_CONFIG.info;
+              const isOpen = expanded === i;
+              const agInfo = agentMap[alert.entity] || null;
+              return (
+                <div key={i} onClick={() => setExpanded(isOpen ? null : i)}
+                  style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: isOpen ? T.panelHi : "transparent", cursor: "pointer" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: cfg.color, fontSize: 12 }}>{meta.icon}</span>
+                      <span style={{ fontSize: 13, color: T.text, fontWeight: 500 }}>{meta.label}</span>
+                    </div>
+                    <SevBadge sev={alert.sev} />
+                  </div>
+                  <div style={{ fontSize: 12, fontFamily: MONO, color: T.textDim, marginBottom: 4 }}>{alert.entity}</div>
+                  {agInfo && <div style={{ fontSize: 11, color: T.textMute, fontFamily: MONO, marginBottom: 4 }}>Team: {agInfo.team}</div>}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, color: T.textDim, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{alert.msg}</span>
+                    <span style={{ fontSize: 11, fontFamily: MONO, color: T.textMute, flexShrink: 0 }}>{relativeTime(alert.ts)}</span>
+                  </div>
+                  {isOpen && (
+                    <div style={{ marginTop: 12, padding: "12px 14px", background: T.panel, borderRadius: 6, fontSize: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div><span style={{ color: T.textMute, fontFamily: MONO }}>Signal: </span><span style={{ color: T.text }}>{alert.msg}</span></div>
+                      {alert.action && <div><span style={{ color: T.textMute, fontFamily: MONO }}>Recommended action: </span><span style={{ color: T.warn }}>{alert.action}</span></div>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
             <thead>
               <tr>
                 <STH sortKey="sev" sort={alertSort} onSort={toggleSort}>Severity</STH>
@@ -313,6 +349,7 @@ export default function SecurityIntelligence() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </CollapsiblePanel>
     </div>

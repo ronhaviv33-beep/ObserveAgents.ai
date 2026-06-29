@@ -9,6 +9,7 @@ import {
   fetchBillingPeriods,
   updateBillingPeriod,
 } from '../api.js'
+import { useBreakpoint } from '../hooks/useBreakpoint.js'
 import CollapsiblePanel, { PanelGroupControls } from '../components/CollapsiblePanel.jsx'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
@@ -295,7 +296,8 @@ function BillingTable({ records, onEdit }) {
     )
   }
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
       <thead>
         <tr style={{ borderBottom: `1px solid ${T.border}` }}>
           <BillSTH label="Provider"         sortKey="provider"                sort={sort} onSort={toggle} />
@@ -354,6 +356,7 @@ function BillingTable({ records, onEdit }) {
         })}
       </tbody>
     </table>
+    </div>
   )
 }
 
@@ -404,8 +407,8 @@ function ImportModal({ onClose, onSubmit, saving }) {
   const labelStyle = { fontSize: 11, color: T.textDim, marginBottom: 4, display: 'block', fontFamily: FONT_MONO }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: T.panel, border: `1px solid ${T.borderHi}`, borderRadius: 8, padding: 24, width: 460, maxHeight: '90vh', overflowY: 'auto' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+      <div style={{ background: T.panel, border: `1px solid ${T.borderHi}`, borderRadius: 8, padding: 24, width: 'min(460px, calc(100vw - 32px))', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>Import Provider Billing</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.textMute, cursor: 'pointer', fontSize: 16 }}>✕</button>
@@ -415,7 +418,7 @@ function ImportModal({ onClose, onSubmit, saving }) {
         </div>
         {err && <div style={{ background: `${T.crit}18`, border: `1px solid ${T.crit}`, borderRadius: 4, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: T.crit }}>{err}</div>}
         <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             <div style={{ gridColumn: '1/-1' }}>
               <label style={labelStyle}>Provider</label>
               <select value={form.provider} onChange={e => set('provider', e.target.value)} style={{ ...inputStyle, textTransform: 'capitalize' }}>
@@ -499,8 +502,8 @@ function EditBillingModal({ record, onClose, onSubmit, saving }) {
   const labelStyle = { fontSize: 11, color: T.textDim, marginBottom: 4, display: 'block', fontFamily: FONT_MONO }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: T.panel, border: `1px solid ${T.borderHi}`, borderRadius: 8, padding: 24, width: 460, maxHeight: '90vh', overflowY: 'auto' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+      <div style={{ background: T.panel, border: `1px solid ${T.borderHi}`, borderRadius: 8, padding: 24, width: 'min(460px, calc(100vw - 32px))', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>
             Edit Billing — <span style={{ color: PROVIDER_COLORS[record.provider] || T.accent, textTransform: 'capitalize' }}>{record.provider}</span>
@@ -509,7 +512,7 @@ function EditBillingModal({ record, onClose, onSubmit, saving }) {
         </div>
         {err && <div style={{ background: `${T.crit}18`, border: `1px solid ${T.crit}`, borderRadius: 4, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: T.crit }}>{err}</div>}
         <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             <div>
               <label style={labelStyle}>Billing Period Start</label>
               <input type="date" value={form.billing_period_start} onChange={e => set('billing_period_start', e.target.value)} style={inputStyle} required />
@@ -605,6 +608,7 @@ const BREAKDOWN_TABS = [
 ]
 
 export default function CostIntelligence() {
+  const bp = useBreakpoint()
   const [data, setData]               = useState(null)
   const [billingPeriods, setBilling]  = useState([])
   const [loading, setLoading]         = useState(true)
@@ -679,7 +683,7 @@ export default function CostIntelligence() {
   return (
     <div style={{ fontFamily: FONT_SANS, color: T.text }}>
       {/* KPI row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : bp.isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
         <KpiCard
           label="Runtime Cost (Estimated)"
           value={fmtFull$(rc.total_usd)}
@@ -724,7 +728,7 @@ export default function CostIntelligence() {
       </div>
 
       {/* Main content: breakdown + trend */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile || bp.isTablet ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <CollapsiblePanel group="cost" storageKey="oa-panel-cost-breakdown"
           title="Cost Breakdown" subtitle={`Period: last 30 days · ${breakdown.length} entries`}>
           <TabBar tabs={BREAKDOWN_TABS} active={breakdownBy} onChange={handleBreakdownChange} />
