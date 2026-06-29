@@ -46,6 +46,7 @@ from app.auth import hash_password, verify_password, create_token, get_current_u
 from app.client import proxy_chat_complete, proxy_chat_stream, get_client_for_org, invalidate_org_client
 from app.models import calculate_cost, PRICING_LAST_UPDATED, Organization, ProviderCredential, encrypt_credential, decrypt_credential, Role as RoleModel, Team as TeamModel
 from app.org_config import get_org_config as _get_org_config, set_org_config as _set_org_config
+from app.config import is_demo_mode, is_production, is_development, public_config
 
 Base.metadata.create_all(bind=engine)
 
@@ -362,6 +363,26 @@ def _seed_admin():
 
 _seed_admin()
 
+
+def _seed_demo():
+    """When running as the demo service, seed the synthetic demo org/admin and
+    populate demo data. No-op in production/development (is_demo_mode() is False)."""
+    if not is_demo_mode():
+        return
+    from app.demo import ensure_demo_seed
+    db = next(get_db())
+    try:
+        ensure_demo_seed(db)
+        print("INFO: demo mode active — synthetic demo org/admin seeded.", flush=True)
+    except Exception as exc:  # pragma: no cover — never let seeding crash boot
+        import logging as _logging
+        _logging.getLogger("ai_asset_mgmt").exception("demo seed failed: %s", exc)
+    finally:
+        db.close()
+
+
+_seed_demo()
+
 tags_metadata = [
     {
         "name": "POST — Ask / Create",
@@ -540,6 +561,28 @@ app.add_middleware(
 )
 
 
+# Methods that mutate state — blocked in the public demo service.
+_DEMO_MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+# Paths that must stay reachable in demo even though they use a mutating method.
+_DEMO_READONLY_ALLOWLIST = {"/auth/demo-login", "/api/auth/demo-login"}
+
+
+@app.middleware("http")
+async def demo_read_only(request: Request, call_next):
+    """In the public demo service, reject all mutations so the environment is
+    read-only. Never active in production — is_demo_mode() is hard-False there."""
+    if (
+        is_demo_mode()
+        and request.method in _DEMO_MUTATING_METHODS
+        and request.url.path not in _DEMO_READONLY_ALLOWLIST
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={"message": "Demo environment is read-only. This action is disabled."},
+        )
+    return await call_next(request)
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -549,6 +592,16 @@ async def security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     return response
+
+
+# ─── Public runtime config ────────────────────────────────────────────────────
+
+@app.get("/config", tags=["GET — Read / Monitor"])
+@app.get("/api/config", tags=["GET — Read / Monitor"])
+def runtime_config():
+    """Public, unauthenticated runtime config consumed by the frontend at boot to
+    decide whether to show demo UI / auto-login. Contains no secrets."""
+    return public_config()
 
 
 # ─── Health ───────────────────────────────────────────────────────────────────

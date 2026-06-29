@@ -19,7 +19,10 @@ PLATFORM_MODE: str = platform_default_mode()
 
 DEFAULTS: dict = {
     "environments": ["production", "staging", "development"],
-    "demo_mode": True,
+    # NOTE: the effective default for demo_mode is computed dynamically by
+    # _get_default() from the global APP_ENV/DEMO_MODE switch — production orgs
+    # default to False (real/empty data), the demo service defaults to True.
+    "demo_mode": False,
     # "full" (default): store complete prompt + response text in telemetry.
     # "findings_only": for PII-flagged records, replace prompt + response with a
     # redaction notice and keep only the findings metadata. Reduces PII at-rest exposure.
@@ -31,6 +34,14 @@ DEFAULTS: dict = {
 }
 
 
+def _get_default(key):
+    """Resolve the default for a config key. demo_mode follows the global switch."""
+    if key == "demo_mode":
+        from app.config import is_demo_mode
+        return is_demo_mode()
+    return DEFAULTS.get(key)
+
+
 def get_org_config_multi(db: Session, org_id: int, keys: list) -> dict:
     """Fetch multiple org config keys in a single query. Returns dict of key → value."""
     from app.models import OrgConfig
@@ -38,7 +49,7 @@ def get_org_config_multi(db: Session, org_id: int, keys: list) -> dict:
         OrgConfig.organization_id == org_id,
         OrgConfig.key.in_(keys),
     ).all()
-    result = {k: DEFAULTS.get(k) for k in keys}
+    result = {k: _get_default(k) for k in keys}
     for row in rows:
         try:
             result[row.key] = json.loads(row.value)
@@ -54,7 +65,7 @@ def get_org_config(db: Session, org_id: int, key: str):
         OrgConfig.key == key,
     ).first()
     if row is None:
-        return DEFAULTS.get(key)
+        return _get_default(key)
     try:
         return json.loads(row.value)
     except Exception:

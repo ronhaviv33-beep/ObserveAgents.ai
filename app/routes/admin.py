@@ -293,12 +293,7 @@ def _make_telemetry_rows(org_id: int, days: int = 30) -> list[Telemetry]:
     return rows
 
 
-@router.post("/admin/organizations/{org_id}/populate", status_code=201)
-async def populate_organization(
-    org_id: int,
-    actor=Depends(require_platform_admin),
-    db: Session = Depends(get_db),
-):
+def populate_demo_org(db: Session, org_id: int) -> dict:
     """
     Seed realistic enterprise runtime data into an existing organization.
     Creates teams, agents (asset registry + telemetry), relationships, budgets,
@@ -306,6 +301,8 @@ async def populate_organization(
     with the companion DELETE endpoint without touching real customer data.
     Idempotent — safe to call more than once; existing demo rows are preserved
     (telemetry appends, asset/relationship rows upsert).
+
+    Reusable from the HTTP endpoint and from the demo-service startup seeder.
     """
     org = db.query(Organization).filter(Organization.id == org_id).first()
     if not org:
@@ -491,6 +488,23 @@ async def populate_organization(
     }
 
 
+@router.post("/admin/organizations/{org_id}/populate", status_code=201)
+async def populate_organization(
+    org_id: int,
+    actor=Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    """Seed demo data into an org (platform admin only). Demo-specific tooling —
+    only available when the service runs in demo or development mode."""
+    from app.config import is_demo_mode, is_development
+    if not (is_demo_mode() or is_development()):
+        raise HTTPException(
+            status_code=403,
+            detail="Demo data seeding is disabled in production.",
+        )
+    return populate_demo_org(db, org_id)
+
+
 @router.delete("/admin/organizations/{org_id}/demo-data", status_code=200)
 async def clear_demo_data(
     org_id: int,
@@ -501,7 +515,14 @@ async def clear_demo_data(
     Remove all demo data from an organization (rows tagged is_demo=True plus
     relationships and governance rules for the demo agent/team names).
     Real customer data (is_demo=False) is never touched.
+    Demo-specific tooling — only available in demo or development mode.
     """
+    from app.config import is_demo_mode, is_development
+    if not (is_demo_mode() or is_development()):
+        raise HTTPException(
+            status_code=403,
+            detail="Demo data clearing is disabled in production.",
+        )
     org = db.query(Organization).filter(Organization.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail=f"Organization {org_id} not found")

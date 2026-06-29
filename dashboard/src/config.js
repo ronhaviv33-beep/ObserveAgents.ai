@@ -1,8 +1,40 @@
-// Centralized public URLs / branding for ObserveAgents.
-// Values are overridable via Vite env vars; defaults point at the production
-// custom domains. The Render fallback URL keeps working because nothing here
-// changes how the API BASE is resolved (see api.js) or how CORS is enforced.
+// Central runtime configuration for the frontend.
+//
+// Two concerns:
+//  1. Runtime mode — fetch the public /config endpoint once at boot and cache it.
+//     Defaults are production / demo-off so that if the fetch ever fails we NEVER
+//     accidentally render demo controls or auto-login in a real customer env.
+//  2. Public URLs / branding — canonical hostnames and copy, overridable via Vite
+//     env vars; defaults point at the production custom domains.
+import { BASE } from "./api.js";
 
+// ── Runtime mode (from backend /config) ───────────────────────────────────────
+let _config = {
+  app_env: "production",
+  demo_mode: false,
+  public_app_url: "",
+  public_gateway_url: "",
+  public_marketing_url: "",
+};
+let _loaded = false;
+
+export async function loadConfig() {
+  try {
+    const r = await fetch(`${BASE}/config`, { headers: { "Content-Type": "application/json" } });
+    if (r.ok) _config = await r.json();
+  } catch {
+    /* keep safe production defaults */
+  }
+  _loaded = true;
+  return _config;
+}
+
+export function getConfig() { return _config; }
+export function isDemoMode() { return !!_config.demo_mode; }
+export function isDevelopment() { return _config.app_env === "development"; }
+export function isConfigLoaded() { return _loaded; }
+
+// ── Public URLs (build-time, overridable via Vite env vars) ───────────────────
 const _clean = (v, fallback) => {
   const raw = (v || "").trim().replace(/\/+$/, "");
   return raw || fallback;
