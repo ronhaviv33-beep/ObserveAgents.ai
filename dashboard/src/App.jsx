@@ -22,6 +22,7 @@ import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
 import ExecutiveDashboard from "./pages/ExecutiveDashboard.jsx";
+import DemoDashboard from "./pages/DemoDashboard.jsx";
 import DiscoveryCenter from "./pages/DiscoveryCenter.jsx";
 import GovernanceCenter from "./pages/GovernanceCenter.jsx";
 import SecurityIntelligence from "./pages/SecurityIntelligence.jsx";
@@ -4682,7 +4683,7 @@ export default function App() {
     }
     switch (page) {
       // ── New primary pages ───────────────────────────────────────────────
-      case "dashboard":      return <ExecutiveDashboard onNavigate={setPage} />;
+      case "dashboard":      return isDemoMode() ? <DemoDashboard onNavigate={setPage} /> : <ExecutiveDashboard onNavigate={setPage} />;
       case "welcome":        return <CustomerWelcomePage onNavigate={setPage} />;
       case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); setPage(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
