@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { fetchAgents, fetchCostIntelligence } from "../api.js";
+import { fetchAgents, fetchCostIntelligence, fetchRelationships } from "../api.js";
+import { relationshipEvidenceLabel } from "../discoveryStatus.js";
 
 const T = {
   bg: "#0A0B0F", panel: "#0F1117", panelHi: "#141823",
@@ -19,7 +20,6 @@ const PLATFORM_META = {
   slack:             { label: "Slack Bots",           color: "#E8A138", icon: "◆", desc: "Slack app integrations using AI" },
   jira:              { label: "Jira Automations",    color: T.warn,   icon: "◇", desc: "Jira automation rules with AI actions" },
   servicenow:        { label: "ServiceNow",           color: T.crit,   icon: "⊗", desc: "ServiceNow virtual agents and flows" },
-  mcp:               { label: "MCP Server",           color: T.purple, icon: "⊙", desc: "Model Context Protocol server integrations" },
   cloud_functions:   { label: "Cloud Functions",      color: T.info,   icon: "⊹", desc: "Serverless functions invoking AI models" },
   azure_devops:      { label: "Azure DevOps",         color: T.info,   icon: "◌", desc: "CI/CD pipelines with AI steps" },
   unknown:           { label: "Unknown Source",       color: T.textDim, icon: "○", desc: "Source not yet classified" },
@@ -34,6 +34,38 @@ const PROVIDER_META = {
   bedrock:       { label: "AWS Bedrock",  color: "#FF9900", icon: "◉" },
   unknown:       { label: "Unknown",      color: T.textDim, icon: "○" },
 };
+
+// Relationship-derived ecosystem categories (runtime dependencies, from GET /relationships
+// — the same source the Dependency Map uses). Order = display order.
+const ECOSYSTEM_META = {
+  mcp:      { label: "MCP Activity",            color: T.purple, icon: "⊙", desc: "MCP tools & servers used at runtime", modalTitle: "MCP Activity" },
+  crm:      { label: "CRM Systems",             color: "#E8A138", icon: "◆", desc: "CRM systems agents read from / write to", modalTitle: "CRM Systems touched" },
+  api:      { label: "External APIs",           color: T.info,   icon: "🌐", desc: "External APIs agents call", modalTitle: "APIs touched" },
+  database: { label: "Databases",               color: T.accent, icon: "🗄", desc: "Databases agents read from / write to", modalTitle: "Databases touched" },
+  workflow: { label: "Workflows",               color: T.warn,   icon: "⚡", desc: "Workflows agents invoke", modalTitle: "Workflows touched" },
+  external: { label: "External Systems Touched", color: T.textDim, icon: "◇", desc: "Other external systems observed at runtime", modalTitle: "External systems touched" },
+};
+// Categories always shown (even at 0) so empty states stay correct. "external" is the
+// catch-all fallback and is only shown when it has rows.
+const ECOSYSTEM_ALWAYS = ["mcp", "crm", "api", "database", "workflow"];
+
+// Map a relationship target_type → ecosystem category key. provider/model/gateway are
+// intentionally excluded (providers have their own section; model/gateway aren't external
+// systems). Everything unrecognised falls back to "external".
+function categoryForTargetType(targetType = "") {
+  switch (targetType) {
+    case "mcp_tool":
+    case "mcp_server": return "mcp";
+    case "crm":        return "crm";
+    case "api":        return "api";
+    case "database":   return "database";
+    case "workflow":   return "workflow";
+    case "provider":
+    case "model":
+    case "gateway":    return null;   // handled by other sections / not external systems
+    default:           return "external";
+  }
+}
 
 function providerFromModel(model = "") {
   model = model.toLowerCase();
@@ -204,26 +236,132 @@ function ProviderAgentsModal({ provider, agents, onClose }) {
   );
 }
 
+function RelationshipModal({ category, rows, onClose }) {
+  const [q, setQ] = useState("");
+  if (!category) return null;
+  const meta = ECOSYSTEM_META[category.key] || { label: category.key, color: T.textDim, modalTitle: category.key };
+
+  const query = q.trim().toLowerCase();
+  const filtered = query
+    ? rows.filter(r =>
+        (r.source_agent_name || "").toLowerCase().includes(query) ||
+        (r.target_name || "").toLowerCase().includes(query))
+    : rows;
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 1000 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderTop: `2px solid ${meta.color}`, borderRadius: "12px 12px 0 0", width: "100%", maxWidth: 980, maxHeight: "78vh", display: "flex", flexDirection: "column", fontFamily: FONT }}>
+
+        {/* Header */}
+        <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 20, color: meta.color }}>{meta.icon}</span>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: T.text }}>{meta.modalTitle}</div>
+            <div style={{ fontSize: 11, color: T.textMute, fontFamily: MONO, marginTop: 2 }}>
+              {rows.length} relationship{rows.length !== 1 ? "s" : ""} · derived from runtime dependency data
+            </div>
+          </div>
+          <input
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Search agent or system…"
+            style={{ marginLeft: "auto", background: T.panelHi, border: `1px solid ${T.border}`, color: T.text, padding: "7px 12px", borderRadius: 5, fontSize: 12, fontFamily: FONT, width: 220 }}
+          />
+          <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.textDim, padding: "6px 14px", borderRadius: 5, fontSize: 12, fontFamily: MONO, cursor: "pointer" }}>
+            ✕ Close
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ overflowY: "auto", flex: 1 }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding: "40px 24px", textAlign: "center", color: T.textMute, fontFamily: MONO, fontSize: 13 }}>
+              No matching relationships observed yet.
+            </div>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {["Source Agent", "Relationship", "Target Type", "Target System", "Evidence Source", "Strength", "Requests", "Last Seen"].map(h => (
+                    <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontFamily: MONO, color: T.textMute, letterSpacing: "0.1em", textTransform: "uppercase", borderBottom: `1px solid ${T.border}`, background: T.panelHi, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r, i) => {
+                  const ev = relationshipEvidenceLabel(r);
+                  return (
+                    <tr key={r.id ?? `${r.source_agent_name}-${r.target_name}-${i}`} style={{ background: i % 2 === 0 ? T.panel : "#0C0E14" }}>
+                      <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 13, fontFamily: MONO, color: T.text, fontWeight: 500 }}>{r.source_agent_name}</td>
+                      <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 12, fontFamily: MONO, color: T.textDim }}>{(r.relationship_type || "").replace(/_/g, " ")}</td>
+                      <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 11, fontFamily: MONO, color: meta.color, textTransform: "uppercase" }}>{(r.target_type || "").replace(/_/g, " ")}</td>
+                      <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 13, fontFamily: MONO, color: T.text }}>{r.target_name}</td>
+                      <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 11, fontFamily: MONO, color: T.textDim }}>{(r.evidence_source || "").replace(/_/g, " ")}</td>
+                      <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
+                        <span title={ev.why} style={{ padding: "2px 8px", borderRadius: 3, fontSize: 10, fontFamily: MONO, background: `${ev.color}18`, color: ev.color, border: `1px solid ${ev.color}33`, whiteSpace: "nowrap" }}>{ev.label}</span>
+                      </td>
+                      <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 12, fontFamily: MONO, color: T.textDim }}>{(r.request_count ?? 0).toLocaleString()}</td>
+                      <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 11, fontFamily: MONO, color: T.textDim }}>{relativeTime(r.last_seen_at)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EcosystemDiscovery() {
   const [agents, setAgents]           = useState([]);
   const [costData, setCostData]       = useState(null);
+  const [relationships, setRelationships] = useState([]);
   const [loading, setLoading]         = useState(true);
   const [selectedProvider, setSelectedProvider] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [a, c] = await Promise.allSettled([
+        const [a, c, r] = await Promise.allSettled([
           fetchAgents({ limit: 500, include_retired: true }),
           fetchCostIntelligence({ breakdown_by: "provider", days: 30 }),
+          fetchRelationships(),
         ]);
         if (a.status === "fulfilled" && a.value) {
           setAgents(Array.isArray(a.value) ? a.value : a.value?.agents || []);
         }
         if (c.status === "fulfilled" && c.value) setCostData(c.value);
+        if (r.status === "fulfilled" && Array.isArray(r.value)) setRelationships(r.value);
       } finally { setLoading(false); }
     })();
   }, []);
+
+  // Ecosystem categories derived from real relationship rows (same source as the
+  // Dependency Map). Card count == number of rows in the category, so it matches the
+  // drill-down modal exactly. Known categories always render (0 when empty); the
+  // "external" catch-all renders only when it has rows.
+  const ecosystemData = useMemo(() => {
+    const groups = {};
+    relationships.forEach(r => {
+      const key = categoryForTargetType(r.target_type);
+      if (!key) return;
+      (groups[key] = groups[key] || []).push(r);
+    });
+    const keys = [...new Set([...ECOSYSTEM_ALWAYS, ...Object.keys(groups)])];
+    return keys
+      .filter(key => ECOSYSTEM_ALWAYS.includes(key) || (groups[key] && groups[key].length > 0))
+      .map(key => ({
+        key,
+        meta: ECOSYSTEM_META[key] || { label: key, color: T.textDim, icon: "◇", desc: "", modalTitle: key },
+        rows: groups[key] || [],
+        count: (groups[key] || []).length,
+        agentNames: [...new Set((groups[key] || []).map(r => r.source_agent_name))],
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [relationships]);
 
   // Platforms: always show every known platform (hardcoded from PLATFORM_META).
   // Count comes from live agent data but the card is never removed — even if all
@@ -294,7 +432,9 @@ export default function EcosystemDiscovery() {
   const activePlatforms  = platformData.filter(p => p.count > 0).length;
   const maxPlatformCount = Math.max(1, ...platformData.map(p => p.count));
   const maxProviderCount = Math.max(1, ...providerData.map(p => p.agentCount));
+  const maxEcosystemCount = Math.max(1, ...ecosystemData.map(e => e.count));
   const totalAgents      = agents.length;
+  const externalSystems  = ecosystemData.reduce((n, e) => n + e.count, 0);
 
   if (loading) return (
     <div style={{ color: T.textMute, fontFamily: MONO, fontSize: 13, padding: "32px 0", textAlign: "center" }}>
@@ -311,6 +451,7 @@ export default function EcosystemDiscovery() {
           { label: "Total Agents",        value: totalAgents,           color: T.text },
           { label: "Discovery Sources",   value: activePlatforms,       color: T.accent },
           { label: "Connected Providers", value: providerData.length,   color: T.info },
+          { label: "Dependencies Mapped", value: externalSystems,       color: T.purple },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "18px 22px", flex: 1 }}>
             <div style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>{label}</div>
@@ -329,6 +470,44 @@ export default function EcosystemDiscovery() {
           {platformData.map(p => (
             <PlatformCard key={p.key} meta={p.meta} count={p.count} agentNames={p.agentNames} maxCount={maxPlatformCount} />
           ))}
+        </div>
+      </div>
+
+      {/* ── External Systems & Dependencies (relationship-derived) ─────────── */}
+      <div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: T.text, marginBottom: 4 }}>External Systems &amp; Dependencies</div>
+        <div style={{ fontSize: 12, color: T.textMute, fontFamily: MONO, marginBottom: 16 }}>
+          Runtime systems agents interact with — derived from the same dependency data as the Dependency Map. Click a card for details.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+          {ecosystemData.map(e => {
+            const pct = maxEcosystemCount > 0 ? (e.count / maxEcosystemCount) * 100 : 0;
+            const clickable = e.count > 0;
+            return (
+              <div key={e.key}
+                onClick={() => clickable && setSelectedCategory(e)}
+                style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "18px 20px", cursor: clickable ? "pointer" : "default", transition: "border-color 0.15s" }}
+                onMouseEnter={ev => { if (clickable) ev.currentTarget.style.borderColor = e.meta.color + "66"; }}
+                onMouseLeave={ev => { ev.currentTarget.style.borderColor = T.border; }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+                  <span style={{ fontSize: 20, color: e.meta.color, flexShrink: 0 }}>{e.meta.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 3 }}>{e.meta.label}</div>
+                    <div style={{ fontSize: 11, color: T.textMute }}>{e.meta.desc}</div>
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: e.meta.color, fontFamily: MONO, flexShrink: 0 }}>{e.count}</div>
+                </div>
+                <div style={{ background: T.panelHi, borderRadius: 2, height: 4, marginBottom: 10 }}>
+                  <div style={{ width: `${pct}%`, background: e.meta.color, height: 4, borderRadius: 2, transition: "width 0.5s" }} />
+                </div>
+                <div style={{ fontSize: 10, fontFamily: MONO, color: clickable ? e.meta.color : T.textMute, letterSpacing: "0.06em" }}>
+                  {clickable
+                    ? `${e.agentNames.length} agent${e.agentNames.length !== 1 ? "s" : ""} · view details →`
+                    : "No activity yet"}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -356,6 +535,14 @@ export default function EcosystemDiscovery() {
           provider={selectedProvider}
           agents={selectedProvider.agentList}
           onClose={() => setSelectedProvider(null)}
+        />
+      )}
+
+      {selectedCategory && (
+        <RelationshipModal
+          category={selectedCategory}
+          rows={selectedCategory.rows}
+          onClose={() => setSelectedCategory(null)}
         />
       )}
     </div>
