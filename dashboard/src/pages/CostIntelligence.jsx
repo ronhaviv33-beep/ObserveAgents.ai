@@ -9,6 +9,7 @@ import {
   fetchBillingPeriods,
   updateBillingPeriod,
 } from '../api.js'
+import { useBreakpoint } from '../hooks/useBreakpoint.js'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const T = {
@@ -414,7 +415,7 @@ function ImportModal({ onClose, onSubmit, saving }) {
         </div>
         {err && <div style={{ background: `${T.crit}18`, border: `1px solid ${T.crit}`, borderRadius: 4, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: T.crit }}>{err}</div>}
         <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             <div style={{ gridColumn: '1/-1' }}>
               <label style={labelStyle}>Provider</label>
               <select value={form.provider} onChange={e => set('provider', e.target.value)} style={{ ...inputStyle, textTransform: 'capitalize' }}>
@@ -508,7 +509,7 @@ function EditBillingModal({ record, onClose, onSubmit, saving }) {
         </div>
         {err && <div style={{ background: `${T.crit}18`, border: `1px solid ${T.crit}`, borderRadius: 4, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: T.crit }}>{err}</div>}
         <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             <div>
               <label style={labelStyle}>Billing Period Start</label>
               <input type="date" value={form.billing_period_start} onChange={e => set('billing_period_start', e.target.value)} style={inputStyle} required />
@@ -604,6 +605,7 @@ const BREAKDOWN_TABS = [
 ]
 
 export default function CostIntelligence() {
+  const bp = useBreakpoint()
   const [data, setData]               = useState(null)
   const [billingPeriods, setBilling]  = useState([])
   const [loading, setLoading]         = useState(true)
@@ -678,7 +680,7 @@ export default function CostIntelligence() {
   return (
     <div style={{ fontFamily: FONT_SANS, color: T.text }}>
       {/* KPI row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? '1fr' : bp.isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
         <KpiCard
           label="Runtime Cost (Estimated)"
           value={fmtFull$(rc.total_usd)}
@@ -718,7 +720,7 @@ export default function CostIntelligence() {
       </div>
 
       {/* Main content: breakdown + trend */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile || bp.isTablet ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <Card title="Cost Breakdown" subtitle={`Period: last 30 days · ${breakdown.length} entries`}>
           <TabBar tabs={BREAKDOWN_TABS} active={breakdownBy} onChange={handleBreakdownChange} />
           <BreakdownList items={breakdown} breakdownBy={breakdownBy} />

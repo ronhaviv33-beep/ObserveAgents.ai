@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { fetchRelationships } from '../api.js'
 import { relationshipEvidenceLabel } from '../discoveryStatus.js'
+import { useBreakpoint } from '../hooks/useBreakpoint.js'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const T = {
@@ -206,6 +207,7 @@ function Select({ value, onChange, options }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function RelationshipMap() {
+  const bp = useBreakpoint()
   const [rows, setRows]           = useState([])
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState(null)
@@ -243,7 +245,7 @@ export default function RelationshipMap() {
   const flowGroups = useMemo(() => groupRelationships(filtered), [filtered])
 
   return (
-    <div style={{ background: T.bg, minHeight: '100vh', padding: 24, fontFamily: FONT_SANS }}>
+    <div style={{ background: T.bg, minHeight: '100vh', padding: bp.isMobile ? 0 : bp.isTablet ? 12 : 24, fontFamily: FONT_SANS }}>
 
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
@@ -296,7 +298,7 @@ export default function RelationshipMap() {
           style={{
             background: T.bg, border: `1px solid ${T.border}`, color: T.text,
             padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: FONT_MONO,
-            outline: 'none', width: 180,
+            outline: 'none', width: bp.isMobile ? '100%' : 180,
           }}
         />
         <Select value={targetType} onChange={setTargetType} options={TARGET_TYPE_OPTIONS} />
@@ -412,8 +414,8 @@ function RelationshipTable({ rows }) {
   const [expanded, setExpanded] = useState(null)
 
   return (
-    <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 6, overflow: 'hidden' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 6, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
         <thead>
           <tr style={{ borderBottom: `1px solid ${T.border}` }}>
             {HEADERS.map(h => (
@@ -513,8 +515,8 @@ const FLOW_HEADERS = ['Source Agent', 'Last Seen', 'Relationships', 'Targets', '
 
 function FlowSummaryTable({ groups, onViewFlow }) {
   return (
-    <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 6, overflow: 'hidden' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 6, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
         <thead>
           <tr style={{ borderBottom: `1px solid ${T.border}` }}>
             {FLOW_HEADERS.map((h, i) => (
