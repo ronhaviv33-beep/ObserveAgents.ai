@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from "react";
 import { T, FONT_UI, FONT_MONO } from "../theme.js";
 import { BRAND } from "../config.js";
+import { useBreakpoint } from "../hooks/useBreakpoint.js";
 
 // ── Curated synthetic data ────────────────────────────────────────────────────
 const KPIS = [
@@ -66,7 +67,7 @@ function KpiCard({ k }) {
       onMouseLeave={() => setHover(false)}
       style={{
         background: T.panel, border: `1px solid ${hover ? T.borderHi : T.border}`,
-        borderRadius: 10, padding: "18px 20px", flex: "1 1 200px", minWidth: 200,
+        borderRadius: 10, padding: "18px 20px", minWidth: 0,
         transition: "border-color 0.15s, transform 0.15s",
         transform: hover ? "translateY(-2px)" : "none",
       }}
@@ -95,6 +96,7 @@ function SectionTitle({ children, hint }) {
 export default function DemoDashboard({ onNavigate }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { const id = requestAnimationFrame(() => setMounted(true)); return () => cancelAnimationFrame(id); }, []);
+  const bp = useBreakpoint();
 
   const fadeUp = (delay = 0) => ({
     opacity: mounted ? 1 : 0,
@@ -110,7 +112,7 @@ export default function DemoDashboard({ onNavigate }) {
           position: "relative", overflow: "hidden", borderRadius: 16,
           border: `1px solid ${T.borderHi}`,
           background: `radial-gradient(1200px 400px at 15% -20%, rgba(124,255,178,0.16), transparent 60%), radial-gradient(900px 360px at 95% 0%, rgba(180,122,255,0.14), transparent 55%), linear-gradient(180deg, ${T.panelHi}, ${T.panel})`,
-          padding: "52px 44px", marginBottom: 28, ...fadeUp(0),
+          padding: bp.isMobile ? "28px 20px" : "52px 44px", marginBottom: 28, ...fadeUp(0),
         }}
       >
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 12px", borderRadius: 999, border: `1px solid ${T.border}`, background: "rgba(124,255,178,0.06)", marginBottom: 22 }}>
@@ -133,12 +135,12 @@ export default function DemoDashboard({ onNavigate }) {
       {/* ── KPI cards ──────────────────────────────────────────────────────── */}
       <section style={{ marginBottom: 36, ...fadeUp(0.15) }}>
         <SectionTitle hint="Synthetic demo data">Platform at a glance</SectionTitle>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "repeat(2, 1fr)" : "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
           {KPIS.map((k) => <KpiCard key={k.label} k={k} />)}
         </div>
       </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 24, marginBottom: 36 }}>
+      <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "1.1fr 0.9fr", gap: 24, marginBottom: 36 }}>
         {/* ── Recent activity ──────────────────────────────────────────────── */}
         <section style={{ ...fadeUp(0.2) }}>
           <SectionTitle hint="Live runtime">Recent activity</SectionTitle>
@@ -202,7 +204,7 @@ export default function DemoDashboard({ onNavigate }) {
               key={cta.page}
               onClick={() => onNavigate && onNavigate(cta.page)}
               style={{
-                flex: "1 1 240px", minWidth: 220, textAlign: "left", cursor: "pointer",
+                flex: "1 1 240px", minWidth: 0, textAlign: "left", cursor: "pointer",
                 background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10,
                 padding: "16px 18px", color: T.text, fontFamily: FONT_UI,
                 display: "flex", alignItems: "center", justifyContent: "space-between",

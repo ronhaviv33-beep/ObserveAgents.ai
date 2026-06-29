@@ -353,25 +353,27 @@ export default function ExecutiveDashboard({ onNavigate }) {
               return (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: i < topCosts.length - 1 ? `1px solid ${T.border}` : "none" }}>
                   <div style={{ width: 22, fontSize: 11, fontFamily: MONO, color: T.textMute, textAlign: "right", flexShrink: 0 }}>{i + 1}.</div>
-                  <div title={name} style={{ flex: 1, fontSize: 13, color: T.text, fontFamily: MONO, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
-                  <div style={{ fontSize: 11, color: T.textDim, width: 80, textAlign: "center" }}>{item.team || "—"}</div>
-                  <div style={{ width: 100, display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ flex: 1, background: T.panelHi, borderRadius: 2, height: 4 }}>
-                      <div style={{ width: `${Math.min(100, pct * 100)}%`, background: T.info, height: 4, borderRadius: 2 }} />
+                  <div title={name} style={{ flex: 1, minWidth: 0, fontSize: 13, color: T.text, fontFamily: MONO, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+                  {!bp.isMobile && <div style={{ fontSize: 11, color: T.textDim, width: 80, textAlign: "center" }}>{item.team || "—"}</div>}
+                  {!bp.isMobile && (
+                    <div style={{ width: 100, display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ flex: 1, background: T.panelHi, borderRadius: 2, height: 4 }}>
+                        <div style={{ width: `${Math.min(100, pct * 100)}%`, background: T.info, height: 4, borderRadius: 2 }} />
+                      </div>
+                      <span style={{ fontSize: 10, fontFamily: MONO, color: T.textMute, width: 32, textAlign: "right" }}>{Math.round(pct * 100)}%</span>
                     </div>
-                    <span style={{ fontSize: 10, fontFamily: MONO, color: T.textMute, width: 32, textAlign: "right" }}>{Math.round(pct * 100)}%</span>
-                  </div>
-                  <div style={{ width: 80, textAlign: "right", fontFamily: MONO, fontSize: 13, color: T.text }}>{fmtUSD(item.cost_usd)}</div>
+                  )}
+                  <div style={{ flexShrink: 0, textAlign: "right", fontFamily: MONO, fontSize: 13, color: T.text }}>{fmtUSD(item.cost_usd)}</div>
                 </div>
               );
             })}
             {otherCost > 1 && (
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderTop: `1px solid ${T.border}` }}>
                 <div style={{ width: 22, fontSize: 11, fontFamily: MONO, color: T.textMute, textAlign: "right" }}>…</div>
-                <div style={{ flex: 1, fontSize: 12, color: T.textMute, fontFamily: MONO }}>Others ({Math.max(0, total - topCosts.length)} agents)</div>
-                <div style={{ width: 80 }} />
-                <div style={{ width: 100 }} />
-                <div style={{ width: 80, textAlign: "right", fontFamily: MONO, fontSize: 12, color: T.textMute }}>{fmtUSD(otherCost)}</div>
+                <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: T.textMute, fontFamily: MONO }}>Others ({Math.max(0, total - topCosts.length)} agents)</div>
+                {!bp.isMobile && <div style={{ width: 80 }} />}
+                {!bp.isMobile && <div style={{ width: 100 }} />}
+                <div style={{ flexShrink: 0, textAlign: "right", fontFamily: MONO, fontSize: 12, color: T.textMute }}>{fmtUSD(otherCost)}</div>
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>

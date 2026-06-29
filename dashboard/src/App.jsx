@@ -1680,6 +1680,7 @@ function ApiKeysPage({ demoMode = false }) {
   const [saving,    setSaving]    = useState(false);
   const [err,       setErr]       = useState(null);
   const [newKey,    setNewKey]    = useState(null); // shown-once modal
+  const bp = useBreakpoint();
 
   const load = useCallback(async () => {
     try { setKeys(await fetchApiKeys()); }
@@ -1715,7 +1716,7 @@ function ApiKeysPage({ demoMode = false }) {
   const fmtDate = (d) => d ? new Date(d).toLocaleString() : "—";
 
   const inputStyle = { background: T.panelHi, color: T.text, border: `1px solid ${T.border}`,
-    padding: "6px 10px", borderRadius: 4, fontSize: 12, fontFamily: FONT_MONO, width: 200 };
+    padding: "6px 10px", borderRadius: 4, fontSize: 12, fontFamily: FONT_MONO, width: "100%", boxSizing: "border-box" };
 
   if (loading) return <div style={{ color: T.textDim, fontFamily: FONT_MONO, padding: 24 }}>Loading…</div>;
 
@@ -1738,7 +1739,7 @@ function ApiKeysPage({ demoMode = false }) {
             { label: "Name *", key: "name", placeholder: "e.g. customer-support-prod" },
             { label: "Team",   key: "team", placeholder: "e.g. Customer Success" },
           ].map(({ label, key, placeholder }) => (
-            <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 180px", minWidth: 0 }}>
               <label style={{ fontSize: 9, fontFamily: FONT_MONO, letterSpacing: "0.12em", textTransform: "uppercase", color: T.textMute }}>{label}</label>
               <input type="text" placeholder={placeholder} value={form[key]}
                 onChange={e => setForm({ ...form, [key]: e.target.value })}
@@ -1746,7 +1747,7 @@ function ApiKeysPage({ demoMode = false }) {
             </div>
           ))}
           <button type="submit" disabled={saving}
-            style={{ background: T.accent, color: T.bg, border: "none", padding: "8px 18px", borderRadius: 4, fontSize: 12, fontFamily: FONT_MONO, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
+            style={{ background: T.accent, color: T.bg, border: "none", padding: "8px 18px", borderRadius: 4, fontSize: 12, fontFamily: FONT_MONO, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.6 : 1, minHeight: 36, whiteSpace: "nowrap" }}>
             {saving ? "Generating…" : "+ Generate"}
           </button>
         </form>
@@ -1756,48 +1757,85 @@ function ApiKeysPage({ demoMode = false }) {
         {err && <div style={{ color: T.crit, fontFamily: FONT_MONO, fontSize: 12, marginTop: 10 }}>{err}</div>}
       </Card>
 
-      {/* ── Keys table ── */}
+      {/* ── Keys table / cards ── */}
       <Card title={`Keys · ${keys.length}`}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ borderBottom: `1px solid ${T.border}` }}>
-              {["Name", "Prefix", "Team", "Created", "Last Used", "Status", ""].map(h => (
-                <th key={h} style={{ padding: "10px 8px", textAlign: "left", fontSize: 10, fontFamily: FONT_MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMute }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {keys.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: 20, textAlign: "center", color: T.textMute, fontFamily: FONT_MONO, fontSize: 12 }}>No API keys yet.</td></tr>
-            )}
+        {keys.length === 0 && (
+          <div style={{ padding: "20px 0", textAlign: "center", color: T.textMute, fontFamily: FONT_MONO, fontSize: 12 }}>No API keys yet.</div>
+        )}
+        {bp.isMobile ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             {keys.map(k => (
-              <tr key={k.id} style={{ borderBottom: `1px solid ${T.border}`, opacity: k.is_active ? 1 : 0.45 }}>
-                <td style={{ padding: "12px 8px", fontSize: 12, color: T.text, fontWeight: 500 }}>{k.name}</td>
-                <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textDim }}>{k.key_prefix}…</td>
-                <td style={{ padding: "12px 8px", fontSize: 12, color: T.textDim }}>{k.team}</td>
-                <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textMute }}>{fmtDate(k.created_at)}</td>
-                <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textMute }}>{fmtDate(k.last_used_at)}</td>
-                <td style={{ padding: "12px 8px" }}>
-                  {k.is_active ? <Pill color={T.accent}>active</Pill> : <Pill color={T.textMute}>revoked</Pill>}
-                </td>
-                <td style={{ padding: "10px 8px" }}>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {k.is_active && (
-                      <button onClick={() => handleRevoke(k.id)}
-                        style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.warn, padding: "4px 10px", borderRadius: 3, fontSize: 11, fontFamily: FONT_MONO, cursor: "pointer" }}>
-                        Revoke
-                      </button>
-                    )}
-                    <button onClick={() => handleDelete(k.id)}
-                      style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.crit, padding: "4px 10px", borderRadius: 3, fontSize: 11, fontFamily: FONT_MONO, cursor: "pointer" }}>
-                      Delete
-                    </button>
+              <div key={k.id} style={{ padding: "14px 0", borderBottom: `1px solid ${T.border}`, opacity: k.is_active ? 1 : 0.5 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{k.name}</div>
+                    <div style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textDim, marginTop: 2 }}>{k.key_prefix}…</div>
                   </div>
-                </td>
-              </tr>
+                  <div style={{ flexShrink: 0 }}>
+                    {k.is_active ? <Pill color={T.accent}>active</Pill> : <Pill color={T.textMute}>revoked</Pill>}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 11, color: T.textMute, fontFamily: FONT_MONO, marginBottom: 10 }}>
+                  {k.team && <span>Team: {k.team}</span>}
+                  <span>Created: {fmtDate(k.created_at)}</span>
+                  <span>Last used: {fmtDate(k.last_used_at)}</span>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {k.is_active && (
+                    <button onClick={() => handleRevoke(k.id)}
+                      style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.warn, padding: "6px 14px", borderRadius: 3, fontSize: 12, fontFamily: FONT_MONO, cursor: "pointer", minHeight: 36 }}>
+                      Revoke
+                    </button>
+                  )}
+                  <button onClick={() => handleDelete(k.id)}
+                    style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.crit, padding: "6px 14px", borderRadius: 3, fontSize: 12, fontFamily: FONT_MONO, cursor: "pointer", minHeight: 36 }}>
+                    Delete
+                  </button>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 580 }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+                  {["Name", "Prefix", "Team", "Created", "Last Used", "Status", ""].map(h => (
+                    <th key={h} style={{ padding: "10px 8px", textAlign: "left", fontSize: 10, fontFamily: FONT_MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMute }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {keys.map(k => (
+                  <tr key={k.id} style={{ borderBottom: `1px solid ${T.border}`, opacity: k.is_active ? 1 : 0.45 }}>
+                    <td style={{ padding: "12px 8px", fontSize: 12, color: T.text, fontWeight: 500 }}>{k.name}</td>
+                    <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textDim }}>{k.key_prefix}…</td>
+                    <td style={{ padding: "12px 8px", fontSize: 12, color: T.textDim }}>{k.team}</td>
+                    <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textMute }}>{fmtDate(k.created_at)}</td>
+                    <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textMute }}>{fmtDate(k.last_used_at)}</td>
+                    <td style={{ padding: "12px 8px" }}>
+                      {k.is_active ? <Pill color={T.accent}>active</Pill> : <Pill color={T.textMute}>revoked</Pill>}
+                    </td>
+                    <td style={{ padding: "10px 8px" }}>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {k.is_active && (
+                          <button onClick={() => handleRevoke(k.id)}
+                            style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.warn, padding: "4px 10px", borderRadius: 3, fontSize: 11, fontFamily: FONT_MONO, cursor: "pointer" }}>
+                            Revoke
+                          </button>
+                        )}
+                        <button onClick={() => handleDelete(k.id)}
+                          style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.crit, padding: "4px 10px", borderRadius: 3, fontSize: 11, fontFamily: FONT_MONO, cursor: "pointer" }}>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       {/* ── Show-once modal + first-request onboarding ── */}
