@@ -15,10 +15,23 @@ export const PUBLIC_DEMO_URL     = _clean(import.meta.env.VITE_PUBLIC_DEMO_URL, 
 export const PUBLIC_API_URL      = _clean(import.meta.env.VITE_PUBLIC_API_URL,     "https://api.observeagents.ai");
 export const RENDER_FALLBACK_URL = _clean(import.meta.env.VITE_RENDER_FALLBACK_URL, "https://ai-asset-app.onrender.com");
 
-// Gateway base URL shown in copy-paste setup snippets. Prefer the explicit
-// public gateway domain; this is the host customers point base_url at.
-export function gatewayBaseUrl() {
-  return PUBLIC_GATEWAY_URL;
+// ── Demo-safe values ─────────────────────────────────────────────────────────
+// The public demo must never reveal production infrastructure. In demo mode the
+// customer-facing snippets use these synthetic values instead of the production
+// gateway/app URLs. All env-overridable; defaults are demo-safe.
+export const DEMO_PUBLIC_APP_URL     = _clean(import.meta.env.VITE_DEMO_PUBLIC_APP_URL,     "https://demo.observeagents.ai");
+export const DEMO_PUBLIC_GATEWAY_URL = _clean(import.meta.env.VITE_DEMO_PUBLIC_GATEWAY_URL, "https://gateway.demo.local");
+export const DEMO_SNIPPET_URL        = _clean(import.meta.env.VITE_DEMO_SNIPPET_URL,        "https://demo.observeagents.ai");
+export const DEMO_GATEWAY_KEY        = "demo_gateway_key";
+export const DEMO_PROVIDER_NAMES     = ["OpenAI", "Anthropic"];
+export const DEMO_ORGANIZATION       = "Acme AI (Demo)";
+
+// Gateway base URL shown in copy-paste setup snippets. In demo mode return the
+// synthetic demo host so the public demo exposes zero production infrastructure;
+// otherwise the production gateway customers point base_url at. Default false
+// keeps every production code path byte-identical.
+export function gatewayBaseUrl(demoMode = false) {
+  return demoMode ? DEMO_SNIPPET_URL : PUBLIC_GATEWAY_URL;
 }
 
 // ── Branding ────────────────────────────────────────────────────────────────

@@ -33,7 +33,7 @@ import {
 } from "recharts";
 
 import { T, FONT_UI, FONT_MONO } from "./theme.js";
-import { BRAND, gatewayBaseUrl } from "./config.js";
+import { BRAND, gatewayBaseUrl, DEMO_GATEWAY_KEY } from "./config.js";
 import { ORGS, TEAMS, AGENTS, MODELS, providerFromModel, tierFromModel, approvedModel, parseUTC, apiRecordToEvent, buildLiveMetadata, genDemoEvents } from "./data/demoData.js";
 import { ALERT_META, applyFilters, runDetections, agg, estimateSavings, computeRiskScore, execSummary } from "./data/alertMeta.js";
 import { useLiveData } from "./hooks/useLiveData.js";
@@ -1660,7 +1660,7 @@ function SortableUsersTable({ users, currentUser, editing, editSaving, setEditin
 
 // ─── Users Page (admin only) ──────────────────────────────────────────────────
 // ─── API Keys page ────────────────────────────────────────────────────────────
-function ApiKeysPage() {
+function ApiKeysPage({ demoMode = false }) {
   const [keys,      setKeys]      = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [form,      setForm]      = useState({ name: "", team: "" });
@@ -1789,11 +1789,13 @@ function ApiKeysPage() {
 
       {/* ── Show-once modal + first-request onboarding ── */}
       {newKey && (() => {
-        const gatewayUrl = gatewayBaseUrl();
+        const gatewayUrl = gatewayBaseUrl(demoMode);
+        // In demo mode never embed the real key in the example snippet.
+        const snippetKey = demoMode ? DEMO_GATEWAY_KEY : newKey;
         const snippet = `from openai import OpenAI
 
 client = OpenAI(
-    api_key="${newKey}",
+    api_key="${snippetKey}",
     base_url="${gatewayUrl}/v1"
 )
 
@@ -2093,7 +2095,7 @@ const SESSION_WARN_MS     = 5  * 60 * 1000;   // warn 5 min before
 
 const CHAT_SESSION_KEY = "guardChatSessionUuid";
 
-function ChatPage() {
+function ChatPage({ demoMode = false }) {
   const user = useUser();
   const roles = useRoles();
   const isAdmin = userCan(user, "view_all_sessions", roles);
@@ -2813,8 +2815,8 @@ function IntegrationsPage({ onNavigate }) {
   const [agentName, setAgentName] = useState("my-agent");
   const [codeTab,   setCodeTab]   = useState("python");
 
-  const gatewayUrl = gatewayBaseUrl();
-  const cred       = apiKey || "gk-...";
+  const gatewayUrl = gatewayBaseUrl(demoMode);
+  const cred       = demoMode ? "demo_gateway_key" : (apiKey || "gk-...");
 
   const copy = (id, text) => {
     navigator.clipboard.writeText(text).catch(() => {});
@@ -3368,9 +3370,9 @@ function OrganizationsPage() {
 
 
 // ─── Onboarding page ──────────────────────────────────────────────────────────
-function OnboardingPage({ onNavigate }) {
+function OnboardingPage({ onNavigate, demoMode = false }) {
   const currentUser = useUser();
-  const gatewayUrl  = gatewayBaseUrl();
+  const gatewayUrl  = gatewayBaseUrl(demoMode);
   const [copied, setCopied] = useState(null);
 
   const copy = (id, text) => {
@@ -4678,19 +4680,19 @@ export default function App() {
       case "budgets":   return <BudgetsPage />;
       case "security":  return <SecurityPage />;
       case "users":     return <UsersPage />;
-      case "apikeys":   return <ApiKeysPage />;
+      case "apikeys":   return <ApiKeysPage demoMode={demoMode} />;
       case "settings":      return <SettingsPage />;
       // ── Legacy pages (still routable, removed from primary nav) ────────
       case "home":           return <Home onNavigate={setPage} />;
-      case "chat":           return <ChatPage />;
+      case "chat":           return <ChatPage demoMode={demoMode} />;
       case "assets":    return <AssetsPage />;
       case "overview":  return <Overview  {...pageProps} />;
       case "agents":    return <AgentActivity {...pageProps} />;
       case "models":    return <ModelUsage A={A} />;
       case "workflows": return <WorkflowHealth {...pageProps} />;
       case "alerts":    return <AlertsPage alerts={alerts} sevFilter={filters.sev} />;
-      case "integrations":  return <SimpleIntegrationsPage onNavigate={setPage} />;
-      case "onboarding":    return <OnboardingPage onNavigate={setPage} />;
+      case "integrations":  return <SimpleIntegrationsPage onNavigate={setPage} demoMode={demoMode} />;
+      case "onboarding":    return <OnboardingPage onNavigate={setPage} demoMode={demoMode} />;
       case "organizations": return user?.is_platform_admin ? <OrganizationsPage /> : null;
       default:              return null;
     }

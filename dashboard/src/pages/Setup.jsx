@@ -3,8 +3,8 @@ import { T, FONT_UI, FONT_MONO } from "../theme.js";
 import { fetchAgentsSummary, fetchRelationships, fetchProviderCredentials, fetchApiKeys } from "../api.js";
 import { gatewayBaseUrl } from "../config.js";
 
-export default function SimpleIntegrationsPage({ onNavigate }) {
-  const gatewayUrl = gatewayBaseUrl();
+export default function SimpleIntegrationsPage({ onNavigate, demoMode = false }) {
+  const gatewayUrl = gatewayBaseUrl(demoMode);
   const [copied, setCopied]   = useState(null);
   const [open,   setOpen]     = useState({ sdk_openai: true, sdk_anthropic: false, sdk_env: false, manual_openai: false, manual_curl: false });
   const [section, setSection] = useState(null);
