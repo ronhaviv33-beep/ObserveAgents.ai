@@ -4507,6 +4507,19 @@ export default function App() {
   const [discoveryInitialTab, setDiscoveryInitialTab] = useState("verified");
   const [filters, setFilters] = useState({ team:"all", model:"all", agent:"all", sev:"all", range:30 });
 
+  // Auto-close drawer when rotating to a wider breakpoint (e.g. landscape tablet → desktop)
+  useEffect(() => { if (bp.isDesktop) setSidebarOpen(false); }, [bp.isDesktop]);
+
+  // Prevent body scroll when drawer is open so the page doesn't scroll behind the overlay
+  useEffect(() => {
+    if (!bp.isDesktop && sidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [sidebarOpen, bp.isDesktop]);
+
   // ── Real JWT auth ──
   const [user,         setUser]         = useState(null);
   const [authChecked,  setAuthChecked]  = useState(false);
@@ -4816,11 +4829,11 @@ export default function App() {
         </div>
       )}
 
-      {/* Mobile/Tablet: sidebar backdrop */}
+      {/* Mobile/Tablet: sidebar backdrop — starts at 52px so top bar + hamburger stay tappable */}
       {!bp.isDesktop && sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
-          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:190 }}
+          style={{ position:"fixed", top:52, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:190, touchAction:"none" }}
         />
       )}
 
@@ -4828,14 +4841,22 @@ export default function App() {
       <aside style={
         bp.isDesktop
           ? { width:230, background:T.panel, borderRight:`1px solid ${T.border}`, padding:"22px 16px", display:"flex", flexDirection:"column", flexShrink:0 }
-          : { position:"fixed", top:0, left: sidebarOpen ? 0 : -280, bottom:0, width:260, background:T.panel, borderRight:`1px solid ${T.border}`, padding:"22px 16px", display:"flex", flexDirection:"column", zIndex:200, transition:"left 0.25s ease", overflowY:"auto" }
+          : { position:"fixed", top:52, left:0, bottom:0, width:"min(320px, 85vw)", background:T.panel, borderRight:`1px solid ${T.border}`, padding:"16px", display:"flex", flexDirection:"column", zIndex:200, transition:"transform 0.25s ease", overflowY:"auto", transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)" }
       }>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:32, padding:"0 6px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:bp.isDesktop ? 32 : 20, padding:"0 6px" }}>
           <div style={{ width:22, height:22, background:T.accent, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT_MONO, fontWeight:600, fontSize:12, color:T.bg }}>◆</div>
-          <div>
+          <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:13, fontWeight:600, letterSpacing:"-0.01em" }}>{BRAND.name}</div>
             <div style={{ fontSize:9, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.08em", textTransform:"uppercase", marginTop:1 }}>{BRAND.subtitle}</div>
           </div>
+          {!bp.isDesktop && (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Close navigation"
+              style={{ background:"none", border:"none", color:T.textMute, cursor:"pointer", fontSize:18, lineHeight:1, padding:0, minWidth:36, minHeight:36, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              ✕
+            </button>
+          )}
         </div>
 
         <nav style={{ display:"flex", flexDirection:"column", gap:0, flex:1, overflowY:"auto" }}>
