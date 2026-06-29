@@ -48,241 +48,61 @@ from app.models import calculate_cost, PRICING_LAST_UPDATED, Organization, Provi
 from app.org_config import get_org_config as _get_org_config, set_org_config as _set_org_config
 from app.config import is_demo_mode, is_production, is_development, public_config
 
+# DB initialization contract — do not reorder these three steps:
+# 1. create_all() creates all tables on a fresh DB; is a no-op on an existing DB.
+# 2. run_alembic_migrations() stamps fresh DBs as 'head' then upgrades to head.
+#    See app/startup.py docstring for the full contract.
+# 3. Subsequent startup functions are idempotent data backfills.
 Base.metadata.create_all(bind=engine)
 
-
-def _run_alembic_migrations() -> None:
-    """Run any pending Alembic migrations on startup."""
-    from alembic.config import Config as AlembicConfig
-    from alembic import command as alembic_command
-    import pathlib
-    cfg = AlembicConfig(str(pathlib.Path(__file__).parent.parent / "alembic.ini"))
-    cfg.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL", "sqlite:////data/ai_asset_mgmt.db"))
-    cfg.set_main_option("script_location", str(pathlib.Path(__file__).parent.parent / "alembic"))
-    # On a fresh DB (no alembic_version table, or empty alembic_version table),
-    # stamp head so Alembic doesn't re-run the initial migration on a schema
-    # that create_all() already built.
-    from sqlalchemy import inspect as _sqlainspect, text as _sqlatext
-    with engine.connect() as _conn:
-        _tables = _sqlainspect(_conn).get_table_names()
-        _needs_stamp = "alembic_version" not in _tables or not _conn.execute(
-            _sqlatext("SELECT version_num FROM alembic_version")
-        ).fetchall()
-    if _needs_stamp:
-        alembic_command.stamp(cfg, "head")
-    alembic_command.upgrade(cfg, "head")
-
+# ── Startup lifecycle ──────────────────────────────────────────────────────────
+import app.startup as _startup
 
 try:
-    _run_alembic_migrations()
+    _startup.run_alembic_migrations()
 except Exception as _e:
     import logging as _logging
     _logging.getLogger("ai_asset_mgmt").warning("Alembic migration warning (non-fatal): %s", _e)
 
 
-# Run org migration on startup (idempotent — safe to call every boot)
-from app.migrate_orgs import run as _run_org_migration
-from app.roles import SEED_ROLES as _SEED_ROLES, seed_roles_for_org as _seed_roles_for_org
+# Re-exported for test compatibility — tests import these names from app.main
+from app.roles import SEED_ROLES as _SEED_ROLES, seed_roles_for_org as _seed_roles_for_org  # noqa: E402
+
 try:
-    _run_org_migration()
+    _startup.run_org_migration()
 except Exception as _e:
     import logging as _logging
     _logging.getLogger("ai_asset_mgmt").warning("Org migration warning (non-fatal): %s", _e)
 
-def _seed_roles() -> None:
-    """Seed default roles for every existing org. Idempotent — safe to re-run."""
-    from app.database import SessionLocal
-    from app.models import Organization
-    db = SessionLocal()
-    try:
-        for org in db.query(Organization).all():
-            _seed_roles_for_org(db, org.id)
-    finally:
-        db.close()
-
 try:
-    _seed_roles()
+    _startup.seed_roles()
 except Exception as _e:
     import logging as _logging
     _logging.getLogger("ai_asset_mgmt").warning("Role seed warning (non-fatal): %s", _e)
 
-
-
-
-def _backfill_asset_keys() -> None:
-    """
-    For existing telemetry rows that predate Phase 2, generate a stable asset_key
-    from sha256(org_id + ':' + agent_name) and insert the corresponding
-    asset_registry row as 'discovered' if it doesn't already exist.
-    """
-    import hashlib as _hashlib
-    from app.database import SessionLocal
-    from app.models import Telemetry as _Telemetry, AssetRegistry as _AssetRegistry
-
-    db = SessionLocal()
-    try:
-        combos = (
-            db.query(_Telemetry.organization_id, _Telemetry.agent)
-            .filter(
-                _Telemetry.asset_key.is_(None),
-                _Telemetry.organization_id.isnot(None),
-            )
-            .distinct()
-            .all()
-        )
-        if not combos:
-            return
-
-        for org_id, agent_name in combos:
-            if not agent_name or not org_id:
-                continue
-            asset_key = _hashlib.sha256(f"{org_id}:{agent_name}".encode()).hexdigest()
-
-            db.query(_Telemetry).filter(
-                _Telemetry.organization_id == org_id,
-                _Telemetry.agent == agent_name,
-                _Telemetry.asset_key.is_(None),
-            ).update(
-                {"asset_key": asset_key, "agent_id_raw": agent_name},
-                synchronize_session=False,
-            )
-
-            if not db.query(_AssetRegistry).filter(
-                _AssetRegistry.organization_id == org_id,
-                _AssetRegistry.asset_key == asset_key,
-            ).first():
-                db.add(_AssetRegistry(
-                    organization_id=org_id,
-                    asset_key=asset_key,
-                    agent_id_raw=agent_name,
-                    agent_name=agent_name,
-                    status="unassigned",
-                    source="discovered",
-                ))
-
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
-
-
 try:
-    _backfill_asset_keys()
+    _startup.backfill_asset_keys()
 except Exception as _e:
     import logging as _logging
     _logging.getLogger("ai_asset_mgmt").warning("asset key backfill warning (non-fatal): %s", _e)
 
-
-def _backfill_discovery_source() -> None:
-    """
-    Data backfill: correct discovery_source for agents that were seen before SDK headers
-    were attached.  Runs at every startup — idempotent, touches only rows that need it.
-      source='sdk_runtime'     → discovery_source='sdk_runtime'
-      source in (explicit_header, api_key_scope) with gateway_runtime → gateway_telemetry
-    """
-    from sqlalchemy import text as _text
-    with engine.connect() as conn:
-        try:
-            conn.execute(_text(
-                "UPDATE asset_registry SET discovery_source='sdk_runtime' "
-                "WHERE source='sdk_runtime' AND discovery_source!='sdk_runtime'"
-            ))
-            conn.execute(_text(
-                "UPDATE asset_registry SET discovery_source='gateway_telemetry' "
-                "WHERE source IN ('explicit_header','api_key_scope') AND discovery_source='gateway_runtime'"
-            ))
-            conn.commit()
-        except Exception:
-            pass  # table may not exist yet on first boot — create_all handles it
-
-
 try:
-    _backfill_discovery_source()
+    _startup.backfill_discovery_source()
 except Exception as _e:
     import logging as _logging
     _logging.getLogger("ai_asset_mgmt").warning("discovery_source backfill non-fatal: %s", _e)
 
-
-# ── Pricing Registry: seed + start background sync ────────────────────────────
-
-def _seed_pricing_registry() -> None:
-    """Seed ModelPricing table from built-in COST_PER_1M on first boot. Idempotent."""
-    from app.database import SessionLocal
-    from app import pricing_registry as _pr
-    db = SessionLocal()
-    try:
-        created = _pr.seed_defaults(db)
-        if created:
-            import logging as _l
-            _l.getLogger("ai_asset_mgmt").info("Pricing registry: %d models seeded", created)
-    except Exception as exc:
-        import logging as _l
-        _l.getLogger("ai_asset_mgmt").warning("Pricing registry seed warning (non-fatal): %s", exc)
-    finally:
-        db.close()
-
-
 try:
-    _seed_pricing_registry()
+    _startup.seed_pricing_registry()
 except Exception as _e:
     import logging as _logging
     _logging.getLogger("ai_asset_mgmt").warning("Pricing seed non-fatal: %s", _e)
 
-try:
-    from app import pricing_registry as _pr_mod
-    _pr_mod.start_background_sync()
-except Exception as _e:
-    import logging as _logging
-    _logging.getLogger("ai_asset_mgmt").warning("Pricing sync thread non-fatal: %s", _e)
-
 
 _START_TIME = time.time()
 
-
-def _check_secrets() -> list[str]:
-    """
-    Validate required secrets at startup. Returns a list of warning strings
-    for any that are missing or invalid. Exposed in /health so monitoring can
-    catch misconfigured deployments before users hit cryptic errors.
-    """
-    import logging as _logging
-    _log = _logging.getLogger("ai_asset_mgmt")
-    warnings: list[str] = []
-
-    raw = os.getenv("CREDENTIAL_ENCRYPTION_KEY", "")
-    if not raw:
-        msg = (
-            "CREDENTIAL_ENCRYPTION_KEY is not set. "
-            "Organization AI Providers (BYOK credential storage) will not work. "
-            "Generate a key with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
-        )
-        _log.error("STARTUP SECRET MISSING: %s", msg)
-        warnings.append(msg)
-    else:
-        try:
-            from cryptography.fernet import Fernet as _Fernet
-            _Fernet(raw.encode())
-        except Exception as exc:
-            msg = (
-                f"CREDENTIAL_ENCRYPTION_KEY is set but is not a valid Fernet key: {exc}. "
-                "Organization AI Providers will not work. "
-                "Regenerate with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
-            )
-            _log.error("STARTUP SECRET INVALID: %s", msg)
-            warnings.append(msg)
-
-    if warnings and os.getenv("FAIL_FAST_ON_MISSING_SECRETS", "").lower() == "true":
-        _log.critical(
-            "FAIL_FAST_ON_MISSING_SECRETS=true — aborting startup due to missing secrets."
-        )
-        import sys as _sys
-        _sys.exit(1)
-
-    return warnings
-
-
+# Re-exported for test compatibility — tests import _check_secrets from app.main
+_check_secrets = _startup.check_secrets
 _SECRET_WARNINGS: list[str] = _check_secrets()
 
 
@@ -317,7 +137,7 @@ _TENANCY_HARDENED = _check_tenancy_hardened()
 from app.org_config import PLATFORM_MODE as _PLATFORM_MODE  # noqa: E402
 
 
-# ─── Startup seed ─────────────────────────────────────────────────────────────
+# ─── Startup seeds ────────────────────────────────────────────────────────────
 
 def _seed_admin():
     import secrets as _secrets
