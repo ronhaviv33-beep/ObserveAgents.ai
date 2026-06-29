@@ -1,10 +1,14 @@
-// Central runtime-config helper for the frontend.
+// Central runtime configuration for the frontend.
 //
-// Fetches the public /config endpoint once at boot and caches it. Defaults are
-// production / demo-off so that if the fetch ever fails we NEVER accidentally
-// render demo controls or auto-login in a real customer environment.
+// Two concerns:
+//  1. Runtime mode — fetch the public /config endpoint once at boot and cache it.
+//     Defaults are production / demo-off so that if the fetch ever fails we NEVER
+//     accidentally render demo controls or auto-login in a real customer env.
+//  2. Public URLs / branding — canonical hostnames and copy, overridable via Vite
+//     env vars; defaults point at the production custom domains.
 import { BASE } from "./api.js";
 
+// ── Runtime mode (from backend /config) ───────────────────────────────────────
 let _config = {
   app_env: "production",
   demo_mode: false,
@@ -29,3 +33,30 @@ export function getConfig() { return _config; }
 export function isDemoMode() { return !!_config.demo_mode; }
 export function isDevelopment() { return _config.app_env === "development"; }
 export function isConfigLoaded() { return _loaded; }
+
+// ── Public URLs (build-time, overridable via Vite env vars) ───────────────────
+const _clean = (v, fallback) => {
+  const raw = (v || "").trim().replace(/\/+$/, "");
+  return raw || fallback;
+};
+
+// Primary production app lives at the apex domain (observeagents.ai), NOT app.*.
+export const PUBLIC_APP_URL     = _clean(import.meta.env.VITE_PUBLIC_APP_URL,     "https://observeagents.ai");
+export const PUBLIC_GATEWAY_URL  = _clean(import.meta.env.VITE_PUBLIC_GATEWAY_URL, "https://gateway.observeagents.ai");
+export const PUBLIC_DEMO_URL     = _clean(import.meta.env.VITE_PUBLIC_DEMO_URL,    "https://demo.observeagents.ai");
+export const PUBLIC_API_URL      = _clean(import.meta.env.VITE_PUBLIC_API_URL,     "https://api.observeagents.ai");
+export const RENDER_FALLBACK_URL = _clean(import.meta.env.VITE_RENDER_FALLBACK_URL, "https://ai-asset-app.onrender.com");
+
+// Gateway base URL shown in copy-paste setup snippets. Prefer the explicit
+// public gateway domain; this is the host customers point base_url at.
+export function gatewayBaseUrl() {
+  return PUBLIC_GATEWAY_URL;
+}
+
+// ── Branding ────────────────────────────────────────────────────────────────
+export const BRAND = {
+  name:     "ObserveAgents",
+  subtitle: "AI Runtime Intelligence Platform",
+  tagline:  "Observe every agent. Map every dependency. Govern every interaction.",
+  taglineLines: ["Observe every agent.", "Map every dependency.", "Govern every interaction."],
+};
