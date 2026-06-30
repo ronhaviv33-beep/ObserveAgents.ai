@@ -661,3 +661,13 @@ export async function clearOrganizationDemoData(orgId) {
   }
   return r.json()
 }
+
+export async function deleteOrganization(orgId) {
+  const r = await authFetch(`${BASE}/admin/organizations/${orgId}`, { method: 'DELETE' })
+  if (!r) throw new Error('Not authenticated')
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}))
+    throw new Error(err.detail || `Delete failed (HTTP ${r.status})`)
+  }
+  return r.json()
+}

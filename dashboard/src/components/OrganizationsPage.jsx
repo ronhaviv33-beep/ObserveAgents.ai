@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { fetchOrganizations, createOrganization, populateOrganization, clearOrganizationDemoData } from "../api.js";
+import { fetchOrganizations, createOrganization, populateOrganization, clearOrganizationDemoData, deleteOrganization } from "../api.js";
 import { isDemoMode, isDevelopment } from "../config.js";
 import { T, FONT_MONO } from "../theme.js";
 
@@ -18,6 +18,10 @@ export default function OrganizationsPage() {
   const [populating, setPopulating] = useState({});   // { [orgId]: true }
   const [clearing,   setClearing]   = useState({});   // { [orgId]: true }
   const [popResult,  setPopResult]  = useState({});   // { [orgId]: {ok, msg} }
+
+  // Delete org confirmation: org object | null
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleting,      setDeleting]      = useState(false);
 
   const handlePopulate = async (orgId, orgName) => {
     setPopulating(p => ({ ...p, [orgId]: true }));
@@ -50,6 +54,18 @@ export default function OrganizationsPage() {
     } finally {
       setClearing(c => ({ ...c, [orgId]: false }));
     }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true); setErr(null);
+    try {
+      await deleteOrganization(deleteConfirm.id);
+      setSuccess(`Organization "${deleteConfirm.name}" deleted.`);
+      setDeleteConfirm(null);
+      await load();
+    } catch (e) { setErr(e.message); setDeleteConfirm(null); }
+    finally { setDeleting(false); }
   };
 
   const load = useCallback(async () => {
@@ -203,31 +219,41 @@ export default function OrganizationsPage() {
                   <td style={{ padding:"14px 16px", fontSize:12, color:T.textDim }}>{fmtDate(o.created_at)}</td>
                   <td style={{ padding:"14px 16px", fontSize:12, color:T.textDim, fontFamily:FONT_MONO }}>{o.user_count ?? "—"}</td>
                   <td style={{ padding:"10px 16px" }}>
-                    {!o.is_internal && (isDemoMode() || isDevelopment()) && (
-                      <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                        <div style={{ display:"flex", gap:6 }}>
+                    <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                        {!o.is_internal && (isDemoMode() || isDevelopment()) && (
+                          <>
+                            <button
+                              onClick={() => handlePopulate(o.id, o.name)}
+                              disabled={populating[o.id] || clearing[o.id]}
+                              title="Seed realistic enterprise data: teams, agents, telemetry, relationships, budgets"
+                              style={{ background:T.accent, color:T.bg, border:"none", padding:"5px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:(populating[o.id]||clearing[o.id])?0.5:1, whiteSpace:"nowrap" }}>
+                              {populating[o.id] ? "Populating…" : "Populate"}
+                            </button>
+                            <button
+                              onClick={() => handleClear(o.id, o.name)}
+                              disabled={populating[o.id] || clearing[o.id]}
+                              title="Remove all demo data (is_demo=true) from this organization"
+                              style={{ background:"transparent", color:T.warn, border:`1px solid ${T.warn}55`, padding:"5px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer", opacity:(populating[o.id]||clearing[o.id])?0.5:1, whiteSpace:"nowrap" }}>
+                              {clearing[o.id] ? "Clearing…" : "Clear Demo"}
+                            </button>
+                          </>
+                        )}
+                        {!o.is_internal && (
                           <button
-                            onClick={() => handlePopulate(o.id, o.name)}
-                            disabled={populating[o.id] || clearing[o.id]}
-                            title="Seed realistic enterprise data: teams, agents, telemetry, relationships, budgets"
-                            style={{ background:T.accent, color:T.bg, border:"none", padding:"5px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:(populating[o.id]||clearing[o.id])?0.5:1, whiteSpace:"nowrap" }}>
-                            {populating[o.id] ? "Populating…" : "Populate Org"}
+                            onClick={() => setDeleteConfirm(o)}
+                            title="Permanently delete this organization and all its data"
+                            style={{ background:"transparent", color:T.crit, border:`1px solid ${T.crit}55`, padding:"5px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer", whiteSpace:"nowrap" }}>
+                            Delete
                           </button>
-                          <button
-                            onClick={() => handleClear(o.id, o.name)}
-                            disabled={populating[o.id] || clearing[o.id]}
-                            title="Remove all demo data (is_demo=true) from this organization"
-                            style={{ background:"transparent", color:T.crit, border:`1px solid ${T.crit}55`, padding:"5px 12px", borderRadius:4, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer", opacity:(populating[o.id]||clearing[o.id])?0.5:1, whiteSpace:"nowrap" }}>
-                            {clearing[o.id] ? "Clearing…" : "Clear Demo"}
-                          </button>
-                        </div>
-                        {popResult[o.id] && (
-                          <div style={{ fontSize:10, fontFamily:FONT_MONO, color: popResult[o.id].ok ? T.accent : T.crit, maxWidth:320 }}>
-                            {popResult[o.id].ok ? "✓ " : "✗ "}{popResult[o.id].msg}
-                          </div>
                         )}
                       </div>
-                    )}
+                      {popResult[o.id] && (
+                        <div style={{ fontSize:10, fontFamily:FONT_MONO, color: popResult[o.id].ok ? T.accent : T.crit, maxWidth:320 }}>
+                          {popResult[o.id].ok ? "✓ " : "✗ "}{popResult[o.id].msg}
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -235,6 +261,36 @@ export default function OrganizationsPage() {
           </table>
         )}
       </div>
+      {/* ── Delete Confirmation Modal ── */}
+      {deleteConfirm && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
+          <div style={{ background:T.panel, border:`1px solid ${T.crit}55`, borderRadius:10, padding:28, minWidth:360, maxWidth:460, display:"flex", flexDirection:"column", gap:18 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontSize:22, color:T.crit }}>⊗</span>
+              <div style={{ fontWeight:700, color:T.text, fontSize:15 }}>Delete organization?</div>
+            </div>
+            <div style={{ fontSize:13, color:T.textDim, lineHeight:1.6 }}>
+              You are about to permanently delete{" "}
+              <strong style={{ color:T.text }}>{deleteConfirm.name}</strong> and all its data — users,
+              agents, telemetry, budgets, policies, and relationships.{" "}
+              <span style={{ color:T.crit, fontWeight:600 }}>This cannot be undone.</span>
+            </div>
+            <div style={{ background:`${T.crit}0d`, border:`1px solid ${T.crit}33`, borderRadius:5, padding:"10px 14px", fontFamily:FONT_MONO, fontSize:11, color:T.crit }}>
+              Org: {deleteConfirm.name} · ID: {deleteConfirm.id} · Slug: {deleteConfirm.slug}
+            </div>
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+              <button onClick={() => setDeleteConfirm(null)} disabled={deleting}
+                style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"8px 20px", borderRadius:5, fontSize:12, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                Cancel
+              </button>
+              <button onClick={handleDelete} disabled={deleting}
+                style={{ background:T.crit, color:"#fff", border:"none", padding:"8px 20px", borderRadius:5, fontSize:12, fontFamily:FONT_MONO, fontWeight:700, cursor:"pointer", opacity:deleting?0.6:1 }}>
+                {deleting ? "Deleting…" : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

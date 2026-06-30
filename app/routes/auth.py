@@ -109,15 +109,12 @@ async def me(current_user=Depends(get_current_user)):
 @router.get("/auth/users", response_model=list[UserOut])
 async def list_users(db: Session = Depends(get_db), actor=Depends(require_page_access("users"))):
     from app.models import User
-    return (
-        db.query(User)
-        .filter(
-            User.organization_id == actor.organization_id,
-            User.is_platform_admin == False,  # noqa: E712
-        )
-        .order_by(User.created_at)
-        .all()
-    )
+    q = db.query(User).filter(User.organization_id == actor.organization_id)
+    # Non-platform-admins never see platform admin accounts; platform admins
+    # see everyone in their org (including themselves) so they can manage passwords.
+    if not actor.is_platform_admin:
+        q = q.filter(User.is_platform_admin == False)  # noqa: E712
+    return q.order_by(User.created_at).all()
 
 
 @router.post("/auth/users", response_model=UserOut, status_code=201)

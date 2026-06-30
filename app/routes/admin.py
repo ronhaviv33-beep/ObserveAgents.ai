@@ -585,3 +585,37 @@ async def clear_demo_data(
         "budgets_deleted": budget_deleted,
         "policies_deleted": policy_deleted,
     }
+
+
+@router.delete("/admin/organizations/{org_id}", status_code=200)
+async def delete_organization(
+    org_id: int,
+    actor=Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Permanently delete a tenant organization and all associated data.
+    The internal platform organization cannot be deleted.
+    Platform admin only.
+    """
+    from app.models import RoleModel
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail=f"Organization {org_id} not found.")
+    if org.is_internal:
+        raise HTTPException(status_code=403, detail="The internal platform organization cannot be deleted.")
+
+    # Delete all data belonging to this org (order matters for FK constraints)
+    db.query(Telemetry).filter(Telemetry.organization_id == org_id).delete(synchronize_session=False)
+    db.query(AgentRelationship).filter(AgentRelationship.organization_id == org_id).delete(synchronize_session=False)
+    db.query(AssetRegistry).filter(AssetRegistry.organization_id == org_id).delete(synchronize_session=False)
+    db.query(BudgetRule).filter(BudgetRule.organization_id == org_id).delete(synchronize_session=False)
+    db.query(PolicyRule).filter(PolicyRule.organization_id == org_id).delete(synchronize_session=False)
+    db.query(GuardMode).filter(GuardMode.organization_id == org_id).delete(synchronize_session=False)
+    db.query(Team).filter(Team.organization_id == org_id).delete(synchronize_session=False)
+    db.query(User).filter(User.organization_id == org_id).delete(synchronize_session=False)
+    db.query(RoleModel).filter(RoleModel.organization_id == org_id).delete(synchronize_session=False)
+    db.delete(org)
+    db.commit()
+
+    return {"deleted": True, "org_id": org_id, "org_name": org.name}
