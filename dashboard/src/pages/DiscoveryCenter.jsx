@@ -640,7 +640,7 @@ export default function DiscoveryCenter({ initialTab = "verified" }) {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} style={{ textAlign: "center", padding: 32, color: T.textMute, fontFamily: MONO, fontSize: 13 }}>
-                    {search ? "No agents match your search" : tab === "verified" ? "No agents discovered. Create a Gateway API Key and send your first request." : tab === "historical" ? "No inactive agents" : tab === "likely" ? "No likely agents" : "No agents to review"}
+                    {search ? "No agents match your search" : tab === "verified" ? "No agents discovered yet. Send your first request to begin." : tab === "historical" ? "No inactive agents" : tab === "likely" ? "No likely agents" : "No agents to review"}
                   </td>
                 </tr>
               ) : filtered.map(agent => {

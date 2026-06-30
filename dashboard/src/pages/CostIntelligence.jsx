@@ -703,7 +703,7 @@ export default function CostIntelligence() {
 
       {(rc.requests ?? 0) === 0 && (
         <div style={{ marginBottom: 16, padding: '14px 18px', background: `${T.accent}0D`, border: `1px solid ${T.accent}33`, borderRadius: 8, fontSize: 13, color: T.textDim }}>
-          <span style={{ color: T.accent }}>●</span>&nbsp; No runtime cost yet. Send one request through the gateway to begin tracking spend — even a single call shows up here.
+          <span style={{ color: T.accent }}>●</span>&nbsp; No cost data yet. Cost insights appear after the first request.
         </div>
       )}
 

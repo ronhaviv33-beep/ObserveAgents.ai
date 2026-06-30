@@ -238,7 +238,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>No agents discovered yet.</div>
             <div style={{ fontSize: 12, color: T.textDim, lineHeight: 1.6 }}>
-              Send your first request through the gateway and we'll discover agents automatically — no manual registration required.
+              Connect a provider and send your first request to begin discovery.
             </div>
           </div>
           <button onClick={() => onNavigate?.("integrations")}
