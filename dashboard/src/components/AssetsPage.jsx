@@ -297,7 +297,7 @@ function AssetsPage() {
             ) : !assets || assets.length === 0 ? (
               <div style={{ padding: 40, textAlign: "center", color: T2.textMute, fontFamily: FONT_MONO, lineHeight: 1.7 }}>
                 No agents discovered yet.<br/>
-                Send your first request through the gateway and we'll discover agents automatically.
+                Connect a provider or send your first request to begin.
               </div>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse" }}>

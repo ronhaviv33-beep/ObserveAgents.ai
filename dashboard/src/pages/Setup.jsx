@@ -63,7 +63,7 @@ export default function SimpleIntegrationsPage({ onNavigate, demoMode = false })
     {
       id: "platform", badge: null, color: T.purple,
       title: "Ecosystem Discovery",
-      desc:  "Best for discovering unmanaged AI across your tooling ecosystem.",
+      desc:  "Scan GitHub, Slack, Jira, ServiceNow, and MCP for AI signals.",
       benefits: ["Discover GitHub, Slack, Jira, ServiceNow, and MCP signals", "Find potential AI assets", "Surface unmanaged dependencies", "Send findings for validation"],
       cta: "Connect Ecosystem →",
     },
@@ -220,7 +220,8 @@ client.chat.completions.create(
 
       <div style={{ marginBottom:24 }}>
         <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>Administration · Setup</div>
-        <div style={{ fontSize:24, fontWeight:700, color:T.text, lineHeight:1.2 }}>Enterprise AI Discovery</div>
+        <div style={{ fontSize:24, fontWeight:700, color:T.text, lineHeight:1.2 }}>Setup</div>
+        <div style={{ fontSize:13, color:T.textDim, marginTop:6, lineHeight:1.5 }}>Configure your workspace and start discovering AI assets.</div>
       </div>
 
       {/* Setup progress */}
@@ -251,8 +252,7 @@ client.chat.completions.create(
             Recommended path: start with Runtime Discovery.
           </div>
           <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, maxWidth:620 }}>
-            One configuration change gives you immediate visibility. Agents, models, and dependencies
-            start appearing automatically from runtime activity — no manual registration required.
+            One config change gives you immediate visibility. Agents and dependencies appear automatically — no manual registration.
           </div>
         </div>
         <button
