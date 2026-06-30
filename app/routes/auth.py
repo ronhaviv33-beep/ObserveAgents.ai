@@ -142,11 +142,13 @@ async def create_user(req: UserCreate, db: Session = Depends(get_db), actor=Depe
 @router.patch("/auth/users/{user_id}", response_model=UserOut)
 async def update_user(user_id: int, req: UserUpdate, db: Session = Depends(get_db), actor=Depends(require_page_access("users"))):
     from app.models import User
-    user = db.query(User).filter(
+    q = db.query(User).filter(
         User.id == user_id,
         User.organization_id == actor.organization_id,
-        User.is_platform_admin == False,  # noqa: E712
-    ).first()
+    )
+    if not actor.is_platform_admin:
+        q = q.filter(User.is_platform_admin == False)  # noqa: E712
+    user = q.first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     updates = req.model_dump(exclude_none=True)
@@ -176,11 +178,13 @@ async def delete_user(user_id: int, db: Session = Depends(get_db), current_user=
     from app.models import User
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
-    user = db.query(User).filter(
+    q = db.query(User).filter(
         User.id == user_id,
         User.organization_id == current_user.organization_id,
-        User.is_platform_admin == False,  # noqa: E712
-    ).first()
+    )
+    if not current_user.is_platform_admin:
+        q = q.filter(User.is_platform_admin == False)  # noqa: E712
+    user = q.first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     db.delete(user)
