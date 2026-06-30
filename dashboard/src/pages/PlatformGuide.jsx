@@ -3,49 +3,49 @@ import { T, FONT_UI, FONT_MONO } from "../theme.js";
 
 export default function CustomerWelcomePage({ onNavigate }) {
   const discoveredItems = [
-    { icon: "◈", color: T.accent,  label: "AI Agents",         detail: "Every agent making LLM calls — named, fingerprinted, attributed to a team" },
-    { icon: "🔗", color: T.teal,   label: "Dependencies",      detail: "MCP servers, tools, APIs, databases, and CRMs each agent touches at runtime" },
+    { icon: "◈", color: T.accent,  label: "AI systems",         detail: "Every AI system making model calls — named, fingerprinted, attributed to a team" },
+    { icon: "🔗", color: T.teal,   label: "Runtime dependencies", detail: "MCP servers, tools, APIs, databases, and CRMs each AI system touches at runtime" },
     { icon: "⊞", color: T.info,   label: "Models in use",     detail: "Every model variant across OpenAI, Anthropic, and other providers" },
     { icon: "⚡", color: T.yellow, label: "Workflows",         detail: "n8n, Zapier, LangGraph, and orchestration chains discovered automatically" },
-    { icon: "⊙", color: T.purple,  label: "Shadow AI",         detail: "Agents that appeared outside official channels — surfaced before they become a risk" },
-    { icon: "$",  color: T.accent,  label: "Cost attribution",  detail: "Spend by team, agent, and model — no manual tagging needed" },
+    { icon: "⊙", color: T.purple,  label: "Unmanaged AI",      detail: "AI that appeared outside official channels — surfaced before it becomes a risk" },
+    { icon: "$",  color: T.accent,  label: "Cost attribution",  detail: "Spend by team, AI system, and model — no manual tagging needed" },
   ];
 
   const features = [
-    { icon: "◈", color: T.accent,  title: "Agent Inventory",          page: "agent_inventory",  desc: "Every agent that has ever touched your LLM traffic — automatically catalogued, attributed to a team, and tracked over time." },
-    { icon: "🔗", color: T.teal,   title: "Runtime Dependency Map",   page: "relationship_map",  desc: "Automatically maps what every agent touches at runtime — MCP servers, tools, workflows, APIs, and CRMs." },
-    { icon: "⊙", color: T.yellow,  title: "Discovery Center",         page: "discovery",         desc: "Surface AI agents and automations that were created without going through official channels — before they become a risk." },
-    { icon: "⊛", color: T.info,    title: "Governance Center",        page: "governance",        desc: "Review newly discovered agents, assign owners, and enforce policies — without slowing down teams." },
-    { icon: "$", color: T.accent,  title: "Cost Intelligence",        page: "cost",              desc: "See exactly how much each team and agent spends on AI APIs. No manual tagging required." },
-    { icon: "⚑", color: T.crit,   title: "Security Intelligence",    page: "security_intel",    desc: "Alerts on unusual activity, prompt injection attempts, and policy violations — detected automatically." },
+    { icon: "◈", color: T.accent,  title: "AI Inventory",             page: "agent_inventory",  desc: "Every AI system that has touched your traffic — automatically catalogued, attributed to a team, and tracked over time." },
+    { icon: "🔗", color: T.teal,   title: "Runtime Dependency Map",   page: "relationship_map",  desc: "Automatically maps what every AI system touches at runtime — MCP servers, tools, workflows, APIs, and CRMs." },
+    { icon: "⊙", color: T.yellow,  title: "Discovery Center",         page: "discovery",         desc: "Surface AI systems and automations created outside official channels — before they become a risk." },
+    { icon: "⊛", color: T.info,    title: "Governance Center",        page: "governance",        desc: "Review newly discovered AI systems, assign owners, and enforce policies — without slowing teams down." },
+    { icon: "$", color: T.accent,  title: "Cost Intelligence",        page: "cost",              desc: "See how much each team and AI system spends on AI APIs. No manual tagging required." },
+    { icon: "⚑", color: T.crit,   title: "Security Intelligence",    page: "security_intel",    desc: "Alerts on unusual activity, prompt-injection attempts, and policy violations — detected automatically." },
   ];
 
   const steps = [
     {
       n: "1", color: T.accent,
-      title: "Connect your AI traffic",
-      desc: "Point your AI agent code at the gateway instead of directly at OpenAI or Anthropic. No proprietary SDK required — use your existing AI stack. Replace base_url, replace api_key, send traffic. No instrumentation, no code rewrite.",
-      note: "Works with OpenAI SDK, LangChain, CrewAI, LiteLLM, OpenAI Agents SDK, MCP Clients, Vercel AI SDK, Agno, and any OpenAI-compatible client.",
-      cta: "See Integration Guide →", page: "integrations",
+      title: "Runtime Discovery — observe live AI activity",
+      desc: "Route AI traffic through the gateway using your existing stack — replace base_url and api_key, no code rewrite. The platform observes active AI systems, the models they use, and the tools, APIs, and databases they touch at runtime.",
+      note: "Works with OpenAI SDK, LangChain, CrewAI, LiteLLM, OpenAI Agents SDK, MCP Clients, and any OpenAI-compatible client. SDK metadata is optional and improves identity quality.",
+      cta: "Start Runtime Discovery →", page: "integrations",
     },
     {
-      n: "2", color: T.teal,
-      title: "Automatic discovery begins",
-      desc: "The moment traffic flows, the platform starts discovering agents, mapping dependencies, detecting models in use, and attributing cost. No manual agent registration. No tagging required.",
-      note: "Agents are fingerprinted from API keys, request patterns, headers, and SDK signals. Identity improves automatically over time.",
-      cta: "View Discovery Center →", page: "discovery",
+      n: "2", color: T.purple,
+      title: "Ecosystem Discovery — find AI outside runtime traffic",
+      desc: "Connect enterprise tools — GitHub, Slack, Jira, ServiceNow, n8n, MCP servers, Copilot Studio, cloud functions — to surface AI activity, workflows, and automations that never touch the gateway.",
+      note: "Findings are surfaced as potential AI systems and sent for review — no manual registration required.",
+      cta: "Connect Ecosystem Sources →", page: "ecosystem",
     },
     {
       n: "3", color: T.info,
-      title: "Review and claim discovered assets",
-      desc: "Discovered agents appear in the Governance Center for review. Assign owners, add context, and promote them to managed assets — or reject shadow AI that shouldn't be running.",
-      note: "Optional: enrich identities with X-Agent-Name, X-Agent-Team headers for higher confidence attribution.",
+      title: "Review, assign ownership, and govern",
+      desc: "Discovered AI systems appear for review. Assign owners, add context, and promote them to managed — or dismiss signals that aren't real AI systems. Unmanaged AI and ownership gaps are surfaced so nothing runs without an owner.",
+      note: "Historical telemetry is never modified — review only writes ownership and governance metadata.",
       cta: "Open Governance →", page: "governance",
     },
     {
-      n: "4", color: T.purple,
+      n: "4", color: T.teal,
       title: "Invite your team",
-      desc: "Add engineers, security leads, and FinOps colleagues as Viewers or Analysts. Each sees the agents their team owns and the spend they're responsible for.",
+      desc: "Add engineering, security, and FinOps colleagues as Viewers or Analysts. Each sees the AI systems their team owns and the spend they're responsible for.",
       note: null, cta: "Manage Users →", page: "users",
     },
   ];
@@ -62,32 +62,33 @@ export default function CustomerWelcomePage({ onNavigate }) {
           background:`${T.teal}05`, pointerEvents:"none" }} />
 
         <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.accent, letterSpacing:"0.15em",
-          textTransform:"uppercase", marginBottom:12 }}>ObserveAgents · AI Runtime Intelligence Platform</div>
+          textTransform:"uppercase", marginBottom:12 }}>ObserveAgents · Enterprise AI Intelligence Platform</div>
 
         <div style={{ fontSize:32, fontWeight:700, color:T.text, marginBottom:14, lineHeight:1.15 }}>
-          Connect traffic once.<br/>
-          <span style={{ color:T.accent }}>Your inventory builds itself.</span>
+          Know every AI system in your organization.<br/>
+          <span style={{ color:T.accent }}>Two discovery engines build the inventory for you.</span>
         </div>
 
-        <div style={{ fontSize:15, color:T.textDim, lineHeight:1.75, maxWidth:580, marginBottom:10 }}>
-          No manual agent registration. No tagging spreadsheets. Route your AI traffic through the gateway
-          and the platform automatically discovers every agent, maps every dependency, and attributes every dollar of spend.
+        <div style={{ fontSize:15, color:T.textDim, lineHeight:1.75, maxWidth:600, marginBottom:10 }}>
+          <strong style={{ color:T.text }}>Runtime Discovery</strong> observes live AI activity through the gateway.
+          <strong style={{ color:T.text }}> Ecosystem Discovery</strong> finds AI signals across your enterprise tools.
+          Together they answer: what AI exists, what it's doing, what it can access, who owns it, and what risk it creates.
         </div>
         <div style={{ fontSize:13, color:T.textMute, lineHeight:1.6, maxWidth:560, marginBottom:28 }}>
-          Built for engineering and security teams managing AI at scale — from the agents your teams
-          built intentionally to the shadow AI that appeared without anyone knowing.
+          Built for engineering, security, and operations teams managing AI at scale — from the systems your teams
+          built intentionally to the unmanaged AI that appeared without anyone knowing. No manual registration, no tagging spreadsheets.
         </div>
 
         <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
           <button onClick={() => onNavigate("integrations")}
             style={{ background:T.accent, color:"#000", border:"none", borderRadius:6,
               padding:"11px 24px", fontSize:13, fontWeight:700, fontFamily:FONT_UI, cursor:"pointer" }}>
-            Connect Traffic →
+            Start Runtime Discovery →
           </button>
           <button onClick={() => onNavigate("agent_inventory")}
             style={{ background:"transparent", color:T.text, border:`1px solid ${T.border}`,
               borderRadius:6, padding:"11px 24px", fontSize:13, fontWeight:600, fontFamily:FONT_UI, cursor:"pointer" }}>
-            View Agent Inventory
+            View AI Inventory
           </button>
           <button onClick={() => onNavigate("discovery")}
             style={{ background:"transparent", color:T.teal, border:`1px solid ${T.teal}44`,
@@ -101,7 +102,7 @@ export default function CustomerWelcomePage({ onNavigate }) {
       <div style={{ marginBottom:32, padding:"24px 28px", background:`${T.teal}08`,
         border:`1px solid ${T.teal}22`, borderRadius:10 }}>
         <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.teal, letterSpacing:"0.14em",
-          textTransform:"uppercase", marginBottom:16 }}>◆ Automatic Discovery — no manual work required</div>
+          textTransform:"uppercase", marginBottom:16 }}>◆ Discovered automatically — no manual work required</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:12 }}>
           {discoveredItems.map(item => (
             <div key={item.label} style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
@@ -117,7 +118,7 @@ export default function CustomerWelcomePage({ onNavigate }) {
 
       {/* Getting started */}
       <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em",
-        textTransform:"uppercase", marginBottom:14 }}>How it works</div>
+        textTransform:"uppercase", marginBottom:14 }}>How it works · two discovery engines</div>
       <div style={{ display:"flex", flexDirection:"column", gap:0, marginBottom:32,
         background:T.panel, border:`1px solid ${T.border}`, borderRadius:10, overflow:"hidden" }}>
         {steps.map((s, i) => (

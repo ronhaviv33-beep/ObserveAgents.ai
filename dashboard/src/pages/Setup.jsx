@@ -8,6 +8,7 @@ export default function SimpleIntegrationsPage({ onNavigate, demoMode = false })
   const [copied, setCopied]   = useState(null);
   const [open,   setOpen]     = useState({ sdk_openai: true, sdk_anthropic: false, sdk_env: false, manual_openai: false, manual_curl: false });
   const [section, setSection] = useState(null);
+  const [sdkOpen, setSdkOpen] = useState(false);   // optional SDK identity-enrichment sub-section under Runtime Discovery
   const [metrics, setMetrics] = useState({ agents: null, dependencies: null, workflows: null, platforms: null });
   const [progress, setProgress] = useState({ provider: false, key: false, request: false, agent: false });
 
@@ -45,7 +46,7 @@ export default function SimpleIntegrationsPage({ onNavigate, demoMode = false })
     { key: "provider", label: "Connect Provider" },
     { key: "key",      label: "Create Gateway API Key" },
     { key: "request",  label: "Send First Request" },
-    { key: "agent",    label: "Discover First Agent" },
+    { key: "agent",    label: "Discover First AI System" },
   ];
 
   const fmtMetric = (v) => v === null ? "—" : String(v);
@@ -53,48 +54,40 @@ export default function SimpleIntegrationsPage({ onNavigate, demoMode = false })
   const OPTIONS = [
     {
       id: "gateway", badge: "Recommended", color: T.info,
-      title: "Route AI Traffic",
-      desc:  "Best for immediate visibility into active AI agents.",
-      benefits: ["Discover active AI assets", "Track usage and cost", "Build the dependency map", "Apply governance controls"],
-      cta: "Start Here →",
-    },
-    {
-      id: "sdk", badge: null, color: "#34d399",
-      title: "Connect AI Applications",
-      desc:  "Best for applications you own and can modify.",
-      benefits: ["Add rich identity metadata", "Improve team and owner attribution", "Track environment and version", "Increase discovery confidence"],
-      cta: "Connect Applications →",
+      title: "Runtime Discovery",
+      desc:  "Best for understanding AI systems already operating in your environment.",
+      benefits: ["Discover active AI systems", "Map runtime dependencies", "See model and provider usage", "Identify ownership gaps", "Surface unmanaged or risky AI activity"],
+      cta: "Start Runtime Discovery →",
     },
     {
       id: "platform", badge: null, color: T.purple,
-      title: "Connect AI Ecosystem",
-      desc:  "Best for finding shadow AI and unmanaged automation.",
-      benefits: ["Discover GitHub, Slack, Jira, ServiceNow, and MCP signals", "Find potential AI assets", "Surface unmanaged dependencies", "Send findings for validation"],
-      cta: "Connect Ecosystem →",
+      title: "Ecosystem Discovery",
+      desc:  "Best for finding AI activity, workflows, and automations outside the gateway.",
+      benefits: ["Find potential AI systems", "Surface unmanaged workflows", "Detect ecosystem AI signals", "Send findings for review"],
+      cta: "Connect Ecosystem Sources →",
     },
   ];
 
   const GW_FLOW = [
-    { label:"Create Organisation API Key",           color:T.accent },
+    { label:"Create Gateway API Key",                color:T.accent },
     { label:"Route Traffic Through Gateway",         color:T.warn   },
     { label:"Gateway Derives Identity",              color:T.info   },
-    { label:"Verified / Unassigned Agent Created",   color:T.yellow },
-    { label:"Admin Reviews Agent",                   color:T.purple },
+    { label:"Observed AI System Created",            color:T.yellow },
+    { label:"Admin Reviews and Assigns Ownership",   color:T.purple },
   ];
   const SDK_FLOW = [
-    { label:"Create Organisation API Key", color:T.accent },
-    { label:"Install SDK",                 color:"#34d399" },
-    { label:"Wrap AI Client",              color:"#34d399" },
+    { label:"Create Gateway API Key",      color:T.accent },
+    { label:"Add SDK Metadata (optional)", color:"#34d399" },
     { label:"Route Through Gateway",       color:T.warn   },
-    { label:"Verified Agent Created",      color:T.yellow },
-    { label:"Admin Claims Agent",          color:T.purple },
+    { label:"Observed AI System Created",  color:T.yellow },
+    { label:"Admin Reviews and Assigns Ownership", color:T.purple },
   ];
   const PLATFORM_FLOW = [
     { label:"Connect Platform",            color:T.info   },
     { label:"Scan for AI Signals",         color:T.warn   },
-    { label:"Potential Agent Created",     color:T.yellow },
-    { label:"Admin Validates or Rejects",  color:T.purple },
-    { label:"Managed Agent",               color:T.accent },
+    { label:"Potential AI System Found",   color:T.yellow },
+    { label:"Admin Reviews and Assigns Ownership", color:T.purple },
+    { label:"Managed AI System",           color:T.accent },
   ];
   const GW_SIGNALS = [
     { label:"API Key Scope",       desc:"Key named after a service — no headers needed" },
@@ -225,7 +218,11 @@ client.chat.completions.create(
 
       <div style={{ marginBottom:24 }}>
         <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>Administration · Setup</div>
-        <div style={{ fontSize:24, fontWeight:700, color:T.text, lineHeight:1.2 }}>Connect your AI traffic</div>
+        <div style={{ fontSize:24, fontWeight:700, color:T.text, lineHeight:1.2 }}>Discover enterprise AI</div>
+        <div style={{ fontSize:13, color:T.textDim, marginTop:8, lineHeight:1.6, maxWidth:640 }}>
+          Two discovery methods build your AI inventory: <strong style={{ color:T.text }}>Runtime Discovery</strong> observes
+          live AI activity, and <strong style={{ color:T.text }}>Ecosystem Discovery</strong> finds AI signals across your enterprise tools.
+        </div>
       </div>
 
       {/* Setup progress */}
@@ -253,11 +250,11 @@ client.chat.completions.create(
         <div style={{ width:8, height:8, borderRadius:"50%", background:T.info, flexShrink:0, marginTop:5 }} />
         <div style={{ flex:1 }}>
           <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:6 }}>
-            Recommended path: start by routing AI traffic.
+            Recommended: start with Runtime Discovery.
           </div>
           <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, maxWidth:620 }}>
-            One configuration change gives you immediate visibility. Agents, models, costs, and dependencies
-            start appearing automatically from runtime activity — no manual registration required.
+            One configuration change gives you immediate visibility. AI systems, models, costs, and runtime
+            dependencies start appearing automatically from live AI activity — no manual registration required.
           </div>
         </div>
         <button
@@ -265,7 +262,7 @@ client.chat.completions.create(
           style={{ background:T.info, color:"#fff", border:"none", borderRadius:6,
             padding:"9px 20px", fontSize:12, fontWeight:600, fontFamily:FONT_UI,
             cursor:"pointer", flexShrink:0, whiteSpace:"nowrap" }}>
-          Route AI Traffic →
+          Start Runtime Discovery →
         </button>
       </div>
 
@@ -286,8 +283,8 @@ client.chat.completions.create(
         </div>
       </div>
 
-      <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>Setup options</div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14, marginBottom: section ? 20 : 0 }}>
+      <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:14 }}>Discovery methods</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:14, marginBottom: section ? 20 : 0 }}>
         {OPTIONS.map(opt => (
           <div key={opt.id}
             style={{ background:T.panel,
@@ -321,7 +318,7 @@ client.chat.completions.create(
 
       {section === "gateway" && (
         <div style={{ border:`1px solid ${T.info}44`, borderRadius:10, padding:"24px 28px", marginBottom:16 }}>
-          <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:16 }}>Route AI Traffic — Integration Guide</div>
+          <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:16 }}>Runtime Discovery — Integration Guide</div>
           <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:14 }}>
             <strong style={{ color:T.text }}>No proprietary SDK required — use your existing AI stack.</strong> Change your AI client's{" "}
             <code style={{ fontFamily:FONT_MONO, color:T.info, fontSize:11 }}>base_url</code> to{" "}
@@ -355,82 +352,94 @@ client.chat.completions.create(
           <div style={{ background:`${T.info}0d`, border:`1px solid ${T.info}33`, borderRadius:8, padding:"12px 16px" }}>
             <div style={{ fontSize:12, color:T.textDim, lineHeight:1.65 }}>
               <strong style={{ color:T.text }}>Minimum setup:</strong> change <code style={{ fontFamily:FONT_MONO, color:T.info, fontSize:11 }}>base_url</code> to{" "}
-              <code style={{ fontFamily:FONT_MONO, color:T.accent, fontSize:11 }}>{gatewayUrl}/v1</code> and use your org API key.
+              <code style={{ fontFamily:FONT_MONO, color:T.accent, fontSize:11 }}>{gatewayUrl}/v1</code> and use your Gateway API Key.
             </div>
           </div>
-        </div>
-      )}
 
-      {section === "sdk" && (
-        <div style={{ border:`1px solid ${"#34d399"}44`, borderRadius:10, padding:"24px 28px", marginBottom:16 }}>
-          <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:16 }}>Connect AI Applications — Integration Guide</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24, marginBottom:20 }}>
-            <div>
-              <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:16 }}>
-                The SDK automatically collects runtime context and attaches it to every request.
+          {/* Optional — SDK metadata improves identity */}
+          <div style={{ marginTop:16, border:`1px solid ${"#34d399"}33`, borderRadius:8, overflow:"hidden" }}>
+            <button onClick={() => setSdkOpen(o => !o)}
+              style={{ width:"100%", background:sdkOpen ? T.panelHi : T.panel, border:"none",
+                padding:"12px 16px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", textAlign:"left" }}>
+              <span style={{ width:7, height:7, borderRadius:"50%", background:"#34d399", flexShrink:0 }} />
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:12, fontWeight:600, color:T.text }}>Optional: SDK metadata improves identity</div>
+                <div style={{ fontSize:11, color:T.textMute, marginTop:2 }}>No manual registration required — gateway traffic already creates observed AI systems. SDK metadata adds richer identity and runtime context.</div>
               </div>
-              <FlowColumn steps={SDK_FLOW} />
-            </div>
-            <div>
-              <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>What the SDK collects</div>
-              {[
-                ["SERVICE_NAME / APP_NAME", "Agent identity"],
-                ["ENVIRONMENT / ENV",        "prod / staging / dev"],
-                ["TEAM",                     "Owning team"],
-                ["APP_VERSION",              "Version tag"],
-              ].map(([k, v]) => (
-                <div key={k} style={{ display:"flex", gap:8, padding:"5px 0", borderBottom:`1px solid ${T.border}`, fontSize:12 }}>
-                  <code style={{ fontFamily:FONT_MONO, color:"#34d399", fontSize:11, minWidth:180, flexShrink:0 }}>{k}</code>
-                  <span style={{ color:T.textDim }}>{v}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>SDK Examples</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
-            <CodeBlock id="sdk_openai"    label="Python · OpenAI SDK"    snippet={resolvedSnippets.sdk_openai}    accentColor="#34d399" />
-            <CodeBlock id="sdk_anthropic" label="Python · Anthropic SDK" snippet={resolvedSnippets.sdk_anthropic} accentColor="#34d399" />
-            <CodeBlock id="sdk_env"       label="Env-var · httpx"        snippet={resolvedSnippets.sdk_env}       accentColor="#34d399" />
-          </div>
-          <div style={{ background:`${T.warn}08`, border:`1px solid ${T.warn}22`, borderRadius:8, padding:"14px 18px" }}>
-            <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.warn, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Advanced — Manual Headers</div>
-            <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
-              <CodeBlock id="manual_openai" label="Manual headers · OpenAI" snippet={resolvedSnippets.manual_openai} accentColor={T.warn} />
-              <CodeBlock id="manual_curl"   label="Manual headers · cURL"   snippet={resolvedSnippets.manual_curl}   accentColor={T.warn} />
-            </div>
-            <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:6, overflow:"hidden" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse" }}>
-                <thead>
-                  <tr style={{ background:T.panelHi }}>
-                    {["Header","Description","Example"].map(h => (
-                      <th key={h} style={{ padding:"7px 12px", textAlign:"left", fontSize:10, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.1em", textTransform:"uppercase", borderBottom:`1px solid ${T.border}` }}>{h}</th>
+              <span style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, flexShrink:0 }}>{sdkOpen ? "▲ close" : "▼ open"}</span>
+            </button>
+            {sdkOpen && (
+              <div style={{ padding:"20px", borderTop:`1px solid ${T.border}` }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24, marginBottom:20 }}>
+                  <div>
+                    <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:16 }}>
+                      SDK metadata is optional. When present, it is attached to runtime requests to improve identity quality and attribution.
+                    </div>
+                    <FlowColumn steps={SDK_FLOW} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>What the SDK adds</div>
+                    {[
+                      ["SERVICE_NAME / APP_NAME", "AI system identity"],
+                      ["ENVIRONMENT / ENV",        "prod / staging / dev"],
+                      ["TEAM",                     "Owning team"],
+                      ["APP_VERSION",              "Version tag"],
+                    ].map(([k, v]) => (
+                      <div key={k} style={{ display:"flex", gap:8, padding:"5px 0", borderBottom:`1px solid ${T.border}`, fontSize:12 }}>
+                        <code style={{ fontFamily:FONT_MONO, color:"#34d399", fontSize:11, minWidth:180, flexShrink:0 }}>{k}</code>
+                        <span style={{ color:T.textDim }}>{v}</span>
+                      </div>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {OPT_HEADERS.map((row, i) => (
-                    <tr key={row.name} style={{ background: i % 2 === 0 ? T.panel : T.bg }}>
-                      <td style={{ padding:"7px 12px", borderBottom:`1px solid ${T.border}` }}>
-                        <code style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textDim }}>{row.name}</code>
-                      </td>
-                      <td style={{ padding:"7px 12px", borderBottom:`1px solid ${T.border}`, fontSize:11, color:T.textDim }}>{row.desc}</td>
-                      <td style={{ padding:"7px 12px", borderBottom:`1px solid ${T.border}` }}>
-                        <code style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute }}>{row.example}</code>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </div>
+                </div>
+                <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Examples</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
+                  <CodeBlock id="sdk_openai"    label="Python · OpenAI SDK"    snippet={resolvedSnippets.sdk_openai}    accentColor="#34d399" />
+                  <CodeBlock id="sdk_anthropic" label="Python · Anthropic SDK" snippet={resolvedSnippets.sdk_anthropic} accentColor="#34d399" />
+                  <CodeBlock id="sdk_env"       label="Env-var · httpx"        snippet={resolvedSnippets.sdk_env}       accentColor="#34d399" />
+                </div>
+                <div style={{ background:`${T.warn}08`, border:`1px solid ${T.warn}22`, borderRadius:8, padding:"14px 18px" }}>
+                  <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.warn, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Advanced — Manual Headers</div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
+                    <CodeBlock id="manual_openai" label="Manual headers · OpenAI" snippet={resolvedSnippets.manual_openai} accentColor={T.warn} />
+                    <CodeBlock id="manual_curl"   label="Manual headers · cURL"   snippet={resolvedSnippets.manual_curl}   accentColor={T.warn} />
+                  </div>
+                  <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:6, overflow:"hidden" }}>
+                    <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                      <thead>
+                        <tr style={{ background:T.panelHi }}>
+                          {["Header","Description","Example"].map(h => (
+                            <th key={h} style={{ padding:"7px 12px", textAlign:"left", fontSize:10, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.1em", textTransform:"uppercase", borderBottom:`1px solid ${T.border}` }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {OPT_HEADERS.map((row, i) => (
+                          <tr key={row.name} style={{ background: i % 2 === 0 ? T.panel : T.bg }}>
+                            <td style={{ padding:"7px 12px", borderBottom:`1px solid ${T.border}` }}>
+                              <code style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textDim }}>{row.name}</code>
+                            </td>
+                            <td style={{ padding:"7px 12px", borderBottom:`1px solid ${T.border}`, fontSize:11, color:T.textDim }}>{row.desc}</td>
+                            <td style={{ padding:"7px 12px", borderBottom:`1px solid ${T.border}` }}>
+                              <code style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute }}>{row.example}</code>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {section === "platform" && (
         <div style={{ border:`1px solid ${T.purple}44`, borderRadius:10, padding:"24px 28px", marginBottom:16 }}>
-          <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:16 }}>Connect AI Ecosystem — Integration Guide</div>
+          <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:16 }}>Ecosystem Discovery — Integration Guide</div>
           <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:20 }}>
-            Platform discovery identifies AI-related signals outside the gateway — across GitHub, Slack, Jira, ServiceNow, and MCP servers.
+            Ecosystem Discovery finds AI activity, workflows, and automations outside runtime traffic — across GitHub, Slack, Jira, ServiceNow, n8n, and MCP servers. Findings are sent for review.
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24, marginBottom:20 }}>
             <div>
