@@ -22,6 +22,7 @@ export default function OrganizationsPage() {
   // Delete org confirmation: org object | null
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting,      setDeleting]      = useState(false);
+  const [deleteErr,     setDeleteErr]     = useState(null);
 
   const handlePopulate = async (orgId, orgName) => {
     setPopulating(p => ({ ...p, [orgId]: true }));
@@ -58,13 +59,15 @@ export default function OrganizationsPage() {
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
-    setDeleting(true); setErr(null);
+    setDeleting(true); setDeleteErr(null);
     try {
       await deleteOrganization(deleteConfirm.id);
       setSuccess(`Organization "${deleteConfirm.name}" deleted.`);
       setDeleteConfirm(null);
       await load();
-    } catch (e) { setErr(e.message); setDeleteConfirm(null); }
+    } catch (e) {
+      setDeleteErr(typeof e.message === 'string' ? e.message : `Delete failed: ${String(e)}`);
+    }
     finally { setDeleting(false); }
   };
 
@@ -278,8 +281,11 @@ export default function OrganizationsPage() {
             <div style={{ background:`${T.crit}0d`, border:`1px solid ${T.crit}33`, borderRadius:5, padding:"10px 14px", fontFamily:FONT_MONO, fontSize:11, color:T.crit }}>
               Org: {deleteConfirm.name} · ID: {deleteConfirm.id} · Slug: {deleteConfirm.slug}
             </div>
+            {deleteErr && (
+              <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12, background:`${T.crit}10`, border:`1px solid ${T.crit}33`, borderRadius:4, padding:"8px 12px" }}>{deleteErr}</div>
+            )}
             <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-              <button onClick={() => setDeleteConfirm(null)} disabled={deleting}
+              <button onClick={() => { setDeleteConfirm(null); setDeleteErr(null); }} disabled={deleting}
                 style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"8px 20px", borderRadius:5, fontSize:12, fontFamily:FONT_MONO, cursor:"pointer" }}>
                 Cancel
               </button>

@@ -667,7 +667,8 @@ export async function deleteOrganization(orgId) {
   if (!r) throw new Error('Not authenticated')
   if (!r.ok) {
     const err = await r.json().catch(() => ({}))
-    throw new Error(err.detail || `Delete failed (HTTP ${r.status})`)
+    const detail = err.detail
+    throw new Error(typeof detail === 'string' ? detail : `Delete failed (HTTP ${r.status})`)
   }
   return r.json()
 }

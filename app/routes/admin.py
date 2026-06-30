@@ -598,7 +598,7 @@ async def delete_organization(
     The internal platform organization cannot be deleted.
     Platform admin only.
     """
-    from app.models import RoleModel
+    from app.models import Role
     org = db.query(Organization).filter(Organization.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail=f"Organization {org_id} not found.")
@@ -614,7 +614,7 @@ async def delete_organization(
     db.query(GuardMode).filter(GuardMode.organization_id == org_id).delete(synchronize_session=False)
     db.query(Team).filter(Team.organization_id == org_id).delete(synchronize_session=False)
     db.query(User).filter(User.organization_id == org_id).delete(synchronize_session=False)
-    db.query(RoleModel).filter(RoleModel.organization_id == org_id).delete(synchronize_session=False)
+    db.query(Role).filter(Role.organization_id == org_id).delete(synchronize_session=False)
     db.delete(org)
     db.commit()
 
