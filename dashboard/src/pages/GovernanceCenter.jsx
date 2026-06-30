@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { fetchAgents, claimInventoryAgent, approveSuggestions, ignoreInventoryAgent } from "../api.js";
 import { stageMeta } from "../discoveryStatus.js";
+import { useBreakpoint } from "../hooks/useBreakpoint.js";
+import CollapsiblePanel from "../components/CollapsiblePanel.jsx";
 
 const agentActionId = (a) => a?.id || a?.asset_key || a?.agent_id;
 
@@ -187,6 +189,7 @@ const STH = ({ children, sortKey, sort, onSort }) => {
 };
 
 export default function GovernanceCenter() {
+  const bp = useBreakpoint();
   const [agents, setAgents]     = useState([]);
   const [loading, setLoading]   = useState(true);
   const [tab, setTab]           = useState("approvals");
@@ -271,7 +274,7 @@ export default function GovernanceCenter() {
 
         /* ── Approvals ─────────────────────────────────────────────────────── */
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
             {[
               { label: "Needs Validation",    count: needsValidation.length, color: T.warn,   desc: "Discovered agents to confirm" },
               { label: "Agents Needing Owner", count: unassigned.length,     color: T.yellow, desc: "Discovered agents without an owner yet" },
@@ -289,8 +292,8 @@ export default function GovernanceCenter() {
               <span style={{ fontSize: 22 }}>✓</span> Nothing to review — every discovered agent has an owner.
             </div>
           ) : (
-            <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
                 <thead>
                   <tr>
                     <STH sortKey="agent_name" sort={appSort} onSort={toggleApp}>Agent</STH>
@@ -336,7 +339,7 @@ export default function GovernanceCenter() {
 
         /* ── Ownership ─────────────────────────────────────────────────────── */
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : bp.isTablet ? "repeat(2, 1fr)" : "repeat(3, 1fr)", gap: 12 }}>
             {[
               { label: "Owned",         count: withOwner,         color: T.accent },
               { label: "Needs Owner",   count: total - withOwner, color: T.yellow },
@@ -361,11 +364,11 @@ export default function GovernanceCenter() {
           </div>
 
           {unassigned.length > 0 && (
-            <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
               <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}`, fontSize: 14, fontWeight: 600, color: T.text }}>
                 Agents Needing Owner ({unassigned.length})
               </div>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
                 <thead>
                   <tr>
                     <STH sortKey="agent_name" sort={unaSort} onSort={toggleUna}>Agent</STH>
@@ -399,15 +402,15 @@ export default function GovernanceCenter() {
 
         /* ── Policy Coverage ───────────────────────────────────────────────── */
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "24px 28px" }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 20 }}>Classification Completeness</div>
+          <CollapsiblePanel title="Classification Completeness" storageKey="oa-panel-gov-classification"
+            subtitle="How much governance metadata is filled in across agents">
             <CoverageBar label="Owner Assigned"            value={withOwner}  total={total} color={T.accent} />
             <CoverageBar label="Environment Classified"    value={withEnv}    total={total} color={T.info} />
             <CoverageBar label="Criticality Assessed"      value={withCrit}   total={total} color={T.warn} />
             <CoverageBar label="Business Purpose Documented" value={withPurpose} total={total} color={T.purple} />
-          </div>
+          </CollapsiblePanel>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : bp.isTablet ? "repeat(2, 1fr)" : "repeat(3, 1fr)", gap: 12 }}>
             {[
               { label: "Managed",        count: managed.length,  color: T.accent,  sub: "Fully governed" },
               { label: "Needs Attention", count: needsValidation.length + unassigned.length, color: T.warn, sub: "Action required" },

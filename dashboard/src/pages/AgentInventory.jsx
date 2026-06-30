@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import {
   fetchAgents, fetchAgentsSummary,
   claimInventoryAgent, validateInventoryAgent, rejectInventoryAgent,
@@ -41,7 +42,7 @@ function relativeTime(iso) {
 // ─── Shared primitives ────────────────────────────────────────────────────────
 function KpiCard({ label, value, sub, color }) {
   return (
-    <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "18px 20px", flex: 1, minWidth: 140 }}>
+    <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "18px 20px" }}>
       <div style={{ fontSize: 10, fontFamily: FONT_MONO, color: T.textMute, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>{label}</div>
       <div style={{ fontSize: 26, fontWeight: 600, color: color || T.text, letterSpacing: "-0.02em", lineHeight: 1 }}>{value ?? "—"}</div>
       {sub && <div style={{ fontSize: 11, color: T.textMute, fontFamily: FONT_MONO, marginTop: 6 }}>{sub}</div>}
@@ -379,26 +380,28 @@ function SearchBar({ value, onChange, placeholder }) {
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function TabBar({ active, tabs, onChange }) {
   return (
-    <div style={{ display: "flex", gap: 2, borderBottom: `1px solid ${T.border}`, marginBottom: 16 }}>
-      {tabs.map(t => (
-        <button key={t.id} onClick={() => onChange(t.id)} style={{
-          background: "transparent", border: "none",
-          borderBottom: active === t.id ? `2px solid ${T.accent}` : "2px solid transparent",
-          color: active === t.id ? T.text : T.textDim,
-          padding: "10px 16px", fontSize: 13, fontFamily: FONT_UI, cursor: "pointer",
-          display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap",
-        }}>
-          {t.label}
-          {t.count != null && (
-            <span style={{
-              background: active === t.id ? T.accent : T.panelHi,
-              color: active === t.id ? T.bg : T.textMute,
-              fontSize: 10, fontFamily: FONT_MONO, fontWeight: 600,
-              padding: "1px 7px", borderRadius: 20,
-            }}>{t.count}</span>
-          )}
-        </button>
-      ))}
+    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", borderBottom: `1px solid ${T.border}`, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 2, minWidth: "max-content" }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => onChange(t.id)} style={{
+            background: "transparent", border: "none",
+            borderBottom: active === t.id ? `2px solid ${T.accent}` : "2px solid transparent",
+            color: active === t.id ? T.text : T.textDim,
+            padding: "10px 16px", fontSize: 13, fontFamily: FONT_UI, cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap",
+          }}>
+            {t.label}
+            {t.count != null && (
+              <span style={{
+                background: active === t.id ? T.accent : T.panelHi,
+                color: active === t.id ? T.bg : T.textMute,
+                fontSize: 10, fontFamily: FONT_MONO, fontWeight: 600,
+                padding: "1px 7px", borderRadius: 20,
+              }}>{t.count}</span>
+            )}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -407,13 +410,58 @@ function TabBar({ active, tabs, onChange }) {
 function VerifiedTable({ agents, onClaim, onEdit }) {
   const [sort, toggle] = useSort("monthly_cost_usd", "desc");
   const sorted = sortAgents(agents, sort.key, sort.dir);
+  const bp = useBreakpoint();
   if (agents.length === 0) {
     return <EmptyState message="No verified agents in this view." />;
   }
+
+  if (bp.isMobile) {
+    return (
+      <div>
+        {sorted.map((a, i) => (
+          <div key={a.id} style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.panel : "#0C0E14" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
+                <div style={{ marginTop: 5, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                  <LifecycleBadge status={a.lifecycle_status} />
+                  <AssetTypeBadge assetType={a.asset_type} />
+                </div>
+              </div>
+              <div style={{ flexShrink: 0, textAlign: "right" }}>
+                <div style={{ fontSize: 14, fontFamily: FONT_MONO, color: a.monthly_cost_usd > 0 ? T.text : T.textMute, fontWeight: 600 }}>{fmtCost(a.monthly_cost_usd)}</div>
+                <div style={{ fontSize: 10, color: T.textMute, fontFamily: FONT_MONO, marginTop: 2 }}>{relativeTime(a.last_seen)}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
+              <DiscoveryStatusBadge status={a.discovery_status} />
+              <DiscoveryBadge source={a.discovery_source} />
+              <StatusPill status={a.status} />
+              <RiskChip risk={a.risk} signals={a.signals} capabilities={a.capabilities} />
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 11, color: T.textDim, fontFamily: FONT_MONO, marginBottom: 8 }}>
+              {a.team && a.team !== "Unknown" && <span>Team: {a.team}</span>}
+              {a.owner && a.owner !== "Unassigned" && <span>Owner: {a.owner}</span>}
+              {a.environment && a.environment !== "Unknown" && <span style={{ color: T.info }}>{a.environment}</span>}
+            </div>
+            {(a.lifecycle_status === "unassigned" || onEdit) && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {a.lifecycle_status === "unassigned" && (
+                  <ActionBtn label="Claim →" color={T.accent} onClick={() => onClaim(a)} />
+                )}
+                {onEdit && <ActionBtn label="Edit" color={T.info} onClick={() => onEdit(a)} />}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const sp = { sort, onSort: toggle };
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
         <thead><tr>
           <Th label="Agent"        sortKey="name"             {...sp} style={{ paddingLeft: 20 }} />
           <Th label="Type"         sortKey="asset_type"       {...sp} />
@@ -479,6 +527,7 @@ function VerifiedTable({ agents, onClaim, onEdit }) {
 function PotentialTable({ agents, onValidate, onReject, onEdit }) {
   const [sort, toggle] = useSort("confidence_score", "desc");
   const sorted = sortAgents(agents, sort.key, sort.dir);
+  const bp = useBreakpoint();
   if (agents.length === 0) {
     return (
       <div style={{ padding: "48px 24px", textAlign: "center" }}>
@@ -492,10 +541,39 @@ function PotentialTable({ agents, onValidate, onReject, onEdit }) {
       </div>
     );
   }
+
+  if (bp.isMobile) {
+    return (
+      <div>
+        {sorted.map((a, i) => (
+          <div key={a.id} style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.panel : "#0C0E14" }}>
+            <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 6 }}>{a.name}</div>
+            {a.discovery_reason && (
+              <div style={{ fontSize: 11, color: T.textMute, marginBottom: 8, lineHeight: 1.5 }}>{a.discovery_reason}</div>
+            )}
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
+              <DiscoveryBadge source={a.discovery_source} />
+              <StageBadge agent={a} />
+            </div>
+            <div style={{ marginBottom: 8 }}><EvidenceChips evidence={a.evidence} /></div>
+            <div style={{ fontSize: 11, color: T.textMute, fontFamily: FONT_MONO, marginBottom: 10 }}>
+              First detected: {relativeTime(a.first_seen)}
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <ActionBtn label="Validate ✓" color={T.accent} onClick={() => onValidate(a)} />
+              <ActionBtn label="Reject ✗"  color={T.crit}  onClick={() => onReject(a)} />
+              {onEdit && <ActionBtn label="Edit" color={T.info} onClick={() => onEdit(a)} />}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const sp = { sort, onSort: toggle };
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
         <thead><tr>
           <Th label="Detected Agent"  sortKey="name"             {...sp} style={{ paddingLeft: 20 }} />
           <Th label="Source"          sortKey="discovery_source" {...sp} />
@@ -538,11 +616,45 @@ function PotentialTable({ agents, onValidate, onReject, onEdit }) {
 function ManagedTable({ agents, onEdit }) {
   const [sort, toggle] = useSort("monthly_cost_usd", "desc");
   const sorted = sortAgents(agents, sort.key, sort.dir);
+  const bp = useBreakpoint();
   if (agents.length === 0) return <EmptyState message="No managed agents yet. Claim verified agents to see them here." />;
+
+  if (bp.isMobile) {
+    return (
+      <div>
+        {sorted.map((a, i) => (
+          <div key={a.id} style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.panel : "#0C0E14" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
+                {a.business_purpose && (
+                  <div style={{ fontSize: 11, color: T.textMute, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.business_purpose}</div>
+                )}
+              </div>
+              <div style={{ flexShrink: 0, textAlign: "right" }}>
+                <div style={{ fontSize: 14, fontFamily: FONT_MONO, color: a.monthly_cost_usd > 0 ? T.text : T.textMute, fontWeight: 600 }}>{fmtCost(a.monthly_cost_usd)}</div>
+                <div style={{ fontSize: 10, color: T.textMute, fontFamily: FONT_MONO, marginTop: 2 }}>{relativeTime(a.last_seen)}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 11, color: T.textDim, fontFamily: FONT_MONO, marginBottom: onEdit ? 8 : 0 }}>
+              {a.owner && <span>Owner: {a.owner}</span>}
+              {a.team && a.team !== "Unknown" && <span>Team: {a.team}</span>}
+              {a.environment && a.environment !== "Unknown" && <span style={{ color: T.info }}>{a.environment}</span>}
+              {a.criticality && (
+                <span style={{ color: a.criticality === "critical" ? T.crit : a.criticality === "high" ? T.warn : T.textDim, textTransform: "capitalize" }}>{a.criticality}</span>
+              )}
+            </div>
+            {onEdit && <ActionBtn label="Edit" color={T.info} onClick={() => onEdit(a)} />}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const sp = { sort, onSort: toggle };
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
         <thead><tr>
           <Th label="Agent"        sortKey="name"             {...sp} style={{ paddingLeft: 20 }} />
           <Th label="Owner"        sortKey="owner"            {...sp} />
@@ -593,11 +705,41 @@ function ManagedTable({ agents, onEdit }) {
 function RetiredTable({ agents, onEdit }) {
   const [sort, toggle] = useSort("last_seen", "desc");
   const sorted = sortAgents(agents, sort.key, sort.dir);
+  const bp = useBreakpoint();
   if (agents.length === 0) return <EmptyState message="No retired agents." />;
+
+  if (bp.isMobile) {
+    return (
+      <div>
+        {sorted.map((a, i) => (
+          <div key={a.id} style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.panel : "#0C0E14", opacity: 0.8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.textMute, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
+                <div style={{ marginTop: 5 }}><LifecycleBadge status="retired" /></div>
+              </div>
+              <div style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textMute, flexShrink: 0 }}>{relativeTime(a.last_seen)}</div>
+            </div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 6 }}>
+              <DiscoveryBadge source={a.discovery_source} />
+              {a.owner && a.owner !== "Unassigned" && (
+                <span style={{ fontSize: 11, color: T.textMute, fontFamily: FONT_MONO }}>Owner: {a.owner}</span>
+              )}
+            </div>
+            {a.business_purpose && (
+              <div style={{ fontSize: 11, color: T.textMute, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: onEdit ? 8 : 0 }}>{a.business_purpose}</div>
+            )}
+            {onEdit && <ActionBtn label="Edit" color={T.info} onClick={() => onEdit(a)} />}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const sp = { sort, onSort: toggle };
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+    <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
         <thead><tr>
           <Th label="Agent"            sortKey="name"             {...sp} style={{ paddingLeft: 20 }} />
           <Th label="Discovery Source" sortKey="discovery_source" {...sp} />
@@ -857,6 +999,7 @@ function EditModal({ agent, onSave, onClose, saving, environments = ["production
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function AgentInventory({ isAdmin = false, onNavigate }) {
+  const bp = useBreakpoint();
   const [agents,       setAgents]       = useState([]);
   const [summary,      setSummary]      = useState(null);
   const [loading,      setLoading]      = useState(true);
@@ -886,7 +1029,7 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
       setSummary(s);
       setError(null);
     } catch (e) {
-      setError(e.message);
+      setError(typeof e?.message === "string" && e.message ? e.message : "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -917,7 +1060,7 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
       setClaimError(null);
       await loadData();
     } catch (e) {
-      setClaimError(e.message);
+      setClaimError(typeof e?.message === "string" && e.message ? e.message : "Something went wrong");
     } finally {
       setSaving(false);
     }
@@ -991,9 +1134,9 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
   const potentialSummary = summary?.potential_agents || {};
 
   return (
-    <div style={{ fontFamily: FONT_UI }}>
+    <div style={{ fontFamily: FONT_UI, minWidth: 0 }}>
       {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+      <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "repeat(2,1fr)" : "repeat(5,1fr)", gap: 12, marginBottom: 24 }}>
         <KpiCard
           label="Verified Agents"
           value={verifiedSummary.total ?? verified.length}
@@ -1027,7 +1170,7 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
       </div>
 
       {/* ── Tabs + Search ─────────────────────────────────────────────────── */}
-      <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
+      <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8 }}>
         <div style={{ padding: "16px 20px 0", borderBottom: `1px solid ${T.border}` }}>
           <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 0 }}>
             <div style={{ flex: 1 }}>
@@ -1039,7 +1182,7 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
                 }
               }} />
             </div>
-            <div style={{ paddingBottom: 12 }}>
+            <div style={{ paddingBottom: 12, width: bp.isMobile ? "100%" : "auto" }}>
               <SearchBar value={search} onChange={setSearch} placeholder="Search agents…" />
             </div>
           </div>
@@ -1052,7 +1195,7 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
         {tab === "retired"   && <RetiredTable   agents={applySearch(retired)}   onEdit={isAdmin ? setEditTarget : null} />}
 
         {/* Footer */}
-        <div style={{ borderTop: `1px solid ${T.border}`, padding: "10px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ borderTop: `1px solid ${T.border}`, padding: "10px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <span style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textMute }}>
             {[verified, potential, retired].reduce((s, l) => s + l.length, 0) + managed.filter(a => !verified.includes(a)).length} total inventory records
           </span>

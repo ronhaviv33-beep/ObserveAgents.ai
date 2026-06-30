@@ -22,6 +22,7 @@ import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
 import ExecutiveDashboard from "./pages/ExecutiveDashboard.jsx";
+import DemoDashboard from "./pages/DemoDashboard.jsx";
 import DiscoveryCenter from "./pages/DiscoveryCenter.jsx";
 import GovernanceCenter from "./pages/GovernanceCenter.jsx";
 import SecurityIntelligence from "./pages/SecurityIntelligence.jsx";
@@ -34,7 +35,7 @@ import {
 } from "recharts";
 
 import { T, FONT_UI, FONT_MONO } from "./theme.js";
-import { BRAND, gatewayBaseUrl } from "./config.js";
+import { BRAND, gatewayBaseUrl, DEMO_GATEWAY_KEY } from "./config.js";
 import { Card, Stat, Pill, SortableTh, SearchBox, sevColor, fmt$, fmtK, fmtTime, useSortable, useSearch } from "./components/ui.jsx";
 import LoginPage from "./components/LoginPage.jsx";
 import Home from "./components/Home.jsx";
@@ -370,6 +371,8 @@ const NAV_GROUPS = [
 // ─── Root ─────────────────────────────────────────────────────────────────────
 export default function App() {
   const [page, setPage]       = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const bp = useBreakpoint();
   const [discoveryInitialTab, setDiscoveryInitialTab] = useState("verified");
 
   // Navigate to a page and push a browser history entry so back/forward works.
@@ -400,6 +403,19 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
   const [filters, setFilters] = useState({ team:"all", model:"all", agent:"all", sev:"all", range:30 });
+
+  // Auto-close drawer when rotating to a wider breakpoint (e.g. landscape tablet → desktop)
+  useEffect(() => { if (bp.isDesktop) setSidebarOpen(false); }, [bp.isDesktop]);
+
+  // Prevent body scroll when drawer is open so the page doesn't scroll behind the overlay
+  useEffect(() => {
+    if (!bp.isDesktop && sidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [sidebarOpen, bp.isDesktop]);
 
   // ── Real JWT auth ──
   const [user,         setUser]         = useState(null);
@@ -633,7 +649,7 @@ export default function App() {
     }
     switch (page) {
       // ── New primary pages ───────────────────────────────────────────────
-      case "dashboard":      return <ExecutiveDashboard onNavigate={navigate} />;
+      case "dashboard":      return isDemoMode() ? <DemoDashboard onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
       case "welcome":        return <CustomerWelcomePage onNavigate={navigate} />;
       case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); navigate(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
@@ -647,19 +663,19 @@ export default function App() {
       case "budgets":   return <BudgetsPage />;
       case "security":  return <SecurityPage />;
       case "users":     return <UsersPage />;
-      case "apikeys":   return <ApiKeysPage />;
+      case "apikeys":   return <ApiKeysPage demoMode={demoMode} />;
       case "settings":      return <SettingsPage />;
       // ── Legacy pages (still routable, removed from primary nav) ────────
       case "home":           return <Home onNavigate={navigate} />;
-      case "chat":           return <ChatPage />;
+      case "chat":           return <ChatPage demoMode={demoMode} />;
       case "assets":    return <AssetsPage />;
       case "overview":  return <Overview  {...pageProps} />;
       case "agents":    return <AgentActivity {...pageProps} />;
       case "models":    return <ModelUsage A={A} />;
       case "workflows": return <WorkflowHealth {...pageProps} />;
       case "alerts":    return <AlertsPage alerts={alerts} sevFilter={filters.sev} />;
-      case "integrations":  return <SimpleIntegrationsPage onNavigate={navigate} />;
-      case "onboarding":    return <OnboardingPage onNavigate={navigate} />;
+      case "integrations":  return <SimpleIntegrationsPage onNavigate={navigate} demoMode={demoMode} />;
+      case "onboarding":    return <OnboardingPage onNavigate={navigate} demoMode={demoMode} />;
       case "organizations": return user?.is_platform_admin ? <OrganizationsPage /> : null;
       default:              return null;
     }
@@ -676,26 +692,71 @@ export default function App() {
   return (
     <UserContext.Provider value={user}>
     <RolesContext.Provider value={rolesMap}>
-    <div style={{ minHeight:"100vh", background:T.bg, color:T.text, fontFamily:FONT_UI, fontSize:14, display:"flex" }}>
+    <div style={{ minHeight:"100vh", background:T.bg, color:T.text, fontFamily:FONT_UI, fontSize:14, display:"flex", overflowX:"hidden", position:"relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
         * { box-sizing:border-box; }
+        html, body { overflow-x:hidden; max-width:100vw; }
         ::-webkit-scrollbar { width:8px; height:8px; }
         ::-webkit-scrollbar-track { background:${T.bg}; }
         ::-webkit-scrollbar-thumb { background:${T.border}; border-radius:4px; }
         ::-webkit-scrollbar-thumb:hover { background:${T.borderHi}; }
         select { appearance:none; background-image:url("data:image/svg+xml;utf8,<svg fill='%237A8499' xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24'><polygon points='6,9 18,9 12,16'/></svg>"); background-repeat:no-repeat; background-position:right 8px center; padding-right:22px !important; }
         button:focus { outline:none; }
+        @media (max-width:639px) {
+          ::-webkit-scrollbar { width:4px; height:4px; }
+        }
       `}</style>
 
+      {/* Mobile/Tablet: fixed top bar */}
+      {!bp.isDesktop && (
+        <div style={{ position:"fixed", top:0, left:0, right:0, height:52, background:T.panel, borderBottom:`1px solid ${T.border}`, display:"flex", alignItems:"center", padding:"0 16px", gap:12, zIndex:150, flexShrink:0 }}>
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            aria-label="Toggle navigation"
+            style={{ background:"none", border:"none", color:T.text, cursor:"pointer", padding:0, display:"flex", flexDirection:"column", gap:4, minWidth:44, minHeight:44, justifyContent:"center", alignItems:"center" }}>
+            <span style={{ display:"block", width:18, height:2, background:T.text, borderRadius:1 }}/>
+            <span style={{ display:"block", width:18, height:2, background:T.text, borderRadius:1 }}/>
+            <span style={{ display:"block", width:18, height:2, background:T.text, borderRadius:1 }}/>
+          </button>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ width:20, height:20, background:T.accent, borderRadius:3, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT_MONO, fontWeight:600, fontSize:11, color:T.bg }}>◆</div>
+            <div style={{ fontSize:13, fontWeight:600, letterSpacing:"-0.01em" }}>{BRAND.name}</div>
+          </div>
+          <div style={{ marginLeft:"auto", fontSize:10, color:T.textDim, fontFamily:FONT_MONO, textTransform:"uppercase", letterSpacing:"0.1em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:160 }}>
+            {PAGES.find(p => p.id === page)?.label}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile/Tablet: sidebar backdrop — starts at 52px so top bar + hamburger stay tappable */}
+      {!bp.isDesktop && sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{ position:"fixed", top:52, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:190, touchAction:"none" }}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside style={{ width:230, background:T.panel, borderRight:`1px solid ${T.border}`, padding:"22px 16px", display:"flex", flexDirection:"column", flexShrink:0 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:32, padding:"0 6px" }}>
+      <aside style={
+        bp.isDesktop
+          ? { width:230, background:T.panel, borderRight:`1px solid ${T.border}`, padding:"22px 16px", display:"flex", flexDirection:"column", flexShrink:0 }
+          : { position:"fixed", top:52, left:0, bottom:0, width:"min(320px, 85vw)", background:T.panel, borderRight:`1px solid ${T.border}`, padding:"16px", display:"flex", flexDirection:"column", zIndex:200, transition:"transform 0.25s ease", overflowY:"auto", transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)" }
+      }>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:bp.isDesktop ? 32 : 20, padding:"0 6px" }}>
           <div style={{ width:22, height:22, background:T.accent, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT_MONO, fontWeight:600, fontSize:12, color:T.bg }}>◆</div>
-          <div>
+          <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:13, fontWeight:600, letterSpacing:"-0.01em" }}>{BRAND.name}</div>
             <div style={{ fontSize:9, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.08em", textTransform:"uppercase", marginTop:1 }}>{BRAND.subtitle}</div>
           </div>
+          {!bp.isDesktop && (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Close navigation"
+              style={{ background:"none", border:"none", color:T.textMute, cursor:"pointer", fontSize:18, lineHeight:1, padding:0, minWidth:36, minHeight:36, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              ✕
+            </button>
+          )}
         </div>
 
         <nav style={{ display:"flex", flexDirection:"column", gap:0, flex:1, overflowY:"auto" }}>
@@ -712,8 +773,8 @@ export default function App() {
                   </div>
                 )}
                 {visibleItems.map(item => (
-                  <button key={item.id} onClick={()=>navigate(item.id)}
-                    style={{ background:page===item.id?T.panelHi:"transparent", border:"none", color:page===item.id?T.text:T.textDim, textAlign:"left", padding:"8px 10px", fontSize:12, borderRadius:4, cursor:"pointer", fontFamily:FONT_UI, display:"flex", alignItems:"center", gap:10, borderLeft:page===item.id?`2px solid ${T.accent}`:"2px solid transparent", transition:"all 0.1s", width:"100%" }}>
+                  <button key={item.id} onClick={()=>{ navigate(item.id); if(!bp.isDesktop) setSidebarOpen(false); }}
+                    style={{ background:page===item.id?T.panelHi:"transparent", border:"none", color:page===item.id?T.text:T.textDim, textAlign:"left", padding:"8px 10px", fontSize:12, borderRadius:4, cursor:"pointer", fontFamily:FONT_UI, display:"flex", alignItems:"center", gap:10, borderLeft:page===item.id?`2px solid ${T.accent}`:"2px solid transparent", transition:"all 0.1s", width:"100%", minHeight:44 }}>
                     {item.label}
                     {item.id==="alerts" && critCount>0 && (
                       <span style={{ marginLeft:"auto", background:T.crit, color:T.bg, fontSize:10, fontFamily:FONT_MONO, padding:"1px 6px", borderRadius:8, fontWeight:600 }}>{critCount}</span>
@@ -814,13 +875,13 @@ export default function App() {
       </aside>
 
       {/* Main */}
-      <main style={{ flex:1, padding:"20px 28px", overflow:"auto" }}>
-        <header style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18 }}>
+      <main style={{ flex:1, padding: bp.isMobile ? "68px 16px 24px" : bp.isTablet ? "72px 20px 24px" : "20px 28px", overflow:"auto", minWidth:0 }}>
+        <header style={{ display: bp.isMobile ? "none" : "flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, flexWrap:"wrap", gap:8 }}>
           <div>
             <div style={{ fontSize:11, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase" }}>{page}</div>
-            <h1 style={{ fontSize:22, fontWeight:500, margin:"4px 0 0", letterSpacing:"-0.015em" }}>{PAGES.find((p)=>p.id===page)?.label}</h1>
+            <h1 style={{ fontSize: bp.isTablet ? 18 : 22, fontWeight:500, margin:"4px 0 0", letterSpacing:"-0.015em" }}>{PAGES.find((p)=>p.id===page)?.label}</h1>
           </div>
-          <div style={{ display:"flex", gap:10, alignItems:"center", fontFamily:FONT_MONO, fontSize:11, color:T.textDim }}>
+          <div style={{ display:"flex", gap:10, alignItems:"center", fontFamily:FONT_MONO, fontSize:11, color:T.textDim, flexWrap:"wrap" }}>
             {user?.is_platform_admin && viewOrgId && (() => {
               const org = allOrgs.find(o => String(o.id) === String(viewOrgId));
               return org ? (

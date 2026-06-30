@@ -5,7 +5,9 @@ import {
   fetchCostIntelligence, fetchSecurityAlerts,
   fetchRelationships,
 } from "../api.js";
+import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import { relationshipEvidenceLabel } from "../discoveryStatus.js";
+import CollapsiblePanel, { PanelGroupControls } from "../components/CollapsiblePanel.jsx";
 
 const T = {
   bg: "#0A0B0F", panel: "#0F1117", panelHi: "#141823",
@@ -74,6 +76,9 @@ function KpiCard({ label, value, sub, color, onClick }) {
   );
 }
 
+// Small header action button reused inside CollapsiblePanel headers on the dashboard.
+const DASH_ACTION_BTN = { background: "transparent", border: `1px solid ${T.border}`, color: T.textDim, padding: "4px 12px", borderRadius: 4, fontSize: 11, fontFamily: MONO, cursor: "pointer", letterSpacing: "0.04em" };
+
 function SectionTitle({ title, sub, action, onAction }) {
   return (
     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16 }}>
@@ -105,6 +110,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
   const [alerts, setAlerts]           = useState([]);
   const [relationships, setRels]      = useState([]);
   const [loading, setLoading]         = useState(true);
+  const bp = useBreakpoint();
 
   useEffect(() => {
     (async () => {
@@ -209,9 +215,9 @@ export default function ExecutiveDashboard({ onNavigate }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 24, fontFamily: FONT }}>
 
       {/* ── Brand ──────────────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: T.text, letterSpacing: "-0.025em" }}>
+          <h2 style={{ margin: 0, fontSize: bp.isMobile ? 20 : 24, fontWeight: 700, color: T.text, letterSpacing: "-0.025em" }}>
             ObserveAgents
           </h2>
           <div style={{ fontSize: 12, color: T.textMute, fontFamily: MONO, marginTop: 5 }}>
@@ -221,6 +227,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
         <div style={{ fontSize: 11, color: T.textMute, fontFamily: MONO, textAlign: "right" }}>
           <div style={{ marginBottom: 3 }}>Executive Overview</div>
           <div>{new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+          <PanelGroupControls group="dashboard" style={{ marginTop: 8, justifyContent: "flex-end" }} />
         </div>
       </div>
 
@@ -270,7 +277,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
       </div>
 
       {/* ── Lifecycle + Discovery ─────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
 
         {/* Lifecycle donut */}
         <Panel>
@@ -341,8 +348,9 @@ export default function ExecutiveDashboard({ onNavigate }) {
       </div>
 
       {/* ── Top Cost Drivers ──────────────────────────────────────────────────── */}
-      <Panel>
-        <SectionTitle title="Top Cost Drivers" sub="Last 30 days · runtime estimate" action="View Cost Intelligence →" onAction={() => onNavigate?.("cost")} />
+      <CollapsiblePanel group="dashboard" storageKey="oa-panel-dash-cost-drivers"
+        title="Top Cost Drivers" subtitle="Last 30 days · runtime estimate"
+        actions={<button onClick={() => onNavigate?.("cost")} style={DASH_ACTION_BTN}>View Cost Intelligence →</button>}>
         {topCosts.length > 0 ? (
           <div>
             {topCosts.map((item, i) => {
@@ -351,25 +359,27 @@ export default function ExecutiveDashboard({ onNavigate }) {
               return (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: i < topCosts.length - 1 ? `1px solid ${T.border}` : "none" }}>
                   <div style={{ width: 22, fontSize: 11, fontFamily: MONO, color: T.textMute, textAlign: "right", flexShrink: 0 }}>{i + 1}.</div>
-                  <div title={name} style={{ flex: 1, fontSize: 13, color: T.text, fontFamily: MONO, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
-                  <div style={{ fontSize: 11, color: T.textDim, width: 80, textAlign: "center" }}>{item.team || "—"}</div>
-                  <div style={{ width: 100, display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ flex: 1, background: T.panelHi, borderRadius: 2, height: 4 }}>
-                      <div style={{ width: `${Math.min(100, pct * 100)}%`, background: T.info, height: 4, borderRadius: 2 }} />
+                  <div title={name} style={{ flex: 1, minWidth: 0, fontSize: 13, color: T.text, fontFamily: MONO, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+                  {!bp.isMobile && <div style={{ fontSize: 11, color: T.textDim, width: 80, textAlign: "center" }}>{item.team || "—"}</div>}
+                  {!bp.isMobile && (
+                    <div style={{ width: 100, display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ flex: 1, background: T.panelHi, borderRadius: 2, height: 4 }}>
+                        <div style={{ width: `${Math.min(100, pct * 100)}%`, background: T.info, height: 4, borderRadius: 2 }} />
+                      </div>
+                      <span style={{ fontSize: 10, fontFamily: MONO, color: T.textMute, width: 32, textAlign: "right" }}>{Math.round(pct * 100)}%</span>
                     </div>
-                    <span style={{ fontSize: 10, fontFamily: MONO, color: T.textMute, width: 32, textAlign: "right" }}>{Math.round(pct * 100)}%</span>
-                  </div>
-                  <div style={{ width: 80, textAlign: "right", fontFamily: MONO, fontSize: 13, color: T.text }}>{fmtUSD(item.cost_usd)}</div>
+                  )}
+                  <div style={{ flexShrink: 0, textAlign: "right", fontFamily: MONO, fontSize: 13, color: T.text }}>{fmtUSD(item.cost_usd)}</div>
                 </div>
               );
             })}
             {otherCost > 1 && (
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderTop: `1px solid ${T.border}` }}>
                 <div style={{ width: 22, fontSize: 11, fontFamily: MONO, color: T.textMute, textAlign: "right" }}>…</div>
-                <div style={{ flex: 1, fontSize: 12, color: T.textMute, fontFamily: MONO }}>Others ({Math.max(0, total - topCosts.length)} agents)</div>
-                <div style={{ width: 80 }} />
-                <div style={{ width: 100 }} />
-                <div style={{ width: 80, textAlign: "right", fontFamily: MONO, fontSize: 12, color: T.textMute }}>{fmtUSD(otherCost)}</div>
+                <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: T.textMute, fontFamily: MONO }}>Others ({Math.max(0, total - topCosts.length)} agents)</div>
+                {!bp.isMobile && <div style={{ width: 80 }} />}
+                {!bp.isMobile && <div style={{ width: 100 }} />}
+                <div style={{ flexShrink: 0, textAlign: "right", fontFamily: MONO, fontSize: 12, color: T.textMute }}>{fmtUSD(otherCost)}</div>
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
@@ -382,20 +392,17 @@ export default function ExecutiveDashboard({ onNavigate }) {
         ) : (
           <div style={{ color: T.textMute, fontFamily: MONO, fontSize: 12 }}>No cost data for the last 30 days</div>
         )}
-      </Panel>
+      </CollapsiblePanel>
 
       {/* ── Runtime Dependency Map ───────────────────────────────────────────────── */}
-      <Panel>
-        <SectionTitle
-          title="Runtime Dependency Map"
-          sub="Top agent dependencies by traffic volume · real-time gateway data"
-          action="View Dependency Map →"
-          onAction={() => onNavigate?.("relationship_map")}
-        />
+      <CollapsiblePanel group="dashboard" storageKey="oa-panel-dash-deps"
+        title="Runtime Dependency Map"
+        subtitle="Top agent dependencies by traffic volume · real-time gateway data"
+        actions={<button onClick={() => onNavigate?.("relationship_map")} style={DASH_ACTION_BTN}>View Dependency Map →</button>}>
         {topRels.length > 0 ? (
-          <div>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
             {/* Column headers */}
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 80px 80px", gap: 12, padding: "0 4px 10px", borderBottom: `1px solid ${T.border}`, marginBottom: 4 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 80px 80px", gap: 12, padding: "0 4px 10px", borderBottom: `1px solid ${T.border}`, marginBottom: 4, minWidth: 560 }}>
               {["Source Agent → Target System", "Relationship", "Evidence", "Strength", "Requests"].map(h => (
                 <div key={h} style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.12em", textTransform: "uppercase" }}>{h}</div>
               ))}
@@ -413,7 +420,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
                 <div key={r.id} style={{
                   display: "grid", gridTemplateColumns: "2fr 1fr 1fr 80px 80px", gap: 12,
                   padding: "10px 4px", borderBottom: i < topRels.length - 1 ? `1px solid ${T.border}` : "none",
-                  alignItems: "center",
+                  alignItems: "center", minWidth: 560,
                 }}>
                   {/* Source → Target */}
                   <div style={{ minWidth: 0 }}>
@@ -487,10 +494,10 @@ export default function ExecutiveDashboard({ onNavigate }) {
             </div>
           </div>
         )}
-      </Panel>
+      </CollapsiblePanel>
 
       {/* ── High Risk + Action Items ───────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "3fr 2fr", gap: 16 }}>
 
         {/* High Risk Agents */}
         <Panel>
