@@ -65,6 +65,7 @@ def _discover_asset(
         "sdk_runtime":     "sdk_runtime",
         "explicit_header": "gateway_telemetry",
         "api_key_scope":   "gateway_telemetry",
+        "otel_trace":      "otel_trace",
     }
     disc_source = _DSOURCE_MAP.get(source_hint or "", "gateway_runtime")
 
