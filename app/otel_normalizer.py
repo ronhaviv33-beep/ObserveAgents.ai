@@ -9,6 +9,9 @@ For each span:
   5. Write an OtelSpan row (privacy-scrubbed attributes).
   6. Write a ProvenanceEvent row for each meaningful action.
 
+After all spans in the batch:
+  7. Upsert one OtelAsset per unique agent/service identity (aggregates models/tools/etc.).
+
 Discovery status notes:
   - "potential" is used (not "observed") so OTel-discovered assets appear in the
     existing frontend pipeline (which knows verified/likely/potential/historical).
@@ -21,6 +24,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone
+from collections import defaultdict
 
 from sqlalchemy.orm import Session
 
@@ -118,6 +122,17 @@ def _nano_to_datetime(nano: int | str | None) -> datetime | None:
         return None
 
 
+def _utc_naive(dt: datetime) -> datetime:
+    """Strip tzinfo from a datetime, converting to UTC first if needed.
+
+    SQLite returns DateTime(timezone=True) columns as naive UTC. Normalizing
+    to naive UTC before comparisons avoids offset-naive vs offset-aware errors.
+    """
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
 def _content_hash(attrs: dict) -> str | None:
     """SHA-256 of the combined raw content fields if any were present."""
     parts = []
@@ -131,18 +146,18 @@ def _content_hash(attrs: dict) -> str | None:
 
 
 def _make_asset_key(org_id: int, agent_name: str) -> str:
-    import hashlib as _hl
-    return _hl.sha256(f"{org_id}:{agent_name}".encode()).hexdigest()[:64]
+    return hashlib.sha256(f"{org_id}:{agent_name}".encode()).hexdigest()[:64]
 
 
-def _upsert_asset(db: Session, org_id: int, agent_name: str, resource_attrs: dict) -> None:
-    """Idempotent upsert of an AssetRegistry row for an OTel-observed agent."""
+def _upsert_asset(db: Session, org_id: int, agent_name: str, resource_attrs: dict) -> int | None:
+    """
+    Idempotent upsert of an AssetRegistry row for an OTel-observed agent.
+    Returns the AssetRegistry.id, or None if upsert fails.
+    """
     from app.asset_discovery import _known_assets, _infer_asset_type
     from app.models import AssetRegistry
 
     asset_key = _make_asset_key(org_id, agent_name)
-    if (org_id, asset_key) in _known_assets:
-        return
 
     environment = (
         resource_attrs.get("deployment.environment")
@@ -163,7 +178,6 @@ def _upsert_asset(db: Session, org_id: int, agent_name: str, resource_attrs: dic
         "cloud.region":    resource_attrs.get("cloud.region"),
         "container.name":  resource_attrs.get("container.name"),
     }
-    # Strip None values to keep evidence compact
     evidence = {k: v for k, v in evidence.items() if v is not None}
 
     try:
@@ -172,7 +186,7 @@ def _upsert_asset(db: Session, org_id: int, agent_name: str, resource_attrs: dic
             AssetRegistry.asset_key == asset_key,
         ).first()
         if not existing:
-            db.add(AssetRegistry(
+            row = AssetRegistry(
                 organization_id=org_id,
                 asset_key=asset_key,
                 agent_id_raw=agent_name,
@@ -188,30 +202,149 @@ def _upsert_asset(db: Session, org_id: int, agent_name: str, resource_attrs: dic
                 evidence=json.dumps(evidence),
                 confidence_score=75.0,
                 asset_type=_infer_asset_type(agent_name, ""),
-            ))
+            )
+            db.add(row)
             db.commit()
-        elif existing.discovery_source == "gateway_runtime":
-            # Upgrade: OTel trace is richer evidence than anonymous gateway traffic
-            existing.discovery_source = "otel_trace"
-            db.commit()
-        _known_assets.add((org_id, asset_key))
+            db.refresh(row)
+            _known_assets.add((org_id, asset_key))
+            return row.id
+        else:
+            if existing.discovery_source == "gateway_runtime":
+                existing.discovery_source = "otel_trace"
+                db.commit()
+            _known_assets.add((org_id, asset_key))
+            return existing.id
     except Exception:
         db.rollback()
         _log.warning("Failed to upsert OTel asset for %s (org=%s)", agent_name, org_id, exc_info=True)
+        return None
+
+
+def _merge_json_array(existing_json: str | None, new_values: set[str]) -> str:
+    """Merge new_values into a JSON array, deduplicating, return serialized."""
+    current: list[str] = json.loads(existing_json or "[]")
+    merged = sorted(set(current) | {v for v in new_values if v})
+    return json.dumps(merged)
+
+
+def upsert_otel_asset(
+    db: Session,
+    org_id: int,
+    ai_asset_id: int | None,
+    service_name: str,
+    agent_name: str | None,
+    environment: str | None,
+    resource_attrs: dict,
+    new_models: set[str],
+    new_providers: set[str],
+    new_tools: set[str],
+    new_dependencies: set[str],
+    trace_ids: set[str],
+    span_dts: list[datetime],
+) -> None:
+    """
+    Upsert one OtelAsset row for a (org, service_name, environment) identity.
+
+    Lookup uses application-level dedup (not a DB unique constraint) because
+    environment is nullable and SQLite treats NULL != NULL in unique indexes.
+    """
+    from app.models import OtelAsset
+
+    if not service_name or not span_dts:
+        return
+
+    earliest = _utc_naive(min(span_dts))
+    latest   = _utc_naive(max(span_dts))
+    safe_resource = {
+        k: v for k, v in resource_attrs.items()
+        if k not in REDACTED_KEYS and not isinstance(v, (list, dict))
+    }
+
+    try:
+        # Nullable-aware lookup: match None environment explicitly
+        q = db.query(OtelAsset).filter(
+            OtelAsset.organization_id == org_id,
+            OtelAsset.service_name == service_name,
+        )
+        if environment is None:
+            q = q.filter(OtelAsset.environment.is_(None))
+        else:
+            q = q.filter(OtelAsset.environment == environment)
+        existing = q.first()
+
+        if not existing:
+            db.add(OtelAsset(
+                organization_id=org_id,
+                ai_asset_id=ai_asset_id,
+                service_name=service_name,
+                service_namespace=resource_attrs.get("service.namespace"),
+                service_instance_id=resource_attrs.get("service.instance.id"),
+                environment=environment,
+                agent_name=agent_name,
+                models_json=json.dumps(sorted(v for v in new_models if v)) or None,
+                providers_json=json.dumps(sorted(v for v in new_providers if v)) or None,
+                tools_json=json.dumps(sorted(v for v in new_tools if v)) or None,
+                dependencies_json=json.dumps(sorted(v for v in new_dependencies if v)) or None,
+                resource_attributes_json=json.dumps(safe_resource) if safe_resource else None,
+                first_seen=earliest,
+                last_seen=latest,
+                trace_count=len(trace_ids),
+                span_count=len(span_dts),
+                confidence_score=75.0,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            ))
+        else:
+            existing.models_json       = _merge_json_array(existing.models_json, new_models)
+            existing.providers_json    = _merge_json_array(existing.providers_json, new_providers)
+            existing.tools_json        = _merge_json_array(existing.tools_json, new_tools)
+            existing.dependencies_json = _merge_json_array(existing.dependencies_json, new_dependencies)
+            existing.span_count  += len(span_dts)
+            existing.trace_count += len(trace_ids)
+            if latest > _utc_naive(existing.last_seen):
+                existing.last_seen = latest
+            if earliest < _utc_naive(existing.first_seen):
+                existing.first_seen = earliest
+            if safe_resource:
+                cur = json.loads(existing.resource_attributes_json or "{}")
+                cur.update(safe_resource)
+                existing.resource_attributes_json = json.dumps(cur)
+            if existing.ai_asset_id is None and ai_asset_id is not None:
+                existing.ai_asset_id = ai_asset_id
+            existing.updated_at = datetime.now(timezone.utc)
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        _log.warning("Failed to upsert OtelAsset for %s (org=%s)", service_name, org_id, exc_info=True)
 
 
 def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
     """
     Process a list of parsed OTLP spans for one organization.
 
-    Returns counts: spans_ingested, assets_created_or_updated, relationships_upserted, provenance_events.
+    Returns counts: spans_ingested, assets_created_or_updated, relationships_upserted,
+    provenance_events, otel_assets_upserted.
     """
     from app.models import OtelSpan, ProvenanceEvent
+    from app.ai_asset_resolver import resolve_asset_registry_id
 
     assets_seen: set[str] = set()
     relationships_upserted = 0
     provenance_count = 0
     spans_ingested = 0
+
+    # Per-agent-name accumulators (keyed by agent_name)
+    _agent_asset_ids:  dict[str, int | None]      = {}
+    _agent_svc_names:  dict[str, str]              = {}
+    _agent_envs:       dict[str, str | None]       = {}
+    _agent_res_attrs:  dict[str, dict]             = {}
+    _agent_models:     dict[str, set[str]]         = defaultdict(set)
+    _agent_providers:  dict[str, set[str]]         = defaultdict(set)
+    _agent_tools:      dict[str, set[str]]         = defaultdict(set)
+    _agent_deps:       dict[str, set[str]]         = defaultdict(set)
+    _agent_trace_ids:  dict[str, set[str]]         = defaultdict(set)
+    _agent_span_dts:   dict[str, list[datetime]]   = defaultdict(list)
 
     for span in spans:
         attrs = span.get("attributes") or {}
@@ -225,12 +358,26 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
 
         # ── Identity ──────────────────────────────────────────────────────────
         agent_name, identity_type = _extract_agent_name(attrs, resource_attrs, span_id)
-        service_name = resource_attrs.get("service.name") or attrs.get("service.name") or None
+        service_name = resource_attrs.get("service.name") or attrs.get("service.name") or agent_name
+        environment = (
+            resource_attrs.get("deployment.environment")
+            or resource_attrs.get("deployment.environment.name")
+            or None
+        )
 
         # ── Asset discovery ───────────────────────────────────────────────────
         if agent_name not in assets_seen:
-            _upsert_asset(db, org_id, agent_name, resource_attrs)
+            asset_id = _upsert_asset(db, org_id, agent_name, resource_attrs)
             assets_seen.add(agent_name)
+            _agent_asset_ids[agent_name] = asset_id
+        else:
+            asset_id = _agent_asset_ids.get(agent_name)
+
+        # ── OtelAsset accumulators ────────────────────────────────────────────
+        _agent_svc_names.setdefault(agent_name, service_name)
+        _agent_envs.setdefault(agent_name, environment)
+        _agent_res_attrs.setdefault(agent_name, resource_attrs)
+        _agent_trace_ids[agent_name].add(trace_id)
 
         # ── Timing ───────────────────────────────────────────────────────────
         start_dt = _nano_to_datetime(span.get("start_time_unix_nano"))
@@ -239,6 +386,9 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
         if start_dt and end_dt:
             delta = (end_dt - start_dt).total_seconds()
             duration_ms = int(delta * 1000)
+
+        span_ts = start_dt or datetime.now(timezone.utc)
+        _agent_span_dts[agent_name].append(span_ts)
 
         # ── Privacy scrub for storage ─────────────────────────────────────────
         scrubbed_attrs = scrub_attributes(attrs)
@@ -290,6 +440,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                 target_type = "model"
                 target_name = model
                 relation_type = "uses_model"
+                _agent_models[agent_name].add(model)
                 rel = ResolvedRelationship(
                     source_agent_name=agent_name,
                     target_type="model",
@@ -309,10 +460,12 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
 
             provider = attrs.get("gen_ai.system")
             if provider:
+                provider_label = str(provider).capitalize()
+                _agent_providers[agent_name].add(provider_label)
                 rel_p = ResolvedRelationship(
                     source_agent_name=agent_name,
                     target_type="provider",
-                    target_name=str(provider).capitalize(),
+                    target_name=provider_label,
                     relationship_type="uses_provider",
                     evidence_source="otel_trace",
                     confidence_score=0.90,
@@ -329,6 +482,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                 target_type = "tool"
                 target_name = tool_name
                 relation_type = "calls_tool"
+                _agent_tools[agent_name].add(tool_name)
                 rel = ResolvedRelationship(
                     source_agent_name=agent_name,
                     target_type="mcp_tool" if mcp_server else "tool",
@@ -344,6 +498,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                 upsert_relationship(db, org_id, rel)
                 relationships_upserted += 1
             if mcp_server:
+                _agent_deps[agent_name].add(mcp_server)
                 rel_m = ResolvedRelationship(
                     source_agent_name=agent_name,
                     target_type="mcp_server",
@@ -366,6 +521,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                 target_type = "database"
                 target_name = db_sys
                 relation_type = "reads_db"
+                _agent_deps[agent_name].add(db_sys)
                 rel = ResolvedRelationship(
                     source_agent_name=agent_name,
                     target_type="database",
@@ -382,6 +538,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                 target_type = "api"
                 target_name = ext_api[:255]
                 relation_type = "calls_api"
+                _agent_deps[agent_name].add(ext_api[:255])
                 rel = ResolvedRelationship(
                     source_agent_name=agent_name,
                     target_type="api",
@@ -398,6 +555,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                 target_type = "workflow"
                 target_name = workflow
                 relation_type = "invokes_workflow"
+                _agent_deps[agent_name].add(workflow)
                 rel = ResolvedRelationship(
                     source_agent_name=agent_name,
                     target_type="workflow",
@@ -415,7 +573,6 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
         # ── Persist ProvenanceEvent ───────────────────────────────────────────
         if event_type:
             try:
-                ts = start_dt or datetime.now(timezone.utc)
                 safe_attrs = {
                     k: v for k, v in scrubbed_attrs.items()
                     if not isinstance(v, dict) or not v.get("redacted")
@@ -431,7 +588,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                     target_type=target_type,
                     target_name=target_name,
                     relation_type=relation_type,
-                    timestamp=ts,
+                    timestamp=span_ts,
                     attributes_json=json.dumps(safe_attrs) if safe_attrs else None,
                     content_hash=raw_content_hash,
                     content_redacted=True,
@@ -442,9 +599,34 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                 db.rollback()
                 _log.warning("Failed to persist ProvenanceEvent for span %s", span_id, exc_info=True)
 
+    # ── Upsert one OtelAsset per unique agent/service identity ────────────────
+    otel_assets_upserted = 0
+    for agent_name in assets_seen:
+        ai_asset_id = _agent_asset_ids.get(agent_name)
+        # Resolve from DB if not set (e.g. race or cache hit without id)
+        if ai_asset_id is None:
+            ai_asset_id = resolve_asset_registry_id(db, org_id, agent_name)
+        upsert_otel_asset(
+            db=db,
+            org_id=org_id,
+            ai_asset_id=ai_asset_id,
+            service_name=_agent_svc_names.get(agent_name, agent_name),
+            agent_name=agent_name,
+            environment=_agent_envs.get(agent_name),
+            resource_attrs=_agent_res_attrs.get(agent_name, {}),
+            new_models=_agent_models[agent_name],
+            new_providers=_agent_providers[agent_name],
+            new_tools=_agent_tools[agent_name],
+            new_dependencies=_agent_deps[agent_name],
+            trace_ids=_agent_trace_ids[agent_name],
+            span_dts=_agent_span_dts[agent_name],
+        )
+        otel_assets_upserted += 1
+
     return {
         "spans_ingested": spans_ingested,
         "assets_created_or_updated": len(assets_seen),
         "relationships_upserted": relationships_upserted,
         "provenance_events": provenance_count,
+        "otel_assets_upserted": otel_assets_upserted,
     }

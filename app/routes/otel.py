@@ -94,5 +94,6 @@ async def ingest_traces(
         "ai_systems": result["assets_created_or_updated"],
         "relationships": result["relationships_upserted"],
         "provenance_events": result["provenance_events"],
+        "otel_assets": result.get("otel_assets_upserted", 0),
         "content_redacted": True,
     }

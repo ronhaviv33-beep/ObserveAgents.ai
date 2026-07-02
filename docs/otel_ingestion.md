@@ -83,6 +83,7 @@ Standard OTLP/HTTP JSON envelope:
   "ai_systems": 1,
   "relationships": 2,
   "provenance_events": 1,
+  "otel_assets": 1,
   "content_redacted": true
 }
 ```
@@ -91,11 +92,34 @@ Duplicate spans (same `organization_id + trace_id + span_id`) are silently skipp
 
 ---
 
+## Data Architecture
+
+```
+otel_spans          – raw span records (privacy-scrubbed attributes)
+otel_assets         – OTel discovery evidence summary, one row per (org, service, environment)
+asset_registry      – canonical AI inventory (the "ai_assets" source of truth)
+agent_relationships – dependency graph edges (model / tool / provider / API / DB)
+provenance_events   – execution provenance per span
+```
+
+`asset_registry` is the single source of truth for AI inventory. All OTel-discovered services/agents are reconciled against it — no separate `ai_assets` table is created.
+
+`otel_assets` aggregates discovery evidence across ingested spans: which models, providers, tools, and dependency targets were seen per service and environment, first/last seen timestamps, and span/trace counts. Each `otel_assets` row links back to its `asset_registry` row via `ai_asset_id`.
+
+Future planned evidence tables (not yet implemented):
+- `sdk_assets` — SDK-attested identity (agents that self-report via the ObserveAgents SDK)
+- `observed_assets` — passive network observation (traffic-based discovery)
+
+Each evidence table feeds into `asset_registry` but is never the canonical record.
+
+---
+
 ## What gets created
 
 | Store | Created/updated when… |
 |---|---|
 | `otel_spans` | Every new span (privacy-scrubbed attributes) |
+| `otel_assets` | First time a `service.name` + environment is seen; updated on subsequent spans |
 | `asset_registry` | First time a `service.name` / `agent.name` is seen |
 | `agent_relationships` | Model, provider, tool, MCP, DB, or API target detected |
 | `provenance_events` | Every span with a detectable event type |
@@ -244,5 +268,5 @@ curl -X POST https://<your-observeagents-url>/otel/v1/traces \
 Expected response:
 
 ```json
-{"accepted": true, "resource_spans": 1, "spans": 1, "ai_systems": 1, "relationships": 0, "provenance_events": 1, "content_redacted": true}
+{"accepted": true, "resource_spans": 1, "spans": 1, "ai_systems": 1, "relationships": 0, "provenance_events": 1, "otel_assets": 1, "content_redacted": true}
 ```

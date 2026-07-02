@@ -656,3 +656,41 @@ class ProvenanceEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+
+
+class OtelAsset(Base):
+    """
+    OTel discovery evidence summary — one row per (org, service/agent, environment).
+    Aggregates models/providers/tools/dependencies seen across ingested spans.
+    Links to AssetRegistry (canonical AI inventory / ai_assets) via ai_asset_id.
+
+    No DB-level UniqueConstraint: environment and agent_name are nullable, and
+    SQLite treats NULL != NULL in unique indexes. Application-level dedup is used.
+    """
+    __tablename__ = "otel_assets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    ai_asset_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("asset_registry.id"), nullable=True, index=True)
+    service_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    service_namespace: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    service_instance_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    environment: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    agent_name: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    models_json: Mapped[str | None] = mapped_column(Text, nullable=True)           # JSON array of model names
+    providers_json: Mapped[str | None] = mapped_column(Text, nullable=True)        # JSON array of provider names
+    tools_json: Mapped[str | None] = mapped_column(Text, nullable=True)            # JSON array of tool names
+    dependencies_json: Mapped[str | None] = mapped_column(Text, nullable=True)     # JSON array of dependency names
+    resource_attributes_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # latest safe resource attributes
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    trace_count: Mapped[int] = mapped_column(Integer, default=0)
+    span_count: Mapped[int] = mapped_column(Integer, default=0)
+    confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )

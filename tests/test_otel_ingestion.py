@@ -29,7 +29,7 @@ os.chdir(_repo_root)
 from fastapi.testclient import TestClient
 from app.main import app
 from app.database import SessionLocal
-from app.models import Organization, User, AgentRelationship, OtelSpan, ProvenanceEvent, AssetRegistry
+from app.models import Organization, User, AgentRelationship, OtelSpan, ProvenanceEvent, AssetRegistry, OtelAsset
 from app.auth import hash_password, create_token
 import app.asset_discovery as _ad
 
@@ -465,6 +465,247 @@ def test_tenancy_isolation():
             OtelSpan.trace_id == trace_id,
         ).all()
         assert len(org_a_spans) == 1
+
+    finally:
+        db.close()
+
+
+# ── G. OtelAsset evidence summary ────────────────────────────────────────────
+
+def test_otel_asset_created_on_span_ingest():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "oa-create")
+        trace_id = uuid.uuid4().hex
+        span_id  = uuid.uuid4().hex[:16]
+
+        payload = _make_span(
+            trace_id=trace_id,
+            span_id=span_id,
+            name="chat",
+            attrs={"gen_ai.request.model": "gpt-4o"},
+            resource_attrs={"service.name": "test-svc"},
+        )
+
+        resp = _post_traces(token, payload)
+        assert resp.status_code == 202, resp.text
+        assert resp.json().get("otel_assets", 0) >= 1
+
+        oa = db.query(OtelAsset).filter(OtelAsset.organization_id == org.id).first()
+        assert oa is not None
+        assert oa.service_name == "test-svc"
+        assert oa.ai_asset_id is not None
+
+    finally:
+        db.close()
+
+
+def test_otel_asset_dedup_same_service():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "oa-dedup")
+        trace_id = uuid.uuid4().hex
+
+        for i in range(2):
+            payload = _make_span(
+                trace_id=trace_id,
+                span_id=uuid.uuid4().hex[:16],
+                name="chat",
+                attrs={"gen_ai.request.model": "gpt-4o"},
+                resource_attrs={
+                    "service.name": "dedup-svc",
+                    "deployment.environment": "staging",
+                },
+                start_nano=1_700_000_000_000_000_000 + i * 1_000_000_000,
+                end_nano=1_700_000_001_000_000_000 + i * 1_000_000_000,
+            )
+            resp = _post_traces(token, payload)
+            assert resp.status_code == 202, resp.text
+
+        rows = db.query(OtelAsset).filter(
+            OtelAsset.organization_id == org.id,
+            OtelAsset.service_name == "dedup-svc",
+        ).all()
+        assert len(rows) == 1
+        assert rows[0].span_count == 2
+
+    finally:
+        db.close()
+
+
+def test_otel_asset_model_aggregation():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "oa-models")
+        trace_id = uuid.uuid4().hex
+
+        for model in ("gpt-4o", "gpt-4o-mini"):
+            payload = _make_span(
+                trace_id=trace_id,
+                span_id=uuid.uuid4().hex[:16],
+                name="chat",
+                attrs={"gen_ai.request.model": model},
+                resource_attrs={"service.name": "agg-svc"},
+            )
+            resp = _post_traces(token, payload)
+            assert resp.status_code == 202, resp.text
+
+        oa = db.query(OtelAsset).filter(
+            OtelAsset.organization_id == org.id,
+            OtelAsset.service_name == "agg-svc",
+        ).first()
+        assert oa is not None
+        models = json.loads(oa.models_json or "[]")
+        assert "gpt-4o" in models
+        assert "gpt-4o-mini" in models
+        assert len(models) == len(set(models))  # no duplicates
+
+    finally:
+        db.close()
+
+
+def test_otel_asset_trace_count():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "oa-traces")
+
+        for _ in range(2):
+            payload = _make_span(
+                trace_id=uuid.uuid4().hex,  # different trace_id each time
+                span_id=uuid.uuid4().hex[:16],
+                name="chat",
+                attrs={"gen_ai.request.model": "gpt-4o"},
+                resource_attrs={"service.name": "trace-svc"},
+            )
+            resp = _post_traces(token, payload)
+            assert resp.status_code == 202, resp.text
+
+        oa = db.query(OtelAsset).filter(
+            OtelAsset.organization_id == org.id,
+            OtelAsset.service_name == "trace-svc",
+        ).first()
+        assert oa is not None
+        assert oa.trace_count == 2
+
+    finally:
+        db.close()
+
+
+def test_otel_asset_links_to_asset_registry():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "oa-link")
+        trace_id = uuid.uuid4().hex
+
+        payload = _make_span(
+            trace_id=trace_id,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={"gen_ai.request.model": "gpt-4o"},
+            resource_attrs={"service.name": "linked-svc"},
+        )
+        resp = _post_traces(token, payload)
+        assert resp.status_code == 202, resp.text
+
+        oa = db.query(OtelAsset).filter(
+            OtelAsset.organization_id == org.id,
+            OtelAsset.service_name == "linked-svc",
+        ).first()
+        assert oa is not None
+        assert oa.ai_asset_id is not None
+
+        ar = db.query(AssetRegistry).filter(
+            AssetRegistry.id == oa.ai_asset_id,
+            AssetRegistry.organization_id == org.id,
+        ).first()
+        assert ar is not None
+        assert ar.agent_name == "linked-svc"
+
+    finally:
+        db.close()
+
+
+def test_otel_asset_no_sensitive_content():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "oa-privacy")
+        trace_id = uuid.uuid4().hex
+
+        payload = _make_span(
+            trace_id=trace_id,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={
+                "gen_ai.request.model": "gpt-4o",
+                "tool.name": "search_db",
+                "gen_ai.input.messages": json.dumps([{"role": "user", "content": "secret"}]),
+                "tool.arguments": json.dumps({"query": "sensitive data"}),
+            },
+            resource_attrs={"service.name": "privacy-svc"},
+        )
+        resp = _post_traces(token, payload)
+        assert resp.status_code == 202, resp.text
+
+        oa = db.query(OtelAsset).filter(
+            OtelAsset.organization_id == org.id,
+            OtelAsset.service_name == "privacy-svc",
+        ).first()
+        assert oa is not None
+
+        # All _json fields must contain only name strings, not redacted dicts or raw content
+        for field_name in ("models_json", "providers_json", "tools_json", "dependencies_json"):
+            raw = getattr(oa, field_name)
+            if raw is None:
+                continue
+            parsed = json.loads(raw)
+            assert isinstance(parsed, list), f"{field_name} must be a JSON array"
+            for item in parsed:
+                assert isinstance(item, str), f"{field_name} item must be a string (name), not {type(item)}"
+                assert "redacted" not in item
+                assert "sha256" not in item
+
+        # resource_attributes_json must not contain message content
+        if oa.resource_attributes_json:
+            raw_res = oa.resource_attributes_json
+            assert "secret" not in raw_res
+            assert "sensitive" not in raw_res
+
+    finally:
+        db.close()
+
+
+def test_otel_asset_org_isolation():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org_a, user_a, token_a = _make_org_and_token(db, "oa-iso-a")
+        org_b, _, _ = _make_org_and_token(db, "oa-iso-b")
+
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={"gen_ai.request.model": "gpt-4o"},
+            resource_attrs={"service.name": "isolated-svc"},
+        )
+        resp = _post_traces(token_a, payload)
+        assert resp.status_code == 202, resp.text
+
+        org_b_rows = db.query(OtelAsset).filter(
+            OtelAsset.organization_id == org_b.id,
+        ).all()
+        assert len(org_b_rows) == 0
+
+        org_a_rows = db.query(OtelAsset).filter(
+            OtelAsset.organization_id == org_a.id,
+        ).all()
+        assert len(org_a_rows) == 1
 
     finally:
         db.close()
