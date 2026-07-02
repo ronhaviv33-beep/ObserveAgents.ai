@@ -326,8 +326,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
     Returns counts: spans_ingested, assets_created_or_updated, relationships_upserted,
     provenance_events, otel_assets_upserted.
     """
-    from app.models import OtelSpan, ProvenanceEvent
-    from app.ai_asset_resolver import resolve_asset_registry_id
+    from app.models import OtelSpan, ProvenanceEvent, AssetRegistry
 
     assets_seen: set[str] = set()
     relationships_upserted = 0
@@ -603,9 +602,16 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
     otel_assets_upserted = 0
     for agent_name in assets_seen:
         ai_asset_id = _agent_asset_ids.get(agent_name)
-        # Resolve from DB if not set (e.g. race or cache hit without id)
         if ai_asset_id is None:
-            ai_asset_id = resolve_asset_registry_id(db, org_id, agent_name)
+            existing_asset = (
+                db.query(AssetRegistry)
+                .filter(
+                    AssetRegistry.organization_id == org_id,
+                    AssetRegistry.asset_key == _make_asset_key(org_id, agent_name),
+                )
+                .first()
+            )
+            ai_asset_id = existing_asset.id if existing_asset else None
         upsert_otel_asset(
             db=db,
             org_id=org_id,
