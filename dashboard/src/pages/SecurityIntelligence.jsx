@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { fetchSecurityAlerts, fetchAgents } from "../api.js";
+import { fetchSecurityAlerts, fetchAgents, fetchIntelligenceAssetSummary } from "../api.js";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import CollapsiblePanel, { PanelGroupControls } from "../components/CollapsiblePanel.jsx";
 
@@ -114,6 +114,7 @@ const STH = ({ children, sortKey, sort, onSort, style }) => {
 export default function SecurityIntelligence() {
   const [alerts, setAlerts]   = useState([]);
   const [agents, setAgents]   = useState([]);
+  const [intelAssets, setIntelAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [sevFilter, setSevFilter] = useState("all");
@@ -124,9 +125,12 @@ export default function SecurityIntelligence() {
   useEffect(() => {
     (async () => {
       try {
-        const [a, ag] = await Promise.allSettled([fetchSecurityAlerts(), fetchAgents({ limit: 500 })]);
+        const [a, ag, s] = await Promise.allSettled([
+          fetchSecurityAlerts(), fetchAgents({ limit: 500 }), fetchIntelligenceAssetSummary(),
+        ]);
         if (a.status === "fulfilled")  setAlerts(Array.isArray(a.value)  ? a.value  : []);
         if (ag.status === "fulfilled") setAgents(Array.isArray(ag.value) ? ag.value : ag.value?.agents || []);
+        if (s.status === "fulfilled")  setIntelAssets(s.value?.assets || []);
       } finally { setLoading(false); }
     })();
   }, []);
@@ -178,9 +182,9 @@ export default function SecurityIntelligence() {
 
       {/* ── Page header ────────────────────────────────────────────────────── */}
       <div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>AI Operational Risk Center</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>Security Intelligence</div>
         <div style={{ fontSize: 13, color: T.textMute, marginTop: 4 }}>
-          Runtime signals, policy violations, and behavioral anomalies across your AI agent fleet
+          Which AI systems have risky runtime-observed behavior? Security findings, risky capabilities, and runtime signals per system.
         </div>
         <PanelGroupControls group="security" style={{ marginTop: 12 }} />
       </div>
@@ -206,8 +210,60 @@ export default function SecurityIntelligence() {
         </div>
       </div>
 
+      {/* ── Risky AI Systems (runtime-observed, from asset intelligence) ────── */}
+      {(() => {
+        const RISKY_TYPES = ["mcp", "database", "shell", "external_api", "crm", "filesystem"];
+        const risky = intelAssets
+          .map(a => {
+            const capTypes = [...new Set((a.capabilities || []).map(c => c.capability_type))].filter(t => RISKY_TYPES.includes(t));
+            const secOpen = (a.findings || []).filter(f => f.status === "open" && f.category === "security").length;
+            return { ...a, _riskyCaps: capTypes, _secOpen: secOpen };
+          })
+          .filter(a => a._riskyCaps.length > 0 || a._secOpen > 0)
+          .sort((x, y) => (y.high_findings_count - x.high_findings_count) || (y._secOpen - x._secOpen));
+        if (risky.length === 0) return null;
+        const CAP_RISK_COLOR = { shell: T.crit, database: T.crit, mcp: T.warn, crm: T.warn, filesystem: T.warn, external_api: T.info };
+        return (
+          <CollapsiblePanel title="Risky AI Systems" group="security"
+            storageKey="oa-panel-security-risky-systems" badge={risky.length}>
+            <div style={{ fontSize: 12, color: T.textMute, marginBottom: 12 }}>
+              Runtime-observed capability surface per AI system — derived from OpenTelemetry evidence and asset intelligence.
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <TH>AI System</TH><TH>Environment</TH><TH>Risky Capabilities</TH>
+                    <TH>Open Security Findings</TH><TH>High Severity</TH>
+                  </tr>
+                </thead>
+                <tbody>
+                  {risky.map(a => (
+                    <tr key={a.asset_key}>
+                      <TD style={{ fontFamily: MONO }}>{a.asset_name}</TD>
+                      <TD style={{ fontFamily: MONO, fontSize: 12, color: T.textDim }}>{a.environment || "—"}</TD>
+                      <TD>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {a._riskyCaps.length === 0
+                            ? <span style={{ color: T.textMute, fontFamily: MONO, fontSize: 11 }}>—</span>
+                            : a._riskyCaps.map(t => (
+                                <span key={t} style={{ background: (CAP_RISK_COLOR[t] || T.info) + "1A", color: CAP_RISK_COLOR[t] || T.info, border: `1px solid ${(CAP_RISK_COLOR[t] || T.info)}33`, fontSize: 10, fontFamily: MONO, padding: "2px 8px", borderRadius: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t}</span>
+                              ))}
+                        </div>
+                      </TD>
+                      <TD style={{ fontFamily: MONO, color: a._secOpen > 0 ? T.warn : T.textDim }}>{a._secOpen}</TD>
+                      <TD style={{ fontFamily: MONO, color: a.high_findings_count > 0 ? T.crit : T.textDim }}>{a.high_findings_count}</TD>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CollapsiblePanel>
+        );
+      })()}
+
       {/* ── Findings Breakdown ─────────────────────────────────────────────── */}
-      <CollapsiblePanel title="Operational Risk Findings by Category" group="security"
+      <CollapsiblePanel title="Security Findings by Category" group="security"
         storageKey="oa-panel-security-findings" badge={Object.keys(findingsByType).length || null}>
         {Object.keys(findingsByType).length > 0 ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
@@ -239,7 +295,7 @@ export default function SecurityIntelligence() {
       </CollapsiblePanel>
 
       {/* ── Alert Feed ─────────────────────────────────────────────────────── */}
-      <CollapsiblePanel title="Risk Signal Feed" group="security" storageKey="oa-panel-security-feed"
+      <CollapsiblePanel title="Runtime Security Signals" group="security" storageKey="oa-panel-security-feed"
         badge={alerts.length}
         bodyStyle={{ padding: 0, paddingTop: 0 }}
         actions={

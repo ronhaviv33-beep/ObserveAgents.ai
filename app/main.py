@@ -353,6 +353,15 @@ app.include_router(proxy_routes.router)
 from app.routes import relationships as relationships_routes  # noqa: E402
 app.include_router(relationships_routes.router)
 
+from app.routes import otel as otel_routes  # noqa: E402
+app.include_router(otel_routes.router)
+
+from app.routes import asset_intelligence as asset_intelligence_routes  # noqa: E402
+app.include_router(asset_intelligence_routes.router)
+
+from app.routes import runtime as runtime_routes  # noqa: E402
+app.include_router(runtime_routes.router)
+
 # Always allow the canonical ObserveAgents public origins, the Render fallback,
 # and local dev — plus any explicit FRONTEND_ORIGIN entries. Deduped, order-stable.
 from app.config import PUBLIC_ORIGINS as _PUBLIC_ORIGINS, LOCAL_ORIGINS as _LOCAL_ORIGINS  # noqa: E402

@@ -455,6 +455,16 @@ export default function PricingRegistry() {
 
   return (
     <div style={{ fontFamily: FONT_SANS, color: T.text }}>
+      {/* Reference-layer framing */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: `${T.teal}0D`, border: `1px solid ${T.teal}33`, borderRadius: 6, padding: '12px 16px', marginBottom: 14 }}>
+        <span style={{ color: T.teal, fontSize: 16 }}>◇</span>
+        <div style={{ fontSize: 12, color: T.textDim }}>
+          <span style={{ fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.teal, fontWeight: 600, marginRight: 8 }}>Pricing reference layer</span>
+          Model and provider pricing reference data — the assumptions that feed cost estimation.
+          Runtime costs derived from this table are estimates, not billed amounts.
+        </div>
+      </div>
+
       {/* Warnings */}
       {status?.warnings?.length > 0 && <WarningBanner warnings={status.warnings} />}
 

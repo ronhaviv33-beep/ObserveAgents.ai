@@ -4,6 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Cell,
 } from 'recharts'
 import {
+  fetchIntelligenceAssetSummary,
   fetchCostIntelligence,
   importProviderBilling,
   fetchBillingPeriods,
@@ -617,6 +618,7 @@ export default function CostIntelligence() {
   const [showImport, setShowImport]   = useState(false)
   const [editRecord, setEditRecord]   = useState(null)
   const [saving, setSaving]           = useState(false)
+  const [intelAssets, setIntelAssets] = useState([])
 
   const loadData = useCallback(async (bBy = breakdownBy) => {
     setLoading(true)
@@ -633,6 +635,10 @@ export default function CostIntelligence() {
     } finally {
       setLoading(false)
     }
+    // Runtime usage signals from asset intelligence — best effort, panel hides on failure
+    fetchIntelligenceAssetSummary()
+      .then((s) => setIntelAssets(s.assets || []))
+      .catch(() => setIntelAssets([]))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadData(breakdownBy) }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -703,7 +709,7 @@ export default function CostIntelligence() {
 
       {(rc.requests ?? 0) === 0 && (
         <div style={{ marginBottom: 16, padding: '14px 18px', background: `${T.accent}0D`, border: `1px solid ${T.accent}33`, borderRadius: 8, fontSize: 13, color: T.textDim }}>
-          <span style={{ color: T.accent }}>●</span>&nbsp; No cost data yet. Cost insights appear after the first request.
+          <span style={{ color: T.accent }}>●</span>&nbsp; No runtime cost estimate yet. Connect a discovery source — OpenTelemetry traces or the gateway — and usage signals appear here automatically.
         </div>
       )}
 
@@ -721,6 +727,56 @@ export default function CostIntelligence() {
           </div>
         ))}
       </div>
+
+      {/* Runtime usage & efficiency signals — from observed traces, not billing */}
+      {intelAssets.length > 0 && (() => {
+        const HOTSPOT_TYPES = ['slow_llm_call', 'slow_runtime_step', 'slow_tool_call']
+        const rows = intelAssets
+          .map(a => ({
+            ...a,
+            _hotspots: (a.findings || []).filter(f => f.status === 'open' && HOTSPOT_TYPES.includes(f.finding_type)),
+          }))
+          .sort((x, y) => (y._hotspots.length - x._hotspots.length) || ((y.span_count || 0) - (x.span_count || 0)))
+        return (
+          <div style={{ marginBottom: 12 }}>
+            <CollapsiblePanel group="cost" storageKey="oa-panel-cost-usage-signals"
+              title="Runtime Usage & Efficiency Signals"
+              subtitle="Which AI systems are heavy or inefficient based on observed runtime behavior — usage intelligence, not billing">
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      {['AI System', 'Models', 'Traces', 'Spans', 'Potential Cost Hotspots'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 10, fontFamily: FONT_MONO, color: T.textMute, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 500, borderBottom: `1px solid ${T.border}` }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(a => (
+                      <tr key={a.asset_key} style={{ borderBottom: `1px solid ${T.border}` }}>
+                        <td style={{ padding: '10px', fontSize: 13, fontFamily: FONT_MONO, color: T.text }}>{a.asset_name}</td>
+                        <td style={{ padding: '10px', fontSize: 12, fontFamily: FONT_MONO, color: T.textDim }}>{(a.models || []).join(', ') || '—'}</td>
+                        <td style={{ padding: '10px', fontSize: 12, fontFamily: FONT_MONO, color: T.textDim }}>{a.trace_count}</td>
+                        <td style={{ padding: '10px', fontSize: 12, fontFamily: FONT_MONO, color: T.textDim }}>{a.span_count}</td>
+                        <td style={{ padding: '10px', fontSize: 12 }}>
+                          {a._hotspots.length === 0
+                            ? <span style={{ color: T.textMute, fontFamily: FONT_MONO, fontSize: 11 }}>none observed</span>
+                            : <span style={{ color: T.warn, fontFamily: FONT_MONO, fontSize: 11 }}>
+                                {[...new Set(a._hotspots.map(f => f.finding_type.replaceAll('_', ' ')))].join(' · ')}
+                              </span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 11, color: T.textMute, fontFamily: FONT_MONO }}>
+                Derived from OpenTelemetry span timing and asset intelligence findings. These are efficiency signals — not billed amounts.
+              </div>
+            </CollapsiblePanel>
+          </div>
+        )
+      })()}
 
       {/* Expand/Collapse all */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>

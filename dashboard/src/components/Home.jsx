@@ -54,7 +54,7 @@ export default function Home({ onNavigate }) {
 
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:300, color:T.textMute, fontFamily:FONT_MONO }}>
-      Loading estate overview…
+      Loading overview…
     </div>
   );
 
@@ -68,7 +68,7 @@ export default function Home({ onNavigate }) {
         <div>
           <div style={{ fontSize:22, fontWeight:600, letterSpacing:"-0.02em", color:T.text }}>{BRAND.name}</div>
           <div style={{ fontSize:12, color:T.textDim, marginTop:4, fontFamily:FONT_MONO }}>
-            {s.total_agents ?? 0} agents discovered · runtime dependencies mapped · last 90 days
+            {s.total_agents ?? 0} AI systems discovered · what's running, what it connects to · last 90 days
             {lastRefresh && <span style={{ color:T.textMute, marginLeft:12 }}>· {lastRefresh.toLocaleTimeString()}</span>}
           </div>
         </div>

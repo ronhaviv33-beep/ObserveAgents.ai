@@ -595,3 +595,163 @@ class AgentRelationship(Base):
     )
     request_count: Mapped[int] = mapped_column(Integer, default=1)
     metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON; never stores prompts/responses
+
+
+class OtelSpan(Base):
+    """
+    Raw OTLP span record — structural metadata only, no raw content.
+    Privacy guarantee: gen_ai.input.messages, gen_ai.output.messages,
+    gen_ai.system_instructions, tool.arguments, and tool.result are never
+    stored; only SHA-256 hash + byte size + redacted=true.
+    """
+    __tablename__ = "otel_spans"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "trace_id", "span_id", name="uq_otel_spans_org_trace_span"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    trace_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    span_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    parent_span_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    service_name: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    span_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    span_kind: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    status_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    attributes_json: Mapped[str | None] = mapped_column(Text, nullable=True)           # privacy-scrubbed span attributes
+    resource_attributes_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # resource attributes
+    events_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    links_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class ProvenanceEvent(Base):
+    """
+    Semantic event derived from an OTel span — one event per meaningful span action.
+    Records what happened without storing raw prompt/response/tool content.
+    """
+    __tablename__ = "provenance_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    trace_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    span_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    parent_span_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)  # llm_call | tool_call | agent_step | db_call | external_api_call
+    source_type: Mapped[str | None] = mapped_column(String(64), nullable=True)       # agent | workflow | service
+    source_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    target_type: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # model | tool | database | api | mcp_server
+    target_name: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    relation_type: Mapped[str | None] = mapped_column(String(64), nullable=True)     # uses_model | calls_tool | reads_db | calls_api
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    attributes_json: Mapped[str | None] = mapped_column(Text, nullable=True)         # non-sensitive span attrs
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)      # SHA-256 of combined input+output if present
+    content_redacted: Mapped[bool] = mapped_column(Boolean, default=True)            # always True — content never stored
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class OtelAsset(Base):
+    """
+    OTel discovery evidence summary — one row per (org, service/agent, environment).
+    Aggregates models/providers/tools/dependencies seen across ingested spans.
+    Links to AssetRegistry (canonical AI inventory / ai_assets) via ai_asset_id.
+
+    No DB-level UniqueConstraint: environment and agent_name are nullable, and
+    SQLite treats NULL != NULL in unique indexes. Application-level dedup is used.
+    """
+    __tablename__ = "otel_assets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    ai_asset_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("asset_registry.id"), nullable=True, index=True)
+    service_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    service_namespace: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    service_instance_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    environment: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    agent_name: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    models_json: Mapped[str | None] = mapped_column(Text, nullable=True)           # JSON array of model names
+    providers_json: Mapped[str | None] = mapped_column(Text, nullable=True)        # JSON array of provider names
+    tools_json: Mapped[str | None] = mapped_column(Text, nullable=True)            # JSON array of tool names
+    dependencies_json: Mapped[str | None] = mapped_column(Text, nullable=True)     # JSON array of dependency names
+    resource_attributes_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # latest safe resource attributes
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    trace_count: Mapped[int] = mapped_column(Integer, default=0)
+    span_count: Mapped[int] = mapped_column(Integer, default=0)
+    confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class AssetCapability(Base):
+    """
+    Normalized capability discovered for an AI asset.
+    One row per (org, asset_key, capability_type, capability_name, source).
+    Application-level dedup — no DB unique constraint.
+    """
+    __tablename__ = "asset_capabilities"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    asset_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("asset_registry.id"), nullable=True, index=True)
+    asset_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    capability_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # provider|model|tool|mcp|database|filesystem|shell|external_api|runtime|workflow
+    # |cloud_api|crm|messaging|source_control|retrieval|memory|unknown
+    capability_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False, index=True)  # otel_trace|sdk|observed
+    evidence_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class AssetFinding(Base):
+    """
+    General finding derived from AI asset activity.
+    Categories: security|performance|operations|dependency|inventory|governance.
+    Severity: info|low|medium|high|critical. Status: open|dismissed|resolved.
+    Application-level dedup on (org, asset_key, category, finding_type, source).
+    """
+    __tablename__ = "asset_findings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    asset_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("asset_registry.id"), nullable=True, index=True)
+    asset_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    category: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    finding_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="open", index=True)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )

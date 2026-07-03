@@ -221,7 +221,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
             ObserveAgents
           </h2>
           <div style={{ fontSize: 12, color: T.textMute, fontFamily: MONO, marginTop: 5 }}>
-            Observe every agent · Map every dependency · Govern every interaction
+            Understand what AI exists · what is running · how it is connected · how it evolves
           </div>
         </div>
         <div style={{ fontSize: 11, color: T.textMute, fontFamily: MONO, textAlign: "right" }}>
@@ -231,14 +231,40 @@ export default function ExecutiveDashboard({ onNavigate }) {
         </div>
       </div>
 
+      {/* ── Product intro: what Observe is + where to look ─────────────────────── */}
+      <div style={{ marginBottom: 4 }}>
+        <div style={{ fontSize: 16, fontWeight: 600, color: T.text, letterSpacing: "-0.01em" }}>See your real AI footprint</div>
+        <div style={{ fontSize: 12, color: T.textDim, marginTop: 4, lineHeight: 1.6 }}>
+          Observe shows which AI systems exist, which ones are actually running, what they connect to, and where they need attention.
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : bp.isTablet ? "repeat(3, 1fr)" : "repeat(6, 1fr)", gap: 8 }}>
+        {[
+          { page: "runtime",        title: "Runtime",             desc: "See live AI traces and execution timelines" },
+          { page: "intelligence",   title: "Asset Intelligence",  desc: "Every AI system — models, tools, capabilities, findings" },
+          { page: "security_intel", title: "Security",            desc: "Find risky runtime behavior before it's a problem" },
+          { page: "cost",           title: "Cost",                desc: "Spot heavy, slow, or potentially expensive workflows" },
+          { page: "guardrails",     title: "Guardrails",          desc: "Observe-only: detect, explain, recommend — no blocking" },
+          { page: "integrations",   title: "Integrations",        desc: "Connect telemetry and discovery sources" },
+        ].map((c) => (
+          <button key={c.page} onClick={() => onNavigate?.(c.page)}
+            style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 12px", textAlign: "left", cursor: "pointer", fontFamily: FONT }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = T.borderHi; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = T.border; }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: T.text, marginBottom: 3 }}>{c.title} →</div>
+            <div style={{ fontSize: 10, color: T.textMute, lineHeight: 1.5 }}>{c.desc}</div>
+          </button>
+        ))}
+      </div>
+
       {/* ── Empty state — no agents discovered yet ──────────────────────────────── */}
       {total === 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "22px 26px", background: `${T.accent}0D`, border: `1px solid ${T.accent}33`, borderRadius: 10 }}>
           <div style={{ fontSize: 28 }}>🛰</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>No agents discovered yet.</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>No AI systems yet.</div>
             <div style={{ fontSize: 12, color: T.textDim, lineHeight: 1.6 }}>
-              Connect a provider and send your first request to begin discovery.
+              Connect OpenTelemetry traces from one AI service to see AI systems appear here. No manual registration required.
             </div>
           </div>
           <button onClick={() => onNavigate?.("integrations")}
@@ -468,15 +494,15 @@ export default function ExecutiveDashboard({ onNavigate }) {
               No runtime dependencies discovered yet
             </div>
             <div style={{ fontSize: 12, color: T.textDim, maxWidth: 520, margin: "0 auto 20px", lineHeight: 1.7 }}>
-              Send gateway traffic with <code style={{ fontFamily: MONO, color: T.teal, background: T.panelHi, padding: "1px 5px", borderRadius: 3 }}>X-MCP-*</code> or{" "}
-              <code style={{ fontFamily: MONO, color: T.teal, background: T.panelHi, padding: "1px 5px", borderRadius: 3 }}>X-Agent-*</code> relationship headers to populate this map.
+              Dependencies appear automatically once telemetry flows — tool, MCP, database, and API
+              links are derived from OpenTelemetry span attributes.
             </div>
             <div style={{ background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 6, padding: "12px 16px", display: "inline-block", textAlign: "left", marginBottom: 20 }}>
               {[
-                ["X-Agent-Name",     "sales-enrichment-agent"],
-                ["X-MCP-Server",     "hubspot-mcp"],
-                ["X-MCP-Tool",       "create_lead"],
-                ["X-Agent-Relation", "uses_tool"],
+                ["tool.name",    "create_lead"],
+                ["mcp.server",   "hubspot-mcp"],
+                ["db.system",    "postgresql"],
+                ["url.full",     "https://api.example/v1"],
               ].map(([k, v]) => (
                 <div key={k} style={{ fontFamily: MONO, fontSize: 11, marginBottom: 3 }}>
                   <span style={{ color: T.teal }}>{k}:</span>{" "}
@@ -569,7 +595,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
 
           {/* Governance coverage */}
           <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
-            <div style={{ fontSize: 9, color: T.textMute, fontFamily: MONO, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>Governance Review</div>
+            <div style={{ fontSize: 9, color: T.textMute, fontFamily: MONO, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>Review Queue</div>
             {[
               { label: "Ownership review", value: managed,                  color: T.accent },
               { label: "Validation review", value: total - needsValidation, color: T.info },

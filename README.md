@@ -1,10 +1,21 @@
 # ObserveAgents
 
-**AI Runtime Intelligence Platform — Observe every agent. Map every dependency. Govern every interaction.**
+**Enterprise AI Intelligence Platform**
 
-> We don't only discover AI agents. We map what they touch.
+> Observe helps organizations understand what AI exists, what is actively running, how it is connected, and how it evolves over time.
 
-ObserveAgents discovers which agents exist, who owns them, and what risk they carry, and maps what they interact with at runtime — the AI Runtime Intelligence Platform for enterprise AI operations. Connect your AI gateway and agents are discovered automatically. Optional sensitive-content checks can be enabled for customers that want additional runtime safety signals.
+ObserveAgents discovers AI systems from runtime evidence (OpenTelemetry traces and gateway traffic), maintains a canonical AI inventory, and derives intelligence across every layer of enterprise AI operations:
+
+- **Runtime Discovery** — which AI systems are actively running (OTel ingestion, execution timelines, trace waterfalls)
+- **Asset Intelligence** — what each AI system can do: capabilities and findings grouped per system
+- **Security Intelligence** — which AI systems have risky runtime-observed behavior
+- **Cost Intelligence** — runtime usage and efficiency signals; potential cost hotspots (estimates, not billing)
+- **Budget Awareness** — planning thresholds and budget signals per team or system (advisory; enforcement optional)
+- **Pricing Reference** — versioned model/provider pricing reference layer that feeds cost estimation
+- **Advisory Guardrails** — observe-only guardrails that detect, explain, and recommend without blocking
+- **Dependencies** — the runtime dependency map: every model, tool, MCP server, API, and database each system touches
+- **Integrations** — discovery and evidence sources: OTel/OTLP, SDK metadata, gateway today; GitHub, Jira, Slack, n8n, MCP next
+- **Demo seed data** — one command (`python scripts/seed_demo_data.py`) seeds a realistic five-system demo
 
 - Dashboard: https://observeagents.ai
 - Gateway: https://gateway.observeagents.ai
@@ -408,4 +419,4 @@ SOC Analyst · Security Operations · AI Runtime Intelligence
 
 ---
 
-*Discover every AI agent. Map every dependency. Govern every AI interaction.*
+*Understand what AI exists, what is running, how it is connected, and how it evolves over time.*

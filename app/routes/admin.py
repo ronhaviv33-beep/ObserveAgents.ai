@@ -468,6 +468,11 @@ def populate_demo_org(db: Session, org_id: int) -> dict:
                 mode=g["mode"],
             ))
 
+    # ── 8. OTel runtime intelligence demo (traces → assets → capabilities →
+    # findings, through the real ingestion pipeline) ───────────────────────────
+    from app.demo_otel_seed import seed_otel_demo
+    otel = seed_otel_demo(db, org_id)
+
     # Enable demo_mode so the dashboard shows is_demo=True rows immediately
     set_org_config(db, org_id, "demo_mode", True)
 
@@ -482,6 +487,10 @@ def populate_demo_org(db: Session, org_id: int) -> dict:
         "relationships_created": rels_created,
         "budgets_created": budgets_created,
         "policies_created": policies_created,
+        "otel_traces_seeded": otel["otel_traces_seeded"],
+        "otel_spans_ingested": otel["otel_spans_ingested"],
+        "capabilities_created": otel["capabilities_created"],
+        "findings_created": otel["findings_created"],
         "agents": [a["id"] for a in _DEMO_AGENTS],
         "teams": _DEMO_TEAMS,
         "demo_mode_enabled": True,
@@ -571,6 +580,10 @@ async def clear_demo_data(
         Team.name.in_(_DEMO_TEAMS),
     ).delete(synchronize_session=False)
 
+    # OTel runtime intelligence demo rows (spans, evidence, capabilities, findings)
+    from app.demo_otel_seed import clear_otel_demo
+    otel_cleared = clear_otel_demo(db, org_id)
+
     # Restore live mode — demo rows gone, switch back to real data view
     set_org_config(db, org_id, "demo_mode", False)
 
@@ -584,6 +597,7 @@ async def clear_demo_data(
         "relationships_deleted": rel_deleted,
         "budgets_deleted": budget_deleted,
         "policies_deleted": policy_deleted,
+        **otel_cleared,
     }
 
 

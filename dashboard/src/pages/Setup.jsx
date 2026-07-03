@@ -8,7 +8,7 @@ export default function SimpleIntegrationsPage({ onNavigate, demoMode = false })
   const bp = useBreakpoint();
   const gatewayUrl = gatewayBaseUrl(demoMode);
   const [copied, setCopied]   = useState(null);
-  const [open,   setOpen]     = useState({ sdk_openai: true, sdk_anthropic: false, sdk_env: false, manual_openai: false, manual_curl: false });
+  const [open,   setOpen]     = useState({ sdk_openai: true, sdk_anthropic: false, sdk_env: false });
   const [section, setSection] = useState(null);
   const [metrics, setMetrics] = useState({ agents: null, dependencies: null, workflows: null, platforms: null });
   const [progress, setProgress] = useState({ provider: false, key: false, request: false, agent: false });
@@ -61,11 +61,11 @@ export default function SimpleIntegrationsPage({ onNavigate, demoMode = false })
       cta: "Start Here →",
     },
     {
-      id: "platform", badge: null, color: T.purple,
+      id: "platform", badge: "Coming later", color: T.purple,
       title: "Ecosystem Discovery",
-      desc:  "Scan GitHub, Slack, Jira, ServiceNow, and MCP for AI signals.",
+      desc:  "Future connectors will scan GitHub, Slack, Jira, ServiceNow, and MCP for AI signals. Not live yet.",
       benefits: ["Discover GitHub, Slack, Jira, ServiceNow, and MCP signals", "Find potential AI assets", "Surface unmanaged dependencies", "Send findings for validation"],
-      cta: "Connect Ecosystem →",
+      cta: "Preview →",
     },
   ];
 
@@ -75,14 +75,6 @@ export default function SimpleIntegrationsPage({ onNavigate, demoMode = false })
     { label:"Gateway Derives Identity",              color:T.info   },
     { label:"Verified / Unassigned Agent Created",   color:T.yellow },
     { label:"Admin Reviews Agent",                   color:T.purple },
-  ];
-  const SDK_FLOW = [
-    { label:"Create Organisation API Key", color:T.accent },
-    { label:"Install SDK",                 color:"#34d399" },
-    { label:"Wrap AI Client",              color:"#34d399" },
-    { label:"Route Through Gateway",       color:T.warn   },
-    { label:"Verified Agent Created",      color:T.yellow },
-    { label:"Admin Claims Agent",          color:T.purple },
   ];
   const PLATFORM_FLOW = [
     { label:"Connect Platform",            color:T.info   },
@@ -103,15 +95,6 @@ export default function SimpleIntegrationsPage({ onNavigate, demoMode = false })
     "Cloud Functions", "MCP Servers", "Azure DevOps", "Zapier",
     "Copilot Studio", "Bedrock Agents", "OpenAI Agents SDK",
   ];
-  const OPT_HEADERS = [
-    { name:"X-Agent-Name",        desc:"Override auto-detected agent name",    example:"soc-investigation-agent" },
-    { name:"X-Agent-Team",        desc:"Team or department",                   example:"Security" },
-    { name:"X-Agent-Owner",       desc:"Owner email or name",                  example:"alice@acme.com" },
-    { name:"X-Agent-Environment", desc:"prod / staging / dev",                 example:"prod" },
-    { name:"X-Agent-Version",     desc:"Version tag",                          example:"v1.2.0" },
-    { name:"X-Agent-Source",      desc:"Set by SDK automatically (sdk-python)",example:"sdk-python" },
-  ];
-
   const snippets = {
     sdk_openai:
 `# No proprietary SDK required — use the standard OpenAI SDK.
@@ -145,32 +128,7 @@ response = client.messages.create(
     sdk_env:
 `# Zero-code setup: point the standard OpenAI SDK at the gateway via env vars.
 export OPENAI_API_KEY=YOUR_GATEWAY_KEY
-export OPENAI_BASE_URL=GATEWAY_URL/v1
-
-# Optional — enrich identity attribution (any OpenAI-compatible client):
-export OPENAI_DEFAULT_HEADERS='{"X-Agent-Name":"customer-support-prod","X-Agent-Team":"Customer Success"}'`,
-
-    manual_openai:
-`from openai import OpenAI
-
-client = OpenAI(base_url="GATEWAY_URL/v1", api_key="YOUR_GATEWAY_KEY")
-
-client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "Hello"}],
-    extra_headers={
-        "X-Agent-Name":        "customer-support-prod",
-        "X-Agent-Team":        "Customer Success",
-        "X-Agent-Environment": "prod",
-    },
-)`,
-
-    manual_curl:
-`curl GATEWAY_URL/v1/chat/completions \\
-  -H "Authorization: Bearer YOUR_GATEWAY_KEY" \\
-  -H "X-Agent-Name: customer-support-prod" \\
-  -H "Content-Type: application/json" \\
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Hello"}]}'`,
+export OPENAI_BASE_URL=GATEWAY_URL/v1`,
   };
 
   const resolvedSnippets = Object.fromEntries(
@@ -221,7 +179,9 @@ client.chat.completions.create(
       <div style={{ marginBottom:24 }}>
         <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>Administration · Setup</div>
         <div style={{ fontSize:24, fontWeight:700, color:T.text, lineHeight:1.2 }}>Setup</div>
-        <div style={{ fontSize:13, color:T.textDim, marginTop:6, lineHeight:1.5 }}>Configure your workspace and start discovering AI assets.</div>
+        <div style={{ fontSize:13, color:T.textDim, marginTop:6, lineHeight:1.5 }}>
+          Get data flowing into Observe. After data starts flowing, open Runtime to see traces and Asset Intelligence to see discovered AI systems.
+        </div>
       </div>
 
       {/* Setup progress */}
@@ -243,23 +203,27 @@ client.chat.completions.create(
         </div>
       </div>
 
-      <div style={{ marginBottom:28, padding:"20px 24px",
-        background:`${T.info}0a`, border:`1px solid ${T.info}33`, borderRadius:10,
-        display:"flex", alignItems:"flex-start", gap:16, flexWrap:"wrap" }}>
-        <div style={{ width:8, height:8, borderRadius:"50%", background:T.info, flexShrink:0, marginTop:5 }} />
-        <div style={{ flex:1 }}>
-          <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:6 }}>
-            Recommended path: start with Runtime Discovery.
-          </div>
-          <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, maxWidth:620 }}>
-            One config change gives you immediate visibility. Agents and dependencies appear automatically — no manual registration.
-          </div>
+      {/* Connect your first AI system — the customer path to first data */}
+      <div style={{ marginBottom:16, padding:"16px 24px",
+        background:`${T.accent}0a`, border:`1px solid ${T.accent}33`, borderRadius:10 }}>
+        <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:6 }}>
+          Connect your first AI system
         </div>
+        <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, maxWidth:680, marginBottom:12 }}>
+          Start by sending OpenTelemetry traces from one AI service. Once traces arrive, Observe discovers
+          the AI system, shows its runtime timeline, and generates Asset Intelligence.
+        </div>
+        <ol style={{ margin:"0 0 14px", paddingLeft:20, fontSize:12, color:T.textDim, lineHeight:1.9 }}>
+          <li>Create or copy an API key.</li>
+          <li>Configure your OpenTelemetry exporter to send traces to <code style={{ fontFamily:FONT_MONO, fontSize:11, color:T.accent }}>POST /otel/v1/traces</code>.</li>
+          <li>Open Runtime to confirm traces are arriving.</li>
+          <li>Open Asset Intelligence to review discovered systems, capabilities, and findings.</li>
+          <li>Add more teams, services, and integrations over time.</li>
+        </ol>
         <button
           onClick={() => setSection(s => s === "gateway" ? null : "gateway")}
-          style={{ background:T.info, color:"#fff", border:"none", borderRadius:6,
-            padding:"9px 20px", fontSize:12, fontWeight:600, fontFamily:FONT_UI,
-            cursor:"pointer", flexShrink:0, whiteSpace:"nowrap" }}>
+          style={{ background:T.accent, color:"#000", border:"none", borderRadius:6,
+            padding:"9px 20px", fontSize:12, fontWeight:600, fontFamily:FONT_UI, cursor:"pointer" }}>
           Start Runtime Discovery →
         </button>
       </div>
@@ -318,7 +282,29 @@ client.chat.completions.create(
         <div style={{ border:`1px solid ${T.info}44`, borderRadius:10, padding:"24px 28px", marginBottom:16 }}>
           <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:16 }}>Runtime Discovery — Integration Guide</div>
           <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:14 }}>
-            <strong style={{ color:T.text }}>No proprietary SDK required — use your existing AI stack.</strong> Change your AI client's{" "}
+            Integrations are <strong style={{ color:T.text }}>discovery and evidence sources</strong>. Runtime Discovery accepts evidence from{" "}
+            <strong style={{ color:T.text }}>OpenTelemetry (OTLP)</strong> and the <strong style={{ color:T.text }}>gateway</strong> —
+            Ecosystem Discovery (GitHub, Jira, Slack, n8n, MCP) is next on the roadmap.
+          </div>
+
+          {/* OpenTelemetry — evidence source */}
+          <div style={{ background:`${T.purple}0d`, border:`1px solid ${T.purple}33`, borderRadius:8, padding:"14px 16px", marginBottom:18 }}>
+            <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.purple, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>OpenTelemetry (OTLP) — no gateway required</div>
+            <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:10 }}>
+              Already instrumented with OTel? Point your exporter at{" "}
+              <code style={{ fontFamily:FONT_MONO, color:T.accent, fontSize:11 }}>POST {gatewayUrl.replace(/\/v1$/, "")}/otel/v1/traces</code>{" "}
+              and AI systems, dependencies, and execution timelines appear automatically. Prompt and response content is never stored.
+            </div>
+            <pre style={{ margin:0, padding:"10px 12px", background:T.panel, border:`1px solid ${T.border}`, borderRadius:6, fontFamily:FONT_MONO, fontSize:11, color:T.textDim, overflowX:"auto" }}>
+{`OTEL_EXPORTER_OTLP_ENDPOINT=${gatewayUrl.replace(/\/v1$/, "")}/otel
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer gk-<your-api-key>
+OTEL_SERVICE_NAME=my-agent
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production`}
+            </pre>
+          </div>
+
+          <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:14 }}>
+            <strong style={{ color:T.text }}>Gateway path — no proprietary SDK required.</strong> Change your AI client's{" "}
             <code style={{ fontFamily:FONT_MONO, color:T.info, fontSize:11 }}>base_url</code> to{" "}
             <code style={{ fontFamily:FONT_MONO, color:T.accent, fontSize:11 }}>{gatewayUrl}/v1</code>, replace your{" "}
             <code style={{ fontFamily:FONT_MONO, color:T.info, fontSize:11 }}>api_key</code> with a Gateway API Key, and send traffic. No instrumentation, no code rewrite.
@@ -354,76 +340,16 @@ client.chat.completions.create(
             </div>
           </div>
 
-          {/* SDK Metadata — Optional */}
+          {/* Gateway client examples — standard third-party clients, no code rewrite */}
           <div style={{ marginTop:28, borderTop:`1px solid ${T.border}`, paddingTop:24 }}>
-            <div style={{ fontSize:11, fontFamily:FONT_MONO, color:"#34d399", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>SDK Metadata — Optional</div>
-            <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:4 }}>
-              <strong style={{ color:T.text }}>Runtime Discovery works without SDK.</strong> Gateway traffic alone already creates observed AI systems.
-            </div>
+            <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>Client Examples</div>
             <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:14 }}>
-              SDK metadata improves identity quality. Add it to any application you can modify to enrich attribution and confidence.
+              Point your existing client at the gateway — change <code style={{ fontFamily:FONT_MONO, color:T.info, fontSize:11 }}>base_url</code> and the API key, nothing else.
             </div>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:20 }}>
-              {["owner attribution","environment","version","confidence"].map(item => (
-                <span key={item} style={{ fontSize:11, fontFamily:FONT_MONO, color:"#34d399", background:"#34d39912", border:"1px solid #34d39933", borderRadius:4, padding:"2px 8px" }}>+ {item}</span>
-              ))}
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns: bp.isMobile ? "1fr" : "1fr 1fr", gap:24, marginBottom:20 }}>
-              <div>
-                <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>SDK setup flow</div>
-                <FlowColumn steps={SDK_FLOW} />
-              </div>
-              <div>
-                <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>What the SDK collects</div>
-                {[
-                  ["SERVICE_NAME / APP_NAME", "Agent identity"],
-                  ["ENVIRONMENT / ENV",        "prod / staging / dev"],
-                  ["TEAM",                     "Owning team"],
-                  ["APP_VERSION",              "Version tag"],
-                ].map(([k, v]) => (
-                  <div key={k} style={{ display:"flex", gap:8, padding:"5px 0", borderBottom:`1px solid ${T.border}`, fontSize:12 }}>
-                    <code style={{ fontFamily:FONT_MONO, color:"#34d399", fontSize:11, minWidth: bp.isMobile ? 0 : 180, flexShrink: bp.isMobile ? 1 : 0 }}>{k}</code>
-                    <span style={{ color:T.textDim }}>{v}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={{ fontSize:10, fontFamily:FONT_MONO, color:T.textMute, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:10 }}>SDK Examples</div>
             <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
-              <CodeBlock id="sdk_openai"    label="Python · OpenAI SDK"    snippet={resolvedSnippets.sdk_openai}    accentColor="#34d399" />
-              <CodeBlock id="sdk_anthropic" label="Python · Anthropic SDK" snippet={resolvedSnippets.sdk_anthropic} accentColor="#34d399" />
-              <CodeBlock id="sdk_env"       label="Env-var · httpx"        snippet={resolvedSnippets.sdk_env}       accentColor="#34d399" />
-            </div>
-            <div style={{ background:`${T.warn}08`, border:`1px solid ${T.warn}22`, borderRadius:8, padding:"14px 18px" }}>
-              <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.warn, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Advanced — Manual Headers</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
-                <CodeBlock id="manual_openai" label="Manual headers · OpenAI" snippet={resolvedSnippets.manual_openai} accentColor={T.warn} />
-                <CodeBlock id="manual_curl"   label="Manual headers · cURL"   snippet={resolvedSnippets.manual_curl}   accentColor={T.warn} />
-              </div>
-              <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:6, overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
-                <table style={{ width:"100%", borderCollapse:"collapse", minWidth:460 }}>
-                  <thead>
-                    <tr style={{ background:T.panelHi }}>
-                      {["Header","Description","Example"].map(h => (
-                        <th key={h} style={{ padding:"7px 12px", textAlign:"left", fontSize:10, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.1em", textTransform:"uppercase", borderBottom:`1px solid ${T.border}` }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {OPT_HEADERS.map((row, i) => (
-                      <tr key={row.name} style={{ background: i % 2 === 0 ? T.panel : T.bg }}>
-                        <td style={{ padding:"7px 12px", borderBottom:`1px solid ${T.border}` }}>
-                          <code style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textDim }}>{row.name}</code>
-                        </td>
-                        <td style={{ padding:"7px 12px", borderBottom:`1px solid ${T.border}`, fontSize:11, color:T.textDim }}>{row.desc}</td>
-                        <td style={{ padding:"7px 12px", borderBottom:`1px solid ${T.border}` }}>
-                          <code style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute }}>{row.example}</code>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <CodeBlock id="sdk_openai"    label="Python · OpenAI client"    snippet={resolvedSnippets.sdk_openai}    accentColor={T.info} />
+              <CodeBlock id="sdk_anthropic" label="Python · Anthropic client" snippet={resolvedSnippets.sdk_anthropic} accentColor={T.info} />
+              <CodeBlock id="sdk_env"       label="Env-var only (no code)"    snippet={resolvedSnippets.sdk_env}       accentColor={T.info} />
             </div>
           </div>
         </div>
@@ -431,9 +357,13 @@ client.chat.completions.create(
 
       {section === "platform" && (
         <div style={{ border:`1px solid ${T.purple}44`, borderRadius:10, padding:"24px 28px", marginBottom:16 }}>
-          <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:16 }}>Ecosystem Discovery — Integration Guide</div>
+          <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:16 }}>Ecosystem Discovery — Preview</div>
+          <div style={{ background:`${T.purple}12`, border:`1px solid ${T.purple}33`, borderRadius:6, padding:"10px 14px", marginBottom:14, fontSize:12, color:T.textDim }}>
+            <span style={{ fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.purple, fontWeight:600, marginRight:8 }}>Coming later</span>
+            These connectors are on the roadmap and not live yet. This preview shows how they will work.
+          </div>
           <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:20 }}>
-            Ecosystem Discovery identifies AI signals across your tooling ecosystem — GitHub, Slack, Jira, ServiceNow, and MCP servers — indexed alongside runtime traffic.
+            Ecosystem Discovery will identify AI signals across your tooling — GitHub, Slack, Jira, ServiceNow, and MCP servers — indexed alongside runtime traffic.
           </div>
           <div style={{ display:"grid", gridTemplateColumns: bp.isMobile ? "1fr" : "1fr 1fr", gap:24, marginBottom:20 }}>
             <div>
