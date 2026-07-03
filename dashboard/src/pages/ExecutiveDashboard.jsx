@@ -264,7 +264,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>No AI systems yet.</div>
             <div style={{ fontSize: 12, color: T.textDim, lineHeight: 1.6 }}>
-              Run the demo seed or connect OpenTelemetry to see AI systems appear here. No manual registration required.
+              Connect OpenTelemetry traces from one AI service to see AI systems appear here. No manual registration required.
             </div>
           </div>
           <button onClick={() => onNavigate?.("integrations")}

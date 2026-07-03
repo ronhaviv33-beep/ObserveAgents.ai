@@ -219,7 +219,7 @@ function AISystemsTab({ assets, capabilitiesTotal, loading, canAct, onFindingAct
   if (loading) return <div style={{ padding: "40px 0", textAlign: "center", color: T.textMute, fontFamily: FONT_MONO, fontSize: 13 }}>Loading…</div>;
   if (assets.length === 0) return (
     <EmptyState title="No AI systems discovered yet."
-      hint="Ingest OpenTelemetry traces or run the demo seed." />
+      hint="Connect OpenTelemetry traces and discovered AI systems appear here automatically." />
   );
   if (capabilitiesTotal === 0) return (
     <EmptyState title="Assets discovered, but no capabilities have been derived yet."

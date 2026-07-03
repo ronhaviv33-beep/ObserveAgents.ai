@@ -140,7 +140,7 @@ export default function Guardrails() {
           <div style={{ padding: "40px 20px", textAlign: "center" }}>
             <div style={{ color: T.textDim, fontSize: 14, marginBottom: 6 }}>No AI systems observed yet.</div>
             <div style={{ color: T.textMute, fontSize: 12, fontFamily: FONT_MONO }}>
-              Guardrails evaluate observed runtime behavior — ingest OpenTelemetry traces or run the demo seed first.
+              Guardrails evaluate observed runtime behavior — connect OpenTelemetry traces and AI systems appear here automatically.
             </div>
           </div>
         ) : (

@@ -41,7 +41,7 @@ export default function CustomerWelcomePage({ onNavigate }) {
     {
       n: "3", color: T.info,
       title: "What to do next",
-      desc: "Run the demo seed or send real OTel traces. Then open Runtime to see traces, Asset Intelligence to see discovered AI systems, and Guardrails to see advisory observations. Check Security and Cost Intelligence for risky or heavy systems.",
+      desc: "Send OpenTelemetry traces from one AI service. Then open Runtime to see traces, Asset Intelligence to see discovered AI systems, and Guardrails to see advisory observations. Check Security and Cost Intelligence for risky or heavy systems.",
       note: "Optional: review and assign owners to discovered systems in Governance Readiness when you're ready.",
       cta: "Open Asset Intelligence →", page: "intelligence",
     },
