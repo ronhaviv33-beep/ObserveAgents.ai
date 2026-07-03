@@ -29,9 +29,9 @@ const Pill = ({ children, color }) => (
 
 // ── Guard Modes ───────────────────────────────────────────────────────────────
 export const GUARD_MODE_META = {
-  observe: { color: "#3b82f6", label: "Observe", desc: "Log & shadow-block only — never blocks" },
-  alert:   { color: "#eab308", label: "Alert",   desc: "Logs + fires alerts — never blocks" },
-  enforce: { color: "#ef4444", label: "Enforce", desc: "Actively blocks violations" },
+  observe: { color: "#3b82f6", label: "Observe", desc: "Detects and reports what would have happened. Never blocks requests." },
+  alert:   { color: "#eab308", label: "Alert",   desc: "Flags issues and notifies. Still does not block." },
+  enforce: { color: "#ef4444", label: "Enforce", desc: "Blocks or requires action — only when enforcement is intentionally enabled." },
 };
 
 function GuardModesSection() {
@@ -139,6 +139,18 @@ function GuardModesSection() {
         </table>
         </div>
       )}
+      {/* What each mode means — visible, not just a tooltip */}
+      <div style={{ marginTop:14, display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:10 }}>
+        {Object.entries(GUARD_MODE_META).map(([key, m]) => (
+          <div key={key} style={{ background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:6, padding:"10px 12px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+              <span style={{ width:8, height:8, borderRadius:"50%", background:m.color }} />
+              <span style={{ fontFamily:FONT_MONO, fontSize:12, color:T.text, fontWeight:600 }}>{m.label}</span>
+            </div>
+            <div style={{ fontSize:11, color:T.textDim, lineHeight:1.6 }}>{m.desc}</div>
+          </div>
+        ))}
+      </div>
       <div style={{ marginTop:14, fontSize:11, fontFamily:FONT_MONO, color:T.textMute, lineHeight:1.7 }}>
         <strong style={{ color:T.textDim }}>Would block (30d)</strong> shows how many requests <em>would</em> have been blocked in enforce mode — watch this before graduating a team. Every mode change is written to the audit log.
       </div>

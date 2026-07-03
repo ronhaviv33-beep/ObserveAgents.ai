@@ -14,41 +14,41 @@ export default function CustomerWelcomePage({ onNavigate }) {
   ];
 
   const features = [
-    { icon: "◈", color: T.accent,  title: "Agent Inventory",          page: "agent_inventory",  desc: "Every agent that has ever touched your LLM traffic — automatically catalogued, attributed to a team, and tracked over time." },
-    { icon: "🔗", color: T.teal,   title: "Runtime Dependency Map",   page: "relationship_map",  desc: "Automatically maps what every agent touches at runtime — MCP servers, tools, workflows, APIs, and CRMs." },
-    { icon: "⊙", color: T.yellow,  title: "Discovery Center",         page: "discovery",         desc: "Surface AI agents and automations that were created without going through official channels — before they become a risk." },
-    { icon: "⊛", color: T.info,    title: "Advisory Guardrails",      page: "guardrails",        desc: "Observe-only guardrails that detect, explain, and recommend based on observed AI behavior — nothing is blocked by default." },
-    { icon: "$", color: T.accent,  title: "Cost Intelligence",        page: "cost",              desc: "Runtime usage and efficiency intelligence — which AI systems are heavy, slow, or likely expensive. No manual tagging required." },
-    { icon: "⚑", color: T.crit,   title: "Security Intelligence",    page: "security_intel",    desc: "Alerts on unusual activity, prompt injection attempts, and policy violations — detected automatically." },
+    { icon: "▶", color: T.accent,  title: "Runtime",                  page: "runtime",           desc: "See live AI traces and execution timelines — where every request actually spends its time." },
+    { icon: "◈", color: T.purple,  title: "Asset Intelligence",       page: "intelligence",      desc: "Understand every AI system: its models, tools, dependencies, capabilities, and findings — grouped in one place." },
+    { icon: "⚑", color: T.crit,   title: "Security Intelligence",    page: "security_intel",    desc: "Find risky runtime behavior like database access, MCP usage, external APIs, and broad tool access." },
+    { icon: "$", color: T.accent,  title: "Cost Intelligence",        page: "cost",              desc: "Spot heavy, slow, or potentially expensive AI workflows. Usage signals, not exact billing." },
+    { icon: "⊛", color: T.info,    title: "Guardrails",               page: "guardrails",        desc: "Start in observe-only mode: detect, explain, and recommend — without blocking production AI." },
+    { icon: "🔗", color: T.teal,   title: "Dependency Map",           page: "relationship_map",  desc: "See what every AI system connects to — MCP servers, tools, workflows, APIs, and databases." },
   ];
 
   const steps = [
     {
       n: "1", color: T.accent,
-      title: "Connect a discovery source",
-      desc: "Send OpenTelemetry traces to the OTLP endpoint, or point your AI agent code at the gateway instead of directly at OpenAI or Anthropic. No proprietary SDK required — use your existing AI stack and observability setup.",
+      title: "How data gets in",
+      desc: "Send OpenTelemetry traces to the OTLP endpoint, or route AI traffic through the gateway. Both work with your existing stack — no proprietary SDK required. Ecosystem sources like GitHub, Jira, Slack, n8n, and MCP are coming later.",
       note: null,
-      sdks: ["OpenAI SDK", "LangChain", "CrewAI", "LiteLLM", "OpenAI Agents SDK", "MCP Clients", "Vercel AI SDK", "Agno", "any OpenAI-compatible client"],
-      cta: "See Integration Guide →", page: "integrations",
+      sdks: ["OpenTelemetry", "OpenAI SDK", "LangChain", "CrewAI", "LiteLLM", "MCP Clients", "Vercel AI SDK", "any OpenAI-compatible client"],
+      cta: "Open Setup →", page: "integrations",
     },
     {
       n: "2", color: T.teal,
-      title: "Automatic discovery begins",
-      desc: "The moment traffic flows, the platform starts discovering agents, mapping dependencies, detecting models in use, and attributing cost. No manual agent registration. No tagging required.",
-      note: "Agents are fingerprinted from API keys, request patterns, headers, and SDK signals. Identity improves automatically over time.",
-      cta: "View Discovery Center →", page: "discovery",
+      title: "What you can see",
+      desc: "Runtime traces and execution timelines. An inventory of every AI system. Capabilities, dependencies, and findings per system. Security signals, cost signals, and guardrail observations — all derived from observed behavior.",
+      note: "Everything appears automatically once data flows. No manual registration, no tagging.",
+      cta: "Open Runtime →", page: "runtime",
     },
     {
       n: "3", color: T.info,
-      title: "Review and claim discovered assets",
-      desc: "Discovered agents appear in the Governance Center for review. Assign owners, add context, and promote them to managed assets — or reject shadow AI that shouldn't be running.",
-      note: "Optional: enrich identities with X-Agent-Name, X-Agent-Team headers for higher confidence attribution.",
-      cta: "Open Governance →", page: "governance",
+      title: "What to do next",
+      desc: "Run the demo seed or send real OTel traces. Then open Runtime to see traces, Asset Intelligence to see discovered AI systems, and Guardrails to see advisory observations. Check Security and Cost Intelligence for risky or heavy systems.",
+      note: "Optional: review and assign owners to discovered systems in Governance Readiness when you're ready.",
+      cta: "Open Asset Intelligence →", page: "intelligence",
     },
     {
       n: "4", color: T.purple,
       title: "Invite your team",
-      desc: "Add engineers, security leads, and FinOps colleagues as Viewers or Analysts. Each sees the agents their team owns and the spend they're responsible for.",
+      desc: "Add engineers, security, and FinOps colleagues as Viewers or Analysts. Everyone sees the same clear picture of what AI is running and where it needs attention.",
       note: null, cta: "Manage Users →", page: "users",
     },
   ];
@@ -68,31 +68,30 @@ export default function CustomerWelcomePage({ onNavigate }) {
           textTransform:"uppercase", marginBottom:12 }}>ObserveAgents · Enterprise AI Intelligence Platform</div>
 
         <div style={{ fontSize: bp.isMobile ? 22 : 32, fontWeight:700, color:T.text, marginBottom:14, lineHeight:1.15 }}>
-          Connect a discovery source once.<br/>
-          <span style={{ color:T.accent }}>Your AI inventory builds itself.</span>
+          See your real AI footprint.<br/>
+          <span style={{ color:T.accent }}>No manual registration needed.</span>
         </div>
 
         <div style={{ fontSize:15, color:T.textDim, lineHeight:1.75, maxWidth:580, marginBottom:10 }}>
-          Observe helps organizations understand what AI exists, what is actively running, how it is
-          connected, and how it evolves over time. Connect OpenTelemetry traces or the gateway — Runtime
-          Discovery today, Ecosystem Discovery (GitHub, Slack, n8n, MCP) next — and the platform discovers
-          every AI system, maps every dependency, and attributes runtime usage and cost signals.
+          Observe connects signals from your AI systems and turns them into a clear view of what is
+          running, what it uses, and what needs attention. It helps teams see what AI exists, what is
+          actually running, what it connects to, and where it needs attention.
         </div>
         <div style={{ fontSize:13, color:T.textMute, lineHeight:1.6, maxWidth:560, marginBottom:28 }}>
-          Built for engineering and security teams managing AI at scale — from the agents your teams
-          built intentionally to the shadow AI that appeared without anyone knowing.
+          Built for engineering and security teams managing AI at scale — from the systems your teams
+          built intentionally to the shadow AI nobody knew about.
         </div>
 
         <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
           <button onClick={() => onNavigate("integrations")}
             style={{ background:T.accent, color:"#000", border:"none", borderRadius:6,
               padding:"11px 24px", fontSize:13, fontWeight:700, fontFamily:FONT_UI, cursor:"pointer" }}>
-            Connect Traffic →
+            Get Data Flowing →
           </button>
-          <button onClick={() => onNavigate("agent_inventory")}
+          <button onClick={() => onNavigate("intelligence")}
             style={{ background:"transparent", color:T.text, border:`1px solid ${T.border}`,
               borderRadius:6, padding:"11px 24px", fontSize:13, fontWeight:600, fontFamily:FONT_UI, cursor:"pointer" }}>
-            View Agent Inventory
+            Open Asset Intelligence
           </button>
           <button onClick={() => onNavigate("discovery")}
             style={{ background:"transparent", color:T.teal, border:`1px solid ${T.teal}44`,

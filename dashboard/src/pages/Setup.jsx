@@ -61,11 +61,11 @@ export default function SimpleIntegrationsPage({ onNavigate, demoMode = false })
       cta: "Start Here →",
     },
     {
-      id: "platform", badge: null, color: T.purple,
+      id: "platform", badge: "Coming later", color: T.purple,
       title: "Ecosystem Discovery",
-      desc:  "Scan GitHub, Slack, Jira, ServiceNow, and MCP for AI signals.",
+      desc:  "Future connectors will scan GitHub, Slack, Jira, ServiceNow, and MCP for AI signals. Not live yet.",
       benefits: ["Discover GitHub, Slack, Jira, ServiceNow, and MCP signals", "Find potential AI assets", "Surface unmanaged dependencies", "Send findings for validation"],
-      cta: "Connect Ecosystem →",
+      cta: "Preview →",
     },
   ];
 
@@ -221,7 +221,9 @@ client.chat.completions.create(
       <div style={{ marginBottom:24 }}>
         <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>Administration · Setup</div>
         <div style={{ fontSize:24, fontWeight:700, color:T.text, lineHeight:1.2 }}>Setup</div>
-        <div style={{ fontSize:13, color:T.textDim, marginTop:6, lineHeight:1.5 }}>Configure your workspace and start discovering AI assets.</div>
+        <div style={{ fontSize:13, color:T.textDim, marginTop:6, lineHeight:1.5 }}>
+          Get data flowing into Observe. After data starts flowing, open Runtime to see traces and Asset Intelligence to see discovered AI systems.
+        </div>
       </div>
 
       {/* Setup progress */}
@@ -243,16 +245,36 @@ client.chat.completions.create(
         </div>
       </div>
 
+      {/* Quick start with demo data — fastest way to see the product working */}
+      <div style={{ marginBottom:16, padding:"16px 24px",
+        background:`${T.accent}0a`, border:`1px solid ${T.accent}33`, borderRadius:10 }}>
+        <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:6 }}>
+          Quick start: try it with demo data
+        </div>
+        <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, maxWidth:680, marginBottom:10 }}>
+          Want to see the product before wiring anything up? One command seeds five realistic AI systems
+          with traces, capabilities, and findings. All data is synthetic — no real prompts, no secrets.
+        </div>
+        <code style={{ display:"inline-block", fontFamily:FONT_MONO, fontSize:11, color:T.accent,
+          background:T.panel, border:`1px solid ${T.border}`, borderRadius:6, padding:"8px 12px" }}>
+          python scripts/seed_demo_data.py
+        </code>
+        <div style={{ fontSize:11, color:T.textMute, fontFamily:FONT_MONO, marginTop:8 }}>
+          Then open Runtime and Asset Intelligence to explore the seeded systems.
+        </div>
+      </div>
+
       <div style={{ marginBottom:28, padding:"20px 24px",
         background:`${T.info}0a`, border:`1px solid ${T.info}33`, borderRadius:10,
         display:"flex", alignItems:"flex-start", gap:16, flexWrap:"wrap" }}>
         <div style={{ width:8, height:8, borderRadius:"50%", background:T.info, flexShrink:0, marginTop:5 }} />
         <div style={{ flex:1 }}>
           <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:6 }}>
-            Recommended path: start with Runtime Discovery.
+            Recommended real setup: Runtime Discovery.
           </div>
           <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, maxWidth:620 }}>
-            One config change gives you immediate visibility. Agents and dependencies appear automatically — no manual registration.
+            Send OpenTelemetry traces or route AI traffic through the gateway. AI systems and dependencies
+            appear automatically — no manual registration.
           </div>
         </div>
         <button
@@ -453,9 +475,13 @@ OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production`}
 
       {section === "platform" && (
         <div style={{ border:`1px solid ${T.purple}44`, borderRadius:10, padding:"24px 28px", marginBottom:16 }}>
-          <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:16 }}>Ecosystem Discovery — Integration Guide</div>
+          <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:16 }}>Ecosystem Discovery — Preview</div>
+          <div style={{ background:`${T.purple}12`, border:`1px solid ${T.purple}33`, borderRadius:6, padding:"10px 14px", marginBottom:14, fontSize:12, color:T.textDim }}>
+            <span style={{ fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em", textTransform:"uppercase", color:T.purple, fontWeight:600, marginRight:8 }}>Coming later</span>
+            These connectors are on the roadmap and not live yet. This preview shows how they will work.
+          </div>
           <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:20 }}>
-            Ecosystem Discovery identifies AI signals across your tooling ecosystem — GitHub, Slack, Jira, ServiceNow, and MCP servers — indexed alongside runtime traffic.
+            Ecosystem Discovery will identify AI signals across your tooling — GitHub, Slack, Jira, ServiceNow, and MCP servers — indexed alongside runtime traffic.
           </div>
           <div style={{ display:"grid", gridTemplateColumns: bp.isMobile ? "1fr" : "1fr 1fr", gap:24, marginBottom:20 }}>
             <div>

@@ -231,14 +231,40 @@ export default function ExecutiveDashboard({ onNavigate }) {
         </div>
       </div>
 
+      {/* ── Product intro: what Observe is + where to look ─────────────────────── */}
+      <div style={{ marginBottom: 4 }}>
+        <div style={{ fontSize: 16, fontWeight: 600, color: T.text, letterSpacing: "-0.01em" }}>See your real AI footprint</div>
+        <div style={{ fontSize: 12, color: T.textDim, marginTop: 4, lineHeight: 1.6 }}>
+          Observe shows which AI systems exist, which ones are actually running, what they connect to, and where they need attention.
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : bp.isTablet ? "repeat(3, 1fr)" : "repeat(6, 1fr)", gap: 8 }}>
+        {[
+          { page: "runtime",        title: "Runtime",             desc: "See live AI traces and execution timelines" },
+          { page: "intelligence",   title: "Asset Intelligence",  desc: "Every AI system — models, tools, capabilities, findings" },
+          { page: "security_intel", title: "Security",            desc: "Find risky runtime behavior before it's a problem" },
+          { page: "cost",           title: "Cost",                desc: "Spot heavy, slow, or potentially expensive workflows" },
+          { page: "guardrails",     title: "Guardrails",          desc: "Observe-only: detect, explain, recommend — no blocking" },
+          { page: "integrations",   title: "Integrations",        desc: "Connect telemetry and discovery sources" },
+        ].map((c) => (
+          <button key={c.page} onClick={() => onNavigate?.(c.page)}
+            style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 12px", textAlign: "left", cursor: "pointer", fontFamily: FONT }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = T.borderHi; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = T.border; }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: T.text, marginBottom: 3 }}>{c.title} →</div>
+            <div style={{ fontSize: 10, color: T.textMute, lineHeight: 1.5 }}>{c.desc}</div>
+          </button>
+        ))}
+      </div>
+
       {/* ── Empty state — no agents discovered yet ──────────────────────────────── */}
       {total === 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "22px 26px", background: `${T.accent}0D`, border: `1px solid ${T.accent}33`, borderRadius: 10 }}>
           <div style={{ fontSize: 28 }}>🛰</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>No AI systems discovered yet.</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>No AI systems yet.</div>
             <div style={{ fontSize: 12, color: T.textDim, lineHeight: 1.6 }}>
-              Connect a discovery source — OpenTelemetry traces or the gateway — and AI systems appear automatically. No manual registration required.
+              Run the demo seed or connect OpenTelemetry to see AI systems appear here. No manual registration required.
             </div>
           </div>
           <button onClick={() => onNavigate?.("integrations")}
