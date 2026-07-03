@@ -64,6 +64,7 @@ function GuardModesSection() {
 
   return (
     <Card title="Guard Modes" subtitle="Advisory first — enforcement is optional per team. Teams start in observe (nothing blocked) and can graduate independently.">
+
       {err && <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12, marginBottom:12 }}>{err}</div>}
       <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:16 }}>
         <div style={{ background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:6, padding:"10px 14px", flex:1, minWidth:200 }}>
@@ -216,7 +217,7 @@ function ProviderCredentialsSection() {
   };
 
   return (
-    <Card title="Provider Credentials" subtitle="Stored securely and used internally by the gateway to reach providers (OpenAI, Anthropic, Gemini, Azure). Write-only — only the last 4 characters are shown. Never expose provider keys in your application code; use a Gateway API Key there instead.">
+    <Card title="Provider Credentials" subtitle="Connect AI providers used by your organization. Keys are stored securely and never exposed in application code.">
       {err && <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12, marginBottom:12 }}>{err}</div>}
       {loading ? (
         <div style={{ color:T.textDim, fontFamily:FONT_MONO, fontSize:12, padding:12 }}>Loading…</div>
@@ -653,7 +654,7 @@ export default function SettingsPage() {
       <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:16, flexWrap:"wrap" }}>
         <div>
           <div style={{ fontSize:20, fontWeight:500, color:T.text, letterSpacing:"-0.01em" }}>Settings</div>
-          <div style={{ fontSize:12, color:T.textDim, marginTop:4 }}>Configure your organization's AI providers, guard modes, and platform settings.</div>
+          <div style={{ fontSize:12, color:T.textDim, marginTop:4 }}>Manage providers, discovery, and platform configuration.</div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
           {gwResult && (
@@ -677,16 +678,12 @@ export default function SettingsPage() {
       <ProviderCredentialsSection />
 
       <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:"16px 20px" }}>
-        <div style={{ fontSize:12, fontWeight:600, color:T.text, marginBottom:8 }}>Which keys should I configure?</div>
-        <div style={{ fontSize:12, color:T.textMute, lineHeight:1.7, marginBottom:10 }}>
-          <strong style={{ color:T.text }}>Provider Credentials</strong> are used internally by the gateway and never appear in your code.
-          <strong style={{ color:T.text }}> Gateway API Keys</strong> are what you put in your AI applications.
-        </div>
+        <div style={{ fontSize:12, fontWeight:600, color:T.text, marginBottom:8 }}>Key types</div>
         <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
           {[
-            { label:"Provider Credentials",   desc:"Stored securely; used internally by the gateway to reach OpenAI, Anthropic, Gemini, Azure. Never expose in code." },
-            { label:"Gateway API Keys",       desc:"Used inside your applications, agents and SDK clients to authenticate calls through the gateway." },
-            { label:"Platform Configuration", desc:"Runtime environment settings used by the platform deployment itself (JWT secret, etc.)." },
+            { label:"Provider Credentials", desc:"Used by ObserveAgents to reach OpenAI, Anthropic, Gemini. Never put these in application code." },
+            { label:"API Keys",             desc:"Use these inside your applications and agents to route traffic through ObserveAgents." },
+            { label:"Platform Config",      desc:"Environment settings for the deployment (JWT secret, etc.)." },
           ].map(({ label, desc }) => (
             <div key={label} style={{ display:"flex", gap:8, fontSize:11, color:T.textMute, fontFamily:FONT_MONO }}>
               <span style={{ color:T.accent, flexShrink:0 }}>▸</span>
@@ -698,7 +695,7 @@ export default function SettingsPage() {
 
       <GuardModesSection />
 
-      <Card title="Platform Configuration" subtitle="Infrastructure-level settings used by the AI Operations platform. Stored in the server environment.">
+      <Card title="Platform Configuration" subtitle="Environment settings for the platform deployment.">
         {err && <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12, marginBottom:12 }}>{err}</div>}
         <div style={{ overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", minWidth:560 }}>

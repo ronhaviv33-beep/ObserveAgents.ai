@@ -48,7 +48,7 @@ export default function CustomerWelcomePage({ onNavigate }) {
     {
       n: "4", color: T.purple,
       title: "Invite your team",
-      desc: "Add engineers, security, and FinOps colleagues as Viewers or Analysts. Everyone sees the same clear picture of what AI is running and where it needs attention.",
+      desc: "Add engineers, security, and FinOps colleagues as Viewers or Analysts. Each sees the AI systems their team owns and where they need attention.",
       note: null, cta: "Manage Users →", page: "users",
     },
   ];
@@ -105,7 +105,7 @@ export default function CustomerWelcomePage({ onNavigate }) {
       <div style={{ marginBottom:32, padding:"24px 28px", background:`${T.teal}08`,
         border:`1px solid ${T.teal}22`, borderRadius:10 }}>
         <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.teal, letterSpacing:"0.14em",
-          textTransform:"uppercase", marginBottom:16 }}>◆ Automatic Discovery — no manual work required</div>
+          textTransform:"uppercase", marginBottom:16 }}>◆ Discovered automatically</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:12 }}>
           {discoveredItems.map(item => (
             <div key={item.label} style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
@@ -121,7 +121,7 @@ export default function CustomerWelcomePage({ onNavigate }) {
 
       {/* Getting started */}
       <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em",
-        textTransform:"uppercase", marginBottom:14 }}>How it works</div>
+        textTransform:"uppercase", marginBottom:14 }}>Getting started</div>
       <div style={{ display:"flex", flexDirection:"column", gap:0, marginBottom:32,
         background:T.panel, border:`1px solid ${T.border}`, borderRadius:10, overflow:"hidden" }}>
         {steps.map((s, i) => (
@@ -180,7 +180,7 @@ export default function CustomerWelcomePage({ onNavigate }) {
 
       {/* Features */}
       <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em",
-        textTransform:"uppercase", marginBottom:14 }}>What you get</div>
+        textTransform:"uppercase", marginBottom:14 }}>Platform</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:12 }}>
         {features.map(f => (
           <button key={f.page} onClick={() => onNavigate(f.page)}
