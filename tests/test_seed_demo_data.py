@@ -205,6 +205,43 @@ def test_findings_derived_across_categories():
         db.close()
 
 
+def test_admin_populate_seeds_otel_demo():
+    """The platform-admin populate path seeds the same OTel demo into any org,
+    and the clear path removes it."""
+    from app.routes.admin import populate_demo_org, clear_demo_data  # noqa: F401
+    from app.demo_otel_seed import clear_otel_demo
+
+    db = SessionLocal()
+    try:
+        org = Organization(name="Populate Test Org", slug=f"pop-test-{uuid.uuid4().hex[:6]}")
+        db.add(org)
+        db.commit()
+        db.refresh(org)
+
+        result = populate_demo_org(db, org.id)
+        assert result["otel_traces_seeded"] == 5
+        assert result["otel_spans_ingested"] >= 25
+        assert result["capabilities_created"] > 0
+        assert result["findings_created"] > 0
+
+        # Idempotent second populate — no new OTel traces
+        result2 = populate_demo_org(db, org.id)
+        assert result2["otel_traces_seeded"] == 0
+        assert result2["capabilities_created"] == 0
+
+        # Clear removes the OTel demo rows
+        cleared = clear_otel_demo(db, org.id)
+        db.commit()
+        assert cleared["otel_spans_deleted"] >= 25
+        assert cleared["otel_assets_deleted"] == 5
+        assert cleared["capabilities_deleted"] > 0
+        assert cleared["findings_deleted"] > 0
+        remaining = db.query(OtelSpan).filter(OtelSpan.organization_id == org.id).count()
+        assert remaining == 0
+    finally:
+        db.close()
+
+
 def test_no_raw_content_or_secrets_in_spans():
     db = SessionLocal()
     try:

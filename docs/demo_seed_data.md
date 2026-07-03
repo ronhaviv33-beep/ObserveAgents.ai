@@ -16,6 +16,10 @@ python scripts/seed_demo_data.py
 
 Safe to run multiple times — traces already present are skipped, and capability/finding derivation is idempotent. A second run reports `0 seeded, 5 already present`.
 
+### Alternative: the "Populate Organization" button
+
+Platform admins (demo/dev environments only) can seed the same five AI systems into **any organization** from the dashboard: pick the org in the sidebar's **Platform View** switcher and click **Populate Organization**. This seeds the gateway demo data *and* the OTel runtime intelligence demo into the selected org — Runtime and Asset Intelligence fill immediately. **Clear Demo Data** removes both. Note: the Runtime and Asset Intelligence pages always show the organization you are currently viewing, so make sure the Platform View selection matches where you seeded.
+
 ## Demo login
 
 | | |
