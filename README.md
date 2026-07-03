@@ -14,7 +14,7 @@ ObserveAgents discovers AI systems from runtime evidence (OpenTelemetry traces a
 - **Pricing Reference** — versioned model/provider pricing reference layer that feeds cost estimation
 - **Advisory Guardrails** — observe-only guardrails that detect, explain, and recommend without blocking
 - **Dependencies** — the runtime dependency map: every model, tool, MCP server, API, and database each system touches
-- **Integrations** — discovery and evidence sources: OTel/OTLP, SDK metadata, gateway today; GitHub, Jira, Slack, n8n, MCP next
+- **Integrations** — discovery and evidence sources: OTel/OTLP and the gateway today; GitHub, Jira, Slack, n8n, MCP next
 - **Demo seed data** — one command (`python scripts/seed_demo_data.py`) seeds a realistic five-system demo
 
 - Dashboard: https://observeagents.ai
@@ -24,44 +24,70 @@ ObserveAgents discovers AI systems from runtime evidence (OpenTelemetry traces a
 
 ---
 
-## The Integration
+## Getting data in
+
+Two Runtime Discovery paths — use either or both. Ecosystem Discovery connectors (GitHub, Jira, Slack, n8n, MCP) are on the roadmap.
+
+### 1. OpenTelemetry (recommended — no gateway required)
+
+Already instrumented with OTel? Point your exporter at the OTLP endpoint and AI systems, dependencies, and execution timelines appear automatically. Raw prompt/response content is never stored.
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=https://<your-observeagents-url>/otel
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer gk-<your-api-key>
+OTEL_SERVICE_NAME=my-agent
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production
+```
+
+See [docs/otel_ingestion.md](docs/otel_ingestion.md) for the full format, supported GenAI attributes, and the privacy guarantee.
+
+### 2. Gateway
 
 ```python
 # Before
 client = openai.OpenAI(api_key="sk-...")
 
-# After — one line change, full governance
+# After — one line change
 client = openai.OpenAI(
     base_url="https://gateway.observeagents.ai/v1",
     api_key="YOUR_GATEWAY_KEY",
 )
 ```
 
-**No proprietary SDK required — use your existing AI stack.** Works with OpenAI SDK, LangChain, CrewAI, LiteLLM, OpenAI Agents SDK, MCP Clients, Agno, PydanticAI, Vercel AI SDK, and any OpenAI-compatible client. Replace `base_url`, replace `api_key`, send traffic — agents are discovered automatically.
+**No proprietary SDK required — use your existing AI stack.** Works with OpenAI SDK, LangChain, CrewAI, LiteLLM, OpenAI Agents SDK, MCP Clients, Agno, PydanticAI, Vercel AI SDK, and any OpenAI-compatible client.
 
 ---
 
 ## Architecture
 
 ```
-Agent / SDK  (OpenAI · Anthropic · LangChain · curl)
-      │  base_url = https://gateway.observeagents.ai/v1
-      ▼
-POST /v1/chat/completions  (OpenAI-compatible)
-POST /v1/messages          (Anthropic-compatible)
-      │
-      ├─ JWT or opaque Bearer auth
-      ├─ Optional runtime safety check (opt-in per org)
-      ├─ Model policy check         (allowlist / blocklist per team)
-      ├─ Budget enforcement         (daily / monthly per team + agent)
-      ├─ Relationship capture       (X-MCP-* / X-Agent-* / X-Workflow-* headers)
-      ├─ Real upstream SSE streaming + disconnect detection
-      └─ Telemetry saved to SQLite
-                   │
+        Runtime Discovery (today)                    Ecosystem Discovery (roadmap)
+┌────────────────────────────────────────┐      ┌──────────────────────────────────┐
+│ OTel exporter          Agent / SDK     │      │ GitHub · Jira · Slack · n8n · MCP│
+│      │                     │           │      └──────────────────┬───────────────┘
+│      ▼                     ▼           │                         │
+│ POST /otel/v1/traces  POST /v1/chat/…  │                         ▼
+│ (OTLP/HTTP JSON)      POST /v1/messages│               future evidence tables
+│      │                     │           │
+│  privacy scrub         guard modes     │
+│  (prompts never        (observe/alert/ │
+│   stored)               enforce)       │
+└──────┬─────────────────────┬───────────┘
+       ▼                     ▼
+ otel_spans · otel_assets · telemetry · provenance_events
+       │
+       ▼
+ asset_registry  (canonical AI inventory — single source of truth)
+       │
+       ▼
+ derive_asset_intelligence()
+ asset_capabilities · asset_findings
+       │
+       ▼
            React Dashboard
-  (Agent Inventory · Runtime Dependency Map · Cost Intelligence ·
-   Security Intelligence · Governance · Discovery · Ecosystem ·
-   Pricing Registry · Budgets · Audit · Users · Settings · Chat)
+  (Dashboard · Runtime · Asset Intelligence · Security Intelligence ·
+   Cost Intelligence · Budgets · Pricing Registry · Guardrails ·
+   Dependency Map · Discovery · Ecosystem · Setup · Users · Settings)
 ```
 
 ---
@@ -82,6 +108,30 @@ POST /v1/messages          (Anthropic-compatible)
 
 ## Features
 
+### Runtime Discovery (OpenTelemetry)
+- **OTLP/HTTP JSON ingestion** — `POST /otel/v1/traces` accepts standard OTel spans; agents are discovered from `agent.name` / `service.name` and reconciled into the canonical inventory
+- **GenAI semantic conventions** — models, providers, tools, MCP servers, databases, workflows, and external APIs extracted from `gen_ai.*`, `tool.*`, `mcp.*`, `db.*`, and `url.*` attributes
+- **Evidence summary** — one `otel_assets` row per (service, environment) aggregating models/providers/tools/dependencies with first/last seen and trace/span counts
+- **Privacy guarantee** — `gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.system_instructions`, `tool.arguments`, and `tool.result` are never stored; only SHA-256 hash + byte size
+- **Provenance** — one semantic event per span (llm_call / tool_call / db_call / external_api_call / agent_step)
+
+### Runtime Execution Timeline
+- `GET /runtime/traces` — recent executions with root span, duration, span and error counts
+- `GET /runtime/traces/{trace_id}` — full span tree with per-step offsets and durations for the trace waterfall
+- **Runtime Step classification** — each span typed as llm / tool / database / external_api / step
+- Dashboard **Runtime** page: trace list → click into an execution timeline showing where each request spent its time
+
+### Asset Intelligence
+- **Capabilities** (`asset_capabilities`) — what each AI system can do, derived from OTel evidence: provider, model, mcp, database, filesystem, shell, messaging, source_control, crm, retrieval, external_api, runtime
+- **Findings** (`asset_findings`) — normalized signals across five categories: security (shell_enabled, database_access, mcp_enabled, sensitive_system_access), performance (slow_llm_call, slow_tool_call, slow_runtime_step), operations (production_runtime, runtime_error, unmanaged_runtime), dependency (external_api_access, broad_tool_access), inventory (new_ai_system_detected, unknown_model)
+- **Grouped by AI system** — `GET /intelligence/asset-summary` returns one object per asset with runtime evidence, capability surface, finding counts, and status badges (active / runtime_observed / has_findings / error_observed)
+- Finding lifecycle: open → dismissed / resolved; idempotent derivation, no duplicates
+- See [docs/asset_intelligence.md](docs/asset_intelligence.md) for the full catalog
+
+### Advisory Guardrails (observe-only)
+- Seven guardrails evaluated live against observed capabilities and findings — database access, MCP tools, external APIs, broad tool access, production + high-severity findings, runtime errors, slow execution paths
+- **Detect, explain, recommend — nothing is blocked.** Enforcement is optional per team via guard modes (observe / alert / enforce), with a shadow "would block (30d)" preview before any team graduates
+
 ### Gateway
 - **OpenAI-compatible proxy** — `POST /v1/chat/completions` accepts any OpenAI SDK call
 - **Anthropic-compatible proxy** — `POST /v1/messages` accepts any Anthropic SDK call
@@ -92,9 +142,10 @@ POST /v1/messages          (Anthropic-compatible)
 - **Provider routing** by model name prefix: `claude-*` → Anthropic, `gemini-*` → Google, `llama-*` → Local/Ollama, everything else → OpenAI
 - **Bring Your Own Key (BYOK)** — per-org provider credentials stored encrypted (Fernet); used in place of server-level env vars when present
 
-### Enforcement Pipeline (every call)
-1. **Safety check** — model policy enforcement; blocked calls return HTTP 403 and are logged. Optional sensitive-content scan (10 pattern types) can be enabled per org.
-2. **Budget check** — per-team and per-agent daily/monthly limits; `action=alert` warns, `action=block` returns HTTP 429
+### Gateway Pipeline (every proxied call — advisory by default)
+Blocking only occurs for teams explicitly set to **enforce** guard mode; teams start in **observe** (nothing blocked).
+1. **Safety check** — model policy evaluation; in enforce mode blocked calls return HTTP 403 and are logged. Optional sensitive-content scan (10 pattern types) can be enabled per org.
+2. **Budget check** — per-team and per-agent daily/monthly thresholds; `action=alert` warns, `action=block` returns HTTP 429 in enforce mode
 3. **LLM call** — forwarded to the real provider
 4. **Telemetry** — tokens, cost (versioned per-model pricing), latency, team, agent, and findings all persisted
 5. **Relationship capture** — non-fatal; extracts runtime dependencies from headers and upserts into `agent_relationships`
@@ -107,7 +158,7 @@ POST /v1/messages          (Anthropic-compatible)
 - Settings page: live API key management (reads/writes `.env` without restart)
 
 ### AI Agent Inventory
-- **Two-tier discovery**: *Verified* agents (seen in gateway traffic, confidence 95%) vs *Potential* agents (platform signals, confidence 30–70%)
+- **Two-tier discovery**: *Verified* agents (seen in gateway traffic, confidence 95%) vs *Potential* agents (OTel-discovered and platform signals, confidence 30–70%; promoted to verified when claimed)
 - **Stable identity**: `asset_key = sha256(org_id + ":" + agent_id_raw)` — survives restarts and renames
 - **Governance lifecycle**: `unassigned → managed → retired`; claim, retire, and annotate agents from the UI
 - **CMDB model**: immutable `telemetry` table (runtime facts) + mutable `asset_registry` (governance layer)
@@ -136,16 +187,18 @@ extra_headers={
 ```
 
 ### Cost Intelligence
-Three-layer financial analysis:
+Runtime usage and efficiency intelligence — which AI systems are heavy, slow, or likely expensive — plus three-layer financial analysis:
 1. **Runtime estimate** — token counts × versioned pricing from the Pricing Registry
 2. **Provider billed** — import actual invoices (API / manual / CSV); stored in `provider_billing`
 3. **Reconciliation** — variance analysis per period per provider; healthy < 2%, warning 2–5%, investigate > 5%
 
+- **Runtime Usage & Efficiency Signals** — per-system trace/span volume and slow-step findings surfaced as potential cost hotspots (signals, not billed amounts)
 - Cost breakdown by agent, team, model, environment, or provider
 - Daily cost trend charts (Recharts)
 - Per-agent cost detail: monthly, lifetime, models used, cost signals
 
 ### Pricing Registry
+Model/provider pricing **reference layer** — the assumptions that feed cost estimation (estimates, not billing).
 - **Versioned, immutable rows** — prices are never updated; each change inserts a new version with `effective_from` / `effective_to` timestamps
 - **Org-specific overrides** — `organization_id = NULL` = global default; non-null = org override that shadows the global row
 - **Background sync daemon** — compares built-in price table against DB every 3600 s; creates new versions on drift
@@ -154,8 +207,10 @@ Three-layer financial analysis:
 - **Freshness warnings** — amber > 24 h, red > 48 h since last sync
 - 24 models seeded on first start across OpenAI, Anthropic, Google, and Local
 
-### AI Operational Risk & Compliance
-- **Operational risk center** — monitor unmanaged assets, high-capability agents, policy violations, budget anomalies, and unusual runtime behavior
+### Security Intelligence
+Answers: *which AI systems have risky runtime-observed behavior?*
+- **Risky AI Systems** — per-system risky capability surface (mcp / database / shell / external_api / crm / filesystem) with open security findings and high-severity counts, derived from asset intelligence
+- **Runtime security signals** — monitor unmanaged assets, high-capability agents, policy violations, budget anomalies, and unusual runtime behavior
 - 8 automated detection rules (cost spike, large prompt, workflow failure spike, premium model misuse, after-hours activity, agent loop, unapproved model, unvetted model)
 - Each alert includes root cause analysis and recommended remediation
 - Full audit log — expandable rows with prompt, response, block reason, and findings; load-more pagination
@@ -168,16 +223,13 @@ Three-layer financial analysis:
 
 | Page | Who can see it |
 |---|---|
-| Home | Everyone |
-| Overview, Agents, Models, Workflows, Alerts | Everyone |
-| Agent Inventory | Everyone |
-| Runtime Dependency Map | Everyone |
-| Cost Intelligence | Everyone |
-| Security (operational risk + alerts) | Everyone |
-| Security (policy rules + audit log) | Admin only |
-| Pricing Registry | Admin only |
-| Budgets, Users, Settings | Admin only |
-| Integrations | Admin + Analyst |
+| Dashboard, Platform Guide | Everyone |
+| Discovery Center, Agents, Runtime, Dependency Map, Ecosystem Discovery | Everyone |
+| Asset Intelligence, Security Intelligence, Cost Intelligence | Everyone |
+| Budgets (read-only for viewer/analyst; rules managed by admin) | Everyone |
+| Pricing Registry, Guardrails | Everyone |
+| Governance Readiness, Security & Audit, Users, API Keys, Settings | Admin only |
+| Setup (Integrations) | Admin + Analyst |
 | Chat | Admin + Analyst |
 
 - **Sortable columns** on every table — click any header to toggle asc/desc
@@ -195,8 +247,8 @@ Three-layer financial analysis:
 ### Backend
 
 ```bash
-git clone https://github.com/ronhaviv33-beep/ai-asset-management.git
-cd ai-asset-management
+git clone https://github.com/ronhaviv33-beep/ObserveAgents.ai.git
+cd ObserveAgents.ai
 
 python -m venv venv
 source venv/bin/activate          # Mac/Linux
@@ -237,7 +289,7 @@ CREDENTIAL_ENCRYPTION_KEY=               # Fernet key for BYOK credential storag
 python scripts/seed_demo_data.py
 ```
 
-Populates the database with demo organizations, users, agents, and telemetry records.
+Seeds the **Acme AI Operations** demo org with five realistic AI systems through the real OTel ingestion pipeline — traces, execution timelines, capabilities, and findings across all five categories. Idempotent; all data synthetic. Log in with `demo@observeagents.ai` / `Demo123!`, then open **Runtime** and **Asset Intelligence**. See [docs/demo_seed_data.md](docs/demo_seed_data.md).
 
 ---
 
@@ -251,12 +303,17 @@ Populates the database with demo organizations, users, agents, and telemetry rec
 | `api_keys` | Machine-to-machine auth; stored as SHA-256 hash |
 | `provider_credentials` | Encrypted per-org LLM keys (Fernet / BYOK) |
 | `telemetry` | Immutable proxy call records — tokens, cost, latency, agent identity, policy findings |
-| `asset_registry` | Governance layer for AI agents; lifecycle, owner, criticality |
+| `asset_registry` | Canonical AI inventory — single source of truth; lifecycle, owner, criticality |
+| `otel_spans` | Raw OTel span records (privacy-scrubbed attributes — prompts never stored) |
+| `otel_assets` | Runtime Discovery evidence — one row per (org, service, environment) with models/providers/tools/dependencies |
+| `provenance_events` | One semantic event per span (llm_call / tool_call / db_call / external_api_call) |
+| `asset_capabilities` | Derived capability surface per AI system (provider, model, mcp, database, shell, …) |
+| `asset_findings` | Derived findings across security / performance / operations / dependency / inventory |
 | `agent_relationships` | Runtime dependency map — what each agent calls, uses, or writes to |
 | `teams` | Auto-registering soft team registry |
 | `guard_modes` | Per-team governance mode (observe / alert / enforce) |
 | `policy_rules` | Model allowlist / blocklist per team |
-| `budget_rules` | Spend limits (daily / monthly, alert / block) |
+| `budget_rules` | Budget thresholds (daily / monthly; advisory alerts, block only in enforce guard mode) |
 | `chat_sessions` | Multi-turn session metadata |
 | `chat_session_messages` | Session message history with security findings |
 | `model_pricing` | Versioned pricing registry; immutable rows, org overrides |
@@ -334,6 +391,16 @@ print(message.content[0].text)
 
 ```http
 POST /auth/login                          # { email, password } → { access_token, user }
+POST /otel/v1/traces                      # OTLP/HTTP JSON span ingestion (Runtime Discovery)
+GET  /runtime/traces                      # Recent executions (root span, duration, span/error counts)
+GET  /runtime/traces/{trace_id}           # Full span tree for the execution timeline / waterfall
+GET  /intelligence/asset-summary          # Intelligence grouped per AI system (the dashboard's primary shape)
+GET  /intelligence/assets                 # Runtime Discovery evidence rows (otel_assets)
+GET  /intelligence/capabilities           # Derived capabilities (filterable)
+GET  /intelligence/findings               # Derived findings (filterable by category/severity/status)
+POST /intelligence/run                    # Re-derive capabilities + findings (idempotent)
+POST /intelligence/findings/{id}/dismiss  # Dismiss a finding
+POST /intelligence/findings/{id}/resolve  # Resolve a finding
 POST /ask                                 # Single-shot LLM request with enforcement pipeline
 POST /chat                                # Multi-turn with enforcement pipeline
 GET  /telemetry                           # Paginated request log
@@ -403,6 +470,12 @@ Pricing for all models is seeded into the Pricing Registry on first start and ke
 | ✅ | Pricing Registry — versioned, org-scoped, background sync, history |
 | ✅ | Sortable + searchable tables on every dashboard page |
 | ✅ | Render deployment (`render.yaml` Blueprint) |
+| ✅ | OTel Runtime Discovery — OTLP/HTTP JSON ingestion with privacy scrubbing |
+| ✅ | Runtime Execution Timeline — trace list + waterfall API and UI |
+| ✅ | Asset Intelligence — capabilities + findings derived per AI system, grouped dashboard view |
+| ✅ | Advisory Guardrails — observe-only guardrail catalog + per-team guard modes |
+| ✅ | Demo seed data — five-system synthetic demo through the real ingestion pipeline |
+| 🔜 | Ecosystem Discovery — GitHub / Jira / Slack / n8n / MCP evidence sources, Active/Dormant/Runtime-only correlation |
 | 🔜 | Per-tenant API key table (issue org keys, not user JWTs) |
 | 🔜 | Budget alerts via webhook (Slack / Teams at 80%) |
 | 🔜 | Cost forecasting (end-of-month projection from burn rate) |
@@ -415,7 +488,7 @@ Pricing for all models is seeded into the Pricing Registry on first start and ke
 ## Author
 
 **Ron Haviv**  
-SOC Analyst · Security Operations · AI Runtime Intelligence
+SOC Analyst · Security Operations · Enterprise AI Intelligence
 
 ---
 
