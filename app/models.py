@@ -694,3 +694,64 @@ class OtelAsset(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+
+class AssetCapability(Base):
+    """
+    Normalized capability discovered for an AI asset.
+    One row per (org, asset_key, capability_type, capability_name, source).
+    Application-level dedup — no DB unique constraint.
+    """
+    __tablename__ = "asset_capabilities"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    asset_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("asset_registry.id"), nullable=True, index=True)
+    asset_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    capability_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # provider|model|tool|mcp|database|filesystem|shell|external_api|runtime|workflow
+    # |cloud_api|crm|messaging|source_control|retrieval|memory|unknown
+    capability_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False, index=True)  # otel_trace|sdk|observed
+    evidence_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class AssetFinding(Base):
+    """
+    General finding derived from AI asset activity.
+    Categories: security|performance|operations|dependency|inventory|governance.
+    Severity: info|low|medium|high|critical. Status: open|dismissed|resolved.
+    Application-level dedup on (org, asset_key, category, finding_type, source).
+    """
+    __tablename__ = "asset_findings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    asset_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("asset_registry.id"), nullable=True, index=True)
+    asset_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    category: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    finding_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="open", index=True)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
