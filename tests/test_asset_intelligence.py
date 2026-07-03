@@ -557,6 +557,151 @@ def test_intelligence_assets_endpoint():
         db.close()
 
 
+def test_asset_summary_requires_auth():
+    resp = _client.get("/intelligence/asset-summary")
+    assert resp.status_code == 401
+
+
+def test_asset_summary_org_isolation():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org_a, _, token_a = _make_org_and_token(db, "sumisoa")
+        org_b, _, token_b = _make_org_and_token(db, "sumisob")
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={"gen_ai.system": "openai", "gen_ai.request.model": "gpt-4o"},
+            resource_attrs={"service.name": "sum-iso-agent"},
+        )
+        assert _post_traces(token_a, payload).status_code == 202
+        assert _run_intelligence(token_a).status_code == 200
+
+        resp = _client.get("/intelligence/asset-summary", headers={"Authorization": f"Bearer {token_a}"})
+        assert resp.status_code == 200
+        assert len(resp.json()["assets"]) == 1
+
+        resp = _client.get("/intelligence/asset-summary", headers={"Authorization": f"Bearer {token_b}"})
+        assert resp.status_code == 200
+        assert resp.json()["assets"] == []
+    finally:
+        db.close()
+
+
+def test_asset_summary_groups_by_asset():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "sumgrp")
+        for svc, tool in (("grp-agent-a", "postgres_query"), ("grp-agent-b", "bash_exec")):
+            payload = _make_span(
+                trace_id=uuid.uuid4().hex,
+                span_id=uuid.uuid4().hex[:16],
+                name="step",
+                attrs={"tool.name": tool},
+                resource_attrs={"service.name": svc},
+            )
+            assert _post_traces(token, payload).status_code == 202
+        assert _run_intelligence(token).status_code == 200
+
+        resp = _client.get("/intelligence/asset-summary", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        by_name = {a["asset_name"]: a for a in resp.json()["assets"]}
+        assert set(by_name) == {"grp-agent-a", "grp-agent-b"}
+
+        a_caps = {c["capability_name"] for c in by_name["grp-agent-a"]["capabilities"]}
+        b_caps = {c["capability_name"] for c in by_name["grp-agent-b"]["capabilities"]}
+        assert "postgres_query" in a_caps and "bash_exec" not in a_caps
+        assert "bash_exec" in b_caps and "postgres_query" not in b_caps
+    finally:
+        db.close()
+
+
+def test_asset_summary_finding_counts_and_status():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "sumfnd")
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="exec",
+            attrs={"tool.name": "bash_exec"},
+            resource_attrs={"service.name": "sumfnd-agent", "deployment.environment": "production"},
+        )
+        assert _post_traces(token, payload).status_code == 202
+        assert _run_intelligence(token).status_code == 200
+
+        resp = _client.get("/intelligence/asset-summary", headers={"Authorization": f"Bearer {token}"})
+        a = resp.json()["assets"][0]
+        assert a["open_findings_count"] == a["findings_count"] > 0
+        assert a["high_findings_count"] >= 1                 # shell_enabled is high
+        assert a["finding_categories"].get("security", 0) >= 1
+        assert a["finding_categories"].get("operations", 0) >= 1  # production_runtime
+        # Span timestamps use the fixed 2023 base nano — well past the 7-day
+        # freshness window, so the asset must NOT be flagged active.
+        assert "active" not in a["status"]
+        assert "runtime_observed" in a["status"]
+        assert "has_findings" in a["status"]
+        assert "error_observed" not in a["status"]
+    finally:
+        db.close()
+
+
+def test_asset_summary_includes_evidence_arrays():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "sumarr")
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={"gen_ai.system": "openai", "gen_ai.request.model": "gpt-4o"},
+            resource_attrs={"service.name": "sumarr-agent"},
+        )
+        assert _post_traces(token, payload).status_code == 202
+        assert _run_intelligence(token).status_code == 200
+
+        resp = _client.get("/intelligence/asset-summary", headers={"Authorization": f"Bearer {token}"})
+        a = resp.json()["assets"][0]
+        assert a["models"] == ["gpt-4o"]
+        assert a["providers"] == ["OpenAI"]   # display-normalized from stored "Openai"
+        assert a["capabilities_count"] >= 2
+        assert a["trace_count"] == 1
+        assert a["span_count"] == 1
+    finally:
+        db.close()
+
+
+def test_asset_summary_no_raw_content():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "sumpriv")
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={
+                "gen_ai.system": "openai",
+                "gen_ai.input.messages": '[{"role":"user","content":"top secret"}]',
+            },
+            resource_attrs={"service.name": "sumpriv-agent"},
+        )
+        assert _post_traces(token, payload).status_code == 202
+        assert _run_intelligence(token).status_code == 200
+
+        resp = _client.get("/intelligence/asset-summary", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        assert "attributes_json" not in resp.text
+        assert "gen_ai.input.messages" not in resp.text
+        assert "top secret" not in resp.text
+    finally:
+        db.close()
+
+
 def test_org_isolation():
     _ad._known_assets.clear()
     db = SessionLocal()

@@ -667,6 +667,12 @@ function buildQuery(params = {}) {
   ).toString()
 }
 
+export async function fetchIntelligenceAssetSummary() {
+  const r = await authFetch(`${BASE}/intelligence/asset-summary`)
+  if (!r || !r.ok) throw new Error('Failed to fetch asset summary')
+  return r.json()
+}
+
 export async function fetchIntelligenceAssets(params = {}) {
   const q = buildQuery(params)
   const r = await authFetch(`${BASE}/intelligence/assets${q ? `?${q}` : ''}`)

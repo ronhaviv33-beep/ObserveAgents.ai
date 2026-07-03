@@ -151,6 +151,43 @@ Derives capabilities and findings for all OTel evidence in your organization. Id
 }
 ```
 
+### Asset summary (grouped by AI system)
+
+```
+GET /intelligence/asset-summary
+Authorization: Bearer <jwt>
+```
+
+Returns intelligence grouped per discovered AI system — the primary shape the dashboard renders. One object per asset with runtime evidence (`trace_count`, `span_count`, `last_seen`, `environment`), evidence arrays (`models`, `providers` — display-normalized, `tools`, `dependencies`), counts (`capabilities_count`, `findings_count`, `open_findings_count`, `high_findings_count`, `finding_categories`), status badges (`active`, `runtime_observed`, `has_findings`, `error_observed`), and the full serialized `capabilities` and `findings` lists for detail views. Built entirely from derived columns — raw span attributes are never read or returned.
+
+```json
+{
+  "assets": [
+    {
+      "ai_asset_id": 12,
+      "asset_key": "…",
+      "asset_name": "support-agent",
+      "environment": "production",
+      "last_seen": "2026-07-03T09:00:00",
+      "trace_count": 1,
+      "span_count": 8,
+      "models": ["gpt-4o"],
+      "providers": ["OpenAI"],
+      "tools": ["vector_search", "jira_issue_search"],
+      "dependencies": ["https://api.acme-crm-demo.example/v1/accounts"],
+      "capabilities_count": 9,
+      "findings_count": 5,
+      "open_findings_count": 5,
+      "high_findings_count": 1,
+      "finding_categories": {"security": 1, "operations": 2, "dependency": 1, "inventory": 1},
+      "status": ["active", "runtime_observed", "has_findings"],
+      "capabilities": ["…"],
+      "findings": ["…"]
+    }
+  ]
+}
+```
+
 ### List capabilities
 
 ```
