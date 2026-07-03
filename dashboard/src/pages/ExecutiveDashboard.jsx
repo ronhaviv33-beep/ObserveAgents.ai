@@ -494,15 +494,15 @@ export default function ExecutiveDashboard({ onNavigate }) {
               No runtime dependencies discovered yet
             </div>
             <div style={{ fontSize: 12, color: T.textDim, maxWidth: 520, margin: "0 auto 20px", lineHeight: 1.7 }}>
-              Send gateway traffic with <code style={{ fontFamily: MONO, color: T.teal, background: T.panelHi, padding: "1px 5px", borderRadius: 3 }}>X-MCP-*</code> or{" "}
-              <code style={{ fontFamily: MONO, color: T.teal, background: T.panelHi, padding: "1px 5px", borderRadius: 3 }}>X-Agent-*</code> relationship headers to populate this map.
+              Dependencies appear automatically once telemetry flows — tool, MCP, database, and API
+              links are derived from OpenTelemetry span attributes.
             </div>
             <div style={{ background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 6, padding: "12px 16px", display: "inline-block", textAlign: "left", marginBottom: 20 }}>
               {[
-                ["X-Agent-Name",     "sales-enrichment-agent"],
-                ["X-MCP-Server",     "hubspot-mcp"],
-                ["X-MCP-Tool",       "create_lead"],
-                ["X-Agent-Relation", "uses_tool"],
+                ["tool.name",    "create_lead"],
+                ["mcp.server",   "hubspot-mcp"],
+                ["db.system",    "postgresql"],
+                ["url.full",     "https://api.example/v1"],
               ].map(([k, v]) => (
                 <div key={k} style={{ fontFamily: MONO, fontSize: 11, marginBottom: 3 }}>
                   <span style={{ color: T.teal }}>{k}:</span>{" "}

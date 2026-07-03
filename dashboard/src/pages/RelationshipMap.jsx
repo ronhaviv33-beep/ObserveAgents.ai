@@ -381,27 +381,9 @@ function EmptyState() {
         Provider and model relationships appear automatically once traffic flows.
         MCP relationships appear when tool metadata is observed.
       </div>
-      <div style={{ fontSize: 13, color: T.textMute, maxWidth: 560, margin: '0 auto 24px', lineHeight: 1.6 }}>
-        To capture richer tool/workflow links, add relationship headers to your gateway requests.
-      </div>
-      <div style={{
-        background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6,
-        padding: '16px 20px', textAlign: 'left', display: 'inline-block', maxWidth: 480,
-      }}>
-        <div style={{ fontSize: 10, fontFamily: FONT_MONO, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textMute, marginBottom: 10 }}>
-          Example — MCP tool call
-        </div>
-        {[
-          ['X-Agent-Name',     'sales-enrichment-agent'],
-          ['X-MCP-Server',     'hubspot-mcp'],
-          ['X-MCP-Tool',       'create_lead'],
-          ['X-Agent-Relation', 'uses_tool'],
-        ].map(([k, v]) => (
-          <div key={k} style={{ display: 'flex', gap: 8, marginBottom: 4, fontFamily: FONT_MONO, fontSize: 11 }}>
-            <span style={{ color: T.accent }}>{k}:</span>
-            <span style={{ color: T.textDim }}>{v}</span>
-          </div>
-        ))}
+      <div style={{ fontSize: 13, color: T.textMute, maxWidth: 560, margin: '0 auto', lineHeight: 1.6 }}>
+        Tool, MCP, database, and API links appear automatically from OpenTelemetry span attributes —
+        no extra instrumentation needed.
       </div>
     </div>
   )
