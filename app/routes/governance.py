@@ -43,7 +43,9 @@ def security_alerts(db: Session = Depends(get_db), current_user=Depends(get_curr
 # ── Budgets ───────────────────────────────────────────────────────────────────
 
 @router.post("/budgets", response_model=BudgetRuleOut, status_code=201, tags=["POST — Ask / Create"])
-def create_budget(rule: BudgetRuleCreate, db: Session = Depends(get_db), actor=Depends(require_page_access("budgets"))):
+def create_budget(rule: BudgetRuleCreate, db: Session = Depends(get_db), actor=Depends(require_page_access("settings"))):
+    # Gated on the settings page (admin-only) rather than the budgets page:
+    # the budgets page is readable by all roles, but rules stay admin-managed.
     ts = resolve_team_scope(actor, db)
     if is_deny_sentinel(ts):
         raise HTTPException(status_code=403, detail="No team assigned — cannot create budget rules")
@@ -63,7 +65,7 @@ def list_budgets(db: Session = Depends(get_db), actor=Depends(get_current_user))
 
 
 @router.delete("/budgets/{rule_id}", status_code=204, tags=["DELETE — Remove"])
-def delete_budget(rule_id: int, db: Session = Depends(get_db), actor=Depends(require_page_access("budgets"))):
+def delete_budget(rule_id: int, db: Session = Depends(get_db), actor=Depends(require_page_access("settings"))):
     ts = resolve_team_scope(actor, db)
     if is_deny_sentinel(ts):
         raise HTTPException(status_code=404, detail="Budget rule not found")

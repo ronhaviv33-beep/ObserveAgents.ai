@@ -15,7 +15,7 @@ SEED_ROLES = [
         "pages": json.dumps([
             "dashboard", "welcome",
             "agent_inventory", "discovery", "governance", "relationship_map",
-            "runtime", "intelligence", "cost", "security_intel", "ecosystem",
+            "runtime", "intelligence", "guardrails", "cost", "security_intel", "ecosystem",
             "budgets", "pricing", "security", "users", "apikeys", "settings",
             "home", "chat", "assets", "overview", "agents", "models",
             "workflows", "alerts", "integrations", "onboarding",
@@ -30,7 +30,8 @@ SEED_ROLES = [
         "pages": json.dumps([
             "dashboard", "welcome",
             "agent_inventory", "discovery", "governance", "relationship_map",
-            "runtime", "intelligence", "cost", "security_intel", "ecosystem",
+            "runtime", "intelligence", "guardrails", "cost", "security_intel", "ecosystem",
+            "budgets", "pricing",
             "home", "chat", "assets", "overview", "agents", "models",
             "workflows", "alerts", "integrations", "onboarding",
         ]),
@@ -44,7 +45,8 @@ SEED_ROLES = [
         "pages": json.dumps([
             "dashboard", "welcome",
             "agent_inventory", "discovery", "governance", "relationship_map",
-            "runtime", "intelligence", "cost", "security_intel", "ecosystem",
+            "runtime", "intelligence", "guardrails", "cost", "security_intel", "ecosystem",
+            "budgets", "pricing",
             "home", "assets", "overview", "agents", "models",
             "workflows", "alerts",
         ]),

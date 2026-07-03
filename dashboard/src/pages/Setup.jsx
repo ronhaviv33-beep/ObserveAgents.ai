@@ -318,7 +318,29 @@ client.chat.completions.create(
         <div style={{ border:`1px solid ${T.info}44`, borderRadius:10, padding:"24px 28px", marginBottom:16 }}>
           <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:16 }}>Runtime Discovery — Integration Guide</div>
           <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:14 }}>
-            <strong style={{ color:T.text }}>No proprietary SDK required — use your existing AI stack.</strong> Change your AI client's{" "}
+            Integrations are <strong style={{ color:T.text }}>discovery and evidence sources</strong>. Runtime Discovery accepts evidence from{" "}
+            <strong style={{ color:T.text }}>OpenTelemetry (OTLP)</strong>, the <strong style={{ color:T.text }}>gateway</strong>, and optional{" "}
+            <strong style={{ color:T.text }}>SDK metadata</strong> — Ecosystem Discovery (GitHub, Jira, Slack, n8n, MCP) is next on the roadmap.
+          </div>
+
+          {/* OpenTelemetry — evidence source */}
+          <div style={{ background:`${T.purple}0d`, border:`1px solid ${T.purple}33`, borderRadius:8, padding:"14px 16px", marginBottom:18 }}>
+            <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.purple, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>OpenTelemetry (OTLP) — no gateway required</div>
+            <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:10 }}>
+              Already instrumented with OTel? Point your exporter at{" "}
+              <code style={{ fontFamily:FONT_MONO, color:T.accent, fontSize:11 }}>POST {gatewayUrl.replace(/\/v1$/, "")}/otel/v1/traces</code>{" "}
+              and AI systems, dependencies, and execution timelines appear automatically. Prompt and response content is never stored.
+            </div>
+            <pre style={{ margin:0, padding:"10px 12px", background:T.panel, border:`1px solid ${T.border}`, borderRadius:6, fontFamily:FONT_MONO, fontSize:11, color:T.textDim, overflowX:"auto" }}>
+{`OTEL_EXPORTER_OTLP_ENDPOINT=${gatewayUrl.replace(/\/v1$/, "")}/otel
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer gk-<your-api-key>
+OTEL_SERVICE_NAME=my-agent
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production`}
+            </pre>
+          </div>
+
+          <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:14 }}>
+            <strong style={{ color:T.text }}>Gateway path — no proprietary SDK required.</strong> Change your AI client's{" "}
             <code style={{ fontFamily:FONT_MONO, color:T.info, fontSize:11 }}>base_url</code> to{" "}
             <code style={{ fontFamily:FONT_MONO, color:T.accent, fontSize:11 }}>{gatewayUrl}/v1</code>, replace your{" "}
             <code style={{ fontFamily:FONT_MONO, color:T.info, fontSize:11 }}>api_key</code> with a Gateway API Key, and send traffic. No instrumentation, no code rewrite.

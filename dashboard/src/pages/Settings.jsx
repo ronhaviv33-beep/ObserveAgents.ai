@@ -63,7 +63,7 @@ function GuardModesSection() {
   const cb = health?.circuit_breaker;
 
   return (
-    <Card title="Guard Modes" subtitle="Visibility First → Governance Later. Graduate each team independently from observe to enforce.">
+    <Card title="Guard Modes" subtitle="Advisory first — enforcement is optional per team. Teams start in observe (nothing blocked) and can graduate independently.">
       {err && <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12, marginBottom:12 }}>{err}</div>}
       <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:16 }}>
         <div style={{ background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:6, padding:"10px 14px", flex:1, minWidth:200 }}>

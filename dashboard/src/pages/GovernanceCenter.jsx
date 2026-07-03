@@ -258,6 +258,15 @@ export default function GovernanceCenter() {
       )}
       {claimTarget && <ReviewModal agent={claimTarget} onClose={() => setClaimTarget(null)} onSave={handleClaim} onApprove={handleApprove} onIgnore={handleIgnore} />}
 
+      {/* Readiness framing — governance builds on the inventory, it doesn't gate it */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 6, padding: "12px 16px", marginBottom: 16 }}>
+        <span style={{ color: T.textDim, fontSize: 16 }}>◆</span>
+        <div style={{ fontSize: 12, color: T.textDim }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textDim, fontWeight: 600, marginRight: 8 }}>Governance readiness</span>
+          Review and ownership tooling that builds on the AI inventory. Optional — discovery and intelligence work without it.
+        </div>
+      </div>
+
       {/* Tab bar */}
       <div style={{ display: "flex", gap: 0, background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 6, padding: 3, marginBottom: 24, alignSelf: "flex-start", width: "fit-content" }}>
         {tabs.map(t => (

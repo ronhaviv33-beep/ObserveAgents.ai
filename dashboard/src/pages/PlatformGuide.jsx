@@ -10,23 +10,23 @@ export default function CustomerWelcomePage({ onNavigate }) {
     { icon: "⊞", color: T.info,   label: "Models in use",     detail: "Every model variant across OpenAI, Anthropic, and other providers" },
     { icon: "⚡", color: T.yellow, label: "Workflows",         detail: "n8n, Zapier, LangGraph, and orchestration chains discovered automatically" },
     { icon: "⊙", color: T.purple,  label: "Shadow AI",         detail: "Agents that appeared outside official channels — surfaced before they become a risk" },
-    { icon: "$",  color: T.accent,  label: "Cost attribution",  detail: "Spend by team, agent, and model — no manual tagging needed" },
+    { icon: "$",  color: T.accent,  label: "Cost signals",      detail: "Runtime usage and cost signals by team, agent, and model — no manual tagging needed" },
   ];
 
   const features = [
     { icon: "◈", color: T.accent,  title: "Agent Inventory",          page: "agent_inventory",  desc: "Every agent that has ever touched your LLM traffic — automatically catalogued, attributed to a team, and tracked over time." },
     { icon: "🔗", color: T.teal,   title: "Runtime Dependency Map",   page: "relationship_map",  desc: "Automatically maps what every agent touches at runtime — MCP servers, tools, workflows, APIs, and CRMs." },
     { icon: "⊙", color: T.yellow,  title: "Discovery Center",         page: "discovery",         desc: "Surface AI agents and automations that were created without going through official channels — before they become a risk." },
-    { icon: "⊛", color: T.info,    title: "Governance Center",        page: "governance",        desc: "Review newly discovered agents, assign owners, and enforce policies — without slowing down teams." },
-    { icon: "$", color: T.accent,  title: "Cost Intelligence",        page: "cost",              desc: "See exactly how much each team and agent spends on AI APIs. No manual tagging required." },
+    { icon: "⊛", color: T.info,    title: "Advisory Guardrails",      page: "guardrails",        desc: "Observe-only guardrails that detect, explain, and recommend based on observed AI behavior — nothing is blocked by default." },
+    { icon: "$", color: T.accent,  title: "Cost Intelligence",        page: "cost",              desc: "Runtime usage and efficiency intelligence — which AI systems are heavy, slow, or likely expensive. No manual tagging required." },
     { icon: "⚑", color: T.crit,   title: "Security Intelligence",    page: "security_intel",    desc: "Alerts on unusual activity, prompt injection attempts, and policy violations — detected automatically." },
   ];
 
   const steps = [
     {
       n: "1", color: T.accent,
-      title: "Connect your AI traffic",
-      desc: "Point your AI agent code at the gateway instead of directly at OpenAI or Anthropic. No proprietary SDK required — use your existing AI stack. Replace base_url, replace api_key, send traffic. No instrumentation, no code rewrite.",
+      title: "Connect a discovery source",
+      desc: "Send OpenTelemetry traces to the OTLP endpoint, or point your AI agent code at the gateway instead of directly at OpenAI or Anthropic. No proprietary SDK required — use your existing AI stack and observability setup.",
       note: null,
       sdks: ["OpenAI SDK", "LangChain", "CrewAI", "LiteLLM", "OpenAI Agents SDK", "MCP Clients", "Vercel AI SDK", "Agno", "any OpenAI-compatible client"],
       cta: "See Integration Guide →", page: "integrations",
@@ -65,16 +65,18 @@ export default function CustomerWelcomePage({ onNavigate }) {
           background:`${T.teal}05`, pointerEvents:"none" }} />
 
         <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.accent, letterSpacing:"0.15em",
-          textTransform:"uppercase", marginBottom:12 }}>ObserveAgents · AI Runtime Intelligence Platform</div>
+          textTransform:"uppercase", marginBottom:12 }}>ObserveAgents · Enterprise AI Intelligence Platform</div>
 
         <div style={{ fontSize: bp.isMobile ? 22 : 32, fontWeight:700, color:T.text, marginBottom:14, lineHeight:1.15 }}>
-          Connect traffic once.<br/>
-          <span style={{ color:T.accent }}>Your inventory builds itself.</span>
+          Connect a discovery source once.<br/>
+          <span style={{ color:T.accent }}>Your AI inventory builds itself.</span>
         </div>
 
         <div style={{ fontSize:15, color:T.textDim, lineHeight:1.75, maxWidth:580, marginBottom:10 }}>
-          No manual agent registration. No tagging spreadsheets. Route your AI traffic through the gateway
-          and the platform automatically discovers every agent, maps every dependency, and attributes every dollar of spend.
+          Observe helps organizations understand what AI exists, what is actively running, how it is
+          connected, and how it evolves over time. Connect OpenTelemetry traces or the gateway — Runtime
+          Discovery today, Ecosystem Discovery (GitHub, Slack, n8n, MCP) next — and the platform discovers
+          every AI system, maps every dependency, and attributes runtime usage and cost signals.
         </div>
         <div style={{ fontSize:13, color:T.textMute, lineHeight:1.6, maxWidth:560, marginBottom:28 }}>
           Built for engineering and security teams managing AI at scale — from the agents your teams

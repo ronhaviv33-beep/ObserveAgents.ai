@@ -358,7 +358,7 @@ export default function SecurityPage() {
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(180px, 1fr))", gap:12 }}>
           {[
             { label:"Live Alerts",    value:alerts.length,                                         color:alerts.length>0?T.crit:T.accent,   note:"Active findings" },
-            { label:"Policy Rules",   value:policies.length,                                        color:T.info,                            note:"Enforcement rules" },
+            { label:"Policy Rules",   value:policies.length,                                        color:T.info,                            note:"Active only in enforce guard mode" },
             { label:"Blocked Reqs",  value:blockedCount,                                           color:blockedCount>0?T.crit:T.accent,    note:"Last 50 audited" },
             { label:"Critical Alerts", value:alerts.filter(a=>a.sev==="critical").length,          color:T.crit,                            note:"Require immediate review" },
             { label:"Warning Alerts", value:alerts.filter(a=>a.sev==="warning").length,            color:T.warn,                            note:"Monitor closely" },
@@ -401,8 +401,8 @@ export default function SecurityPage() {
           <div style={{ display:"flex", flexDirection:"column", gap:4, alignSelf:"flex-end" }}>
             <div style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.08em", color: pForm.rule_type==="block_model" ? T.crit : T.accent, marginBottom:8 }}>
               {pForm.rule_type==="block_model"
-                ? `⊘ Will BLOCK "${pForm.value}" for team "${pForm.team}"`
-                : `✓ Will ALLOW only "${pForm.value}" for team "${pForm.team}"`}
+                ? `⊘ Will BLOCK "${pForm.value}" for team "${pForm.team}" (enforce mode only — advisory otherwise)`
+                : `✓ Will ALLOW only "${pForm.value}" for team "${pForm.team}" (enforce mode only — advisory otherwise)`}
             </div>
           </div>
           <button type="submit" disabled={saving}

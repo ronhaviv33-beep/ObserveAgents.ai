@@ -221,7 +221,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
             ObserveAgents
           </h2>
           <div style={{ fontSize: 12, color: T.textMute, fontFamily: MONO, marginTop: 5 }}>
-            Observe every agent · Map every dependency · Govern every interaction
+            Understand what AI exists · what is running · how it is connected · how it evolves
           </div>
         </div>
         <div style={{ fontSize: 11, color: T.textMute, fontFamily: MONO, textAlign: "right" }}>
@@ -236,9 +236,9 @@ export default function ExecutiveDashboard({ onNavigate }) {
         <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "22px 26px", background: `${T.accent}0D`, border: `1px solid ${T.accent}33`, borderRadius: 10 }}>
           <div style={{ fontSize: 28 }}>🛰</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>No agents discovered yet.</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>No AI systems discovered yet.</div>
             <div style={{ fontSize: 12, color: T.textDim, lineHeight: 1.6 }}>
-              Send your first request through the gateway and we'll discover agents automatically — no manual registration required.
+              Connect a discovery source — OpenTelemetry traces or the gateway — and AI systems appear automatically. No manual registration required.
             </div>
           </div>
           <button onClick={() => onNavigate?.("integrations")}
@@ -569,7 +569,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
 
           {/* Governance coverage */}
           <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
-            <div style={{ fontSize: 9, color: T.textMute, fontFamily: MONO, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>Governance Review</div>
+            <div style={{ fontSize: 9, color: T.textMute, fontFamily: MONO, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>Review Queue</div>
             {[
               { label: "Ownership review", value: managed,                  color: T.accent },
               { label: "Validation review", value: total - needsValidation, color: T.info },

@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect } from "react";
 import { authFetch, BASE } from "../api.js";
 import { T, FONT_MONO } from "../theme.js";
 import { Card, Pill, useSortable, useSearch, SearchBox, SortableTh } from "./ui.jsx";
+import { useUser } from "../auth.jsx";
 
-function SortableBudgetTable({ rules, onDelete }) {
+function SortableBudgetTable({ rules, onDelete, canManage }) {
   const { sortKey, sortDir, toggle, sort } = useSortable("created_at");
   const colKey = { "Team":"team","Agent":"agent","Limit":"limit_usd","Period":"period","Action":"action","Created":"created_at" };
   const sorted = sort(rules, (r, k) => {
@@ -18,7 +19,7 @@ function SortableBudgetTable({ rules, onDelete }) {
     <table style={{ width:"100%", borderCollapse:"collapse" }}>
       <thead>
         <tr style={{ borderBottom:`1px solid ${T.border}` }}>
-          {["Team","Agent","Limit","Period","Action","Created",""].map((h) => h === "" ? (
+          {["Team","Agent","Limit","Period","Action","Created",...(canManage ? [""] : [])].map((h) => h === "" ? (
             <th key={h} style={{ padding:"10px 8px" }} />
           ) : (
             <SortableTh key={h} label={h} sortKey={colKey[h]} active={sortKey===colKey[h]} dir={sortDir} onToggle={toggle} />
@@ -34,12 +35,14 @@ function SortableBudgetTable({ rules, onDelete }) {
             <td style={{ padding:"12px 8px" }}><Pill color={T.info}>{r.period}</Pill></td>
             <td style={{ padding:"12px 8px" }}><Pill color={r.action==="block"?T.crit:T.warn}>{r.action}</Pill></td>
             <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.created_at).toLocaleDateString()}</td>
-            <td style={{ padding:"12px 8px" }}>
-              <button onClick={() => onDelete(r.id)}
-                style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.crit, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
-                Delete
-              </button>
-            </td>
+            {canManage && (
+              <td style={{ padding:"12px 8px" }}>
+                <button onClick={() => onDelete(r.id)}
+                  style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.crit, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>
+                  Delete
+                </button>
+              </td>
+            )}
           </tr>
         ))}
       </tbody>
@@ -49,6 +52,8 @@ function SortableBudgetTable({ rules, onDelete }) {
 }
 
 export default function BudgetsPage() {
+  const user = useUser();
+  const canManage = user?.role === "admin" || user?.is_platform_admin;
   const [rules,    setRules]    = useState([]);
   const [status,   setStatus]   = useState([]);
   const [loading,  setLoading]  = useState(true);
@@ -96,6 +101,16 @@ export default function BudgetsPage() {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
 
+      {/* Advisory framing banner */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, background:`${T.info}0D`, border:`1px solid ${T.info}33`, borderRadius:6, padding:"12px 16px" }}>
+        <span style={{ color:T.info, fontSize:16 }}>◈</span>
+        <div style={{ fontSize:12, color:T.textDim }}>
+          <span style={{ fontFamily:FONT_MONO, fontSize:11, letterSpacing:"0.1em", textTransform:"uppercase", color:T.info, fontWeight:600, marginRight:8 }}>Budget awareness</span>
+          Plan and track expected AI usage per team or system. Thresholds produce budget signals — enforcement is optional
+          and only applies when a team's guard mode is set to enforce.
+        </div>
+      </div>
+
       {/* Status cards */}
       {status.length > 0 && (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:12 }}>
@@ -125,8 +140,9 @@ export default function BudgetsPage() {
         </div>
       )}
 
-      {/* Add rule form */}
-      <Card title="Add Budget Rule" subtitle="Set a spend limit per team or agent">
+      {/* Add rule form — admin only; viewers/analysts see budgets read-only */}
+      {canManage && (
+      <Card title="Add Budget Rule" subtitle="Set an expected usage threshold per team or AI system — a planning signal, not a hard cap">
         <form onSubmit={handleCreate} style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"flex-end" }}>
           {[
             { label:"Team *",       key:"team",      placeholder:"e.g. SOC or *" },
@@ -145,7 +161,7 @@ export default function BudgetsPage() {
           ))}
           {[
             { label:"Period", key:"period", options:[["monthly","Monthly"],["daily","Daily"]] },
-            { label:"Action", key:"action", options:[["alert","Alert only"],["block","Block requests"]] },
+            { label:"Action", key:"action", options:[["alert","Alert (advisory)"],["block","Block (enforce guard mode only)"]] },
           ].map(({ label, key, options }) => (
             <div key={key} style={{ display:"flex", flexDirection:"column", gap:4 }}>
               <label style={{ fontSize:9, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textMute }}>{label}</label>
@@ -162,15 +178,18 @@ export default function BudgetsPage() {
         </form>
         {err && <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12, marginTop:10 }}>{err}</div>}
       </Card>
+      )}
 
       {/* Rules table */}
       <Card title="Budget Rules" subtitle={`${rules.length} rule${rules.length===1?"":"s"} configured`}>
         {rules.length === 0 ? (
           <div style={{ color:T.textMute, fontFamily:FONT_MONO, fontSize:13, padding:"20px 0", textAlign:"center" }}>
-            No budget rules yet — add one above to start enforcing limits.
+            {canManage
+              ? "No budget rules yet — add one above to start tracking budget signals."
+              : "No budget rules configured yet."}
           </div>
         ) : (
-          <SortableBudgetTable rules={rules} onDelete={handleDelete} />
+          <SortableBudgetTable rules={rules} onDelete={handleDelete} canManage={canManage} />
         )}
       </Card>
     </div>
