@@ -8,7 +8,7 @@ export default function SimpleIntegrationsPage({ onNavigate, demoMode = false })
   const bp = useBreakpoint();
   const gatewayUrl = gatewayBaseUrl(demoMode);
   const [copied, setCopied]   = useState(null);
-  const [open,   setOpen]     = useState({ sdk_openai: true, sdk_anthropic: false, sdk_env: false, manual_openai: false, manual_curl: false });
+  const [open,   setOpen]     = useState({ sdk_openai: true, sdk_anthropic: false, sdk_env: false });
   const [section, setSection] = useState(null);
   const [metrics, setMetrics] = useState({ agents: null, dependencies: null, workflows: null, platforms: null });
   const [progress, setProgress] = useState({ provider: false, key: false, request: false, agent: false });
@@ -95,15 +95,6 @@ export default function SimpleIntegrationsPage({ onNavigate, demoMode = false })
     "Cloud Functions", "MCP Servers", "Azure DevOps", "Zapier",
     "Copilot Studio", "Bedrock Agents", "OpenAI Agents SDK",
   ];
-  const OPT_HEADERS = [
-    { name:"X-Agent-Name",        desc:"Override auto-detected agent name",    example:"soc-investigation-agent" },
-    { name:"X-Agent-Team",        desc:"Team or department",                   example:"Security" },
-    { name:"X-Agent-Owner",       desc:"Owner email or name",                  example:"alice@acme.com" },
-    { name:"X-Agent-Environment", desc:"prod / staging / dev",                 example:"prod" },
-    { name:"X-Agent-Version",     desc:"Version tag",                          example:"v1.2.0" },
-    { name:"X-Agent-Source",      desc:"Origin label for the attribution metadata", example:"manual" },
-  ];
-
   const snippets = {
     sdk_openai:
 `# No proprietary SDK required — use the standard OpenAI SDK.
@@ -137,32 +128,7 @@ response = client.messages.create(
     sdk_env:
 `# Zero-code setup: point the standard OpenAI SDK at the gateway via env vars.
 export OPENAI_API_KEY=YOUR_GATEWAY_KEY
-export OPENAI_BASE_URL=GATEWAY_URL/v1
-
-# Optional — enrich identity attribution (any OpenAI-compatible client):
-export OPENAI_DEFAULT_HEADERS='{"X-Agent-Name":"customer-support-prod","X-Agent-Team":"Customer Success"}'`,
-
-    manual_openai:
-`from openai import OpenAI
-
-client = OpenAI(base_url="GATEWAY_URL/v1", api_key="YOUR_GATEWAY_KEY")
-
-client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "Hello"}],
-    extra_headers={
-        "X-Agent-Name":        "customer-support-prod",
-        "X-Agent-Team":        "Customer Success",
-        "X-Agent-Environment": "prod",
-    },
-)`,
-
-    manual_curl:
-`curl GATEWAY_URL/v1/chat/completions \\
-  -H "Authorization: Bearer YOUR_GATEWAY_KEY" \\
-  -H "X-Agent-Name: customer-support-prod" \\
-  -H "Content-Type: application/json" \\
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Hello"}]}'`,
+export OPENAI_BASE_URL=GATEWAY_URL/v1`,
   };
 
   const resolvedSnippets = Object.fromEntries(
@@ -384,37 +350,6 @@ OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production`}
               <CodeBlock id="sdk_openai"    label="Python · OpenAI client"    snippet={resolvedSnippets.sdk_openai}    accentColor={T.info} />
               <CodeBlock id="sdk_anthropic" label="Python · Anthropic client" snippet={resolvedSnippets.sdk_anthropic} accentColor={T.info} />
               <CodeBlock id="sdk_env"       label="Env-var only (no code)"    snippet={resolvedSnippets.sdk_env}       accentColor={T.info} />
-            </div>
-            <div style={{ background:`${T.warn}08`, border:`1px solid ${T.warn}22`, borderRadius:8, padding:"14px 18px" }}>
-              <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.warn, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Advanced — Manual Headers</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:14 }}>
-                <CodeBlock id="manual_openai" label="Manual headers · OpenAI" snippet={resolvedSnippets.manual_openai} accentColor={T.warn} />
-                <CodeBlock id="manual_curl"   label="Manual headers · cURL"   snippet={resolvedSnippets.manual_curl}   accentColor={T.warn} />
-              </div>
-              <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:6, overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
-                <table style={{ width:"100%", borderCollapse:"collapse", minWidth:460 }}>
-                  <thead>
-                    <tr style={{ background:T.panelHi }}>
-                      {["Header","Description","Example"].map(h => (
-                        <th key={h} style={{ padding:"7px 12px", textAlign:"left", fontSize:10, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.1em", textTransform:"uppercase", borderBottom:`1px solid ${T.border}` }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {OPT_HEADERS.map((row, i) => (
-                      <tr key={row.name} style={{ background: i % 2 === 0 ? T.panel : T.bg }}>
-                        <td style={{ padding:"7px 12px", borderBottom:`1px solid ${T.border}` }}>
-                          <code style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textDim }}>{row.name}</code>
-                        </td>
-                        <td style={{ padding:"7px 12px", borderBottom:`1px solid ${T.border}`, fontSize:11, color:T.textDim }}>{row.desc}</td>
-                        <td style={{ padding:"7px 12px", borderBottom:`1px solid ${T.border}` }}>
-                          <code style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute }}>{row.example}</code>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             </div>
           </div>
         </div>
