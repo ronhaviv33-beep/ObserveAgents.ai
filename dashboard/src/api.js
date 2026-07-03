@@ -642,6 +642,23 @@ export async function fetchRelationshipsGraph() {
   return r.json()
 }
 
+// ── Runtime Execution Timeline ────────────────────────────────────────────────
+
+export async function fetchRuntimeTraces(params = {}) {
+  const q = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  const r = await authFetch(`${BASE}/runtime/traces${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch runtime traces')
+  return r.json()
+}
+
+export async function fetchRuntimeTrace(traceId) {
+  const r = await authFetch(`${BASE}/runtime/traces/${encodeURIComponent(traceId)}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch trace detail')
+  return r.json()
+}
+
 export async function populateOrganization(orgId) {
   const r = await authFetch(`${BASE}/admin/organizations/${orgId}/populate`, { method: 'POST' })
   if (!r) throw new Error('Not authenticated')

@@ -28,6 +28,7 @@ import GovernanceCenter from "./pages/GovernanceCenter.jsx";
 import SecurityIntelligence from "./pages/SecurityIntelligence.jsx";
 import EcosystemDiscovery from "./pages/EcosystemDiscovery.jsx";
 import RelationshipMap from "./pages/RelationshipMap.jsx";
+import RuntimeTimeline from "./pages/RuntimeTimeline.jsx";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -309,6 +310,7 @@ const PAGES = [
   { id:"security_intel", label:"Security Intelligence" },
   { id:"ecosystem",        label:"Ecosystem Discovery" },
   { id:"relationship_map", label:"Runtime Dependency Map" },
+  { id:"runtime",          label:"Runtime" },
   { id:"budgets",          label:"Budgets" },
   { id:"pricing",        label:"Pricing Registry" },
   { id:"security",       label:"Security & Audit" },
@@ -344,6 +346,7 @@ const NAV_GROUPS = [
       { id: "discovery",        label: "Discovery Center" },
       { id: "governance",       label: "Governance Center" },
       { id: "relationship_map", label: "Dependency Map" },
+      { id: "runtime",          label: "Runtime" },
     ],
   },
   {
@@ -658,6 +661,7 @@ export default function App() {
       case "security_intel": return <SecurityIntelligence />;
       case "ecosystem":        return <EcosystemDiscovery />;
       case "relationship_map": return <RelationshipMap />;
+      case "runtime":          return <RuntimeTimeline />;
       // ── Existing pages (unchanged) ──────────────────────────────────────
       case "cost":      return <CostIntelligence />;
       case "pricing":   return <PricingRegistry />;
@@ -918,7 +922,7 @@ export default function App() {
           </div>
         </header>
 
-        {!["dashboard","home","agent_inventory","discovery","governance","relationship_map","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
+        {!["dashboard","home","agent_inventory","discovery","governance","relationship_map","runtime","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
 
         {/* Admin-only: surface missing/invalid secrets detected at startup */}
         {user?.role === "admin" && secretWarnings.length > 0 && (
