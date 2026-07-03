@@ -264,6 +264,77 @@ def test_unknown_trace_404():
         db.close()
 
 
+def test_unauthenticated_requests_rejected():
+    for path in ("/runtime/traces", f"/runtime/traces/{uuid.uuid4().hex}"):
+        resp = _client.get(path)
+        assert resp.status_code == 401, f"{path} → {resp.status_code}"
+
+
+def test_limit_bounds_enforced():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "limits")
+        assert _get(token, "/runtime/traces?limit=0").status_code == 422
+        assert _get(token, "/runtime/traces?limit=201").status_code == 422
+        assert _get(token, "/runtime/traces?limit=200").status_code == 200
+    finally:
+        db.close()
+
+
+def test_missing_timestamps_do_not_crash():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "nots")
+        trace_id = uuid.uuid4().hex
+        span = _otlp_span(trace_id, uuid.uuid4().hex[:16], "no.timestamps")
+        del span["startTimeUnixNano"]
+        del span["endTimeUnixNano"]
+        resp = _post_spans(token, [span], "nots-agent")
+        assert resp.status_code == 202
+
+        resp = _get(token, "/runtime/traces")
+        assert resp.status_code == 200
+        t = [t for t in resp.json() if t["trace_id"] == trace_id][0]
+        assert t["duration_ms"] is None
+        assert t["start_time"] is None
+
+        resp = _get(token, f"/runtime/traces/{trace_id}")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["duration_ms"] is None
+        assert body["spans"][0]["offset_ms"] is None
+        assert body["spans"][0]["duration_ms"] is None
+    finally:
+        db.close()
+
+
+def test_trace_detail_never_exposes_attributes():
+    """Privacy surface: span attributes (even scrubbed) stay out of the timeline API."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "privacy")
+        trace_id = uuid.uuid4().hex
+        span = _otlp_span(
+            trace_id, uuid.uuid4().hex[:16], "llm.call",
+            attrs={"gen_ai.system": "openai", "gen_ai.input.messages": '[{"role":"user","content":"secret"}]'},
+        )
+        resp = _post_spans(token, [span], "privacy-agent")
+        assert resp.status_code == 202
+
+        resp = _get(token, f"/runtime/traces/{trace_id}")
+        assert resp.status_code == 200
+        for s in resp.json()["spans"]:
+            assert "attributes" not in s
+            assert "attributes_json" not in s
+            assert "resource_attributes_json" not in s
+        assert "secret" not in resp.text
+    finally:
+        db.close()
+
+
 def test_org_isolation():
     _ad._known_assets.clear()
     db = SessionLocal()

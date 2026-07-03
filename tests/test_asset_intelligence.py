@@ -509,6 +509,14 @@ def test_resolve_finding():
         db.close()
 
 
+def test_intelligence_unauthenticated_rejected():
+    for path in ("/intelligence/assets", "/intelligence/capabilities", "/intelligence/findings"):
+        resp = _client.get(path)
+        assert resp.status_code == 401, f"{path} → {resp.status_code}"
+    assert _client.post("/intelligence/run").status_code == 401
+    assert _client.post("/intelligence/findings/1/dismiss").status_code == 401
+
+
 def test_intelligence_assets_endpoint():
     _ad._known_assets.clear()
     db = SessionLocal()

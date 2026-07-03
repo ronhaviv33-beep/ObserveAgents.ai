@@ -320,9 +320,9 @@ export default function AssetIntelligence() {
     setLoading(true);
     setError(null);
     Promise.all([
-      fetchIntelligenceAssets().catch(() => []),
-      fetchIntelligenceCapabilities().catch(() => []),
-      fetchIntelligenceFindings().catch(() => []),
+      fetchIntelligenceAssets(),
+      fetchIntelligenceCapabilities(),
+      fetchIntelligenceFindings(),
     ])
       .then(([a, c, f]) => { setAssets(a); setCapabilities(c); setFindings(f); })
       .catch((e) => setError(e.message))
