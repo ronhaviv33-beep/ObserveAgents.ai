@@ -659,6 +659,56 @@ export async function fetchRuntimeTrace(traceId) {
   return r.json()
 }
 
+// ── Asset Intelligence ────────────────────────────────────────────────────────
+
+function buildQuery(params = {}) {
+  return new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+}
+
+export async function fetchIntelligenceAssets(params = {}) {
+  const q = buildQuery(params)
+  const r = await authFetch(`${BASE}/intelligence/assets${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch discovered assets')
+  return r.json()
+}
+
+export async function fetchIntelligenceCapabilities(params = {}) {
+  const q = buildQuery(params)
+  const r = await authFetch(`${BASE}/intelligence/capabilities${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch capabilities')
+  return r.json()
+}
+
+export async function fetchIntelligenceFindings(params = {}) {
+  const q = buildQuery(params)
+  const r = await authFetch(`${BASE}/intelligence/findings${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch findings')
+  return r.json()
+}
+
+export async function runIntelligence() {
+  const r = await authFetch(`${BASE}/intelligence/run`, { method: 'POST' })
+  if (!r || !r.ok) {
+    const err = await r?.json().catch(() => ({}))
+    throw new Error(err?.detail || 'Failed to run intelligence')
+  }
+  return r.json()
+}
+
+export async function dismissFinding(id) {
+  const r = await authFetch(`${BASE}/intelligence/findings/${id}/dismiss`, { method: 'POST' })
+  if (!r || !r.ok) throw new Error('Failed to dismiss finding')
+  return r.json()
+}
+
+export async function resolveFinding(id) {
+  const r = await authFetch(`${BASE}/intelligence/findings/${id}/resolve`, { method: 'POST' })
+  if (!r || !r.ok) throw new Error('Failed to resolve finding')
+  return r.json()
+}
+
 export async function populateOrganization(orgId) {
   const r = await authFetch(`${BASE}/admin/organizations/${orgId}/populate`, { method: 'POST' })
   if (!r) throw new Error('Not authenticated')

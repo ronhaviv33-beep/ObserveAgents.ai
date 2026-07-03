@@ -509,6 +509,46 @@ def test_resolve_finding():
         db.close()
 
 
+def test_intelligence_assets_endpoint():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "assets")
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={"gen_ai.system": "openai", "gen_ai.request.model": "gpt-4o"},
+            resource_attrs={"service.name": "assets-agent", "deployment.environment": "production"},
+        )
+        resp = _post_traces(token, payload)
+        assert resp.status_code == 202
+
+        resp = _client.get(
+            "/intelligence/assets",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        rows = resp.json()
+        assert len(rows) == 1
+        a = rows[0]
+        assert a["service_name"] == "assets-agent"
+        assert a["environment"] == "production"
+        assert "gpt-4o" in a["models"]
+        assert a["span_count"] == 1
+        assert a["ai_asset_id"] is not None
+
+        # environment filter
+        resp = _client.get(
+            "/intelligence/assets?environment=staging",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json() == []
+    finally:
+        db.close()
+
+
 def test_org_isolation():
     _ad._known_assets.clear()
     db = SessionLocal()

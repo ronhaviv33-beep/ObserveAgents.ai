@@ -8,10 +8,41 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import AssetCapability, AssetFinding
+from app.models import AssetCapability, AssetFinding, OtelAsset
 from app.asset_intelligence import derive_asset_intelligence
 
 router = APIRouter(tags=["Asset Intelligence"])
+
+
+def _json_list(raw: str | None) -> list:
+    if not raw:
+        return []
+    try:
+        val = json.loads(raw)
+        return val if isinstance(val, list) else []
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+def _serialize_otel_asset(row: OtelAsset) -> dict:
+    return {
+        "id": row.id,
+        "organization_id": row.organization_id,
+        "ai_asset_id": row.ai_asset_id,
+        "service_name": row.service_name,
+        "service_namespace": row.service_namespace,
+        "environment": row.environment,
+        "agent_name": row.agent_name,
+        "models": _json_list(row.models_json),
+        "providers": _json_list(row.providers_json),
+        "tools": _json_list(row.tools_json),
+        "dependencies": _json_list(row.dependencies_json),
+        "first_seen": row.first_seen.isoformat(),
+        "last_seen": row.last_seen.isoformat(),
+        "trace_count": row.trace_count,
+        "span_count": row.span_count,
+        "confidence_score": row.confidence_score,
+    }
 
 
 def _serialize_cap(row: AssetCapability) -> dict:
@@ -60,6 +91,21 @@ async def run_intelligence(
     org_id = current_user.organization_id
     result = derive_asset_intelligence(db, org_id)
     return result
+
+
+@router.get("/intelligence/assets")
+async def list_otel_assets(
+    environment: Optional[str] = Query(None),
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Runtime Discovery evidence — one row per (service, environment) seen via OTel."""
+    org_id = current_user.organization_id
+    q = db.query(OtelAsset).filter(OtelAsset.organization_id == org_id)
+    if environment:
+        q = q.filter(OtelAsset.environment == environment)
+    rows = q.order_by(OtelAsset.last_seen.desc()).all()
+    return [_serialize_otel_asset(r) for r in rows]
 
 
 @router.get("/intelligence/capabilities")
