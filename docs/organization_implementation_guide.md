@@ -2,6 +2,8 @@
 
 A practical, step-by-step guide for rolling out ObserveAgents in your organization — from first login to a fully observed AI estate.
 
+> גרסה בעברית: [organization_implementation_guide_he.md](organization_implementation_guide_he.md)
+
 **Who this is for:** platform engineers, security engineers, and engineering leads implementing Observe for their organization.
 
 **What you'll have at the end:** every connected AI system automatically discovered, its runtime traces and execution timelines visible, its capabilities and findings derived, and advisory guardrails running in observe-only mode — without changing how your AI systems behave in production.
