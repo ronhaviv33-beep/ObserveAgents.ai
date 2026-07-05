@@ -6,6 +6,7 @@ import {
   fetchRelationships,
 } from "../api.js";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
+import { isObservability, isGateway } from "../productSurface.js";
 import { relationshipEvidenceLabel } from "../discoveryStatus.js";
 import CollapsiblePanel, { PanelGroupControls } from "../components/CollapsiblePanel.jsx";
 
@@ -231,22 +232,44 @@ export default function ExecutiveDashboard({ onNavigate }) {
         </div>
       </div>
 
-      {/* ── Product intro: what Observe is + where to look ─────────────────────── */}
+      {/* ── Product intro: what this surface is + where to look ────────────────── */}
       <div style={{ marginBottom: 4 }}>
-        <div style={{ fontSize: 16, fontWeight: 600, color: T.text, letterSpacing: "-0.01em" }}>See your real AI footprint</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: T.text, letterSpacing: "-0.01em" }}>
+          {isObservability ? "See what AI is actually running."
+            : isGateway ? "Control AI traffic without instrumenting every app."
+            : "See your real AI footprint"}
+        </div>
         <div style={{ fontSize: 12, color: T.textDim, marginTop: 4, lineHeight: 1.6 }}>
-          Observe shows which AI systems exist, which ones are actually running, what they connect to, and where they need attention.
+          {isObservability
+            ? "ObserveAgents Observability uses OpenTelemetry to show which AI systems are running, what they connect to, and where they need attention."
+            : isGateway
+            ? "ObserveAgents Gateway lets teams route AI requests through a controlled endpoint, manage providers, track usage, set budgets, and optionally enforce policies."
+            : "Observe shows which AI systems exist, which ones are actually running, what they connect to, and where they need attention."}
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : bp.isTablet ? "repeat(3, 1fr)" : "repeat(6, 1fr)", gap: 8 }}>
-        {[
+        {(isObservability ? [
+          { page: "runtime",        title: "Runtime",             desc: "See live AI traces and execution timelines" },
+          { page: "intelligence",   title: "Asset Intelligence",  desc: "Every AI system — models, tools, capabilities, findings" },
+          { page: "security_intel", title: "Security",            desc: "Find risky runtime behavior before it's a problem" },
+          { page: "runtime",        title: "Cost Signals",        desc: "Token usage and slow steps, visible per trace in Runtime" },
+          { page: "guardrails",     title: "Guardrails",          desc: "Observe-only: detect, explain, recommend — no blocking" },
+          { page: "integrations",   title: "OTel Setup",          desc: "Send OpenTelemetry traces and watch systems appear" },
+        ] : isGateway ? [
+          { page: "agent_inventory", title: "Traffic",            desc: "AI systems observed sending requests through the gateway" },
+          { page: "providers",       title: "Providers",          desc: "Connect the AI providers your traffic routes to" },
+          { page: "integrations",    title: "SDK Setup",          desc: "Existing provider SDKs with the Gateway base_url" },
+          { page: "budgets",         title: "Budgets",            desc: "Set spend limits per team or agent" },
+          { page: "cost",            title: "Cost",                desc: "Token and cost accounting from gateway traffic" },
+          { page: "settings",        title: "Guard Modes",         desc: "Observe → alert → enforce, one team at a time" },
+        ] : [
           { page: "runtime",        title: "Runtime",             desc: "See live AI traces and execution timelines" },
           { page: "intelligence",   title: "Asset Intelligence",  desc: "Every AI system — models, tools, capabilities, findings" },
           { page: "security_intel", title: "Security",            desc: "Find risky runtime behavior before it's a problem" },
           { page: "cost",           title: "Cost",                desc: "Spot heavy, slow, or potentially expensive workflows" },
           { page: "guardrails",     title: "Guardrails",          desc: "Observe-only: detect, explain, recommend — no blocking" },
           { page: "integrations",   title: "Integrations",        desc: "Connect telemetry and discovery sources" },
-        ].map((c) => (
+        ]).map((c) => (
           <button key={c.page} onClick={() => onNavigate?.(c.page)}
             style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 12px", textAlign: "left", cursor: "pointer", fontFamily: FONT }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = T.borderHi; }}
@@ -373,8 +396,9 @@ export default function ExecutiveDashboard({ onNavigate }) {
         </Panel>
       </div>
 
-      {/* ── Top Cost Drivers ──────────────────────────────────────────────────── */}
-      <CollapsiblePanel group="dashboard" storageKey="oa-panel-dash-cost-drivers"
+      {/* ── Top Cost Drivers — gateway cost accounting; hidden on the
+           Observability surface (its cost story is OTel usage signals) ─────── */}
+      {!isObservability && <CollapsiblePanel group="dashboard" storageKey="oa-panel-dash-cost-drivers"
         title="Top Cost Drivers" subtitle="Last 30 days · runtime estimate"
         actions={<button onClick={() => onNavigate?.("cost")} style={DASH_ACTION_BTN}>View Cost Intelligence →</button>}>
         {topCosts.length > 0 ? (
@@ -418,12 +442,14 @@ export default function ExecutiveDashboard({ onNavigate }) {
         ) : (
           <div style={{ color: T.textMute, fontFamily: MONO, fontSize: 12 }}>No cost data for the last 30 days</div>
         )}
-      </CollapsiblePanel>
+      </CollapsiblePanel>}
 
       {/* ── Runtime Dependency Map ───────────────────────────────────────────────── */}
       <CollapsiblePanel group="dashboard" storageKey="oa-panel-dash-deps"
         title="Runtime Dependency Map"
-        subtitle="Top agent dependencies by traffic volume · real-time gateway data"
+        subtitle={isObservability
+          ? "Top agent dependencies by observed volume · runtime evidence"
+          : "Top agent dependencies by traffic volume · real-time gateway data"}
         actions={<button onClick={() => onNavigate?.("relationship_map")} style={DASH_ACTION_BTN}>View Dependency Map →</button>}>
         {topRels.length > 0 ? (
           <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>

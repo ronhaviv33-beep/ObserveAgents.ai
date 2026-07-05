@@ -1,5 +1,6 @@
 import React from "react";
 import { T, FONT_UI, FONT_MONO } from "../theme.js";
+import { isObservability } from "../productSurface.js";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
 
 export default function CustomerWelcomePage({ onNavigate }) {
@@ -17,7 +18,9 @@ export default function CustomerWelcomePage({ onNavigate }) {
     { icon: "▶", color: T.accent,  title: "Runtime",                  page: "runtime",           desc: "See live AI traces and execution timelines — where every request actually spends its time." },
     { icon: "◈", color: T.purple,  title: "Asset Intelligence",       page: "intelligence",      desc: "Understand every AI system: its models, tools, dependencies, capabilities, and findings — grouped in one place." },
     { icon: "⚑", color: T.crit,   title: "Security Intelligence",    page: "security_intel",    desc: "Find risky runtime behavior like database access, MCP usage, external APIs, and broad tool access." },
-    { icon: "$", color: T.accent,  title: "Cost Intelligence",        page: "cost",              desc: "Spot heavy, slow, or potentially expensive AI workflows. Usage signals, not exact billing." },
+    isObservability
+      ? { icon: "$", color: T.accent, title: "Cost Signals",          page: "runtime",           desc: "Token usage and slow steps per trace — usage signals from OpenTelemetry, not billing." }
+      : { icon: "$", color: T.accent, title: "Cost Intelligence",     page: "cost",              desc: "Spot heavy, slow, or potentially expensive AI workflows. Usage signals, not exact billing." },
     { icon: "⊛", color: T.info,    title: "Guardrails",               page: "guardrails",        desc: "Start in observe-only mode: detect, explain, and recommend — without blocking production AI." },
     { icon: "🔗", color: T.teal,   title: "Dependency Map",           page: "relationship_map",  desc: "See what every AI system connects to — MCP servers, tools, workflows, APIs, and databases." },
   ];
@@ -26,9 +29,13 @@ export default function CustomerWelcomePage({ onNavigate }) {
     {
       n: "1", color: T.accent,
       title: "How data gets in",
-      desc: "Send OpenTelemetry traces to the OTLP endpoint, or route AI traffic through the gateway. Both work with your existing stack — no proprietary SDK required. Ecosystem sources like GitHub, Jira, Slack, n8n, and MCP are coming later.",
+      desc: isObservability
+        ? "Send OpenTelemetry traces to the OTLP endpoint — it works with your existing OTel stack and the GenAI semantic conventions. Ecosystem sources like GitHub, Jira, Slack, n8n, and MCP are coming later."
+        : "Send OpenTelemetry traces to the OTLP endpoint, or route AI traffic through the gateway. Both work with your existing stack — no proprietary SDK required. Ecosystem sources like GitHub, Jira, Slack, n8n, and MCP are coming later.",
       note: null,
-      sdks: ["OpenTelemetry", "OpenAI SDK", "LangChain", "CrewAI", "LiteLLM", "MCP Clients", "Vercel AI SDK", "any OpenAI-compatible client"],
+      sdks: isObservability
+        ? ["OpenTelemetry", "OTel Collector", "GenAI SemConv", "MCP telemetry", "Claude Code telemetry"]
+        : ["OpenTelemetry", "OpenAI SDK", "LangChain", "CrewAI", "LiteLLM", "MCP Clients", "Vercel AI SDK", "any OpenAI-compatible client"],
       cta: "Open Setup →", page: "integrations",
     },
     {

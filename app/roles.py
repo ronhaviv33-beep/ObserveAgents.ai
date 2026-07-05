@@ -18,7 +18,7 @@ SEED_ROLES = [
             "runtime", "intelligence", "guardrails", "cost", "security_intel", "ecosystem",
             "budgets", "pricing", "security", "users", "apikeys", "settings",
             "home", "chat", "assets", "overview", "agents", "models",
-            "workflows", "alerts", "integrations", "onboarding",
+            "workflows", "alerts", "integrations", "onboarding", "providers",
         ]),
         "can": json.dumps(["view_all_sessions"]),
         "team_scoped": False,

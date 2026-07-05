@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { fetchIntelligenceAssetSummary, fetchGuardModes } from "../api.js";
 import { T, FONT_UI, FONT_MONO } from "../theme.js";
+import { isObservability } from "../productSurface.js";
 import { Card, Stat, Pill } from "../components/ui.jsx";
 
 // Advisory guardrail catalog — evaluated in the browser against already-derived
@@ -46,7 +47,7 @@ const GUARDRAIL_CATALOG = [
     id: "runtime_errors",
     title: "AI system has repeated runtime errors",
     severity: "medium",
-    test: (a) => a._openTypes.has("runtime_error"),
+    test: (a) => ["runtime_error", "provider_error", "tool_error", "mcp_error"].some((t) => a._openTypes.has(t)),
     recommendation: "Inspect the failing spans in the Runtime timeline to find the failing step.",
   },
   {
@@ -106,8 +107,9 @@ export default function Guardrails() {
             Observe-only mode
           </div>
           <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>
-            Guardrails detect, explain, and recommend based on observed runtime behavior. Nothing is blocked.
-            Enforcement is optional and can be enabled per team later via guard modes.
+            {isObservability
+              ? "Detect, explain, and recommend — without blocking production AI. Guardrails are derived from observed runtime behavior. Nothing is blocked."
+              : "Guardrails detect, explain, and recommend based on observed runtime behavior. Nothing is blocked. Enforcement is optional and can be enabled per team later via guard modes."}
           </div>
         </div>
       </div>
@@ -186,8 +188,10 @@ export default function Guardrails() {
         )}
       </Card>
 
-      {/* Guard modes — per-team graduation path (admin-scoped API; hidden if unavailable) */}
-      {Array.isArray(guardModes) && guardModes.length > 0 && (
+      {/* Guard modes — per-team graduation path (admin-scoped API; hidden if
+          unavailable). Hidden entirely on the Observability surface: guard
+          modes are Gateway enforcement configuration, not observation. */}
+      {!isObservability && Array.isArray(guardModes) && guardModes.length > 0 && (
         <Card style={{ marginTop: 14 }}
           title="Guard Modes"
           subtitle="Advisory first — enforcement is optional per team. Teams start in observe (nothing blocked); 'would block' shows what enforce mode would have done.">

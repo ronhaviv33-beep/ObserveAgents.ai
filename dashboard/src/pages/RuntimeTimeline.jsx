@@ -5,8 +5,15 @@ import { Card, Stat, Pill, SortableTh, SearchBox, useSortable, useSearch } from 
 
 // Runtime Step type → color + label for the trace waterfall
 const STEP_META = {
+  agent:        { color: T.accent, label: "Agent" },
+  workflow:     { color: T.accent, label: "Workflow" },
+  plan:         { color: T.purple, label: "Plan" },
   llm:          { color: T.purple, label: "LLM" },
+  retrieval:    { color: T.teal,   label: "Retrieval" },
+  embedding:    { color: T.purple, label: "Embedding" },
   tool:         { color: T.teal,   label: "Tool" },
+  mcp_tool:     { color: T.warn,   label: "MCP Tool" },
+  memory:       { color: T.info,   label: "Memory" },
   database:     { color: T.info,   label: "Database" },
   external_api: { color: T.warn,   label: "API" },
   step:         { color: T.textDim, label: "Step" },

@@ -2,9 +2,193 @@ import React, { useState, useEffect } from "react";
 import { T, FONT_UI, FONT_MONO } from "../theme.js";
 import { fetchAgentsSummary, fetchRelationships, fetchProviderCredentials, fetchApiKeys } from "../api.js";
 import { gatewayBaseUrl } from "../config.js";
+import { isObservability, isGateway } from "../productSurface.js";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
 
+// ── Setup entry point — one page id, three product-surface variants ──────────
+// observability → OTel-only setup (no gateway/base_url/provider content)
+// gateway       → Gateway-only setup (no OTLP/Collector/SemConv content)
+// combined      → today's blended setup, unchanged
 export default function SimpleIntegrationsPage({ onNavigate, demoMode = false }) {
+  if (isObservability) return <ObservabilitySetup />;
+  if (isGateway)       return <GatewaySetup onNavigate={onNavigate} demoMode={demoMode} />;
+  return <CombinedSetup onNavigate={onNavigate} demoMode={demoMode} />;
+}
+
+// ── Shared: static code block with copy button ────────────────────────────────
+function StaticCode({ label, code, color = T.accent }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(code).catch(() => {});
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div style={{ border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden", marginBottom: 12 }}>
+      <div style={{ padding: "8px 14px", background: T.panelHi, display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />
+        <span style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textDim, flex: 1 }}>{label}</span>
+        <button onClick={copy}
+          style={{ background: "transparent", border: `1px solid ${T.border}`, color: copied ? "#34d399" : T.textMute,
+            borderRadius: 4, padding: "2px 10px", fontSize: 10, fontFamily: FONT_MONO, cursor: "pointer" }}>
+          {copied ? "copied" : "copy"}
+        </button>
+      </div>
+      <pre style={{ margin: 0, padding: "14px 16px", fontSize: 11.5, fontFamily: FONT_MONO, color: T.text, lineHeight: 1.7, overflowX: "auto", background: T.bg }}>{code}</pre>
+    </div>
+  );
+}
+
+function SetupStep({ n, title, children }) {
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <span style={{ width: 22, height: 22, borderRadius: "50%", border: `1px solid ${T.accent}`, color: T.accent,
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontFamily: FONT_MONO, flexShrink: 0 }}>{n}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{title}</span>
+      </div>
+      <div style={{ fontSize: 12, color: T.textDim, lineHeight: 1.7, paddingLeft: 32 }}>{children}</div>
+    </div>
+  );
+}
+
+// ── ObserveAgents Observability setup — OpenTelemetry only ───────────────────
+function ObservabilitySetup() {
+  const bp = useBreakpoint();
+  const appUrl = "https://<your-observe-url>";
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: bp.isMobile ? "16px" : "32px 24px", fontFamily: FONT_UI }}>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textMute, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>ObserveAgents Observability · Setup</div>
+        <div style={{ fontSize: 24, fontWeight: 700, color: T.text, lineHeight: 1.2 }}>OTel Setup</div>
+        <div style={{ fontSize: 13, color: T.textDim, marginTop: 6, lineHeight: 1.5 }}>
+          Send OpenTelemetry traces from your AI services and Observe shows what is actually running,
+          what it connects to, and where it needs attention. No code changes to how your AI behaves — Observe watches.
+        </div>
+      </div>
+
+      <SetupStep n={1} title="Create an API key">
+        Go to <strong style={{ color: T.text }}>API Keys</strong> and create a key (it starts with <code style={{ fontFamily: FONT_MONO, color: T.accent, fontSize: 11 }}>gk-</code>).
+        The key authenticates trace ingestion; copy it immediately — it is shown once.
+      </SetupStep>
+
+      <SetupStep n={2} title="Point your OpenTelemetry exporter at Observe">
+        Observe accepts <strong style={{ color: T.text }}>OTLP/HTTP JSON</strong> at{" "}
+        <code style={{ fontFamily: FONT_MONO, color: T.accent, fontSize: 11 }}>POST /otel/v1/traces</code>.
+        <StaticCode label="Exporter environment variables" code={`OTEL_EXPORTER_OTLP_ENDPOINT=${appUrl}/otel
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer gk-<your-api-key>
+OTEL_SERVICE_NAME=my-agent
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,team=my-team`} />
+      </SetupStep>
+
+      <SetupStep n={3} title="Use a Collector for protobuf SDKs">
+        Most language SDKs export protobuf, which Observe rejects with 415. Route them through an
+        OpenTelemetry Collector that re-encodes to JSON:
+        <StaticCode label="otel-collector.yaml (exporter section)" color={T.purple} code={`exporters:
+  otlphttp/observeagents:
+    endpoint: ${appUrl}/otel     # exporter appends /v1/traces
+    encoding: json                          # REQUIRED
+    headers:
+      Authorization: "Bearer gk-<your-api-key>"`} />
+      </SetupStep>
+
+      <SetupStep n={4} title="Follow the GenAI semantic conventions">
+        Standard attributes make discovery rich — <code style={{ fontFamily: FONT_MONO, color: T.info, fontSize: 11 }}>gen_ai.provider.name</code> (preferred; <code style={{ fontFamily: FONT_MONO, fontSize: 11 }}>gen_ai.system</code> still supported),{" "}
+        <code style={{ fontFamily: FONT_MONO, color: T.info, fontSize: 11 }}>gen_ai.operation.name</code>,{" "}
+        <code style={{ fontFamily: FONT_MONO, color: T.info, fontSize: 11 }}>gen_ai.request.model</code>, token usage, agent identity
+        (<code style={{ fontFamily: FONT_MONO, color: T.info, fontSize: 11 }}>gen_ai.agent.id/name</code>), and tool names.
+        Raw prompt/response/tool content is scrubbed at ingestion — never send it intentionally.
+      </SetupStep>
+
+      <SetupStep n={5} title="Optional: MCP and Claude Code telemetry">
+        MCP tool calls (<code style={{ fontFamily: FONT_MONO, color: T.info, fontSize: 11 }}>mcp.method.name</code>, session and server attributes)
+        surface as MCP capabilities and findings. Claude Code's OpenTelemetry traces are understood the same way.
+      </SetupStep>
+
+      <SetupStep n={6} title="Verify in Runtime">
+        Open <strong style={{ color: T.text }}>Runtime</strong> — your first trace should appear within seconds with a nested
+        execution timeline. Then open <strong style={{ color: T.text }}>Asset Intelligence</strong> to see the discovered AI system,
+        its models, tools, dependencies, and first findings.
+      </SetupStep>
+    </div>
+  );
+}
+
+// ── ObserveAgents Gateway setup — existing provider SDKs + base_url ──────────
+function GatewaySetup({ onNavigate, demoMode = false }) {
+  const bp = useBreakpoint();
+  const gatewayUrl = gatewayBaseUrl(demoMode);
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: bp.isMobile ? "16px" : "32px 24px", fontFamily: FONT_UI }}>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textMute, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>ObserveAgents Gateway · Setup</div>
+        <div style={{ fontSize: 24, fontWeight: 700, color: T.text, lineHeight: 1.2 }}>SDK Setup</div>
+        <div style={{ fontSize: 13, color: T.textDim, marginTop: 6, lineHeight: 1.5 }}>
+          Control AI traffic without instrumenting every app. Keep using your{" "}
+          <strong style={{ color: T.text }}>existing provider SDK</strong> or any OpenAI-compatible client —
+          only the <code style={{ fontFamily: FONT_MONO, color: T.info, fontSize: 11 }}>base_url</code> changes.
+        </div>
+      </div>
+
+      <SetupStep n={1} title="Choose a provider and add its credential">
+        Open <strong style={{ color: T.text }}>Providers</strong> and add the credential for the provider your apps use
+        (OpenAI, Anthropic, …). The gateway uses it to reach the provider — your applications never see it.
+        {onNavigate && (
+          <div style={{ marginTop: 8 }}>
+            <button onClick={() => onNavigate("providers")}
+              style={{ background: `${T.info}14`, border: `1px solid ${T.info}44`, color: T.info, borderRadius: 6,
+                padding: "7px 14px", fontSize: 12, fontFamily: FONT_MONO, cursor: "pointer", fontWeight: 600 }}>
+              Open Providers →
+            </button>
+          </div>
+        )}
+      </SetupStep>
+
+      <SetupStep n={2} title="Create a gateway API key">
+        Go to <strong style={{ color: T.text }}>API Keys</strong> and create a key (starts with{" "}
+        <code style={{ fontFamily: FONT_MONO, color: T.accent, fontSize: 11 }}>gk-</code>). Your applications use this
+        key instead of the provider's key.
+      </SetupStep>
+
+      <SetupStep n={3} title="Point your existing SDK at the Gateway base_url">
+        <StaticCode label="Python · OpenAI client (existing provider SDK)" color={T.info} code={`# No proprietary SDK required — use the standard OpenAI SDK.
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="YOUR_GATEWAY_KEY",
+    base_url="${gatewayUrl}/v1",
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello"}],
+)`} />
+        <StaticCode label="Env-var only (no code changes)" color={T.info} code={`export OPENAI_API_KEY=YOUR_GATEWAY_KEY
+export OPENAI_BASE_URL=${gatewayUrl}/v1`} />
+        Works with the OpenAI SDK, Anthropic SDK (<code style={{ fontFamily: FONT_MONO, fontSize: 11 }}>{gatewayUrl}</code> as base_url),
+        LangChain, LiteLLM, and any OpenAI-compatible client.
+      </SetupStep>
+
+      <SetupStep n={4} title="Send a test request">
+        <StaticCode label="cURL smoke test" color={T.warn} code={`curl -sS -X POST "${gatewayUrl}/v1/chat/completions" \\
+  -H "Authorization: Bearer gk-<your-key>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"ping"}],"max_tokens":10}'`} />
+        A completion means you're live. A <code style={{ fontFamily: FONT_MONO, color: T.warn, fontSize: 11 }}>provider_not_configured</code>{" "}
+        error means step 1 is missing — that error is expected and tells you exactly what to configure.
+      </SetupStep>
+
+      <SetupStep n={5} title="Optional: budgets, policies, and enforcement — later">
+        Set spend limits in <strong style={{ color: T.text }}>Budgets</strong>. Team policies live under{" "}
+        <strong style={{ color: T.text }}>Settings → Guard Modes</strong>: every team starts in{" "}
+        <em>observe</em> (nothing blocked) and can graduate to <em>alert</em> or <em>enforce</em> deliberately,
+        one team at a time — enforcement is optional and never the default.
+      </SetupStep>
+    </div>
+  );
+}
+
+// ── Combined surface — today's blended setup page, unchanged ─────────────────
+function CombinedSetup({ onNavigate, demoMode = false }) {
   const bp = useBreakpoint();
   const gatewayUrl = gatewayBaseUrl(demoMode);
   const [copied, setCopied]   = useState(null);

@@ -94,7 +94,31 @@ def _auth_headers(db, org_id):
 
 
 def test_repair_added_missing_columns_and_backfilled_defaults():
-    conn = sqlite3.connect(_db_path)
+    """Order-independent repair check: build a legacy-shaped asset_registry on a
+    dedicated side DB and run ensure_model_columns against that engine."""
+    import sqlalchemy as sa
+    from app.startup import ensure_model_columns
+
+    side_db = f"/tmp/test_schema_repair_side_{uuid.uuid4().hex[:8]}.db"
+    conn = sqlite3.connect(side_db)
+    conn.executescript("""
+    CREATE TABLE asset_registry (
+      id INTEGER PRIMARY KEY, organization_id INTEGER NOT NULL, asset_key VARCHAR(64),
+      agent_id_raw VARCHAR(256), agent_name VARCHAR(256), owner VARCHAR(256), team VARCHAR(128),
+      environment VARCHAR(64), criticality VARCHAR(32), business_purpose TEXT, status VARCHAR(32),
+      source VARCHAR(32), claimed_by VARCHAR(256), claimed_at DATETIME, created_at DATETIME, updated_at DATETIME
+    );
+    INSERT INTO asset_registry (organization_id, asset_key, agent_id_raw, agent_name, status, source)
+    VALUES (1, 'sidekey', 'side-billing-agent', 'side-billing-agent', 'unassigned', 'discovered');
+    """)
+    conn.commit()
+    conn.close()
+
+    side_engine = sa.create_engine(f"sqlite:///{side_db}")
+    ensure_model_columns(engine=side_engine)
+    ensure_model_columns(engine=side_engine)  # idempotent
+
+    conn = sqlite3.connect(side_db)
     cols = {r[1] for r in conn.execute("PRAGMA table_info(asset_registry)")}
     expected = {
         "discovery_status", "discovery_source", "discovery_reason", "evidence",
@@ -104,23 +128,46 @@ def test_repair_added_missing_columns_and_backfilled_defaults():
 
     row = conn.execute(
         "SELECT discovery_status, discovery_source, confidence_score, is_demo, asset_type "
-        "FROM asset_registry WHERE agent_id_raw='billing-agent'"
+        "FROM asset_registry WHERE agent_id_raw='side-billing-agent'"
     ).fetchone()
     conn.close()
     assert row == ("verified", "gateway_telemetry", 95.0, 0, "agent")
+    side_engine.dispose()
+    os.unlink(side_db)
 
 
 def test_asset_summary_returns_200_on_repaired_legacy_db():
-    """The exact production regression: full-row AssetRegistry query must not 500."""
+    """The exact production regression: full-row AssetRegistry query must not 500.
+
+    When this module imports first, the app DB was born with the legacy-shaped
+    asset_registry built above and repaired at startup. When another test module
+    imported the app first (shared pytest process), the pre-import legacy table
+    lives in an unused DB file — recreate the gateway-era row via ORM so the
+    endpoint assertions still run against a real row.
+    """
     db = SessionLocal()
     try:
         # run_org_migration seeded a default org at startup; attach the legacy
         # row to a real org so it is visible through the org-scoped endpoint.
         org = db.query(Organization).first()
         assert org is not None
-        db.query(AssetRegistry).filter(
+        legacy = db.query(AssetRegistry).filter(
             AssetRegistry.agent_id_raw == "billing-agent"
-        ).update({"organization_id": org.id})
+        ).first()
+        if legacy is not None:
+            legacy.organization_id = org.id
+        else:
+            db.add(AssetRegistry(
+                organization_id=org.id,
+                asset_key="legacygatewaykey0000000000000000000000000000000000000000000000ab",
+                agent_id_raw="billing-agent",
+                agent_name="billing-agent",
+                environment="production",
+                status="unassigned",
+                source="discovered",
+                discovery_source="gateway_telemetry",
+                is_demo=False,
+            ))
         db.commit()
         headers = _auth_headers(db, org.id)
     finally:
