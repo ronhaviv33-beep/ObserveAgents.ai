@@ -114,6 +114,7 @@ def _serialize_finding(row: AssetFinding) -> dict:
         "evidence": json.loads(row.evidence_json) if row.evidence_json else None,
         "source": row.source,
         "status": row.status,
+        "occurrence_count": row.occurrence_count or 1,
         "first_seen": row.first_seen.isoformat(),
         "last_seen": row.last_seen.isoformat(),
         "created_at": row.created_at.isoformat(),
