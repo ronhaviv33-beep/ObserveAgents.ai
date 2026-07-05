@@ -39,6 +39,8 @@ import {
 
 import { T, FONT_UI, FONT_MONO } from "./theme.js";
 import { BRAND, gatewayBaseUrl, DEMO_GATEWAY_KEY } from "./config.js";
+import { PRODUCT_SURFACE, PRODUCT_SUBTITLE, surfaceAllowsPage } from "./productSurface.js";
+import ProvidersPage from "./pages/Providers.jsx";
 import { Card, Stat, Pill, SortableTh, SearchBox, sevColor, fmt$, fmtK, fmtTime, useSortable, useSearch } from "./components/ui.jsx";
 import LoginPage from "./components/LoginPage.jsx";
 import Home from "./components/Home.jsx";
@@ -332,10 +334,12 @@ const PAGES = [
   { id:"chat",           label:"Chat" },
   { id:"integrations",   label:"Setup" },
   { id:"onboarding",     label:"Setup Guide" },
+  { id:"providers",      label:"Providers" },
 ];
 
-// NAV_GROUPS: sidebar rendering — only primary navigation, grouped by section
-const NAV_GROUPS = [
+// NAV_GROUPS: sidebar rendering — only primary navigation, grouped by section.
+// This is the COMBINED-mode nav — today's blended surface, unchanged.
+const NAV_GROUPS_COMBINED = [
   {
     label: null,
     items: [
@@ -378,6 +382,82 @@ const NAV_GROUPS = [
   },
 ];
 
+// ObserveAgents Observability — see what AI is actually running.
+// OTel-only surface: no gateway setup, providers, budgets, or enforcement.
+const NAV_GROUPS_OBSERVABILITY = [
+  {
+    label: null,
+    items: [
+      { id: "dashboard", label: "Dashboard" },
+      { id: "welcome",   label: "Platform Guide" },
+    ],
+  },
+  {
+    label: "OBSERVE",
+    items: [
+      { id: "runtime",          label: "Runtime" },
+      { id: "intelligence",     label: "Asset Intelligence" },
+      { id: "security_intel",   label: "Security Intelligence" },
+      { id: "guardrails",       label: "Guardrails" },
+      { id: "relationship_map", label: "Dependency Map" },
+    ],
+  },
+  {
+    label: "ADMINISTRATION",
+    items: [
+      { id: "governance",    label: "Governance Readiness" },
+      { id: "security",      label: "Security & Audit" },
+      { id: "users",         label: "Users" },
+      { id: "apikeys",       label: "API Keys" },
+      { id: "integrations",  label: "OTel Setup" },
+      { id: "settings",      label: "Settings" },
+      { id: "organizations", label: "Organizations", platformAdminOnly: true },
+    ],
+  },
+];
+
+// ObserveAgents Gateway — control AI traffic without instrumenting every app.
+// Gateway-only surface: no OTel/Collector/span pages. Policies & rate limits
+// have no dedicated UI yet — budgets + guard modes (Settings) are the real
+// control surfaces today, so no fake nav items are added.
+const NAV_GROUPS_GATEWAY = [
+  {
+    label: null,
+    items: [
+      { id: "dashboard", label: "Dashboard" },
+    ],
+  },
+  {
+    label: "GATEWAY",
+    items: [
+      { id: "discovery",       label: "Discovery Center" },
+      { id: "agent_inventory", label: "Agents" },
+      { id: "providers",       label: "Providers" },
+      { id: "budgets",         label: "Budgets" },
+      { id: "pricing",         label: "Pricing Registry" },
+      { id: "cost",            label: "Cost" },
+    ],
+  },
+  {
+    label: "ADMINISTRATION",
+    items: [
+      { id: "governance",    label: "Governance Readiness" },
+      { id: "security",      label: "Audit" },
+      { id: "users",         label: "Users" },
+      { id: "apikeys",       label: "API Keys" },
+      { id: "integrations",  label: "SDK Setup" },
+      { id: "settings",      label: "Settings" },
+      { id: "organizations", label: "Organizations", platformAdminOnly: true },
+    ],
+  },
+];
+
+const NAV_GROUPS = {
+  observability: NAV_GROUPS_OBSERVABILITY,
+  gateway:       NAV_GROUPS_GATEWAY,
+  combined:      NAV_GROUPS_COMBINED,
+}[PRODUCT_SURFACE];
+
 // ─── Root ─────────────────────────────────────────────────────────────────────
 export default function App() {
   const [page, setPage]       = useState("dashboard");
@@ -394,7 +474,7 @@ export default function App() {
   // On first load, restore page from URL hash if valid.
   useEffect(() => {
     const hash = window.location.hash.slice(1);
-    const valid = PAGES.find(p => p.id === hash);
+    const valid = PAGES.find(p => p.id === hash) && surfaceAllowsPage(hash);
     if (valid) {
       setPage(hash);
       window.history.replaceState({ page: hash }, '', '#' + hash);
@@ -407,7 +487,7 @@ export default function App() {
   useEffect(() => {
     const onPop = (e) => {
       const p = e.state?.page || window.location.hash.slice(1) || 'dashboard';
-      setPage(PAGES.find(pg => pg.id === p) ? p : 'dashboard');
+      setPage(PAGES.find(pg => pg.id === p) && surfaceAllowsPage(p) ? p : 'dashboard');
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -649,6 +729,11 @@ export default function App() {
   const pageProps = { events: filteredEvents, allTeams, allAgents, A, alerts, savings, risk };
 
   const renderPage = () => {
+    // Pages outside this product surface fall back to the dashboard
+    // (belt-and-braces — nav and history guards already prevent this state).
+    if (!surfaceAllowsPage(page)) {
+      return isDemoMode() ? <DemoDashboard onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
+    }
     if (!user?.is_platform_admin && !canAccess(user?.role, page, rolesMap)) {
       return (
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:300, gap:12, color:T.textMute, fontFamily:FONT_MONO }}>
@@ -687,6 +772,7 @@ export default function App() {
       case "models":    return <ModelUsage A={A} />;
       case "workflows": return <WorkflowHealth {...pageProps} />;
       case "alerts":    return <AlertsPage alerts={alerts} sevFilter={filters.sev} />;
+      case "providers":     return <ProvidersPage />;
       case "integrations":  return <SimpleIntegrationsPage onNavigate={navigate} demoMode={demoMode} />;
       case "onboarding":    return <OnboardingPage onNavigate={navigate} demoMode={demoMode} />;
       case "organizations": return user?.is_platform_admin ? <OrganizationsPage /> : null;
@@ -760,7 +846,7 @@ export default function App() {
           <div style={{ width:22, height:22, background:T.accent, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT_MONO, fontWeight:600, fontSize:12, color:T.bg }}>◆</div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:13, fontWeight:600, letterSpacing:"-0.01em" }}>{BRAND.name}</div>
-            <div style={{ fontSize:9, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.08em", textTransform:"uppercase", marginTop:1 }}>{BRAND.subtitle}</div>
+            <div style={{ fontSize:9, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.08em", textTransform:"uppercase", marginTop:1 }}>{PRODUCT_SUBTITLE || BRAND.subtitle}</div>
           </div>
           {!bp.isDesktop && (
             <button

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { T, FONT_UI, FONT_MONO } from "../theme.js";
+import { isObservability, isGateway } from "../productSurface.js";
 import { useRoles } from "../auth.jsx";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import {
@@ -63,7 +64,10 @@ function GuardModesSection() {
   const cb = health?.circuit_breaker;
 
   return (
-    <Card title="Guard Modes" subtitle="Advisory first — enforcement is optional per team. Teams start in observe (nothing blocked) and can graduate independently.">
+    <Card title="Guard Modes"
+      subtitle={isGateway
+        ? "Gateway enforcement configuration — observe / alert / enforce per team. Teams start in observe (nothing blocked) and graduate independently."
+        : "Advisory first — enforcement is optional per team. Teams start in observe (nothing blocked) and can graduate independently."}>
 
       {err && <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12, marginBottom:12 }}>{err}</div>}
       <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:16 }}>
@@ -168,7 +172,7 @@ const PROVIDER_META = {
 };
 const ALL_PROVIDERS = Object.keys(PROVIDER_META);
 
-function ProviderCredentialsSection() {
+export function ProviderCredentialsSection() {
   const [creds,      setCreds]      = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [err,        setErr]        = useState(null);
@@ -654,9 +658,13 @@ export default function SettingsPage() {
       <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:16, flexWrap:"wrap" }}>
         <div>
           <div style={{ fontSize:20, fontWeight:500, color:T.text, letterSpacing:"-0.01em" }}>Settings</div>
-          <div style={{ fontSize:12, color:T.textDim, marginTop:4 }}>Manage providers, discovery, and platform configuration.</div>
+          <div style={{ fontSize:12, color:T.textDim, marginTop:4 }}>
+            {isObservability
+              ? "Manage organization and platform configuration."
+              : "Manage providers, discovery, and platform configuration."}
+          </div>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
+        {!isObservability && <div style={{ display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
           {gwResult && (
             <span style={{
               fontFamily: FONT_MONO, fontSize: 11,
@@ -672,17 +680,21 @@ export default function SettingsPage() {
               cursor:gwTesting?"default":"pointer", opacity:gwTesting?0.6:1, whiteSpace:"nowrap" }}>
             {gwTesting ? "Testing…" : "Test Gateway"}
           </button>
-        </div>
+        </div>}
       </div>
 
-      <ProviderCredentialsSection />
+      {!isObservability && <ProviderCredentialsSection />}
 
       <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:"16px 20px" }}>
         <div style={{ fontSize:12, fontWeight:600, color:T.text, marginBottom:8 }}>Key types</div>
         <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
           {[
-            { label:"Provider Credentials", desc:"Used by ObserveAgents to reach OpenAI, Anthropic, Gemini. Never put these in application code." },
-            { label:"API Keys",             desc:"Use these inside your applications and agents to route traffic through ObserveAgents." },
+            ...(isObservability ? [] : [
+              { label:"Provider Credentials", desc:"Used by ObserveAgents to reach OpenAI, Anthropic, Gemini. Never put these in application code." },
+            ]),
+            { label:"API Keys",             desc: isObservability
+                ? "Use these to authenticate OpenTelemetry trace ingestion from your services."
+                : "Use these inside your applications and agents to route traffic through ObserveAgents." },
             { label:"Platform Config",      desc:"Environment settings for the deployment (JWT secret, etc.)." },
           ].map(({ label, desc }) => (
             <div key={label} style={{ display:"flex", gap:8, fontSize:11, color:T.textMute, fontFamily:FONT_MONO }}>
@@ -693,7 +705,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <GuardModesSection />
+      {!isObservability && <GuardModesSection />}
 
       <Card title="Platform Configuration" subtitle="Environment settings for the platform deployment.">
         {err && <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12, marginBottom:12 }}>{err}</div>}
