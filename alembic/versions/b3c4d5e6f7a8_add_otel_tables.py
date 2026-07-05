@@ -17,6 +17,16 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Guarded per table: create_all() may already have built these (it runs
+    # before Alembic on startup); re-creating would wedge the migration chain.
+    inspector = sa.inspect(op.get_bind())
+    if not inspector.has_table('otel_spans'):
+        _create_otel_spans()
+    if not inspector.has_table('provenance_events'):
+        _create_provenance_events()
+
+
+def _create_otel_spans() -> None:
     op.create_table(
         'otel_spans',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -45,6 +55,8 @@ def upgrade() -> None:
     op.create_index('ix_otel_spans_trace_id',        'otel_spans', ['trace_id'])
     op.create_index('ix_otel_spans_service_name',    'otel_spans', ['service_name'])
 
+
+def _create_provenance_events() -> None:
     op.create_table(
         'provenance_events',
         sa.Column('id', sa.Integer(), nullable=False),

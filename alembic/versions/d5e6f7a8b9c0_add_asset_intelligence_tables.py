@@ -23,6 +23,16 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Guarded per table: create_all() may already have built these (it runs
+    # before Alembic on startup); re-creating would wedge the migration chain.
+    inspector = sa.inspect(op.get_bind())
+    if not inspector.has_table('asset_capabilities'):
+        _create_asset_capabilities()
+    if not inspector.has_table('asset_findings'):
+        _create_asset_findings()
+
+
+def _create_asset_capabilities() -> None:
     op.create_table(
         'asset_capabilities',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -48,6 +58,8 @@ def upgrade() -> None:
     op.create_index('ix_asset_capabilities_source',          'asset_capabilities', ['source'])
     op.create_index('ix_asset_capabilities_last_seen',       'asset_capabilities', ['last_seen'])
 
+
+def _create_asset_findings() -> None:
     op.create_table(
         'asset_findings',
         sa.Column('id', sa.Integer(), nullable=False),

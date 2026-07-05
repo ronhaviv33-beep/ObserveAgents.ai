@@ -51,6 +51,74 @@ def run_alembic_migrations() -> None:
     alembic_command.upgrade(cfg, "head")
 
 
+def ensure_model_columns() -> None:
+    """
+    Schema self-repair for long-lived databases.
+
+    create_all() creates missing *tables* but never alters existing ones, and a
+    failed/stuck Alembic history can leave ORM-model columns absent from tables
+    created in an older code era (observed in production: asset_registry was
+    missing the discovery_* columns, so any full-row query 500'd). For every
+    model table that already exists, add any missing columns via
+    ALTER TABLE ... ADD COLUMN and backfill scalar defaults so NOT NULL model
+    semantics keep holding at the ORM layer. Purely additive and idempotent.
+    """
+    from datetime import datetime, timezone
+    from sqlalchemy import inspect as _sqlainspect, text as _sqlatext
+    from app.database import engine, Base
+    import app.models  # noqa: F401 — registers all model tables on Base.metadata
+
+    added: list[str] = []
+    with engine.connect() as conn:
+        inspector = _sqlainspect(conn)
+        existing_tables = set(inspector.get_table_names())
+        for table in Base.metadata.sorted_tables:
+            if table.name not in existing_tables:
+                continue  # brand-new table — create_all already built it in full
+            existing_cols = {c["name"] for c in inspector.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in existing_cols:
+                    continue
+                ddl_type = col.type.compile(dialect=engine.dialect)
+                conn.execute(_sqlatext(
+                    f'ALTER TABLE {table.name} ADD COLUMN {col.name} {ddl_type}'
+                ))
+
+                # Backfill the model default so existing rows read like new ones.
+                default = None
+                if col.default is not None:
+                    if col.default.is_scalar:
+                        default = col.default.arg
+                    elif col.default.is_callable:
+                        try:
+                            default = col.default.arg.__wrapped__()  # plain callable
+                        except AttributeError:
+                            try:
+                                default = col.default.arg()
+                            except TypeError:
+                                default = col.default.arg(None)  # context-style callable
+                        except Exception:
+                            default = None
+                        if isinstance(default, datetime) and default.tzinfo is None:
+                            default = default.replace(tzinfo=timezone.utc)
+                if default is not None:
+                    conn.execute(
+                        _sqlatext(
+                            f'UPDATE {table.name} SET {col.name} = :dflt '
+                            f'WHERE {col.name} IS NULL'
+                        ),
+                        {"dflt": default},
+                    )
+                added.append(f"{table.name}.{col.name}")
+        conn.commit()
+
+    if added:
+        _log.warning(
+            "Schema repair: added %d missing column(s): %s",
+            len(added), ", ".join(added),
+        )
+
+
 def run_org_migration() -> None:
     """One-time org migration backfill. Idempotent — safe to call every boot."""
     from app.migrate_orgs import run as _run

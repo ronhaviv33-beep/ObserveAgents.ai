@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import AssetCapability, AssetFinding, AssetRegistry, OtelAsset
+from app.org_config import get_org_config
 from app.asset_intelligence import derive_asset_intelligence
 
 router = APIRouter(tags=["Asset Intelligence"])
@@ -203,6 +204,57 @@ async def asset_summary(
             "providers": [_display_provider(p) for p in _json_list(oa.providers_json)],
             "tools": _json_list(oa.tools_json),
             "dependencies": _json_list(oa.dependencies_json),
+            "capabilities_count": len(caps),
+            "findings_count": len(finds),
+            "open_findings_count": len(open_finds),
+            "high_findings_count": sum(1 for f in open_finds if f.severity in ("high", "critical")),
+            "finding_categories": dict(categories),
+            "status": status,
+            "capabilities": [_serialize_cap(c) for c in caps],
+            "findings": [_serialize_finding(f) for f in finds],
+        })
+
+    # Gateway-era assets: registry rows with no OTel runtime evidence yet.
+    # Orgs whose AI activity predates OTel ingestion (gateway/proxy discovery)
+    # must still see their systems here — with an explicit "no runtime traces
+    # yet" signal instead of an empty page.
+    demo_mode = bool(get_org_config(db, org_id, "demo_mode"))
+    emitted_ids = {oa.ai_asset_id for oa in otel_assets if oa.ai_asset_id}
+    emitted_keys = {a["asset_key"] for a in assets}
+    for reg in registry_by_id.values():
+        if reg.id in emitted_ids or reg.asset_key in emitted_keys:
+            continue
+        if bool(reg.is_demo) != demo_mode:
+            continue
+        caps = caps_by_key.get(reg.asset_key, [])
+        finds = finds_by_key.get(reg.asset_key, [])
+        open_finds = [f for f in finds if f.status == "open"]
+        categories = defaultdict(int)
+        for f in open_finds:
+            categories[f.category] += 1
+
+        status = []
+        if (reg.discovery_source or "") in ("gateway_telemetry", "gateway_runtime"):
+            status.append("gateway_observed")
+        if open_finds:
+            status.append("has_findings")
+        if any(f.finding_type == "runtime_error" for f in open_finds):
+            status.append("error_observed")
+
+        last = reg.updated_at or reg.first_seen_at or reg.created_at
+        assets.append({
+            "ai_asset_id": reg.id,
+            "asset_key": reg.asset_key,
+            "asset_name": reg.agent_name or reg.agent_id_raw,
+            "service_name": None,
+            "environment": reg.environment,
+            "last_seen": last.isoformat() if last else None,
+            "trace_count": 0,
+            "span_count": 0,
+            "models": [],
+            "providers": [],
+            "tools": [],
+            "dependencies": [],
             "capabilities_count": len(caps),
             "findings_count": len(finds),
             "open_findings_count": len(open_finds),

@@ -649,13 +649,13 @@ export async function fetchRuntimeTraces(params = {}) {
     Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
   ).toString()
   const r = await authFetch(`${BASE}/runtime/traces${q ? `?${q}` : ''}`)
-  if (!r || !r.ok) throw new Error('Failed to fetch runtime traces')
+  if (!r || !r.ok) throw new Error(`Failed to fetch runtime traces (HTTP ${r?.status ?? 'network error'})`)
   return r.json()
 }
 
 export async function fetchRuntimeTrace(traceId) {
   const r = await authFetch(`${BASE}/runtime/traces/${encodeURIComponent(traceId)}`)
-  if (!r || !r.ok) throw new Error('Failed to fetch trace detail')
+  if (!r || !r.ok) throw new Error(`Failed to fetch trace detail (HTTP ${r?.status ?? 'network error'})`)
   return r.json()
 }
 
@@ -669,28 +669,28 @@ function buildQuery(params = {}) {
 
 export async function fetchIntelligenceAssetSummary() {
   const r = await authFetch(`${BASE}/intelligence/asset-summary`)
-  if (!r || !r.ok) throw new Error('Failed to fetch asset summary')
+  if (!r || !r.ok) throw new Error(`Failed to fetch asset summary (HTTP ${r?.status ?? 'network error'})`)
   return r.json()
 }
 
 export async function fetchIntelligenceAssets(params = {}) {
   const q = buildQuery(params)
   const r = await authFetch(`${BASE}/intelligence/assets${q ? `?${q}` : ''}`)
-  if (!r || !r.ok) throw new Error('Failed to fetch discovered assets')
+  if (!r || !r.ok) throw new Error(`Failed to fetch discovered assets (HTTP ${r?.status ?? 'network error'})`)
   return r.json()
 }
 
 export async function fetchIntelligenceCapabilities(params = {}) {
   const q = buildQuery(params)
   const r = await authFetch(`${BASE}/intelligence/capabilities${q ? `?${q}` : ''}`)
-  if (!r || !r.ok) throw new Error('Failed to fetch capabilities')
+  if (!r || !r.ok) throw new Error(`Failed to fetch capabilities (HTTP ${r?.status ?? 'network error'})`)
   return r.json()
 }
 
 export async function fetchIntelligenceFindings(params = {}) {
   const q = buildQuery(params)
   const r = await authFetch(`${BASE}/intelligence/findings${q ? `?${q}` : ''}`)
-  if (!r || !r.ok) throw new Error('Failed to fetch findings')
+  if (!r || !r.ok) throw new Error(`Failed to fetch findings (HTTP ${r?.status ?? 'network error'})`)
   return r.json()
 }
 

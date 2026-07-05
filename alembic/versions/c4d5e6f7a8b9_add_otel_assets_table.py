@@ -21,6 +21,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Guarded: create_all() may already have built this table (it runs before
+    # Alembic on startup); re-creating it would wedge the migration chain.
+    if sa.inspect(op.get_bind()).has_table('otel_assets'):
+        return
     op.create_table(
         'otel_assets',
         sa.Column('id', sa.Integer(), nullable=False),

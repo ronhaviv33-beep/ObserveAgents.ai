@@ -18,6 +18,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Guarded: create_all() may already have built this table (it runs before
+    # Alembic on startup); re-creating it would wedge the migration chain.
+    if sa.inspect(op.get_bind()).has_table('agent_relationships'):
+        return
     op.create_table(
         'agent_relationships',
         sa.Column('id', sa.Integer(), nullable=False),
