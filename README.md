@@ -507,6 +507,8 @@ Pricing for all models is seeded into the Pricing Registry on first start and ke
 
 ## Roadmap
 
+The phased forward roadmap — including **Observe Advisor** and Agent Skill Recommendations — lives in [docs/roadmap.md](docs/roadmap.md).
+
 | Status | Item |
 |---|---|
 | ✅ | OpenAI-compatible proxy (`/v1/chat/completions`) with real streaming |
