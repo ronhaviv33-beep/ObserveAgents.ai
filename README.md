@@ -24,6 +24,59 @@ ObserveAgents discovers AI systems from runtime evidence (OpenTelemetry traces a
 
 ---
 
+## 🚀 Get started in 2 minutes
+
+**Your starting point:** create an API key in the dashboard (**API Keys** → New — it starts with `gk-`), then pick the fastest path for you. Every path ends the same way: **open Runtime and watch your first trace appear.**
+
+### Path A — Instant proof (nothing to install)
+
+Send one trace with curl and see it in Runtime seconds later:
+
+```bash
+curl -X POST "https://<your-observeagents-url>/otel/v1/traces" \
+  -H "Authorization: Bearer gk-<your-api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"my-first-agent"}}]},"scopeSpans":[{"spans":[{"traceId":"aaaa1111bbbb2222cccc3333dddd4444","spanId":"1111222233334444","name":"chat gpt-4o","kind":3,"startTimeUnixNano":"'$(date +%s%N)'","endTimeUnixNano":"'$(($(date +%s%N)+1200000000))'","status":{},"attributes":[{"key":"gen_ai.operation.name","value":{"stringValue":"chat"}},{"key":"gen_ai.provider.name","value":{"stringValue":"openai"}},{"key":"gen_ai.request.model","value":{"stringValue":"gpt-4o"}}]}]}]}]}'
+```
+
+Open **Runtime** → `my-first-agent` is there, with an execution timeline. That's it.
+
+### Path B — Already using OpenTelemetry
+
+Point your existing exporter at Observe (OTLP/HTTP **JSON**; SDKs that emit protobuf route through a Collector with `encoding: json` — [details](docs/otel_ingestion.md)):
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=https://<your-observeagents-url>/otel
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer gk-<your-api-key>
+OTEL_SERVICE_NAME=my-agent
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production
+```
+
+### Path C — Richest auto-instrumentation (open-source, no proprietary SDK)
+
+[OpenLLMetry](https://github.com/traceloop/openllmetry) auto-instruments OpenAI, Anthropic, Bedrock, LangChain, LlamaIndex, CrewAI, vector DBs and more — and emits **standard OpenTelemetry** that Observe consumes:
+
+```python
+pip install traceloop-sdk
+
+from traceloop.sdk import Traceloop
+Traceloop.init()   # export to your OTel Collector → Observe
+```
+
+Route it through your Collector to Observe ([collector config](docs/otel_ingestion.md#exporter-configuration)). Two lines of code, full GenAI traces — with the open standard, not a vendor SDK.
+
+### Path D — No OTel at all? Use the Gateway
+
+One line in your existing client (see [Getting data in](#getting-data-in) below):
+
+```python
+client = openai.OpenAI(base_url="https://gateway.observeagents.ai/v1", api_key="YOUR_GATEWAY_KEY")
+```
+
+Raw prompt/response content is **never stored** on any path — see the [privacy guarantee](docs/otel_ingestion.md#privacy-guarantee).
+
+---
+
 ## Getting data in
 
 Two Runtime Discovery paths — use either or both. Ecosystem Discovery connectors (GitHub, Jira, Slack, n8n, MCP) are on the roadmap.
