@@ -58,6 +58,16 @@ Base.metadata.create_all(bind=engine)
 # ── Startup lifecycle ──────────────────────────────────────────────────────────
 import app.startup as _startup
 
+# Schema self-repair: adds any ORM-model columns missing from pre-existing
+# tables (create_all never alters existing tables, and a stuck Alembic history
+# must not leave the API querying columns that don't exist). Runs before
+# Alembic so index migrations never reference columns that are still missing.
+try:
+    _startup.ensure_model_columns()
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("ai_asset_mgmt").warning("Schema repair warning (non-fatal): %s", _e)
+
 try:
     _startup.run_alembic_migrations()
 except Exception as _e:

@@ -14,8 +14,13 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("asset_registry", sa.Column("asset_type", sa.String(32), nullable=True, server_default="agent"))
-    op.add_column("asset_registry", sa.Column("capabilities", sa.Text(), nullable=True))
+    # Guarded: on DBs where create_all()/schema repair already added these
+    # columns, re-adding would fail and wedge the whole migration chain.
+    existing = {c["name"] for c in sa.inspect(op.get_bind()).get_columns("asset_registry")}
+    if "asset_type" not in existing:
+        op.add_column("asset_registry", sa.Column("asset_type", sa.String(32), nullable=True, server_default="agent"))
+    if "capabilities" not in existing:
+        op.add_column("asset_registry", sa.Column("capabilities", sa.Text(), nullable=True))
 
 
 def downgrade() -> None:

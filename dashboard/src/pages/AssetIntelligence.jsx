@@ -20,6 +20,7 @@ const CAP_COLOR = {
 const STATUS_META = {
   active:           { label: "Active",           color: T.accent },
   runtime_observed: { label: "Runtime observed", color: T.info },
+  gateway_observed: { label: "Gateway observed", color: T.teal },
   has_findings:     { label: "Has findings",     color: T.warn },
   error_observed:   { label: "Error observed",   color: T.crit },
 };
@@ -158,7 +159,9 @@ function AssetCard({ asset, expanded, onToggle, canAct, onFindingAction }) {
           </span>
           <span>
             <span style={{ color: T.textMute }}>runtime&nbsp;</span>
-            {a.trace_count} trace{a.trace_count === 1 ? "" : "s"} · {a.span_count} spans · last seen {fmtWhen(a.last_seen)}
+            {(a.span_count || 0) > 0
+              ? <>{a.trace_count} trace{a.trace_count === 1 ? "" : "s"} · {a.span_count} spans · last seen {fmtWhen(a.last_seen)}</>
+              : <>no runtime traces yet · last seen {fmtWhen(a.last_seen)}</>}
           </span>
           <span style={{ marginLeft: "auto", color: T.textMute }}>{expanded ? "▲ collapse" : "▼ details"}</span>
         </div>
@@ -169,9 +172,11 @@ function AssetCard({ asset, expanded, onToggle, canAct, onFindingAction }) {
           <div>
             <SectionLabel>Runtime Evidence</SectionLabel>
             <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: T.textDim }}>
-              service <span style={{ color: T.text }}>{a.service_name}</span>
+              service <span style={{ color: T.text }}>{a.service_name || "—"}</span>
               {a.environment && <> · environment <span style={{ color: T.text }}>{a.environment}</span></>}
-              {" "}· {a.trace_count} trace{a.trace_count === 1 ? "" : "s"} · {a.span_count} spans · last seen {fmtWhen(a.last_seen)}
+              {(a.span_count || 0) > 0
+                ? <> · {a.trace_count} trace{a.trace_count === 1 ? "" : "s"} · {a.span_count} spans · last seen {fmtWhen(a.last_seen)}</>
+                : <> · discovered via gateway — no runtime traces yet</>}
               {a.ai_asset_id && <> · inventory asset #{a.ai_asset_id}</>}
             </div>
           </div>
@@ -221,13 +226,13 @@ function AISystemsTab({ assets, capabilitiesTotal, loading, canAct, onFindingAct
     <EmptyState title="No AI systems discovered yet."
       hint="Connect OpenTelemetry traces and discovered AI systems appear here automatically." />
   );
-  if (capabilitiesTotal === 0) return (
-    <EmptyState title="Assets discovered, but no capabilities have been derived yet."
-      hint="Run Intelligence to derive capabilities and findings from the collected evidence." />
-  );
-
   return (
     <div>
+      {capabilitiesTotal === 0 && (
+        <div style={{ background: `${T.info}0D`, border: `1px solid ${T.info}33`, borderRadius: 5, padding: "10px 14px", marginBottom: 12, fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>
+          No capabilities have been derived yet — press Run Intelligence to derive capabilities and findings from the collected evidence.
+        </div>
+      )}
       <SearchBox query={query} onChange={setQuery} placeholder="Search AI systems…" count={filtered.length} total={assets.length} />
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((a) => (
