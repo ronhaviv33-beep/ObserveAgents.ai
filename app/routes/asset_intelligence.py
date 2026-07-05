@@ -17,7 +17,11 @@ from app.asset_intelligence import derive_asset_intelligence
 
 router = APIRouter(tags=["Asset Intelligence"])
 
-# Display-name normalization (serializer-level only — stored values unchanged)
+# Error-family finding types (typed via SemConv error.type since GenAI compat layer)
+_ERROR_FINDING_TYPES = frozenset({"runtime_error", "provider_error", "tool_error", "mcp_error"})
+
+# Display-name normalization (serializer-level only — stored values unchanged).
+# Includes the gen_ai.provider.name well-known values from the GenAI SemConv.
 _PROVIDER_DISPLAY = {
     "openai": "OpenAI",
     "anthropic": "Anthropic",
@@ -28,6 +32,19 @@ _PROVIDER_DISPLAY = {
     "mistral": "Mistral",
     "cohere": "Cohere",
     "ollama": "Ollama",
+    "aws.bedrock": "AWS Bedrock",
+    "azure.ai.openai": "Azure OpenAI",
+    "azure.ai.inference": "Azure AI Inference",
+    "gcp.gemini": "Google Gemini",
+    "gcp.vertex_ai": "Vertex AI",
+    "gcp.gen_ai": "Google GenAI",
+    "mistral_ai": "Mistral",
+    "x_ai": "xAI",
+    "deepseek": "DeepSeek",
+    "groq": "Groq",
+    "perplexity": "Perplexity",
+    "moonshot_ai": "Moonshot AI",
+    "ibm.watsonx.ai": "IBM watsonx.ai",
 }
 
 
@@ -188,7 +205,7 @@ async def asset_summary(
             status.append("runtime_observed")
         if open_finds:
             status.append("has_findings")
-        if any(f.finding_type == "runtime_error" for f in open_finds):
+        if any(f.finding_type in _ERROR_FINDING_TYPES for f in open_finds):
             status.append("error_observed")
 
         assets.append({
@@ -238,7 +255,7 @@ async def asset_summary(
             status.append("gateway_observed")
         if open_finds:
             status.append("has_findings")
-        if any(f.finding_type == "runtime_error" for f in open_finds):
+        if any(f.finding_type in _ERROR_FINDING_TYPES for f in open_finds):
             status.append("error_observed")
 
         last = reg.updated_at or reg.first_seen_at or reg.created_at

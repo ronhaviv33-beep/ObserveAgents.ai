@@ -46,7 +46,7 @@ const GUARDRAIL_CATALOG = [
     id: "runtime_errors",
     title: "AI system has repeated runtime errors",
     severity: "medium",
-    test: (a) => a._openTypes.has("runtime_error"),
+    test: (a) => ["runtime_error", "provider_error", "tool_error", "mcp_error"].some((t) => a._openTypes.has(t)),
     recommendation: "Inspect the failing spans in the Runtime timeline to find the failing step.",
   },
   {

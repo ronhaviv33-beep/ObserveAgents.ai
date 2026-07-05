@@ -17,11 +17,20 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import OtelSpan
+from app.genai_semconv import classify_step, extract_error_type, extract_operation, extract_usage
 
 router = APIRouter(tags=["Runtime"])
 
 # OTLP status code 2 = STATUS_CODE_ERROR (stored as a string by the normalizer)
 _STATUS_ERROR = "2"
+
+_USAGE_FIELDS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+    "reasoning_output_tokens",
+)
 
 
 def _duration_ms(start, end) -> int | None:
@@ -30,18 +39,13 @@ def _duration_ms(start, end) -> int | None:
     return int((end - start).total_seconds() * 1000)
 
 
-def _step_type(attrs: dict) -> str:
-    """Classify a span into a Runtime Step type for the Execution Timeline."""
-    keys = attrs.keys()
-    if any(k.startswith("gen_ai.") for k in keys):
-        return "llm"
-    if any(k.startswith(("tool.", "mcp.")) for k in keys):
-        return "tool"
-    if any(k.startswith("db.") for k in keys):
-        return "database"
-    if any(k in ("url.full", "http.url", "server.address") for k in keys):
-        return "external_api"
-    return "step"
+def _step_type(attrs: dict, span_name: str = "") -> str:
+    """Classify a span into a Runtime Step type for the Execution Timeline.
+
+    Delegates to the GenAI SemConv layer: gen_ai.operation.name →
+    mcp.method.name → tool names → db.* → url.full → legacy heuristics.
+    """
+    return classify_step(attrs, span_name)
 
 
 @router.get("/runtime/traces")
@@ -130,6 +134,8 @@ async def get_trace(
     trace_end = max(ends) if ends else None
 
     span_dicts = []
+    usage_totals = {f: 0 for f in _USAGE_FIELDS}
+    usage_seen = False
     for s in spans:
         attrs: dict = {}
         if s.attributes_json:
@@ -140,13 +146,21 @@ async def get_trace(
         offset_ms = None
         if trace_start is not None and s.start_time is not None:
             offset_ms = int((s.start_time - trace_start).total_seconds() * 1000)
+
+        usage = extract_usage(attrs)
+        for f in _USAGE_FIELDS:
+            if usage[f] is not None:
+                usage_totals[f] += usage[f]
+                usage_seen = True
+
         span_dicts.append({
             "span_id": s.span_id,
             "parent_span_id": s.parent_span_id,
             "name": s.span_name,
             "service_name": s.service_name,
             "kind": s.span_kind,
-            "step_type": _step_type(attrs),
+            "step_type": _step_type(attrs, s.span_name or ""),
+            "operation": extract_operation(attrs),
             "start_time": s.start_time.isoformat() if s.start_time else None,
             "end_time": s.end_time.isoformat() if s.end_time else None,
             "offset_ms": offset_ms,
@@ -154,6 +168,7 @@ async def get_trace(
             "status_code": s.status_code,
             "status_message": s.status_message,
             "error": s.status_code == _STATUS_ERROR,
+            "error_type": extract_error_type(attrs, s.status_code),
         })
 
     root = next((d for d in span_dicts if d["parent_span_id"] is None), None)
@@ -166,5 +181,6 @@ async def get_trace(
         "duration_ms": _duration_ms(trace_start, trace_end),
         "span_count": len(span_dicts),
         "error_count": sum(1 for d in span_dicts if d["error"]),
+        "usage": usage_totals if usage_seen else None,
         "spans": span_dicts,
     }

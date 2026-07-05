@@ -31,33 +31,72 @@ from sqlalchemy.orm import Session
 from app.otel_privacy import scrub_attributes, REDACTED_KEYS
 from app.relationship_resolver import ResolvedRelationship
 from app.relationships import upsert_relationship
+from app.genai_semconv import (
+    MEMORY_OPERATIONS,
+    extract_agent_meta,
+    extract_operation,
+    extract_provider,
+    extract_response_meta,
+    extract_tool_name as _semconv_tool_name,
+    extract_usage,
+)
 
 _log = logging.getLogger("ai_asset_mgmt.otel")
 
-# OTel GenAI attribute keys that indicate a span involves an LLM call
+# OTel GenAI attribute keys that indicate a span involves GenAI activity
 _GENAI_INDICATORS = frozenset({
     "gen_ai.system",
+    "gen_ai.provider.name",
     "gen_ai.operation.name",
     "gen_ai.request.model",
     "gen_ai.response.model",
     "gen_ai.usage.input_tokens",
     "gen_ai.usage.output_tokens",
+    "gen_ai.agent.name",
+    "gen_ai.agent.id",
 })
 
+# gen_ai.operation.name → provenance event type (execute_tool goes through
+# the tool branch; inference/unlisted operations default to llm_call)
+_OPERATION_EVENT = {
+    "invoke_agent": "agent_invocation",
+    "create_agent": "agent_invocation",
+    "invoke_workflow": "workflow_step",
+    "plan": "plan_step",
+    "retrieval": "retrieval_call",
+}
+_OPERATION_EVENT.update({op: "memory_op" for op in MEMORY_OPERATIONS})
 
-def _extract_agent_name(attrs: dict, resource_attrs: dict, span_id: str) -> tuple[str, str]:
+
+def _resolve_identity(attrs: dict, resource_attrs: dict, span_id: str) -> tuple[str, str, str]:
     """
-    Return (agent_name, identity_type).
-    identity_type: "declared" if an explicit agent name attribute exists, "inferred" otherwise.
+    Return (identity, display_name, identity_type).
+
+    identity is the stable grouping key (feeds asset_key / agent_id_raw):
+      gen_ai.agent.id → gen_ai.agent.name → agent.name / ai.agent.name →
+      service.name → observed-ai-system:<hash>
+    display_name is the human-readable alias (gen_ai.agent.name when present,
+    else the identity itself) — so a UUID agent id still shows a real name.
+    identity_type: "declared" for explicit agent attributes, "inferred" otherwise.
     """
-    for key in ("agent.name", "ai.agent.name", "gen_ai.agent.name"):
+    agent = extract_agent_meta(attrs, resource_attrs)
+    legacy_name = None
+    for key in ("agent.name", "ai.agent.name"):
         v = attrs.get(key) or resource_attrs.get(key)
         if v:
-            return str(v), "declared"
+            legacy_name = str(v)
+            break
+
+    display = agent["name"] or legacy_name
+    if agent["id"]:
+        return agent["id"], display or agent["id"], "declared"
+    if display:
+        return display, display, "declared"
     svc = resource_attrs.get("service.name") or attrs.get("service.name")
     if svc:
-        return str(svc), "inferred"
-    return f"observed-ai-system:{span_id[:8]}", "inferred"
+        return str(svc), str(svc), "inferred"
+    fallback = f"observed-ai-system:{span_id[:8]}"
+    return fallback, fallback, "inferred"
 
 
 def _extract_model(attrs: dict) -> str | None:
@@ -69,12 +108,7 @@ def _extract_model(attrs: dict) -> str | None:
 
 
 def _extract_tool_name(attrs: dict) -> str | None:
-    return (
-        attrs.get("tool.name")
-        or attrs.get("mcp.tool.name")
-        or attrs.get("mcp.tool")
-        or None
-    )
+    return _semconv_tool_name(attrs)
 
 
 def _extract_mcp_server(attrs: dict) -> str | None:
@@ -105,9 +139,9 @@ def _is_genai_span(attrs: dict) -> bool:
 
 def _is_tool_span(attrs: dict, span_name: str) -> bool:
     return bool(
-        attrs.get("tool.name")
-        or attrs.get("mcp.tool.name")
-        or attrs.get("mcp.tool")
+        _extract_tool_name(attrs)
+        or attrs.get("mcp.method.name")
+        or extract_operation(attrs) == "execute_tool"
         or "execute_tool" in (span_name or "").lower()
     )
 
@@ -149,15 +183,26 @@ def _make_asset_key(org_id: int, agent_name: str) -> str:
     return hashlib.sha256(f"{org_id}:{agent_name}".encode()).hexdigest()[:64]
 
 
-def _upsert_asset(db: Session, org_id: int, agent_name: str, resource_attrs: dict) -> int | None:
+def _upsert_asset(
+    db: Session,
+    org_id: int,
+    agent_name: str,
+    resource_attrs: dict,
+    display_name: str | None = None,
+    agent_meta: dict | None = None,
+) -> int | None:
     """
     Idempotent upsert of an AssetRegistry row for an OTel-observed agent.
+
+    agent_name is the stable identity (gen_ai.agent.id when declared) and
+    feeds asset_key/agent_id_raw; display_name is the human-readable alias.
     Returns the AssetRegistry.id, or None if upsert fails.
     """
     from app.asset_discovery import _known_assets, _infer_asset_type
     from app.models import AssetRegistry
 
     asset_key = _make_asset_key(org_id, agent_name)
+    display_name = display_name or agent_name
 
     environment = (
         resource_attrs.get("deployment.environment")
@@ -178,6 +223,10 @@ def _upsert_asset(db: Session, org_id: int, agent_name: str, resource_attrs: dic
         "cloud.region":    resource_attrs.get("cloud.region"),
         "container.name":  resource_attrs.get("container.name"),
     }
+    if agent_meta:
+        evidence["gen_ai.agent.id"] = agent_meta.get("id")
+        evidence["gen_ai.agent.description"] = agent_meta.get("description")
+        evidence["gen_ai.agent.version"] = agent_meta.get("version")
     evidence = {k: v for k, v in evidence.items() if v is not None}
 
     try:
@@ -190,7 +239,7 @@ def _upsert_asset(db: Session, org_id: int, agent_name: str, resource_attrs: dic
                 organization_id=org_id,
                 asset_key=asset_key,
                 agent_id_raw=agent_name,
-                agent_name=agent_name,
+                agent_name=display_name,
                 team=team,
                 environment=environment,
                 owner=owner,
@@ -333,8 +382,9 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
     provenance_count = 0
     spans_ingested = 0
 
-    # Per-agent-name accumulators (keyed by agent_name)
+    # Per-agent-name accumulators (keyed by stable identity)
     _agent_asset_ids:  dict[str, int | None]      = {}
+    _agent_display:    dict[str, str]              = {}
     _agent_svc_names:  dict[str, str]              = {}
     _agent_envs:       dict[str, str | None]       = {}
     _agent_res_attrs:  dict[str, dict]             = {}
@@ -344,6 +394,21 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
     _agent_deps:       dict[str, set[str]]         = defaultdict(set)
     _agent_trace_ids:  dict[str, set[str]]         = defaultdict(set)
     _agent_span_dts:   dict[str, list[datetime]]   = defaultdict(list)
+
+    # ── Pass 0: declared agent identity per trace ─────────────────────────────
+    # SemConv agent traces usually declare gen_ai.agent.* only on the root
+    # invoke_agent span; child spans must inherit that identity instead of
+    # fragmenting into a second service.name-based asset.
+    _trace_identity: dict[str, tuple[str, str]] = {}
+    for span in spans:
+        attrs = span.get("attributes") or {}
+        resource_attrs = span.get("resource_attributes") or {}
+        trace_id = span.get("trace_id") or ""
+        if not trace_id or trace_id in _trace_identity:
+            continue
+        ident, disp, ident_type = _resolve_identity(attrs, resource_attrs, span.get("span_id") or "")
+        if ident_type == "declared":
+            _trace_identity[trace_id] = (ident, disp)
 
     for span in spans:
         attrs = span.get("attributes") or {}
@@ -356,8 +421,11 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
             continue
 
         # ── Identity ──────────────────────────────────────────────────────────
-        agent_name, identity_type = _extract_agent_name(attrs, resource_attrs, span_id)
-        service_name = resource_attrs.get("service.name") or attrs.get("service.name") or agent_name
+        agent_name, display_name, identity_type = _resolve_identity(attrs, resource_attrs, span_id)
+        if identity_type == "inferred" and trace_id in _trace_identity:
+            agent_name, display_name = _trace_identity[trace_id]
+            identity_type = "declared"
+        service_name = resource_attrs.get("service.name") or attrs.get("service.name") or display_name
         environment = (
             resource_attrs.get("deployment.environment")
             or resource_attrs.get("deployment.environment.name")
@@ -366,13 +434,18 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
 
         # ── Asset discovery ───────────────────────────────────────────────────
         if agent_name not in assets_seen:
-            asset_id = _upsert_asset(db, org_id, agent_name, resource_attrs)
+            asset_id = _upsert_asset(
+                db, org_id, agent_name, resource_attrs,
+                display_name=display_name,
+                agent_meta=extract_agent_meta(attrs, resource_attrs),
+            )
             assets_seen.add(agent_name)
             _agent_asset_ids[agent_name] = asset_id
         else:
             asset_id = _agent_asset_ids.get(agent_name)
 
         # ── OtelAsset accumulators ────────────────────────────────────────────
+        _agent_display.setdefault(agent_name, display_name)
         _agent_svc_names.setdefault(agent_name, service_name)
         _agent_envs.setdefault(agent_name, environment)
         _agent_res_attrs.setdefault(agent_name, resource_attrs)
@@ -432,14 +505,21 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
         target_name: str | None = None
         relation_type: str | None = None
 
-        if _is_genai_span(attrs):
-            event_type = "llm_call"
+        operation = extract_operation(attrs)
+        # execute_tool spans carry gen_ai.* attributes but are tool activity —
+        # route them (and classic tool spans) to the tool branch first.
+        span_is_tool = _is_tool_span(attrs, span_name) and operation in (None, "execute_tool")
+
+        if _is_genai_span(attrs) and not span_is_tool:
+            event_type = _OPERATION_EVENT.get(operation, "llm_call")
             model = _extract_model(attrs)
             if model:
                 target_type = "model"
                 target_name = model
                 relation_type = "uses_model"
                 _agent_models[agent_name].add(model)
+                usage = extract_usage(attrs)
+                response_meta = extract_response_meta(attrs)
                 rel = ResolvedRelationship(
                     source_agent_name=agent_name,
                     target_type="model",
@@ -449,15 +529,24 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                     confidence_score=0.90,
                     metadata={
                         "identity_type": identity_type,
+                        "operation": operation,
+                        "gen_ai.provider.name": attrs.get("gen_ai.provider.name"),
                         "gen_ai.system": attrs.get("gen_ai.system"),
-                        "input_tokens": attrs.get("gen_ai.usage.input_tokens"),
-                        "output_tokens": attrs.get("gen_ai.usage.output_tokens"),
+                        "input_tokens": usage["input_tokens"],
+                        "output_tokens": usage["output_tokens"],
+                        "cache_creation_input_tokens": usage["cache_creation_input_tokens"],
+                        "cache_read_input_tokens": usage["cache_read_input_tokens"],
+                        "reasoning_output_tokens": usage["reasoning_output_tokens"],
+                        "response_id": response_meta["id"],
+                        "response_model": response_meta["model"],
+                        "finish_reasons": response_meta["finish_reasons"],
+                        "time_to_first_chunk": response_meta["time_to_first_chunk"],
                     },
                 )
                 upsert_relationship(db, org_id, rel)
                 relationships_upserted += 1
 
-            provider = attrs.get("gen_ai.system")
+            provider = extract_provider(attrs)
             if provider:
                 provider_label = str(provider).capitalize()
                 _agent_providers[agent_name].add(provider_label)
@@ -508,6 +597,21 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                     metadata={"identity_type": identity_type},
                 )
                 upsert_relationship(db, org_id, rel_m)
+                relationships_upserted += 1
+            mcp_resource = attrs.get("mcp.resource.uri")
+            if mcp_resource:
+                mcp_resource = str(mcp_resource)[:255]
+                _agent_deps[agent_name].add(mcp_resource)
+                rel_r = ResolvedRelationship(
+                    source_agent_name=agent_name,
+                    target_type="mcp_resource",
+                    target_name=mcp_resource,
+                    relationship_type="reads_resource",
+                    evidence_source="otel_trace",
+                    confidence_score=0.80,
+                    metadata={"identity_type": identity_type, "mcp.method.name": attrs.get("mcp.method.name")},
+                )
+                upsert_relationship(db, org_id, rel_r)
                 relationships_upserted += 1
 
         else:
@@ -617,7 +721,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
             org_id=org_id,
             ai_asset_id=ai_asset_id,
             service_name=_agent_svc_names.get(agent_name, agent_name),
-            agent_name=agent_name,
+            agent_name=_agent_display.get(agent_name, agent_name),
             environment=_agent_envs.get(agent_name),
             resource_attrs=_agent_res_attrs.get(agent_name, {}),
             new_models=_agent_models[agent_name],

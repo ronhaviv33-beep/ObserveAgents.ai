@@ -51,7 +51,7 @@ def run_alembic_migrations() -> None:
     alembic_command.upgrade(cfg, "head")
 
 
-def ensure_model_columns() -> None:
+def ensure_model_columns(engine=None) -> None:
     """
     Schema self-repair for long-lived databases.
 
@@ -65,9 +65,10 @@ def ensure_model_columns() -> None:
     """
     from datetime import datetime, timezone
     from sqlalchemy import inspect as _sqlainspect, text as _sqlatext
-    from app.database import engine, Base
+    from app.database import engine as _app_engine, Base
     import app.models  # noqa: F401 — registers all model tables on Base.metadata
 
+    engine = engine if engine is not None else _app_engine
     added: list[str] = []
     with engine.connect() as conn:
         inspector = _sqlainspect(conn)

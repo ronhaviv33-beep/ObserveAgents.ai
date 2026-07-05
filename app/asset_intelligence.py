@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.models import AssetCapability, AssetFinding, AssetRegistry, OtelAsset, OtelSpan
+from app.genai_semconv import extract_error_type, extract_tool_name, is_mcp_span
 
 _log = logging.getLogger("ai_asset_mgmt.intelligence")
 
@@ -159,6 +160,7 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
 
     svc_to_key: dict[str, str] = {}
     svc_to_asset_id: dict[str, int | None] = {}
+    svc_to_env: dict[str, str | None] = {}
 
     for oa in otel_assets:
         reg = registry_by_id.get(oa.ai_asset_id) if oa.ai_asset_id else None
@@ -169,6 +171,7 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
 
         svc_to_key[oa.service_name] = asset_key
         svc_to_asset_id[oa.service_name] = asset_id
+        svc_to_env[oa.service_name] = oa.environment
 
         for name in json.loads(oa.providers_json or "[]"):
             c, u = _upsert_capability(db, org_id, asset_id, asset_key, "provider", name, "otel_trace", now)
@@ -365,13 +368,53 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
             finds_created += c
             finds_updated += u
 
-        if span.status_code == "2":
+        # MCP telemetry (mcp.method.name is the SemConv marker for MCP spans)
+        mcp_method = attrs.get("mcp.method.name")
+        if mcp_method:
+            cap_name = extract_tool_name(attrs) or str(mcp_method)
+            c, u = _upsert_capability(
+                db, org_id, asset_id, asset_key, "mcp", cap_name, "otel_trace", now,
+                evidence={"mcp.method.name": mcp_method,
+                          "mcp.protocol.version": attrs.get("mcp.protocol.version")},
+            )
+            caps_created += c
+            caps_updated += u
+            env = (svc_to_env.get(span.service_name) or "").lower()
+            if env in ("production", "prod"):
+                c, u = _upsert_finding(
+                    db, org_id, asset_id, asset_key, "security", "mcp_tool_access", "medium",
+                    "MCP Tool Access in Production",
+                    "This AI system invokes MCP tools in a production environment.",
+                    "otel_trace", now,
+                    evidence={"span_id": span.span_id, "mcp.method.name": mcp_method},
+                )
+                finds_created += c
+                finds_updated += u
+
+        # Errors: OTLP status ERROR or SemConv error.type / JSON-RPC error code.
+        error_type = extract_error_type(attrs, span.status_code)
+        if error_type is not None:
+            if mcp_method or is_mcp_span(attrs):
+                finding_type = "mcp_error"
+                title = "MCP Errors Detected"
+                summary = "MCP tool calls for this service have reported errors."
+            elif extract_tool_name(attrs):
+                finding_type = "tool_error"
+                title = "Tool Errors Detected"
+                summary = "Tool calls for this service have reported errors."
+            elif any(k.startswith("gen_ai.") for k in attrs):
+                finding_type = "provider_error"
+                title = "Provider Errors Detected"
+                summary = "Model provider calls for this service have reported errors."
+            else:
+                finding_type = "runtime_error"
+                title = "Runtime Errors Detected"
+                summary = "This service has logged spans with error status."
             c, u = _upsert_finding(
-                db, org_id, asset_id, asset_key, "operations", "runtime_error", "medium",
-                "Runtime Errors Detected",
-                "This service has logged spans with error status.",
-                "otel_trace", now,
-                evidence={"span_id": span.span_id, "status_code": "2"},
+                db, org_id, asset_id, asset_key, "operations", finding_type, "medium",
+                title, summary, "otel_trace", now,
+                evidence={"span_id": span.span_id, "status_code": span.status_code,
+                          "error.type": error_type},
             )
             finds_created += c
             finds_updated += u

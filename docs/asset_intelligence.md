@@ -96,6 +96,7 @@ Status changes are persistent — a second intelligence run does not reopen a di
 | `database_access` | Asset has `database` capability | medium |
 | `filesystem_enabled` | Asset has `filesystem` capability | medium |
 | `mcp_enabled` | Asset has `mcp` capability | medium |
+| `mcp_tool_access` | MCP tool invocations (`mcp.method.name`) observed in a production environment | medium |
 | `sensitive_system_access` | Asset has `provider` capability AND any of (crm, source_control, database, messaging) | high |
 
 ### Dependency
@@ -111,7 +112,10 @@ Status changes are persistent — a second intelligence run does not reopen a di
 |---|---|---|
 | `production_runtime` | `runtime:production` capability observed | info |
 | `unmanaged_runtime` | Asset in registry has no owner and is unclaimed | medium |
-| `runtime_error` | One or more spans have `status_code = "2"` (ERROR) | medium |
+| `runtime_error` | Error span (`status_code = "2"` or `error.type`) with no provider/tool/MCP context | medium |
+| `provider_error` | Error span with `gen_ai.*` inference context | medium |
+| `tool_error` | Error span on a tool call | medium |
+| `mcp_error` | Error span on an MCP call (`error.type` or JSON-RPC error code) | medium |
 
 ### Inventory
 
