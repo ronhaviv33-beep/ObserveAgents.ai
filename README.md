@@ -48,6 +48,7 @@ Point your existing exporter at Observe (OTLP/HTTP **JSON or protobuf** — prot
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=https://<your-observeagents-url>/otel
 OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer gk-<your-api-key>
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 OTEL_SERVICE_NAME=my-agent
 OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production
 ```
@@ -83,11 +84,12 @@ Two Runtime Discovery paths — use either or both. Ecosystem Discovery connecto
 
 ### 1. OpenTelemetry (recommended — no gateway required)
 
-Already instrumented with OTel? Point your exporter at the OTLP endpoint and AI systems, dependencies, and execution timelines appear automatically. Raw prompt/response content is never stored.
+Already instrumented with OTel? Point your exporter at the OTLP endpoint — **JSON and protobuf are both accepted**, so most SDKs (Python, OpenLLMetry-style instrumentation) send directly with no Collector — and AI systems, dependencies, and execution timelines appear automatically. Raw prompt/response content is never stored.
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=https://<your-observeagents-url>/otel
 OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer gk-<your-api-key>
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 OTEL_SERVICE_NAME=my-agent
 OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production
 ```
@@ -120,7 +122,7 @@ client = openai.OpenAI(
 │      │                     │           │      └──────────────────┬───────────────┘
 │      ▼                     ▼           │                         │
 │ POST /otel/v1/traces  POST /v1/chat/…  │                         ▼
-│ (OTLP/HTTP JSON)      POST /v1/messages│               future evidence tables
+│ (JSON + protobuf)     POST /v1/messages│               future evidence tables
 │      │                     │           │
 │  privacy scrub         guard modes     │
 │  (prompts never        (observe/alert/ │
@@ -162,7 +164,7 @@ client = openai.OpenAI(
 ## Features
 
 ### Runtime Discovery (OpenTelemetry)
-- **OTLP/HTTP JSON ingestion** — `POST /otel/v1/traces` accepts standard OTel spans; agents are discovered from `agent.name` / `service.name` and reconciled into the canonical inventory
+- **OTLP/HTTP ingestion (JSON + protobuf)** — `POST /otel/v1/traces` accepts standard OTel spans in both encodings; agents are discovered from `agent.name` / `service.name` and reconciled into the canonical inventory
 - **GenAI semantic conventions** — models, providers, tools, MCP servers, databases, workflows, and external APIs extracted from `gen_ai.*`, `tool.*`, `mcp.*`, `db.*`, and `url.*` attributes
 - **Evidence summary** — one `otel_assets` row per (service, environment) aggregating models/providers/tools/dependencies with first/last seen and trace/span counts
 - **Privacy guarantee** — `gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.system_instructions`, `tool.arguments`, and `tool.result` are never stored; only SHA-256 hash + byte size
@@ -444,7 +446,7 @@ print(message.content[0].text)
 
 ```http
 POST /auth/login                          # { email, password } → { access_token, user }
-POST /otel/v1/traces                      # OTLP/HTTP JSON span ingestion (Runtime Discovery)
+POST /otel/v1/traces                      # OTLP/HTTP span ingestion, JSON + protobuf (Runtime Discovery)
 GET  /runtime/traces                      # Recent executions (root span, duration, span/error counts)
 GET  /runtime/traces/{trace_id}           # Full span tree for the execution timeline / waterfall
 GET  /intelligence/asset-summary          # Intelligence grouped per AI system (the dashboard's primary shape)
@@ -526,6 +528,7 @@ The phased forward roadmap — including **Observe Advisor** and Agent Skill Rec
 | ✅ | Sortable + searchable tables on every dashboard page |
 | ✅ | Render deployment (`render.yaml` Blueprint) |
 | ✅ | OTel Runtime Discovery — OTLP/HTTP JSON ingestion with privacy scrubbing |
+| ✅ | OTLP protobuf direct ingestion — same endpoint, no Collector required (OpenLLMetry-style onboarding) |
 | ✅ | Runtime Execution Timeline — trace list + waterfall API and UI |
 | ✅ | Asset Intelligence — capabilities + findings derived per AI system, grouped dashboard view |
 | ✅ | Advisory Guardrails — observe-only guardrail catalog + per-team guard modes |
