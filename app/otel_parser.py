@@ -1,10 +1,13 @@
 """
-OTLP/HTTP JSON parser for ObserveAgents.ai OTel trace ingestion.
+OTLP/HTTP parser for ObserveAgents.ai OTel trace ingestion.
 
-Parses the OTLP JSON envelope:
-  {"resourceSpans": [{"resource": {...}, "scopeSpans": [{"spans": [...]}]}]}
+Two entry points producing the SAME flat span-dict shape, so the whole
+downstream pipeline (privacy scrub, normalizer, asset intelligence) is
+shared:
 
-Returns a list of flat span dicts with resolved Python-native attribute values.
+  parse_otlp_json(body)      — OTLP/HTTP JSON envelope
+  parse_otlp_protobuf(raw)   — OTLP/HTTP protobuf ExportTraceServiceRequest
+
 Does not validate content — callers catch parse errors and return HTTP 400.
 """
 from __future__ import annotations
@@ -85,3 +88,99 @@ def parse_otlp_json(body: dict) -> list[dict]:
                     "links":                 raw_span.get("links") or [],
                 })
     return spans
+
+
+# ── OTLP/HTTP protobuf ─────────────────────────────────────────────────────────
+
+def _pb_any_value(av) -> object:
+    """Resolve an OTel protobuf AnyValue to a Python native type.
+
+    Unknown/unset value kinds resolve to None (callers skip them) — a payload
+    with exotic attribute types must degrade, never crash ingestion.
+    """
+    kind = av.WhichOneof("value")
+    if kind == "string_value":
+        return av.string_value
+    if kind == "bool_value":
+        return av.bool_value
+    if kind == "int_value":
+        return int(av.int_value)
+    if kind == "double_value":
+        return float(av.double_value)
+    if kind == "bytes_value":
+        return av.bytes_value.hex()
+    if kind == "array_value":
+        return [_pb_any_value(v) for v in av.array_value.values]
+    if kind == "kvlist_value":
+        return {
+            kv.key: _pb_any_value(kv.value)
+            for kv in av.kvlist_value.values
+            if kv.key
+        }
+    return None
+
+
+def _pb_attrs(raw_attrs) -> dict:
+    """Convert a repeated KeyValue protobuf field to a plain dict."""
+    result = {}
+    for kv in raw_attrs:
+        if not kv.key:
+            continue
+        value = _pb_any_value(kv.value)
+        if value is not None:
+            result[kv.key] = value
+    return result
+
+
+def _pb_events(raw_events) -> list:
+    """Convert protobuf span events to JSON-able dicts (same keys as OTLP JSON)."""
+    return [
+        {
+            "name": ev.name,
+            "timeUnixNano": int(ev.time_unix_nano),
+            "attributes": _pb_attrs(ev.attributes),
+        }
+        for ev in raw_events
+    ]
+
+
+def parse_otlp_protobuf(raw: bytes) -> tuple[list[dict], int]:
+    """
+    Parse an OTLP/HTTP protobuf ExportTraceServiceRequest into the same flat
+    span dicts as parse_otlp_json, plus the resource_spans count for the
+    response summary.
+
+    Raises google.protobuf.message.DecodeError on malformed bodies — callers
+    map that to HTTP 400. Span links are ignored (stored empty), matching the
+    minimal treatment on the JSON path.
+    """
+    from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
+        ExportTraceServiceRequest,
+    )
+
+    req = ExportTraceServiceRequest()
+    req.ParseFromString(raw)
+
+    spans: list[dict] = []
+    for resource_span in req.resource_spans:
+        resource_attrs = _pb_attrs(resource_span.resource.attributes)
+        for scope_spans in resource_span.scope_spans:
+            for raw_span in scope_spans.spans:
+                spans.append({
+                    "trace_id":              raw_span.trace_id.hex(),
+                    "span_id":               raw_span.span_id.hex(),
+                    "parent_span_id":        raw_span.parent_span_id.hex() or None,
+                    "name":                  raw_span.name or "",
+                    "kind":                  int(raw_span.kind) if raw_span.kind else None,
+                    "start_time_unix_nano":  int(raw_span.start_time_unix_nano) or None,
+                    "end_time_unix_nano":    int(raw_span.end_time_unix_nano) or None,
+                    # status.code enum: 0 UNSET / 1 OK / 2 ERROR — same numeric
+                    # codes the JSON path passes through
+                    "status_code":           int(raw_span.status.code) if raw_span.HasField("status") and raw_span.status.code else None,
+                    "status_message":        raw_span.status.message or None,
+                    "attributes":            _pb_attrs(raw_span.attributes),
+                    "resource_attributes":   resource_attrs,
+                    "events":                _pb_events(raw_span.events),
+                    "links":                 [],
+                })
+    return spans, len(req.resource_spans)

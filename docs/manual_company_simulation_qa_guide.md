@@ -330,7 +330,7 @@ You should get back `{"accepted": true, "spans": 6, …, "content_redacted": tru
 | Symptom | Check |
 |---|---|
 | `401` | API key wrong or `Authorization: Bearer gk-…` header malformed |
-| `415` | Content-Type isn't `application/json` — or something sent protobuf. Observe accepts **OTLP JSON only** |
+| `415` | Content-Type is neither JSON nor protobuf. Observe accepts **OTLP/HTTP JSON and protobuf** |
 | Accepted but no trace in Runtime | Wrong org selected in the UI vs the key's org; or wrong URL path (`/otel/v1/traces`) |
 | Trace appears flat (one bar) | Child spans missing `parentSpanId` |
 | System named `observed-ai-system:…` | `service.name` resource attribute missing |
@@ -364,7 +364,7 @@ pip install -r requirements.txt
 
 #### 3. Start a local Collector (recommended)
 
-Why the Collector: **Python's OTLP/HTTP exporter sends protobuf, but Observe accepts OTLP JSON only.** The Collector receives the protobuf locally and re-exports as JSON.
+Why the Collector: it mirrors the enterprise setup (buffering, retries, one routing point). **Observe now also accepts protobuf directly**, so pointing Python's exporter straight at Observe works too — the Collector is recommended, not required.
 
 `otel-collector.yaml`:
 

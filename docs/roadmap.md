@@ -11,7 +11,7 @@ ObserveAgents is becoming the **system of record for enterprise AI**: it turns r
 | Phase | Theme | Summary |
 |---|---|---|
 | O1 | Ecosystem Discovery | GitHub / Jira / Slack / n8n / MCP evidence connectors; Active / Dormant / Runtime-only correlation with the runtime inventory |
-| O2 | Ingestion depth | OTLP **protobuf** support (2-line OpenLLMetry onboarding, no Collector required) and OTLP **metrics** ingestion (Claude Code / coding-agent token & cost accounting) |
+| O2 | Ingestion depth | OTLP **protobuf** support — ✅ shipped (direct OpenLLMetry-style onboarding, no Collector required); OTLP **metrics** ingestion (Claude Code / coding-agent token & cost accounting) still ahead |
 | O3 | Content-free security verdicts | In-flight scanning at ingestion (prompt injection, PII-in-prompt, toxicity) storing **verdicts only** — never content; Runtime "Security checks" filter |
 | O4 | Monitors & notifications | Server-side guardrail monitors with thresholds; budget alerts via webhook (Slack / Teams); alert rules on finding families |
 | O5 | Product surface deployments | Per-surface builds of the Observability and Gateway products (separation plan Phase 4); surface-scoped API keys |

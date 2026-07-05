@@ -43,7 +43,7 @@ Open **Runtime** → `my-first-agent` is there, with an execution timeline. That
 
 ### Path B — Already using OpenTelemetry
 
-Point your existing exporter at Observe (OTLP/HTTP **JSON**; SDKs that emit protobuf route through a Collector with `encoding: json` — [details](docs/otel_ingestion.md)):
+Point your existing exporter at Observe (OTLP/HTTP **JSON or protobuf** — protobuf SDKs can post directly; the Collector remains the recommended enterprise path — [details](docs/otel_ingestion.md)):
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=https://<your-observeagents-url>/otel
@@ -60,10 +60,10 @@ OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production
 pip install traceloop-sdk
 
 from traceloop.sdk import Traceloop
-Traceloop.init()   # export to your OTel Collector → Observe
+Traceloop.init()   # OTLP/HTTP protobuf → straight to Observe
 ```
 
-Route it through your Collector to Observe ([collector config](docs/otel_ingestion.md#exporter-configuration)). Two lines of code, full GenAI traces — with the open standard, not a vendor SDK.
+Point its exporter directly at Observe (`OTEL_EXPORTER_OTLP_ENDPOINT=https://<observe>/otel` + your `gk-` key — [details](docs/otel_ingestion.md#direct-otlp-protobuf-quick-start)), or through your Collector for enterprise routing. Two lines of code, full GenAI traces — with the open standard, not a vendor SDK.
 
 ### Path D — No OTel at all? Use the Gateway
 
