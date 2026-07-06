@@ -167,7 +167,7 @@ function AssetsPage() {
           <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.02em" }}>AI Agent Inventory</div>
           <div style={{ fontSize: 12, color: T2.textDim, marginTop: 2, fontFamily: FONT_MONO }}>
             Which agents exist · who owns them · what they cost · how they're governed
-            {lastRefresh && <span style={{ marginLeft: 12, color: T2.textMute }}>· refreshed {lastRefresh.toLocaleTimeString()}</span>}
+            {lastRefresh && <span style={{ marginLeft: 12, color: T2.textMute }}>· refreshed {lastRefresh.toLocaleTimeString("en-US")}</span>}
           </div>
         </div>
         <button onClick={load} disabled={loading}
@@ -373,7 +373,7 @@ function AssetsPage() {
                                 {/* Details grid — 8 cells */}
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 16 }}>
                                   {[
-                                    { label: "First Seen",       value: new Date(a.first_seen).toLocaleDateString() },
+                                    { label: "First Seen",       value: new Date(a.first_seen).toLocaleDateString("en-US") },
                                     { label: "Total Cost",       value: `$${(a.total_cost_usd || 0).toFixed(4)}` },
                                     { label: "Total Tokens",     value: (a.total_tokens || 0).toLocaleString() },
                                     { label: "Models Used",      value: (a.models_used || []).join(", ") || "—" },
@@ -457,7 +457,7 @@ function AssetsPage() {
                                         <tbody>
                                           {(telRows[a.agent_name].items || []).map(r => (
                                             <tr key={r.id}>
-                                              <td style={{ padding: "4px 10px", color: T2.textDim }}>{new Date(r.timestamp).toLocaleString()}</td>
+                                              <td style={{ padding: "4px 10px", color: T2.textDim }}>{new Date(r.timestamp).toLocaleString("en-US")}</td>
                                               <td style={{ padding: "4px 10px", color: T2.text }}>{r.model}</td>
                                               <td style={{ padding: "4px 10px", color: T2.textDim }}>{(r.total_tokens || 0).toLocaleString()}</td>
                                               <td style={{ padding: "4px 10px", color: T2.textDim }}>${(r.cost_usd || 0).toFixed(5)}</td>
@@ -520,7 +520,7 @@ function AssetsPage() {
                     onMouseEnter={e => { e.currentTarget.style.background = `${T2.panelHi}88`; }}
                     onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
                     <td style={{ ...cell, color: T2.text, fontWeight: 500 }}>{u.agent_id_raw}</td>
-                    <td style={{ ...cell, color: T2.textDim }}>{u.first_seen_at ? new Date(u.first_seen_at).toLocaleDateString() : "—"}</td>
+                    <td style={{ ...cell, color: T2.textDim }}>{u.first_seen_at ? new Date(u.first_seen_at).toLocaleDateString("en-US") : "—"}</td>
                     <td style={cell}>
                       <button
                         onClick={() => openClaimModal({ agent_name: u.agent_id_raw, agent_id_raw: u.agent_id_raw })}

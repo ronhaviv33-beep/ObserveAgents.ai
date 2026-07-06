@@ -69,7 +69,7 @@ export default function Home({ onNavigate }) {
           <div style={{ fontSize:22, fontWeight:600, letterSpacing:"-0.02em", color:T.text }}>{BRAND.name}</div>
           <div style={{ fontSize:12, color:T.textDim, marginTop:4, fontFamily:FONT_MONO }}>
             {s.total_agents ?? 0} AI systems discovered · what's running, what it connects to · last 90 days
-            {lastRefresh && <span style={{ color:T.textMute, marginLeft:12 }}>· {lastRefresh.toLocaleTimeString()}</span>}
+            {lastRefresh && <span style={{ color:T.textMute, marginLeft:12 }}>· {lastRefresh.toLocaleTimeString("en-US")}</span>}
           </div>
         </div>
         <button onClick={() => onNavigate("assets")}

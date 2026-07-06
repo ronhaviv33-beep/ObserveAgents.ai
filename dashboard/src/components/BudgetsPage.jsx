@@ -34,7 +34,7 @@ function SortableBudgetTable({ rules, onDelete, canManage }) {
             <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.accent }}>${r.limit_usd}</td>
             <td style={{ padding:"12px 8px" }}><Pill color={T.info}>{r.period}</Pill></td>
             <td style={{ padding:"12px 8px" }}><Pill color={r.action==="block"?T.crit:T.warn}>{r.action}</Pill></td>
-            <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.created_at).toLocaleDateString()}</td>
+            <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.created_at).toLocaleDateString("en-US")}</td>
             {canManage && (
               <td style={{ padding:"12px 8px" }}>
                 <button onClick={() => onDelete(r.id)}

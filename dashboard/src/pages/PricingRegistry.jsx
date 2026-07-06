@@ -190,8 +190,8 @@ function HistoryDrawer({ provider, model, onClose }) {
                   <td style={{ padding: '8px', fontFamily: FONT_MONO, fontSize: 12, color: h.is_active ? T.accent : T.textDim }}>v{h.version}</td>
                   <td style={{ padding: '8px', fontFamily: FONT_MONO, fontSize: 12, color: T.text }}>{fmtCPM(h.input_cost_per_million)}</td>
                   <td style={{ padding: '8px', fontFamily: FONT_MONO, fontSize: 12, color: T.text }}>{fmtCPM(h.output_cost_per_million)}</td>
-                  <td style={{ padding: '8px', fontSize: 11, color: T.textDim }}>{h.effective_from ? new Date(h.effective_from).toLocaleDateString() : '—'}</td>
-                  <td style={{ padding: '8px', fontSize: 11, color: T.textMute }}>{h.effective_to ? new Date(h.effective_to).toLocaleDateString() : '—'}</td>
+                  <td style={{ padding: '8px', fontSize: 11, color: T.textDim }}>{h.effective_from ? new Date(h.effective_from).toLocaleDateString("en-US") : '—'}</td>
+                  <td style={{ padding: '8px', fontSize: 11, color: T.textMute }}>{h.effective_to ? new Date(h.effective_to).toLocaleDateString("en-US") : '—'}</td>
                   <td style={{ padding: '8px' }}><Chip label={SOURCE_LABELS[h.source]?.label || h.source} color={SOURCE_LABELS[h.source]?.color || T.textDim} /></td>
                   <td style={{ padding: '8px' }}>{h.is_active ? <Chip label="active" color={T.success} /> : <Chip label="superseded" color={T.textMute} />}</td>
                 </tr>
@@ -474,7 +474,7 @@ export default function PricingRegistry() {
         <KpiChip label="Providers"      value={providers.length} color={T.teal} />
         <KpiChip label="Org Overrides"  value={overrides.length} color={overrides.length > 0 ? T.warn : T.textMute} />
         <KpiChip label="Critical Alerts" value={criticalWarnings.length} color={criticalWarnings.length > 0 ? T.crit : T.success} />
-        <KpiChip label="Last Updated"   value={status?.last_sync_at ? new Date(status.last_sync_at).toLocaleDateString() : (status?.pricing_updated || '—')} color={T.textDim} />
+        <KpiChip label="Last Updated"   value={status?.last_sync_at ? new Date(status.last_sync_at).toLocaleDateString("en-US") : (status?.pricing_updated || '—')} color={T.textDim} />
       </div>
 
       {/* Main grid: table + sync status */}

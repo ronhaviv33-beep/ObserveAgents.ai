@@ -43,7 +43,7 @@ export default function ApiKeysPage() {
     catch (e) { setErr(e.message); }
   };
 
-  const fmtDate = (d) => d ? new Date(d).toLocaleString() : "—";
+  const fmtDate = (d) => d ? new Date(d).toLocaleString("en-US") : "—";
 
   const inputStyle = { background: T.panelHi, color: T.text, border: `1px solid ${T.border}`,
     padding: "6px 10px", borderRadius: 4, fontSize: 12, fontFamily: FONT_MONO, width: 200 };

@@ -46,7 +46,7 @@ function SortableUsersTable({ users, currentUser, editing, editSaving, setEditin
                   : <span style={{ fontSize:12, color:T.textDim }}>{u.team || "—"}</span>}
               </td>
               <td style={{ padding:"12px 8px" }}>{u.is_active ? <Pill color={T.accent}>active</Pill> : <Pill color={T.textMute}>inactive</Pill>}</td>
-              <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(u.created_at).toLocaleDateString()}</td>
+              <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(u.created_at).toLocaleDateString("en-US")}</td>
               <td style={{ padding:"10px 8px" }}>
                 <div style={{ display:"flex", gap:6, flexWrap:"nowrap" }}>
                   {isEditing ? (
