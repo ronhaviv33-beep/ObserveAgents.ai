@@ -169,7 +169,7 @@ client = openai.OpenAI(
 | Layer | Technology |
 |---|---|
 | API | FastAPI + Uvicorn |
-| ORM / DB | SQLAlchemy + SQLite |
+| ORM / DB | SQLAlchemy + SQLite (default) / managed Postgres via `DATABASE_URL` |
 | Auth | HS256 JWT (pure Python) |
 | LLM clients | OpenAI SDK (multi-provider via compatible endpoints) |
 | Encryption | Fernet (per-org provider credential storage) |
@@ -527,6 +527,16 @@ Notes:
 - When attaching a hostname to the gateway console, add that origin to the backend's `FRONTEND_ORIGIN` env var for CORS.
 
 After first deploy, set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and/or `GOOGLE_API_KEY` in the Render dashboard (or via the Settings page in the UI).
+
+### Production database — Managed Postgres
+
+The default storage is SQLite on the service's persistent disk — right for evaluation and small single-instance deployments, but single-writer and without managed backups. For production/customer data, graduate to a managed Postgres (Render Postgres, Neon, RDS, …):
+
+1. Provision the database and copy its connection string (both `postgres://` and `postgresql://` schemes are accepted).
+2. Set `DATABASE_URL` on the `ai-asset-app` service to that string and redeploy — nothing else changes. On a fresh database the app builds the full schema automatically at startup (create_all + Alembic stamp/upgrade); the engine switches to a pooled Postgres configuration (`pool_pre_ping`, small steady pool) automatically.
+3. Migrating **existing** SQLite data is a manual dump/load step (e.g. export per-table CSV or use `pgloader`); on a brand-new deployment there is nothing to migrate.
+
+A commented-out `databases:` block in `render.yaml` shows the Render-managed variant — deliberately inactive so a Blueprint sync never provisions a paid database silently.
 
 ---
 

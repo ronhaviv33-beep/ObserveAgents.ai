@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AssetCapability, AssetFinding, AssetRegistry, OtelAsset, OtelSpan
 from app.genai_semconv import extract_error_type, extract_tool_name, is_mcp_span
+from app.runtime_security_intelligence import derive_runtime_security_findings
 
 _log = logging.getLogger("ai_asset_mgmt.intelligence")
 
@@ -504,6 +505,7 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
 
     now = datetime.now(timezone.utc)
 
+    mcp_finding_assets: dict[str, int | None] = {}
     for (asset_key, cap_name), cap_agg in mcp_cap_acc.items():
         c, u = _upsert_capability(
             db, org_id, cap_agg["asset_id"], asset_key, "mcp", cap_name,
@@ -511,6 +513,21 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
         )
         caps_created += c
         caps_updated += u
+        mcp_finding_assets.setdefault(asset_key, cap_agg["asset_id"])
+
+    # The per-asset findings loop above only sees capabilities that already
+    # existed when it queried — span-derived MCP capabilities are created here,
+    # after it ran. Upsert mcp_enabled for these assets now so a single run
+    # converges instead of the finding first appearing on the next run.
+    for asset_key, asset_id in mcp_finding_assets.items():
+        c, u = _upsert_finding(
+            db, org_id, asset_id, asset_key, "security", "mcp_enabled", "medium",
+            "MCP Server Access Enabled",
+            "This AI system connects to one or more MCP servers, extending its tool surface.",
+            "otel_trace", now,
+        )
+        finds_created += c
+        finds_updated += u
 
     for (asset_key, category, finding_type), agg in finding_acc.items():
         evidence: dict = {"span_count": agg["count"], "sample_span_ids": agg["span_ids"]}
@@ -524,6 +541,20 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
             db, org_id, agg["asset_id"], asset_key, category, finding_type,
             agg["severity"], agg["title"], agg["summary"], "otel_trace", now,
             evidence=evidence, occurrence_count=agg["count"], replace_evidence=True,
+        )
+        finds_created += c
+        finds_updated += u
+
+    # AI Agent Runtime Security Intelligence — agent-specific security findings
+    # derived by the pure module; upserted here so dedup/occurrence machinery
+    # stays in one place. category="security", source="runtime_security".
+    for d in derive_runtime_security_findings(db, org_id):
+        c, u = _upsert_finding(
+            db, org_id, d["asset_id"], d["asset_key"], "security",
+            d["finding_type"], d["severity"], d["title"], d["summary"],
+            "runtime_security", now,
+            evidence=d["evidence"], occurrence_count=d.get("occurrence_count", 1),
+            replace_evidence=True,
         )
         finds_created += c
         finds_updated += u

@@ -19,6 +19,8 @@ ObserveAgents is becoming the **system of record for enterprise AI**: it turns r
 | O7 | Observe MCP server | Read-only MCP tools (`list_ai_systems`, `get_findings`, `get_trace`, `get_cost_signals`) so customers' agents can query their AI inventory |
 | O8 | **Observe Advisor MVP** | From *what happened* to *what this agent needs to learn next* — see below |
 
+**Shipped:** **AI Agent Runtime Security Intelligence MVP** — agent-specific, environment-aware security findings derived from runtime evidence (database/API reach, MCP in production, broad tool surface, unknown providers, missing ownership, repeated tool errors, human-review combinations). Observe-only, derivation-only, no new ingestion. See [ai_agent_runtime_security_intelligence.md](ai_agent_runtime_security_intelligence.md). O3's in-flight content verdicts (prompt injection / PII / toxicity) remain ahead as the next security layer.
+
 ---
 
 ## O8 — Observe Advisor MVP

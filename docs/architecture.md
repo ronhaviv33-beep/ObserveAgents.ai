@@ -217,6 +217,15 @@ One backend, one database — the two product surfaces are separate **frontend b
 
 Required env (backend): `DATABASE_URL`, `JWT_SECRET`, `CREDENTIAL_ENCRYPTION_KEY`, provider keys (or BYOK per org), optional `ADMIN_SEED_PASSWORD`, `GUARD_MODE` (platform default guard mode). Build compiles the dashboard into `dashboard/dist`, which the backend serves at `/` when present. Migrations run automatically at startup.
 
+### Production database — Managed Postgres
+
+The storage layer is `DATABASE_URL`-driven and Postgres-ready; SQLite is the zero-config default, not a dependency:
+
+- `app/database.py` normalizes the legacy `postgres://` scheme to `postgresql://`, applies `check_same_thread` only for SQLite, and configures a pooled engine for server databases (`pool_pre_ping`, `pool_size=5`, `max_overflow=10`, `pool_recycle=300`). Driver: `psycopg2-binary`.
+- The startup chain is dialect-portable: `create_all` → `ensure_model_columns` (compiles column types per dialect) → guarded Alembic stamp/upgrade. `app/migrate_orgs.py` (SQLite-era `PRAGMA`-based self-repair) skips itself on any non-SQLite dialect — on Postgres the schema is born complete.
+- Validated end-to-end against PostgreSQL 16: fresh-boot schema creation, OTLP JSON + protobuf ingestion, intelligence runs (dedup idempotent on the second run), runtime/session reads, runtime-security findings + dismiss/reopen, org isolation, timezone-aware `timestamptz` round-trip, and second-boot idempotency.
+- Switch = set `DATABASE_URL` to the Postgres connection string on `ai-asset-app` and redeploy. Fresh database: schema auto-builds. Existing SQLite data: manual dump/load (documented in the README deploy section).
+
 ---
 
 ## 8. Testing

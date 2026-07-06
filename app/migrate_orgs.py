@@ -35,6 +35,15 @@ def _add_column_if_missing(conn, table: str, column: str, ddl_type: str) -> bool
 
 
 def run():
+    # SQLite-only legacy self-repair. This module exists to upgrade the old
+    # persistent SQLite databases that predate multi-org (PRAGMA table_info,
+    # PRAGMA foreign_keys, table rebuilds). On Postgres the schema is born
+    # complete from create_all + Alembic, so there is nothing to repair —
+    # and the PRAGMAs below are SQLite dialect anyway.
+    if engine.dialect.name != "sqlite":
+        log.info("migrate_orgs: skipped (dialect=%s — SQLite-era migration only).", engine.dialect.name)
+        return
+
     # Create new tables (organizations, provider_credentials). This does NOT
     # add new columns to tables that already exist — those need ALTER TABLE below.
     Base.metadata.create_all(bind=engine)
