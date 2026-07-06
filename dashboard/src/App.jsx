@@ -22,6 +22,7 @@ import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
 import ExecutiveDashboard from "./pages/ExecutiveDashboard.jsx";
+import OverviewHub from "./pages/OverviewHub.jsx";
 import DemoDashboard from "./pages/DemoDashboard.jsx";
 import DiscoveryCenter from "./pages/DiscoveryCenter.jsx";
 import GovernanceCenter from "./pages/GovernanceCenter.jsx";
@@ -306,6 +307,7 @@ function FilterBar({ filters, setFilters, allTeams, allAgents, user, rolesMap })
 
 const PAGES = [
   { id:"dashboard",      label:"Dashboard" },
+  { id:"overview_hub",   label:"Overview" },
   { id:"welcome",        label:"Platform Guide" },
   { id:"agent_inventory",label:"AI Agent Inventory" },
   { id:"discovery",      label:"Discovery Center" },
@@ -344,6 +346,7 @@ const NAV_GROUPS_COMBINED = [
     label: null,
     items: [
       { id: "dashboard", label: "Dashboard" },
+      { id: "overview_hub", label: "Overview" },
       { id: "welcome",   label: "Platform Guide" },
     ],
   },
@@ -389,6 +392,7 @@ const NAV_GROUPS_OBSERVABILITY = [
     label: null,
     items: [
       { id: "dashboard", label: "Dashboard" },
+      { id: "overview_hub", label: "Overview" },
       { id: "welcome",   label: "Platform Guide" },
     ],
   },
@@ -425,6 +429,7 @@ const NAV_GROUPS_GATEWAY = [
     label: null,
     items: [
       { id: "dashboard", label: "Dashboard" },
+      { id: "overview_hub", label: "Overview" },
     ],
   },
   {
@@ -745,6 +750,7 @@ export default function App() {
     switch (page) {
       // ── New primary pages ───────────────────────────────────────────────
       case "dashboard":      return isDemoMode() ? <DemoDashboard onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
+      case "overview_hub":   return <OverviewHub onNavigate={navigate} />;
       case "welcome":        return <CustomerWelcomePage onNavigate={navigate} />;
       case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); navigate(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
@@ -1016,7 +1022,7 @@ export default function App() {
           </div>
         </header>
 
-        {!["dashboard","home","agent_inventory","discovery","governance","relationship_map","runtime","intelligence","guardrails","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
+        {!["dashboard","overview_hub","home","agent_inventory","discovery","governance","relationship_map","runtime","intelligence","guardrails","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
 
         {/* Admin-only: surface missing/invalid secrets detected at startup */}
         {user?.role === "admin" && secretWarnings.length > 0 && (

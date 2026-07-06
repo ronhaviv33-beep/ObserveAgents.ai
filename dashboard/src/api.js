@@ -143,6 +143,12 @@ export async function fetchSecurityAlerts() {
   return r.json()
 }
 
+export async function fetchBudgetsStatus() {
+  const r = await authFetch(`${BASE}/budgets/status`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch budget status (HTTP ${r?.status ?? 'network error'})`)
+  return r.json()
+}
+
 export async function fetchAudit(params = {}) {
   const q = new URLSearchParams(params).toString()
   const r = await authFetch(`${BASE}/audit?${q}`)
