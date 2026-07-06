@@ -137,14 +137,25 @@ export default function RuntimeTimeline() {
     return next;
   });
 
+  // Agent dropdown options: accumulated across fetches so filtering to one
+  // agent doesn't shrink the list of choices.
+  const [services, setServices] = useState([]);
+
+  // Choosing an agent refetches from the server (service_name param), so the
+  // view is that agent's fresh data — not a client-side slice of whatever the
+  // last unfiltered fetch happened to contain.
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    fetchRuntimeTraces({ limit: 100 })
-      .then((rows) => setTraces(rows || []))
+    fetchRuntimeTraces({ limit: 100, service_name: serviceFilter === "all" ? undefined : serviceFilter })
+      .then((rows) => {
+        const list = rows || [];
+        setTraces(list);
+        setServices((prev) => [...new Set([...prev, ...list.map((t) => t.service_name).filter(Boolean)])].sort());
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [serviceFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -156,11 +167,7 @@ export default function RuntimeTimeline() {
       .finally(() => setDetailLoading(false));
   };
 
-  const services = useMemo(
-    () => [...new Set(traces.map((t) => t.service_name).filter(Boolean))].sort(),
-    [traces]
-  );
-  const byService = serviceFilter === "all" ? traces : traces.filter((t) => t.service_name === serviceFilter);
+  const byService = traces;
 
   const { query, setQuery, filtered } = useSearch(byService, (t) =>
     `${t.trace_id} ${t.root_span_name || ""} ${t.service_name || ""} ${t.session_id || ""}`);
