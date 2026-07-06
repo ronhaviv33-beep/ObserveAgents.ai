@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AssetCapability, AssetFinding, AssetRegistry, OtelAsset, OtelSpan
 from app.genai_semconv import extract_error_type, extract_tool_name, is_mcp_span
+from app.runtime_security_intelligence import derive_runtime_security_findings
 
 _log = logging.getLogger("ai_asset_mgmt.intelligence")
 
@@ -524,6 +525,20 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
             db, org_id, agg["asset_id"], asset_key, category, finding_type,
             agg["severity"], agg["title"], agg["summary"], "otel_trace", now,
             evidence=evidence, occurrence_count=agg["count"], replace_evidence=True,
+        )
+        finds_created += c
+        finds_updated += u
+
+    # AI Agent Runtime Security Intelligence — agent-specific security findings
+    # derived by the pure module; upserted here so dedup/occurrence machinery
+    # stays in one place. category="security", source="runtime_security".
+    for d in derive_runtime_security_findings(db, org_id):
+        c, u = _upsert_finding(
+            db, org_id, d["asset_id"], d["asset_key"], "security",
+            d["finding_type"], d["severity"], d["title"], d["summary"],
+            "runtime_security", now,
+            evidence=d["evidence"], occurrence_count=d.get("occurrence_count", 1),
+            replace_evidence=True,
         )
         finds_created += c
         finds_updated += u

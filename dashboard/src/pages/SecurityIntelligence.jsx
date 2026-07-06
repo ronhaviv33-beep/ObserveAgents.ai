@@ -182,9 +182,9 @@ export default function SecurityIntelligence() {
 
       {/* ── Page header ────────────────────────────────────────────────────── */}
       <div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>Security Intelligence</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: T.text, letterSpacing: "-0.02em" }}>AI Agent Runtime Security Intelligence</div>
         <div style={{ fontSize: 13, color: T.textMute, marginTop: 4 }}>
-          Which AI systems have risky runtime-observed behavior? Security findings, risky capabilities, and runtime signals per system.
+          Security findings derived from AI agent runtime evidence — tools, models, MCP, databases, APIs, ownership, and production activity. Observe-only: detect, explain, recommend.
         </div>
         <PanelGroupControls group="security" style={{ marginTop: 12 }} />
       </div>
@@ -209,6 +209,53 @@ export default function SecurityIntelligence() {
           ))}
         </div>
       </div>
+
+      {/* ── Runtime Security Findings (AI-agent-specific, source=runtime_security) ── */}
+      {(() => {
+        // Every open security finding across assets, tagged with its agent name.
+        const secFindings = [];
+        intelAssets.forEach(a => {
+          (a.findings || []).forEach(f => {
+            if (f.status === "open" && f.category === "security") {
+              secFindings.push({ ...f, _agent: a.asset_name || a.service_name, _prod: (a.environment || "").toLowerCase().startsWith("prod") });
+            }
+          });
+        });
+        if (secFindings.length === 0) return null;
+
+        const agentsFor = (types) => {
+          const s = new Set();
+          secFindings.forEach(f => { if (types.includes(f.finding_type)) s.add(f._agent); });
+          return [...s];
+        };
+        const prodAgents = [...new Set(secFindings.filter(f => f._prod).map(f => f._agent))];
+
+        const BUCKETS = [
+          { key: "prod",    label: "Production agents with findings", color: T.crit,   agents: prodAgents },
+          { key: "mcptool", label: "MCP / tool risk",                 color: T.warn,   agents: agentsFor(["agent_uses_mcp_tool_in_production", "agent_has_broad_tool_surface"]) },
+          { key: "dbapi",   label: "Database / API access",           color: T.info,   agents: agentsFor(["agent_has_database_access", "agent_uses_unmanaged_external_api"]) },
+          { key: "provider",label: "Unknown providers / models",      color: T.purple, agents: agentsFor(["agent_uses_unknown_model_provider"]) },
+          { key: "owner",   label: "Missing ownership",               color: T.yellow, agents: agentsFor(["agent_missing_owner"]) },
+          { key: "review",  label: "Human review recommended",        color: T.crit,   agents: agentsFor(["human_review_recommended"]) },
+        ];
+
+        return (
+          <CollapsiblePanel group="security" storageKey="oa-panel-security-runtime" title="Runtime Security Findings"
+            subtitle="AI-agent-specific security signals derived from runtime evidence — grouped for triage">
+            <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12 }}>
+              {BUCKETS.map(b => (
+                <div key={b.key} style={{ background: T.panel, border: `1px solid ${b.agents.length > 0 ? b.color + "44" : T.border}`, borderRadius: 8, padding: "16px 18px" }}>
+                  <div style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>{b.label}</div>
+                  <div style={{ fontSize: 26, fontWeight: 700, color: b.agents.length > 0 ? b.color : T.textMute, letterSpacing: "-0.03em", lineHeight: 1 }}>{b.agents.length}</div>
+                  <div style={{ fontSize: 11, color: T.textDim, fontFamily: MONO, marginTop: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {b.agents.length > 0 ? b.agents.slice(0, 3).join(", ") + (b.agents.length > 3 ? ` +${b.agents.length - 3}` : "") : "None"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CollapsiblePanel>
+        );
+      })()}
 
       {/* ── Risky AI Systems (runtime-observed, from asset intelligence) ────── */}
       {(() => {
