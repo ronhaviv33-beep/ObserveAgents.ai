@@ -296,3 +296,40 @@ def test_evidence_never_contains_raw_content():
             assert forbidden not in blob, f"leaked: {forbidden}"
     finally:
         db.close()
+
+
+def test_multi_environment_asset_rows_merge_and_converge():
+    """A service observed under several environment rows (e.g. spans arriving
+    with and without deployment.environment) is one agent: production evidence
+    must win regardless of row order, and the run must converge — the second
+    intelligence run creates no new findings."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, token = _org(db, "multienv")
+        # Production ingest: database span.
+        assert _post(token, _span(uuid.uuid4().hex, uuid.uuid4().hex[:16], "query",
+            attrs={"db.system": "postgresql", "db.name": "orders"},
+            resource_attrs={"service.name": "multienv-agent",
+                            "deployment.environment": "production"})).status_code == 202
+        # Same service, no environment attribute: MCP span (second OtelAsset row).
+        assert _post(token, _span(uuid.uuid4().hex, uuid.uuid4().hex[:16], "mcp",
+            attrs={"mcp.method.name": "tools/call", "gen_ai.tool.name": "jira_search"},
+            resource_attrs={"service.name": "multienv-agent"})).status_code == 202
+
+        r1 = _run(token)
+        assert r1.status_code == 200
+
+        rows = _rs_findings(db, org.id, "agent_has_database_access")
+        assert len(rows) == 1 and rows[0].severity == "high"  # production wins
+        rows = _rs_findings(db, org.id, "agent_uses_mcp_tool_in_production")
+        assert len(rows) == 1  # MCP span merged into the production agent
+
+        # Convergence: run 2 must not create anything (incl. mcp_enabled,
+        # whose capability is derived in the span pass of run 1).
+        r2 = _run(token)
+        assert r2.status_code == 200
+        assert r2.json()["findings_created"] == 0, r2.json()
+        assert r2.json()["capabilities_created"] == 0, r2.json()
+    finally:
+        db.close()

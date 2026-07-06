@@ -220,8 +220,14 @@ def derive_runtime_security_findings(db: Session, org_id: int) -> list[dict]:
         for r in db.query(AssetRegistry).filter(AssetRegistry.organization_id == org_id).all()
     }
 
-    accs: dict[str, _AssetAcc] = {}   # service_name → accumulator
-    asset_meta: dict[str, dict] = {}  # asset_key → {providers, models, registry}
+    # One accumulator per asset identity. A service can have several OtelAsset
+    # rows (one per observed environment — e.g. spans arriving with and without
+    # deployment.environment); they are the same agent, so merge them: any
+    # production row makes the agent production, and tool/provider/model
+    # evidence unions across rows. Row order must not decide the outcome.
+    accs: dict[str, _AssetAcc] = {}      # asset_key → accumulator
+    svc_to_acc: dict[str, _AssetAcc] = {}  # service_name → accumulator (span mapping)
+    asset_meta: dict[str, dict] = {}     # asset_key → {providers, models, registry}
 
     for oa in otel_assets:
         reg = registry_by_id.get(oa.ai_asset_id) if oa.ai_asset_id else None
@@ -231,21 +237,38 @@ def derive_runtime_security_findings(db: Session, org_id: int) -> list[dict]:
             import hashlib
             identity = oa.agent_name or oa.service_name
             asset_key = hashlib.sha256(f"{org_id}:{identity}".encode()).hexdigest()[:64]
-        acc = _AssetAcc(asset_key, oa.ai_asset_id, oa.service_name, oa.environment)
+        acc = accs.get(asset_key)
+        if acc is None:
+            acc = _AssetAcc(asset_key, oa.ai_asset_id, oa.service_name, oa.environment)
+            accs[asset_key] = acc
+        else:
+            if acc.asset_id is None:
+                acc.asset_id = oa.ai_asset_id
+            if not acc.production and _is_production(oa.environment):
+                acc.environment = oa.environment
+                acc.production = True
         # Tool surface starts from the asset summary; span tools union in below.
         for name in json.loads(oa.tools_json or "[]"):
             acc.tool_names.add(str(name))
-        accs[oa.service_name] = acc
-        asset_meta[asset_key] = {
-            "providers": [str(p) for p in json.loads(oa.providers_json or "[]")],
-            "models": [str(m) for m in json.loads(oa.models_json or "[]")],
-            "registry": reg,
-            "service_name": oa.service_name,
-        }
+        svc_to_acc[oa.service_name] = acc
+        meta = asset_meta.get(asset_key)
+        if meta is None:
+            meta = asset_meta[asset_key] = {
+                "providers": [], "models": [], "registry": reg,
+                "service_name": oa.service_name,
+            }
+        elif meta["registry"] is None:
+            meta["registry"] = reg
+        for p in json.loads(oa.providers_json or "[]"):
+            if str(p) not in meta["providers"]:
+                meta["providers"].append(str(p))
+        for m in json.loads(oa.models_json or "[]"):
+            if str(m) not in meta["models"]:
+                meta["models"].append(str(m))
 
     spans = db.query(OtelSpan).filter(OtelSpan.organization_id == org_id).all()
     for span in spans:
-        acc = accs.get(span.service_name)
+        acc = svc_to_acc.get(span.service_name)
         if acc is None:
             continue
         attrs: dict = {}

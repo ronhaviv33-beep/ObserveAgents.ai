@@ -55,6 +55,18 @@ services:
       # Set in Render dashboard (sync:false). Never commit the real value.
       - key: CREDENTIAL_ENCRYPTION_KEY
         sync: false
+      # ── Production database (Managed Postgres) ──────────────────────────────
+      # Storage defaults to SQLite on the disk above. For customer data,
+      # graduate to managed Postgres: set DATABASE_URL to the connection string
+      # (external provider like Neon — set it in the Render dashboard, sync:false),
+      # or uncomment the databases: block at the bottom of this file and the
+      # fromDatabase reference below to let Render manage it. The app detects
+      # the dialect: schema auto-builds on a fresh Postgres, pooled engine,
+      # legacy SQLite self-repair skips itself.
+      # - key: DATABASE_URL
+      #   fromDatabase:
+      #     name: observeagents-db
+      #     property: connectionString
 
   # ── Gateway console (static frontend, Gateway surface) ──────────────────────
   # Separate deployable frontend for the ObserveAgents Gateway product: the same
@@ -119,3 +131,13 @@ services:
       # API keys are configured. A throwaway encryption key keeps boot happy.
       - key: CREDENTIAL_ENCRYPTION_KEY
         sync: false
+
+# ── Managed Postgres (deliberately commented out) ─────────────────────────────
+# Uncomment together with ai-asset-app's DATABASE_URL fromDatabase reference
+# above to have Render provision and wire the database. Kept inactive so a
+# Blueprint sync can never silently provision a paid database — enabling it is
+# an explicit decision.
+# databases:
+#   - name: observeagents-db
+#     plan: basic-256mb
+#     postgresMajorVersion: "16"
