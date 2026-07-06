@@ -48,6 +48,16 @@ services:
       - key: CREDENTIAL_ENCRYPTION_KEY
         sync: false
 
+  # ── Marketing website (static, single-page) ─────────────────────────────────
+  # Public landing site built from website/. Attach the domain manually in the
+  # Render dashboard (e.g. www.observeagents.ai) — the apex currently serves the
+  # app, so choosing which host gets the site is a deliberate decision.
+  - type: web
+    name: observeagents-website
+    runtime: static
+    buildCommand: cd website && npm install && npm run build
+    staticPublishPath: website/dist
+
   # ── Public demo (demo.observeagents.ai) ─────────────────────────────────────
   # Separate service + separate disk/DB. No login, synthetic data, read-only.
   # This is the ONLY place DEMO_MODE=true is set.
