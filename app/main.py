@@ -151,7 +151,21 @@ from app.org_config import PLATFORM_MODE as _PLATFORM_MODE  # noqa: E402
 
 def _seed_admin():
     import secrets as _secrets
-    from app.models import User
+    from app.models import User, Organization
+    from app.roles import seed_roles_for_org
+
+    def _platform_org(db):
+        # get_current_user hard-rejects org-less users, so the seeded admin must
+        # belong to the platform org. On SQLite the legacy org migration creates
+        # it first; on fresh server databases (Postgres) this is the only seeder.
+        org = db.query(Organization).filter(Organization.is_internal == True).first()  # noqa: E712
+        if org is None:
+            org = Organization(name="Platform (internal)", slug="platform", is_internal=True)
+            db.add(org)
+            db.flush()
+        seed_roles_for_org(db, org.id)
+        return org
+
     db = next(get_db())
     try:
         existing = db.query(User).filter(User.email == "admin@ai-asset-mgmt.local").first()
@@ -165,6 +179,7 @@ def _seed_admin():
                 hashed_password=hash_password(seed_pw),
                 role="admin",
                 team="Platform",
+                organization_id=_platform_org(db).id,
                 is_platform_admin=True,
             ))
             db.commit()
@@ -182,12 +197,15 @@ def _seed_admin():
                     "╚══════════════════════════════════════════════════════════════╝\n",
                     flush=True,
                 )
-        elif not existing.is_platform_admin:
-            # Upgrade path: existing admin missing the platform flag (e.g. created before
-            # the column was added or seeded without it).
+        elif not existing.is_platform_admin or existing.organization_id is None:
+            # Upgrade path: existing admin missing the platform flag or the
+            # organization (e.g. seeded on a fresh server DB before the org
+            # backfill existed — an org-less user cannot authenticate).
             existing.is_platform_admin = True
+            if existing.organization_id is None:
+                existing.organization_id = _platform_org(db).id
             db.commit()
-            print("INFO: platform admin flag was missing — corrected on startup.", flush=True)
+            print("INFO: platform admin flag/org was missing — corrected on startup.", flush=True)
     finally:
         db.close()
 
