@@ -208,11 +208,14 @@ Frontend patterns: pages fetch on mount via `api.js`, best-effort secondary fetc
 
 ## 7. Deployment (Render)
 
-Two services from `render.yaml`, same code:
-- **Production** — `APP_ENV` unset/production, `DEMO_MODE=false` (config guarantees production can never be demo). Persistent disk SQLite via `DATABASE_URL`.
-- **Demo** — the only place `APP_ENV=demo` / `DEMO_MODE=true` are set; unlocks no-login demo token, populate/clear endpoints.
+One backend, one database — the two product surfaces are separate **frontend builds** over the same spine, selected at build time by `VITE_PRODUCT_SURFACE` (`dashboard/src/productSurface.js`). Deploy targets from `render.yaml`:
 
-Required env: `DATABASE_URL`, `JWT_SECRET`, `CREDENTIAL_ENCRYPTION_KEY`, provider keys (or BYOK per org), optional `ADMIN_SEED_PASSWORD`, `GUARD_MODE` (platform default guard mode). Build compiles the dashboard into `dashboard/dist`, which the backend serves at `/` when present. Migrations run automatically at startup.
+- **Production backend + Observability surface** (`ai-asset-app`) — `VITE_PRODUCT_SURFACE=observability`; serves ALL APIs (OTLP ingestion + `/v1` gateway proxy) and the Observability UI. `APP_ENV=production`, `DEMO_MODE=false` (config guarantees production can never be demo). Persistent disk SQLite via `DATABASE_URL`.
+- **Gateway console** (`observeagents-gateway-console`) — static build of the same dashboard with `VITE_PRODUCT_SURFACE=gateway` and `VITE_API_BASE` pointing at the backend. No second backend, no second DB. Attach a hostname + add it to the backend's `FRONTEND_ORIGIN` for CORS.
+- **Demo** (`ai-asset-demo`) — the only place `APP_ENV=demo` / `DEMO_MODE=true` are set; unlocks no-login demo token, populate/clear endpoints. Intentionally builds the blended **combined** surface (`VITE_PRODUCT_SURFACE` unset) so visitors can walk both products — combined is demo/local-dev-only, never the production default.
+- **Marketing website** (`observeagents-website`) — static single-page site from `website/`.
+
+Required env (backend): `DATABASE_URL`, `JWT_SECRET`, `CREDENTIAL_ENCRYPTION_KEY`, provider keys (or BYOK per org), optional `ADMIN_SEED_PASSWORD`, `GUARD_MODE` (platform default guard mode). Build compiles the dashboard into `dashboard/dist`, which the backend serves at `/` when present. Migrations run automatically at startup.
 
 ---
 
