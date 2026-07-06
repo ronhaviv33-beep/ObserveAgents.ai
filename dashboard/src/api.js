@@ -721,6 +721,12 @@ export async function resolveFinding(id) {
   return r.json()
 }
 
+export async function reopenFinding(id) {
+  const r = await authFetch(`${BASE}/intelligence/findings/${id}/reopen`, { method: 'POST' })
+  if (!r || !r.ok) throw new Error('Failed to reopen finding')
+  return r.json()
+}
+
 export async function populateOrganization(orgId) {
   const r = await authFetch(`${BASE}/admin/organizations/${orgId}/populate`, { method: 'POST' })
   if (!r) throw new Error('Not authenticated')

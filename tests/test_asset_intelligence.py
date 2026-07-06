@@ -885,3 +885,51 @@ def test_merge_pass_heals_existing_duplicates():
         assert len(caps) == 1
     finally:
         db.close()
+
+
+def test_reopen_finding():
+    """Resolved and dismissed findings can be returned to open via /reopen."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "reopen")
+        start = 1_700_000_000_000_000_000
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="step",
+            attrs={},
+            resource_attrs={"service.name": "reopen-agent"},
+            start_nano=start,
+            end_nano=start + 6_000_000_000,
+        )
+        assert _post_traces(token, payload).status_code == 202
+        assert _run_intelligence(token).status_code == 200
+
+        finding = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org.id,
+            AssetFinding.finding_type == "slow_runtime_step",
+        ).first()
+        fid = finding.id
+        H = {"Authorization": f"Bearer {token}"}
+
+        # resolve → reopen
+        assert _client.post(f"/intelligence/findings/{fid}/resolve", headers=H).status_code == 200
+        r = _client.post(f"/intelligence/findings/{fid}/reopen", headers=H)
+        assert r.status_code == 200 and r.json()["status"] == "open"
+        db.expire_all()
+        assert db.query(AssetFinding).get(fid).status == "open"
+
+        # dismiss → reopen
+        assert _client.post(f"/intelligence/findings/{fid}/dismiss", headers=H).status_code == 200
+        assert _client.post(f"/intelligence/findings/{fid}/reopen", headers=H).status_code == 200
+        db.expire_all()
+        assert db.query(AssetFinding).get(fid).status == "open"
+
+        # org isolation: another org's token cannot reopen it
+        _, _, token_b = _make_org_and_token(db, "reopenb")
+        r = _client.post(f"/intelligence/findings/{fid}/reopen",
+                         headers={"Authorization": f"Bearer {token_b}"})
+        assert r.status_code == 404
+    finally:
+        db.close()

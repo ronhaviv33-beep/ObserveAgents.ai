@@ -129,6 +129,13 @@ export default function RuntimeTimeline() {
   const [selected, setSelected] = useState(null);     // trace detail object
   const [detailLoading, setDetailLoading] = useState(false);
   const [serviceFilter, setServiceFilter] = useState("all");
+  // Sessions collapsed by default — one aggregate row each; click to expand.
+  const [openSessions, setOpenSessions] = useState(() => new Set());
+  const toggleSession = (key) => setOpenSessions((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
 
   const load = useCallback(() => {
     setLoading(true);
@@ -252,26 +259,50 @@ export default function RuntimeTimeline() {
               <tbody>
                 {groups.map((g) => {
                   const grouped = g.session_id && g.traces.length > 1;
+                  const isOpen = grouped && openSessions.has(g.key);
                   const totalMs = g.traces.reduce((s, t) => s + (t.duration_ms || 0), 0);
+                  const totalSteps = g.traces.reduce((s, t) => s + (t.span_count || 0), 0);
+                  const totalErrors = g.traces.reduce((s, t) => s + (t.error_count || 0), 0);
                   const starts = g.traces.map((t) => t.start_time).filter(Boolean).sort();
+                  // Most common root span name represents the session in one row.
+                  const nameCounts = {};
+                  g.traces.forEach((t) => { const n = t.root_span_name || "trace"; nameCounts[n] = (nameCounts[n] || 0) + 1; });
+                  const topName = Object.entries(nameCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
                   return (
                     <React.Fragment key={g.key}>
                       {grouped && (
-                        <tr style={{ background: T.panelHi, borderBottom: `1px solid ${T.border}` }}>
-                          <td colSpan={6} style={{ padding: "8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textDim, letterSpacing: "0.04em" }}>
-                            ⛓ session <span style={{ color: T.text }}>{g.session_id.slice(0, 8)}</span>
-                            {" · "}{g.traces.length} interactions
-                            {" · "}{fmtMs(totalMs)} total
-                            {" · "}{fmtWhen(starts[0])} → {fmtWhen(starts[starts.length - 1])}
+                        // One row per session: aggregate of all its interactions.
+                        <tr onClick={() => toggleSession(g.key)}
+                          style={{ borderBottom: `1px solid ${T.border}`, cursor: "pointer", background: isOpen ? T.panelHi : "transparent" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = T.panelHi; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = isOpen ? T.panelHi : "transparent"; }}>
+                          <td style={{ padding: "10px 8px", fontSize: 13, color: T.text }}>
+                            <span style={{ color: T.textMute, fontFamily: FONT_MONO, fontSize: 10, marginRight: 8 }}>{isOpen ? "▾" : "▸"}</span>
+                            {topName}
+                            <span style={{ marginLeft: 8, fontFamily: FONT_MONO, fontSize: 10, color: T.textDim, border: `1px solid ${T.border}`, borderRadius: 10, padding: "1px 7px", whiteSpace: "nowrap" }}>
+                              ×{g.traces.length}
+                            </span>
+                            <div style={{ fontFamily: FONT_MONO, fontSize: 10, color: T.textMute, marginTop: 3, marginLeft: 18 }}>
+                              ⛓ session {g.session_id.slice(0, 8)} · {fmtWhen(starts[0])} → {fmtWhen(starts[starts.length - 1])}
+                            </div>
+                          </td>
+                          <td style={{ padding: "10px 8px", fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>{g.traces[0].service_name || "—"}</td>
+                          <td style={{ padding: "10px 8px", fontSize: 12, color: T.textDim, fontFamily: FONT_MONO, whiteSpace: "nowrap" }}>{fmtWhen(starts[starts.length - 1])}</td>
+                          <td style={{ padding: "10px 8px", fontSize: 12, color: T.text, fontFamily: FONT_MONO }}>{fmtMs(totalMs)}</td>
+                          <td style={{ padding: "10px 8px", fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>{totalSteps}</td>
+                          <td style={{ padding: "10px 8px" }}>
+                            {totalErrors > 0
+                              ? <Pill color={T.crit}>{totalErrors} error{totalErrors > 1 ? "s" : ""}</Pill>
+                              : <span style={{ color: T.textMute, fontFamily: FONT_MONO, fontSize: 11 }}>—</span>}
                           </td>
                         </tr>
                       )}
-                      {g.traces.map((t) => (
+                      {(!grouped || isOpen) && g.traces.map((t) => (
                         <tr key={t.trace_id} onClick={() => openTrace(t.trace_id)}
                           style={{ borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}
                           onMouseEnter={(e) => { e.currentTarget.style.background = T.panelHi; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                          <td style={{ padding: "10px 8px", paddingLeft: grouped ? 26 : 8, fontSize: 13, color: T.text }}>
+                          <td style={{ padding: "10px 8px", paddingLeft: grouped ? 34 : 8, fontSize: 13, color: T.text }}>
                             {t.root_span_name || <span style={{ color: T.textMute, fontFamily: FONT_MONO }}>{t.trace_id.slice(0, 12)}…</span>}
                           </td>
                           <td style={{ padding: "10px 8px", fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>{t.service_name || "—"}</td>
