@@ -1,21 +1,852 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ObserveAgents — The system of record for enterprise AI</title>
-    <meta name="description" content="See your real AI footprint. ObserveAgents discovers every AI system from runtime telemetry — agents, models, tools, dependencies, findings — without storing a single prompt." />
-    <meta property="og:title" content="ObserveAgents — The system of record for enterprise AI" />
-    <meta property="og:description" content="OpenTelemetry-native AI observability and governance. Inventory, ownership, risk, and cost accountability — prompts never stored." />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://observeagents.ai/" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ObserveAgents | AI Agent Observability</title>
+  <meta name="description" content="AI agent observability platform for executive and security teams.">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/pico.min.css">
+
+  <style>
+    :root {
+      --background-color: #f7fbff;
+      --color: #142033;
+      --h1-color: #07111f;
+      --h2-color: #07111f;
+      --h3-color: #24334a;
+      --primary: #0f7cff;
+      --primary-hover: #075fd0;
+      --primary-focus: rgba(15, 124, 255, 0.22);
+      --primary-inverse: #ffffff;
+      --card-background-color: #ffffff;
+      --card-border-color: #dce8f7;
+      --form-element-background-color: #ffffff;
+      --form-element-border-color: #cdddf0;
+      --form-element-color: #102033;
+      --form-element-placeholder-color: #738399;
+      --border-radius: 18px;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 8vw 8vh, rgba(15, 124, 255, 0.16), transparent 420px),
+        radial-gradient(circle at 84vw 0, rgba(0, 200, 167, 0.16), transparent 390px),
+        radial-gradient(circle at 52vw 82vh, rgba(255, 199, 44, 0.12), transparent 420px),
+        linear-gradient(180deg, #f7fbff, #ffffff, #f3f8ff);
+      overflow-x: hidden;
+    }
+
+    nav.container-fluid {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(18px);
+      background: rgba(255, 255, 255, 0.88);
+      border-bottom: 1px solid rgba(126, 151, 185, 0.2);
+      padding-left: clamp(1rem, 4vw, 3rem);
+      padding-right: clamp(1rem, 4vw, 3rem);
+      box-shadow: 0 10px 35px rgba(20, 42, 74, 0.05);
+    }
+
+    nav strong {
+      color: #07111f;
+      letter-spacing: -0.04em;
+      font-size: 1.05rem;
+    }
+
+    nav a:not([role="button"]) {
+      color: #41516a;
+    }
+
+    nav a:not([role="button"]):hover {
+      color: #0f7cff;
+    }
+
+    nav a[role="button"],
+    a[role="button"],
+    button {
+      background: linear-gradient(135deg, #0f7cff, #00b894);
+      border: 0;
+      color: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 14px 34px rgba(15, 124, 255, 0.22);
+    }
+
+    nav a[role="button"]:hover,
+    a[role="button"]:hover,
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 44px rgba(15, 124, 255, 0.3);
+    }
+
+    .container {
+      max-width: 1180px;
+    }
+
+    main.container {
+      padding-top: clamp(4rem, 8vw, 7rem);
+      padding-bottom: 3rem;
+    }
+
+    .hero {
+      text-align: center;
+      max-width: 980px;
+      margin: 0 auto 2.5rem;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.48rem 0.8rem;
+      border: 1px solid rgba(15, 124, 255, 0.18);
+      border-radius: 999px;
+      background: rgba(15, 124, 255, 0.08);
+      color: #075fd0;
+      font-size: 0.83rem;
+      font-weight: 700;
+      margin-bottom: 1.2rem;
+    }
+
+    .pulse {
+      width: 0.58rem;
+      height: 0.58rem;
+      border-radius: 999px;
+      background: #00b894;
+      box-shadow: 0 0 0 7px rgba(0, 184, 148, 0.12);
+    }
+
+    .hero h2 {
+      font-size: clamp(3.2rem, 7vw, 6.6rem);
+      line-height: 0.92;
+      letter-spacing: -0.08em;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #061127, #0f5fc7, #1f7dff, #119fd6);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero h3 {
+      color: #43536c;
+      font-weight: 500;
+      line-height: 1.4;
+      font-size: clamp(1.08rem, 2vw, 1.35rem);
+      max-width: 760px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .lead {
+      font-size: 1.08rem;
+      color: #4e6078;
+      max-width: 760px;
+      margin: 1.5rem auto 1.7rem;
+    }
+
+    .cta-row {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      align-items: center;
+      margin-bottom: 1.4rem;
+    }
+
+    .secondary-link {
+      color: #17253a;
+      border: 1px solid rgba(15, 124, 255, 0.18);
+      border-radius: 999px;
+      padding: 0.72rem 1rem;
+      text-decoration: none;
+      background: #ffffff;
+      box-shadow: 0 10px 24px rgba(20, 42, 74, 0.06);
+      font-weight: 700;
+    }
+
+    .trust-strip {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+      color: #52647c;
+      font-size: 0.92rem;
+    }
+
+    .trust-strip span {
+      padding: 0.38rem 0.7rem;
+      border: 1px solid rgba(126, 151, 185, 0.18);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: 0 8px 20px rgba(20, 42, 74, 0.045);
+    }
+
+    .observability-panel {
+      position: relative;
+      max-width: 1040px;
+      margin: 2rem auto 0;
+      border: 1px solid rgba(126, 151, 185, 0.24);
+      border-radius: 30px;
+      padding: 1rem;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(239, 246, 255, 0.94));
+      box-shadow: 0 34px 90px rgba(23, 55, 100, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    .panel-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.7rem 0.75rem 1rem;
+      color: #61728a;
+      font-size: 0.83rem;
+      font-weight: 700;
+    }
+
+    .dots {
+      display: flex;
+      gap: 0.35rem;
+    }
+
+    .dots i {
+      width: 0.6rem;
+      height: 0.6rem;
+      border-radius: 999px;
+      background: #d5e0ef;
+    }
+
+    .dots i:nth-child(1) {
+      background: #ff6b6b;
+    }
+
+    .dots i:nth-child(2) {
+      background: #ffca3a;
+    }
+
+    .dots i:nth-child(3) {
+      background: #00b894;
+    }
+
+    .ui-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.85rem;
+    }
+
+    .metric,
+    .trace-card,
+    .risk-card,
+    .timeline-card,
+    .feature-card,
+    .usecase-card,
+    .risk-box,
+    .hero-note {
+      border: 1px solid rgba(126, 151, 185, 0.18);
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 18px;
+      padding: 1.1rem;
+      box-shadow: 0 18px 44px rgba(23, 55, 100, 0.08);
+    }
+
+    .metric strong,
+    .timeline-card strong {
+      display: block;
+      font-size: 2rem;
+      letter-spacing: -0.05em;
+      color: #07111f;
+      margin: 0.2rem 0;
+    }
+
+    .metric span,
+    .trace-card span,
+    .risk-card span,
+    .timeline-card span {
+      color: #64748b;
+      font-size: 0.82rem;
+    }
+
+    .trace-card {
+      grid-column: span 2;
+    }
+
+    .trace-line {
+      display: grid;
+      grid-template-columns: 85px 1fr auto;
+      gap: 0.65rem;
+      align-items: center;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid rgba(126, 151, 185, 0.16);
+      font-size: 0.84rem;
+      color: #27384f;
+    }
+
+    .trace-line:last-child {
+      border-bottom: 0;
+    }
+
+    .badge {
+      border-radius: 999px;
+      padding: 0.22rem 0.5rem;
+      background: rgba(0, 184, 148, 0.12);
+      color: #00866d;
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+
+    .badge.warn {
+      background: rgba(255, 199, 44, 0.2);
+      color: #9a6b00;
+    }
+
+    .badge.risk {
+      background: rgba(255, 107, 107, 0.14);
+      color: #c43636;
+    }
+
+    .bar {
+      height: 0.7rem;
+      border-radius: 999px;
+      background: rgba(126, 151, 185, 0.16);
+      overflow: hidden;
+      margin: 0.8rem 0;
+    }
+
+    .bar span {
+      display: block;
+      height: 0.7rem;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #0f7cff, #00b894);
+    }
+
+    .bar-one span {
+      width: 170px;
+    }
+
+    .bar-two span {
+      width: 120px;
+    }
+
+    .bar-three span {
+      width: 210px;
+    }
+
+    .hero-notes {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-top: 1.4rem;
+    }
+
+    .hero-note,
+    .risk-box,
+    .feature-card,
+    .usecase-card {
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+
+    .hero-note:hover,
+    .risk-box:hover,
+    .feature-card:hover,
+    .usecase-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(15, 124, 255, 0.28);
+      box-shadow: 0 24px 58px rgba(15, 124, 255, 0.12);
+    }
+
+    section.block {
+      padding-top: clamp(4rem, 8vw, 7rem);
+      padding-bottom: 1rem;
+    }
+
+    .section-heading {
+      max-width: 780px;
+      margin-bottom: 2rem;
+    }
+
+    .section-heading h2 {
+      font-size: clamp(2rem, 4vw, 3.6rem);
+      letter-spacing: -0.055em;
+      margin-bottom: 0.75rem;
+    }
+
+    .section-heading p,
+    section p {
+      color: #53657e;
+    }
+
+    .problem-card {
+      padding: clamp(1.4rem, 3vw, 2.2rem);
+      border-radius: 30px;
+      border: 1px solid rgba(126, 151, 185, 0.18);
+      background:
+        radial-gradient(circle at top right, rgba(255, 199, 44, 0.2), transparent 320px),
+        radial-gradient(circle at bottom left, rgba(15, 124, 255, 0.12), transparent 290px),
+        #ffffff;
+      box-shadow: 0 24px 70px rgba(23, 55, 100, 0.1);
+    }
+
+    .risk-list {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-top: 1.4rem;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1rem;
+    }
+
+    .feature-icon {
+      width: 2.35rem;
+      height: 2.35rem;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(15, 124, 255, 0.12), rgba(0, 184, 148, 0.14));
+      margin-bottom: 0.9rem;
+      color: #075fd0;
+      font-weight: 900;
+    }
+
+    .usecase-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
+    .usecase-card {
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .usecase-card a {
+      color: #0f7cff;
+      font-weight: 800;
+    }
+
+    .role-pill {
+      width: fit-content;
+      border: 1px solid rgba(15, 124, 255, 0.2);
+      color: #075fd0;
+      background: rgba(15, 124, 255, 0.08);
+      border-radius: 999px;
+      padding: 0.28rem 0.6rem;
+      font-size: 0.78rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+    }
+
+    .demo-band {
+      margin-top: 4rem;
+      border: 1px solid rgba(15, 124, 255, 0.2);
+      border-radius: 34px;
+      padding: clamp(1.6rem, 5vw, 3rem);
+      background:
+        radial-gradient(circle at 15vw 20vh, rgba(15, 124, 255, 0.16), transparent 290px),
+        radial-gradient(circle at 80vw 0, rgba(0, 184, 148, 0.18), transparent 320px),
+        linear-gradient(135deg, #ffffff, #eef7ff);
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 2rem;
+      align-items: center;
+      box-shadow: 0 28px 80px rgba(23, 55, 100, 0.13);
+    }
+
+    .demo-band h2 {
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      letter-spacing: -0.055em;
+      margin-bottom: 0.7rem;
+    }
+
+    .mini-dashboard {
+      border: 1px solid rgba(126, 151, 185, 0.18);
+      border-radius: 22px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: 0 18px 44px rgba(23, 55, 100, 0.08);
+    }
+
+    .mini-dashboard span {
+      color: #64748b;
+      font-weight: 800;
+    }
+
+    .mini-dashboard strong {
+      color: #07111f;
+    }
+
+    section[aria-label="Subscribe example"] {
+      padding-top: 2rem;
+      padding-bottom: 3rem;
+    }
+
+    section[aria-label="Subscribe example"] article {
+      border: 1px solid rgba(126, 151, 185, 0.18);
+      border-radius: 30px;
+      background: #ffffff;
+      box-shadow: 0 28px 80px rgba(23, 55, 100, 0.12);
+    }
+
+    .contact-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    input,
+    textarea {
+      box-shadow: 0 10px 24px rgba(23, 55, 100, 0.045);
+    }
+
+    textarea {
+      grid-column: span 2;
+      min-height: 150px;
+    }
+
+    footer.container {
+      padding-top: 2rem;
+      padding-bottom: 3rem;
+      color: #64748b;
+    }
+
+    footer a {
+      color: #41516a;
+    }
+
+    @media (max-width: 980px) {
+      .ui-grid,
+      .risk-list,
+      .feature-grid,
+      .usecase-grid,
+      .hero-notes {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .demo-band {
+        grid-template-columns: 1fr;
+      }
+
+      .trace-card {
+        grid-column: span 2;
+      }
+    }
+
+    @media (max-width: 700px) {
+      nav.container-fluid ul:last-child li:nth-child(1),
+      nav.container-fluid ul:last-child li:nth-child(2) {
+        display: none;
+      }
+
+      .ui-grid,
+      .risk-list,
+      .feature-grid,
+      .usecase-grid,
+      .hero-notes,
+      .contact-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .trace-card {
+        grid-column: span 1;
+      }
+
+      .trace-line {
+        grid-template-columns: 1fr;
+        gap: 0.2rem;
+      }
+
+      textarea {
+        grid-column: span 1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="container-fluid">
+    <ul>
+      <li><strong>ObserveAgents</strong></li>
+    </ul>
+    <ul>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#use-cases">Use Cases</a></li>
+      <li><a href="https://demo.observeagents.ai" target="_blank" rel="noopener" role="button">Try our Demo</a></li>
+    </ul>
+  </nav>
+
+  <main class="container">
+    <div class="grid">
+      <section>
+        <div class="hero">
+          <span class="eyebrow"><span class="pulse"></span> AI agent observability for leaders</span>
+
+          <hgroup>
+            <h2>Observed, Intelligent Inference, and Trust Your AI Agents</h2>
+            <h3>ObserveAgents gives leaders real-time visibility into autonomous AI agent activity, decisions, failures, and risks.</h3>
+          </hgroup>
+
+          <p class="lead">
+            Built for executive and security teams who need to monitor AI agents, understand what changed, and control risk before blind spots impact the business.
+          </p>
+
+          <div class="cta-row">
+            <a href="https://demo.observeagents.ai" target="_blank" rel="noopener" role="button">Try our Demo</a>
+            <a class="secondary-link" href="#problem">See the risk model</a>
+          </div>
+
+          <div class="trust-strip" aria-label="Platform principles">
+            <span>Activity timelines</span>
+            <span>Decision traces</span>
+            <span>Risk signals</span>
+            <span>Executive dashboards</span>
+          </div>
+        </div>
+
+        <aside class="observability-panel" aria-label="ObserveAgents product interface preview">
+          <div class="panel-top">
+            <div class="dots"><i></i><i></i><i></i></div>
+            <span>Live agent operations</span>
+          </div>
+
+          <div class="ui-grid">
+            <div class="metric">
+              <span>Agents monitored</span>
+              <strong>248</strong>
+              <span>Active enterprise agents</span>
+            </div>
+
+            <div class="metric">
+              <span>Risk events</span>
+              <strong>12</strong>
+              <span>4 require review</span>
+            </div>
+
+            <div class="risk-card">
+              <span>Risk trend</span>
+              <div class="bar bar-one"><span></span></div>
+              <div class="bar bar-two"><span></span></div>
+              <div class="bar bar-three"><span></span></div>
+            </div>
+
+            <div class="timeline-card">
+              <span>Reliability</span>
+              <strong>High</strong>
+              <span>Agent task completion</span>
+            </div>
+
+            <div class="trace-card">
+              <span>Decision trace</span>
+              <div class="trace-line">
+                <b>Agent</b>
+                <span>Procurement Copilot requested vendor update</span>
+                <em class="badge">normal</em>
+              </div>
+              <div class="trace-line">
+                <b>Tool call</b>
+                <span>External API access with elevated scope</span>
+                <em class="badge warn">review</em>
+              </div>
+              <div class="trace-line">
+                <b>Policy</b>
+                <span>Blocked: missing approval signal</span>
+                <em class="badge risk">risk</em>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <div class="hero-notes">
+          <article class="hero-note">
+            <h3>Built for decision makers</h3>
+            <p>Translate complex agent behavior into business, security, and operational signals your leadership team can act on.</p>
+          </article>
+
+          <article class="hero-note">
+            <h3>Designed for controlled autonomy</h3>
+            <p>Track what agents did, why they did it, what failed, and where human review or policy intervention is needed.</p>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <section id="problem" class="block">
+      <div class="problem-card">
+        <div class="section-heading">
+          <h2>AI agents are moving fast. Your visibility is not.</h2>
+          <p>
+            Autonomous agents can make decisions, call tools, access systems, and trigger workflows across the organization. Without observability, leaders inherit black-box actions, unknown failures, security exposure, and compliance gaps.
+          </p>
+        </div>
+
+        <div class="risk-list">
+          <article class="risk-box">
+            <h3>Black-box actions</h3>
+            <p>Know which agent acted, what it touched, and which downstream system changed.</p>
+          </article>
+
+          <article class="risk-box">
+            <h3>Unknown failures</h3>
+            <p>Spot failed tasks, retries, degraded outcomes, and reliability patterns before they spread.</p>
+          </article>
+
+          <article class="risk-box">
+            <h3>Security exposure</h3>
+            <p>Detect unusual access, risky tool calls, data movement, and policy exceptions.</p>
+          </article>
+
+          <article class="risk-box">
+            <h3>Compliance gaps</h3>
+            <p>Create auditable context for decisions, approvals, controls, and governance reviews.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="block">
+      <div class="section-heading">
+        <h2>Observe every agent action from signal to decision.</h2>
+        <p>ObserveAgents turns agent telemetry into clear, product-led workflows for executives, CISOs, and operational owners.</p>
+      </div>
+
+      <div class="feature-grid">
+        <article class="feature-card">
+          <div class="feature-icon">01</div>
+          <h3>Agent Activity Timeline</h3>
+          <p>View chronological agent actions, tool calls, data access, handoffs, errors, and approvals in one place.</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">02</div>
+          <h3>Decision Traceability</h3>
+          <p>Trace how an agent reached a decision, what context it used, and which policies influenced the outcome.</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">03</div>
+          <h3>Risk & Anomaly Detection</h3>
+          <p>Surface suspicious behavior, unusual access patterns, failing workflows, and policy drift automatically.</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">04</div>
+          <h3>Executive Dashboards</h3>
+          <p>Measure AI operational impact, adoption, risk posture, and reliability in language leaders understand.</p>
+        </article>
+
+        <article class="feature-card">
+          <div class="feature-icon">05</div>
+          <h3>Policy & Governance Signals</h3>
+          <p>Connect agent activity to governance rules, security controls, review workflows, and audit-ready evidence.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="use-cases" class="block">
+      <div class="section-heading">
+        <h2>Built for the people accountable for AI outcomes.</h2>
+        <p>Different leaders need different answers. ObserveAgents gives each team the right level of visibility without hiding the technical truth.</p>
+      </div>
+
+      <div class="usecase-grid">
+        <article class="usecase-card">
+          <div>
+            <div class="role-pill">For CEOs</div>
+            <h3>Understand AI operational impact</h3>
+            <p>See where agents are creating value, where they are blocked, and which business workflows depend on autonomous activity.</p>
+          </div>
+          <a href="https://demo.observeagents.ai" target="_blank" rel="noopener">View executive demo →</a>
+        </article>
+
+        <article class="usecase-card">
+          <div>
+            <div class="role-pill">For CISOs</div>
+            <h3>Detect risky agent behavior</h3>
+            <p>Monitor access, tool usage, policy violations, abnormal actions, and emerging security risks across agent systems.</p>
+          </div>
+          <a href="https://demo.observeagents.ai" target="_blank" rel="noopener">Review security signals →</a>
+        </article>
+
+        <article class="usecase-card">
+          <div>
+            <div class="role-pill">For VPs</div>
+            <h3>Monitor performance and reliability</h3>
+            <p>Track adoption, task completion, workflow health, incident patterns, and team-level agent performance.</p>
+          </div>
+          <a href="https://demo.observeagents.ai" target="_blank" rel="noopener">Explore operations view →</a>
+        </article>
+      </div>
+    </section>
+
+    <section id="demo" class="demo-band">
+      <div>
+        <h2>Ready to make agent activity observable?</h2>
+        <p>
+          Try the ObserveAgents demo and see how real-time timelines, decision traces, risk signals, and executive dashboards help teams govern AI agents with confidence.
+        </p>
+        <a href="https://demo.observeagents.ai" target="_blank" rel="noopener" role="button">Try our Demo</a>
+      </div>
+
+      <div class="mini-dashboard" aria-label="Demo preview metrics">
+        <span>Demo environment</span>
+        <div class="bar bar-three"><span></span></div>
+        <p><strong>Decision context mapped</strong> across critical agent workflows</p>
+        <div class="bar bar-one"><span></span></div>
+        <p><strong>Fewer unresolved failures</strong> across monitored workflows</p>
+      </div>
+    </section>
+  </main>
+
+  <section id="contact" aria-label="Subscribe example">
+    <div class="container">
+      <article>
+        <hgroup>
+          <h2>Talk to the ObserveAgents team.</h2>
+          <h3>Share a few details and we’ll help you explore the demo for your AI agent environment.</h3>
+        </hgroup>
+
+        <form id="contact-form" class="grid contact-grid">
+          <input type="text" id="firstname" name="firstname" placeholder="Name" aria-label="Name" required />
+          <input type="email" id="email" name="email" placeholder="Work Email" aria-label="Work Email" required />
+          <input type="text" id="company" name="company" placeholder="Company" aria-label="Company" required />
+          <input type="text" id="role" name="role" placeholder="Role" aria-label="Role" required />
+          <textarea id="message" name="message" placeholder="Message" aria-label="Message"></textarea>
+          <button type="submit">Try our Demo</button>
+        </form>
+      </article>
+    </div>
+  </section>
+
+  <footer class="container">
+    <small><a href="#">ObserveAgents</a> • <a href="#contact">Talk to the ObserveAgents team</a></small>
+  </footer>
+
+  <script>
+    // Static site, no backend: submitting the form opens a pre-filled email.
+    document.getElementById("contact-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var f = e.target;
+      var subject = "ObserveAgents demo request — " + f.company.value;
+      var body =
+        "Name: " + f.firstname.value + "\n" +
+        "Work email: " + f.email.value + "\n" +
+        "Company: " + f.company.value + "\n" +
+        "Role: " + f.role.value + "\n\n" +
+        (f.message.value || "");
+      window.location.href =
+        "mailto:hello@observeagents.ai?subject=" + encodeURIComponent(subject) +
+        "&body=" + encodeURIComponent(body);
+    });
+  </script>
+</body>
 </html>
