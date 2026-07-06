@@ -23,6 +23,7 @@ import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
 import ExecutiveDashboard from "./pages/ExecutiveDashboard.jsx";
 import OverviewHub from "./pages/OverviewHub.jsx";
+import SurfacesDemo from "./pages/SurfacesDemo.jsx";
 import DemoDashboard from "./pages/DemoDashboard.jsx";
 import DiscoveryCenter from "./pages/DiscoveryCenter.jsx";
 import GovernanceCenter from "./pages/GovernanceCenter.jsx";
@@ -308,6 +309,7 @@ function FilterBar({ filters, setFilters, allTeams, allAgents, user, rolesMap })
 const PAGES = [
   { id:"dashboard",      label:"Dashboard" },
   { id:"overview_hub",   label:"Overview" },
+  { id:"surfaces_demo",  label:"Gateway vs OTEL" },
   { id:"welcome",        label:"Platform Guide" },
   { id:"agent_inventory",label:"AI Agent Inventory" },
   { id:"discovery",      label:"Discovery Center" },
@@ -347,6 +349,8 @@ const NAV_GROUPS_COMBINED = [
     items: [
       { id: "dashboard", label: "Dashboard" },
       { id: "overview_hub", label: "Overview" },
+      // demoOnly: rendered only when the backend reports demo_mode (isDemoMode())
+      { id: "surfaces_demo", label: "Gateway vs OTEL", demoOnly: true },
       { id: "welcome",   label: "Platform Guide" },
     ],
   },
@@ -393,6 +397,8 @@ const NAV_GROUPS_OBSERVABILITY = [
     items: [
       { id: "dashboard", label: "Dashboard" },
       { id: "overview_hub", label: "Overview" },
+      // demoOnly: rendered only when the backend reports demo_mode (isDemoMode())
+      { id: "surfaces_demo", label: "Gateway vs OTEL", demoOnly: true },
       { id: "welcome",   label: "Platform Guide" },
     ],
   },
@@ -430,6 +436,8 @@ const NAV_GROUPS_GATEWAY = [
     items: [
       { id: "dashboard", label: "Dashboard" },
       { id: "overview_hub", label: "Overview" },
+      // demoOnly: rendered only when the backend reports demo_mode (isDemoMode())
+      { id: "surfaces_demo", label: "Gateway vs OTEL", demoOnly: true },
     ],
   },
   {
@@ -751,6 +759,9 @@ export default function App() {
       // ── New primary pages ───────────────────────────────────────────────
       case "dashboard":      return isDemoMode() ? <DemoDashboard onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
       case "overview_hub":   return <OverviewHub onNavigate={navigate} />;
+      // Demo-only teaching page: on customer builds the hash falls back to the dashboard.
+      case "surfaces_demo":  return isDemoMode() ? <SurfacesDemo onNavigate={navigate} />
+                                    : <ExecutiveDashboard onNavigate={navigate} />;
       case "welcome":        return <CustomerWelcomePage onNavigate={navigate} />;
       case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); navigate(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
@@ -867,7 +878,8 @@ export default function App() {
         <nav style={{ display:"flex", flexDirection:"column", gap:0, flex:1, overflowY:"auto" }}>
           {NAV_GROUPS.map((group, gi) => {
             const visibleItems = group.items.filter(item =>
-              item.platformAdminOnly ? user?.is_platform_admin : canAccess(user?.role, item.id, rolesMap)
+              (!item.demoOnly || isDemoMode()) &&
+              (item.platformAdminOnly ? user?.is_platform_admin : canAccess(user?.role, item.id, rolesMap))
             );
             if (visibleItems.length === 0) return null;
             return (
@@ -1022,7 +1034,7 @@ export default function App() {
           </div>
         </header>
 
-        {!["dashboard","overview_hub","home","agent_inventory","discovery","governance","relationship_map","runtime","intelligence","guardrails","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
+        {!["dashboard","overview_hub","surfaces_demo","home","agent_inventory","discovery","governance","relationship_map","runtime","intelligence","guardrails","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
 
         {/* Admin-only: surface missing/invalid secrets detected at startup */}
         {user?.role === "admin" && secretWarnings.length > 0 && (

@@ -13,7 +13,7 @@ SEED_ROLES = [
         "label": "Admin",
         "color": "#FF5C7A",
         "pages": json.dumps([
-            "dashboard", "overview_hub", "welcome",
+            "dashboard", "overview_hub", "surfaces_demo", "welcome",
             "agent_inventory", "discovery", "governance", "relationship_map",
             "runtime", "intelligence", "guardrails", "cost", "security_intel", "ecosystem",
             "budgets", "pricing", "security", "users", "apikeys", "settings",
@@ -28,7 +28,7 @@ SEED_ROLES = [
         "label": "Analyst",
         "color": "#FFB547",
         "pages": json.dumps([
-            "dashboard", "overview_hub", "welcome",
+            "dashboard", "overview_hub", "surfaces_demo", "welcome",
             "agent_inventory", "discovery", "governance", "relationship_map",
             "runtime", "intelligence", "guardrails", "cost", "security_intel", "ecosystem",
             "budgets", "pricing",
@@ -43,7 +43,7 @@ SEED_ROLES = [
         "label": "Viewer",
         "color": "#6FA8FF",
         "pages": json.dumps([
-            "dashboard", "overview_hub", "welcome",
+            "dashboard", "overview_hub", "surfaces_demo", "welcome",
             "agent_inventory", "discovery", "governance", "relationship_map",
             "runtime", "intelligence", "guardrails", "cost", "security_intel", "ecosystem",
             "budgets", "pricing",
