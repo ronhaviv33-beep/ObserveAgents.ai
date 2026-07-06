@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   fetchIntelligenceAssetSummary, fetchIntelligenceCapabilities, fetchIntelligenceFindings,
-  runIntelligence, dismissFinding, resolveFinding,
+  runIntelligence, dismissFinding, resolveFinding, reopenFinding,
 } from "../api.js";
 import { T, FONT_UI, FONT_MONO } from "../theme.js";
 import { Card, Stat, Pill, SortableTh, SearchBox, useSortable, useSearch } from "../components/ui.jsx";
@@ -28,7 +28,7 @@ const STATUS_META = {
 const fmtWhen = (iso) => {
   if (!iso) return "—";
   const d = new Date(iso.endsWith("Z") || iso.includes("+") ? iso : iso + "Z");
-  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
 // Shorten URLs for display: https://api.foo.example/v2/lookup → api.foo.example
@@ -346,7 +346,9 @@ function FindingsTab({ findings, assetNames, capabilitiesTotal, loading, canAct,
 
   const act = (f, action) => {
     setActionErr(null);
-    (action === "dismiss" ? dismissFinding(f.id) : resolveFinding(f.id))
+    (action === "dismiss" ? dismissFinding(f.id)
+      : action === "reopen" ? reopenFinding(f.id)
+      : resolveFinding(f.id))
       .then(() => onAction())
       .catch((e) => setActionErr(e.message));
   };
@@ -411,7 +413,7 @@ function FindingsTab({ findings, assetNames, capabilitiesTotal, loading, canAct,
                   <td style={{ padding: "10px 8px", fontSize: 12, color: T.textDim, fontFamily: FONT_MONO, whiteSpace: "nowrap" }}>{fmtWhen(f.last_seen)}</td>
                   {canAct && (
                     <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
-                      {f.status === "open" && (
+                      {f.status === "open" ? (
                         <span style={{ display: "inline-flex", gap: 6 }}>
                           <button onClick={() => act(f, "resolve")}
                             style={{ background: "transparent", color: T.accent, border: `1px solid ${T.accent}44`, padding: "3px 10px", borderRadius: 3, fontSize: 10, fontFamily: FONT_MONO, cursor: "pointer" }}>
@@ -422,6 +424,11 @@ function FindingsTab({ findings, assetNames, capabilitiesTotal, loading, canAct,
                             Dismiss
                           </button>
                         </span>
+                      ) : (
+                        <button onClick={() => act(f, "reopen")}
+                          style={{ background: "transparent", color: T.warn, border: `1px solid ${T.warn}44`, padding: "3px 10px", borderRadius: 3, fontSize: 10, fontFamily: FONT_MONO, cursor: "pointer" }}>
+                          Reopen
+                        </button>
                       )}
                     </td>
                   )}
@@ -498,7 +505,9 @@ export default function AssetIntelligence() {
   };
 
   const handleFindingAction = (f, action) => {
-    (action === "dismiss" ? dismissFinding(f.id) : resolveFinding(f.id))
+    (action === "dismiss" ? dismissFinding(f.id)
+      : action === "reopen" ? reopenFinding(f.id)
+      : resolveFinding(f.id))
       .then(() => load())
       .catch((e) => setError(e.message));
   };

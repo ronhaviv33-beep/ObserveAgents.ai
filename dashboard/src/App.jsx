@@ -22,6 +22,8 @@ import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
 import ExecutiveDashboard from "./pages/ExecutiveDashboard.jsx";
+import OverviewHub from "./pages/OverviewHub.jsx";
+import SurfacesDemo from "./pages/SurfacesDemo.jsx";
 import DemoDashboard from "./pages/DemoDashboard.jsx";
 import DiscoveryCenter from "./pages/DiscoveryCenter.jsx";
 import GovernanceCenter from "./pages/GovernanceCenter.jsx";
@@ -143,9 +145,9 @@ function Overview({ A, events, allAgents, allTeams }) {
             <AreaChart data={A.series}>
               <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={T.accent} stopOpacity={0.35}/><stop offset="100%" stopColor={T.accent} stopOpacity={0}/></linearGradient></defs>
               <CartesianGrid stroke={T.border} vertical={false}/>
-              <XAxis dataKey="date" tickFormatter={(d)=>new Date(d).toLocaleDateString(undefined,{month:"short",day:"numeric"})} stroke={T.textMute} style={{ fontFamily:FONT_MONO, fontSize:10 }}/>
+              <XAxis dataKey="date" tickFormatter={(d)=>new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric"})} stroke={T.textMute} style={{ fontFamily:FONT_MONO, fontSize:10 }}/>
               <YAxis stroke={T.textMute} style={{ fontFamily:FONT_MONO, fontSize:10 }} tickFormatter={(v)=>`$${v.toFixed(0)}`}/>
-              <Tooltip contentStyle={{ background:T.panelHi, border:`1px solid ${T.borderHi}`, borderRadius:4, fontFamily:FONT_MONO, fontSize:11 }} labelFormatter={(d)=>new Date(d).toLocaleDateString()} formatter={(v)=>[`$${v.toFixed(2)}`,"cost"]}/>
+              <Tooltip contentStyle={{ background:T.panelHi, border:`1px solid ${T.borderHi}`, borderRadius:4, fontFamily:FONT_MONO, fontSize:11 }} labelFormatter={(d)=>new Date(d).toLocaleDateString("en-US")} formatter={(v)=>[`$${v.toFixed(2)}`,"cost"]}/>
               <Area type="monotone" dataKey="cost" stroke={T.accent} strokeWidth={1.5} fill="url(#g1)"/>
             </AreaChart>
           </ResponsiveContainer>
@@ -306,6 +308,8 @@ function FilterBar({ filters, setFilters, allTeams, allAgents, user, rolesMap })
 
 const PAGES = [
   { id:"dashboard",      label:"Dashboard" },
+  { id:"overview_hub",   label:"Overview" },
+  { id:"surfaces_demo",  label:"Gateway vs OTEL" },
   { id:"welcome",        label:"Platform Guide" },
   { id:"agent_inventory",label:"AI Agent Inventory" },
   { id:"discovery",      label:"Discovery Center" },
@@ -344,6 +348,9 @@ const NAV_GROUPS_COMBINED = [
     label: null,
     items: [
       { id: "dashboard", label: "Dashboard" },
+      { id: "overview_hub", label: "Overview" },
+      // demoOnly: rendered only when the backend reports demo_mode (isDemoMode())
+      { id: "surfaces_demo", label: "Gateway vs OTEL", demoOnly: true },
       { id: "welcome",   label: "Platform Guide" },
     ],
   },
@@ -389,6 +396,9 @@ const NAV_GROUPS_OBSERVABILITY = [
     label: null,
     items: [
       { id: "dashboard", label: "Dashboard" },
+      { id: "overview_hub", label: "Overview" },
+      // demoOnly: rendered only when the backend reports demo_mode (isDemoMode())
+      { id: "surfaces_demo", label: "Gateway vs OTEL", demoOnly: true },
       { id: "welcome",   label: "Platform Guide" },
     ],
   },
@@ -425,6 +435,9 @@ const NAV_GROUPS_GATEWAY = [
     label: null,
     items: [
       { id: "dashboard", label: "Dashboard" },
+      { id: "overview_hub", label: "Overview" },
+      // demoOnly: rendered only when the backend reports demo_mode (isDemoMode())
+      { id: "surfaces_demo", label: "Gateway vs OTEL", demoOnly: true },
     ],
   },
   {
@@ -745,6 +758,10 @@ export default function App() {
     switch (page) {
       // ── New primary pages ───────────────────────────────────────────────
       case "dashboard":      return isDemoMode() ? <DemoDashboard onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
+      case "overview_hub":   return <OverviewHub onNavigate={navigate} />;
+      // Demo-only teaching page: on customer builds the hash falls back to the dashboard.
+      case "surfaces_demo":  return isDemoMode() ? <SurfacesDemo onNavigate={navigate} />
+                                    : <ExecutiveDashboard onNavigate={navigate} />;
       case "welcome":        return <CustomerWelcomePage onNavigate={navigate} />;
       case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); navigate(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
@@ -861,7 +878,8 @@ export default function App() {
         <nav style={{ display:"flex", flexDirection:"column", gap:0, flex:1, overflowY:"auto" }}>
           {NAV_GROUPS.map((group, gi) => {
             const visibleItems = group.items.filter(item =>
-              item.platformAdminOnly ? user?.is_platform_admin : canAccess(user?.role, item.id, rolesMap)
+              (!item.demoOnly || isDemoMode()) &&
+              (item.platformAdminOnly ? user?.is_platform_admin : canAccess(user?.role, item.id, rolesMap))
             );
             if (visibleItems.length === 0) return null;
             return (
@@ -963,7 +981,7 @@ export default function App() {
             {/* Demo-only status indicator — never shown in production */}
             {isDemoMode() && <div style={{ color:T.warn }}>● demo mode</div>}
             <span style={{ color:T.textMute }}>{filteredEvents.length.toLocaleString()} events / {filters.range}d</span>
-            {lastRefresh && <div style={{ color:T.textMute, marginTop:2 }}>updated {lastRefresh.toLocaleTimeString()}</div>}
+            {lastRefresh && <div style={{ color:T.textMute, marginTop:2 }}>updated {lastRefresh.toLocaleTimeString("en-US")}</div>}
           </div>
           {/* Demo/live toggle is a demo control — only available in demo/dev */}
           {(isDemoMode() || isDevelopment()) && (
@@ -1016,7 +1034,7 @@ export default function App() {
           </div>
         </header>
 
-        {!["dashboard","home","agent_inventory","discovery","governance","relationship_map","runtime","intelligence","guardrails","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
+        {!["dashboard","overview_hub","surfaces_demo","home","agent_inventory","discovery","governance","relationship_map","runtime","intelligence","guardrails","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
 
         {/* Admin-only: surface missing/invalid secrets detected at startup */}
         {user?.role === "admin" && secretWarnings.length > 0 && (

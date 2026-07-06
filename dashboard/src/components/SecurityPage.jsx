@@ -62,7 +62,7 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
               <React.Fragment key={r.id}>
                 <tr style={{ borderBottom: isOpen ? "none" : `1px solid ${T.border}`, background: rowBg, cursor:"pointer" }}
                     onClick={() => toggleExpand(r.id)}>
-                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{parseUTC(r.timestamp).toLocaleString()}</td>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{parseUTC(r.timestamp).toLocaleString("en-US")}</td>
                   <td style={{ padding:"10px 8px", fontSize:12, color:T.text }}>{r.team}</td>
                   <td style={{ padding:"10px 8px", fontSize:12, color:T.textDim }}>{r.agent}</td>
                   <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textDim }}>{r.model}</td>
@@ -128,8 +128,8 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
 
                           {/* Timing + tokens + cost grid */}
                           <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:12, background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:"14px 16px" }}>
-                            <Field label="Start Time"         value={startTime.toLocaleTimeString()}                        color={T.text} />
-                            <Field label="End Time"           value={endTime.toLocaleTimeString()}                          color={T.text} />
+                            <Field label="Start Time"         value={startTime.toLocaleTimeString("en-US")}                        color={T.text} />
+                            <Field label="End Time"           value={endTime.toLocaleTimeString("en-US")}                          color={T.text} />
                             <Field label="Total Tokens"       value={(r.total_tokens || 0).toLocaleString()}                color={T.text} />
                             <Field label="Prompt Tokens"      value={(r.prompt_tokens || 0).toLocaleString()}               color={T.text} />
                             <Field label="Completion Tokens"  value={(r.completion_tokens || 0).toLocaleString()}           color={T.text} />
@@ -428,7 +428,7 @@ export default function SecurityPage() {
                   <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{r.team}</td>
                   <td style={{ padding:"12px 8px" }}><Pill color={r.rule_type==="block_model"?T.crit:T.accent}>{r.rule_type}</Pill></td>
                   <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.text }}>{r.value}</td>
-                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.created_at).toLocaleDateString()}</td>
+                  <td style={{ padding:"12px 8px", fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{new Date(r.created_at).toLocaleDateString("en-US")}</td>
                   <td style={{ padding:"12px 8px" }}>
                     <button onClick={() => handleDeletePolicy(r.id)}
                       style={{ background:"transparent", border:`1px solid ${T.border}`, color:T.crit, padding:"4px 10px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}>

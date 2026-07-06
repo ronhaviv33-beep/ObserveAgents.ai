@@ -368,3 +368,23 @@ async def resolve_finding(
     row.status = "resolved"
     db.commit()
     return {"id": finding_id, "status": "resolved"}
+
+
+@router.post("/intelligence/findings/{finding_id}/reopen")
+async def reopen_finding(
+    finding_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return a resolved or dismissed finding to the open state."""
+    org_id = current_user.organization_id
+    row = (
+        db.query(AssetFinding)
+        .filter(AssetFinding.id == finding_id, AssetFinding.organization_id == org_id)
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Finding not found")
+    row.status = "open"
+    db.commit()
+    return {"id": finding_id, "status": "open"}

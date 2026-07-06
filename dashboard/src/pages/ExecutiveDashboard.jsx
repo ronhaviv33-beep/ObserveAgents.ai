@@ -1,13 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { useState, useEffect } from "react";
 import {
   fetchAgentsSummary, fetchAgents,
   fetchCostIntelligence, fetchSecurityAlerts,
-  fetchRelationships,
 } from "../api.js";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import { isObservability, isGateway } from "../productSurface.js";
-import { relationshipEvidenceLabel } from "../discoveryStatus.js";
 import CollapsiblePanel, { PanelGroupControls } from "../components/CollapsiblePanel.jsx";
 
 const T = {
@@ -22,35 +19,6 @@ const MONO = "'JetBrains Mono','IBM Plex Mono',monospace";
 
 const fmtUSD = (v) =>
   "$" + (+(v || 0)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const fmtRelDate = (iso) => {
-  if (!iso) return "—";
-  try {
-    const diff = Date.now() - new Date(iso).getTime();
-    if (diff < 60000)   return "just now";
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return new Date(iso).toLocaleDateString();
-  } catch { return iso; }
-};
-
-const SOURCE_META = {
-  gateway_telemetry: { label: "Gateway Telemetry", color: T.accent },
-  github:            { label: "GitHub Repositories", color: T.info },
-  n8n:               { label: "n8n Workflows", color: T.purple },
-  slack:             { label: "Slack Bots", color: "#E8A138" },
-  jira:              { label: "Jira Automations", color: T.warn },
-  servicenow:        { label: "ServiceNow", color: T.crit },
-  mcp:               { label: "MCP Server", color: T.purple },
-  cloud_functions:   { label: "Cloud Functions", color: T.info },
-};
-
-const LIFECYCLE = {
-  managed:          { label: "Managed",          color: T.accent,  bg: "#1A3D2B" },
-  unassigned:       { label: "Unassigned",        color: T.yellow,  bg: "#3D370D" },
-  needs_validation: { label: "Needs Validation",  color: T.warn,    bg: "#3D2E0D" },
-  retired:          { label: "Retired",           color: "#555",    bg: "#1A1A1A" },
-};
 
 function KpiCard({ label, value, sub, color, onClick }) {
   const [hover, setHover] = useState(false);
@@ -109,19 +77,17 @@ export default function ExecutiveDashboard({ onNavigate }) {
   const [agents, setAgents]           = useState([]);
   const [costData, setCostData]       = useState(null);
   const [alerts, setAlerts]           = useState([]);
-  const [relationships, setRels]      = useState([]);
   const [loading, setLoading]         = useState(true);
   const bp = useBreakpoint();
 
   useEffect(() => {
     (async () => {
       try {
-        const [s, a, c, al, r] = await Promise.allSettled([
+        const [s, a, c, al] = await Promise.allSettled([
           fetchAgentsSummary(30),
           fetchAgents({ limit: 500 }),
           fetchCostIntelligence({ breakdown_by: "agent", days: 30 }),
           fetchSecurityAlerts(),
-          fetchRelationships(),
         ]);
         if (s.status  === "fulfilled" && s.value)  setSummary(s.value);
         if (a.status  === "fulfilled" && a.value) {
@@ -130,7 +96,6 @@ export default function ExecutiveDashboard({ onNavigate }) {
         }
         if (c.status  === "fulfilled" && c.value)  setCostData(c.value);
         if (al.status === "fulfilled" && al.value)  setAlerts(Array.isArray(al.value) ? al.value : []);
-        if (r.status  === "fulfilled" && Array.isArray(r.value)) setRels(r.value);
       } finally {
         setLoading(false);
       }
@@ -149,41 +114,13 @@ export default function ExecutiveDashboard({ onNavigate }) {
   // verified agents with no owner + potential agents (all need owner assignment)
   const unassigned       = (summary?.verified_agents?.unassigned ?? 0) + (summary?.potential_agents?.total ?? 0);
   const needsValidation  = summary?.potential_agents?.needs_validation ?? summary?.potential_agents?.total ?? 0;
-  const retired          = summary?.retired_agents ?? 0;
   // runtime_cost is at the top level of the cost intelligence response, not nested under "overview"
   const monthlyCost      = costData?.runtime_cost?.total_usd ?? 0;
-
-  // Lifecycle donut
-  const lifecycleSlices = [
-    { name: "Managed",          value: managed,         color: T.accent  },
-    { name: "Unassigned",       value: unassigned,      color: T.yellow  },
-    { name: "Needs Validation", value: needsValidation, color: T.warn    },
-    ...(retired > 0 ? [{ name: "Retired", value: retired, color: "#555" }] : []),
-  ].filter(d => d.value > 0);
-
-  // Discovery sources
-  const sourceCounts = {};
-  agents.forEach(a => {
-    const src = a.discovery_source || "gateway_telemetry";
-    sourceCounts[src] = (sourceCounts[src] || 0) + 1;
-  });
-  const maxSrc = Math.max(1, ...Object.values(sourceCounts));
-  const sourceList = Object.entries(sourceCounts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([key, count]) => ({ key, count, meta: SOURCE_META[key] || { label: key, color: T.textDim } }));
 
   // Top cost drivers
   const breakdown = (costData?.breakdown?.items || costData?.breakdown || []).sort((a, b) => (b.cost_usd || 0) - (a.cost_usd || 0));
   const topCosts  = breakdown.slice(0, 10);
   const otherCost = Math.max(0, monthlyCost - topCosts.reduce((s, x) => s + (x.cost_usd || 0), 0));
-
-  // Runtime Dependency Map metrics
-  const mcpToolsUsed       = new Set(relationships.filter(r => r.target_type === "mcp_tool").map(r => r.target_name)).size;
-  const workflowsTriggered = new Set(relationships.filter(r => r.target_type === "workflow").map(r => r.target_name)).size;
-  const externalSystems    = new Set(
-    relationships.filter(r => ["api","database","crm","spreadsheet","mcp_server"].includes(r.target_type)).map(r => r.target_name)
-  ).size;
-  const topRels = [...relationships].sort((a, b) => b.request_count - a.request_count).slice(0, 8);
 
   // Risk signals from security alerts
   const critAlerts = alerts.filter(a => a.sev === "critical");
@@ -213,7 +150,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24, fontFamily: FONT }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 32, fontFamily: FONT }}>
 
       {/* ── Brand ──────────────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
@@ -312,90 +249,6 @@ export default function ExecutiveDashboard({ onNavigate }) {
         </div>
       </div>
 
-      {/* ── KPI Row — Runtime Dependency Map ─────────────────────────────────────── */}
-      <div>
-        <div style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>
-          Runtime Dependency Map
-        </div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <KpiCard label="Total Relationships"     value={relationships.length} sub="Agent → system links mapped"    color={T.teal}   onClick={() => onNavigate?.("relationship_map")} />
-          <KpiCard label="MCP Tools Used"          value={mcpToolsUsed}         sub="Unique MCP tool targets"        color={T.purple} onClick={() => onNavigate?.("relationship_map")} />
-          <KpiCard label="Workflows Triggered"     value={workflowsTriggered}   sub="Unique workflow targets"        color={T.warn}   onClick={() => onNavigate?.("relationship_map")} />
-          <KpiCard label="External Systems Touched" value={externalSystems}     sub="APIs, DBs, CRMs, MCP servers"   color={T.info}   onClick={() => onNavigate?.("relationship_map")} />
-        </div>
-      </div>
-
-      {/* ── Lifecycle + Discovery ─────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
-
-        {/* Lifecycle donut */}
-        <Panel>
-          <SectionTitle title="Agent Lifecycle Distribution" />
-          {lifecycleSlices.length > 0 ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-              <div style={{ flexShrink: 0 }}>
-                <ResponsiveContainer width={160} height={160}>
-                  <PieChart>
-                    <Pie data={lifecycleSlices} cx="50%" cy="50%" innerRadius={44} outerRadius={70} dataKey="value" paddingAngle={2}>
-                      {lifecycleSlices.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: MONO, fontSize: 12 }}
-                      formatter={(v, n) => [`${v} agents`, n]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
-                {lifecycleSlices.map((d, i) => (
-                  <div key={i}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.text, marginBottom: 4 }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                        <span style={{ width: 9, height: 9, borderRadius: 2, background: d.color, flexShrink: 0, display: "inline-block" }} />
-                        {d.name}
-                      </span>
-                      <span style={{ fontFamily: MONO, color: T.textDim }}>
-                        {d.value} <span style={{ fontSize: 10, color: T.textMute }}>({total > 0 ? Math.round(d.value / total * 100) : 0}%)</span>
-                      </span>
-                    </div>
-                    <div style={{ background: T.panelHi, borderRadius: 2, height: 4 }}>
-                      <div style={{ width: `${total > 0 ? (d.value / total) * 100 : 0}%`, background: d.color, height: 4, borderRadius: 2, transition: "width 0.5s" }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div style={{ color: T.textMute, fontFamily: MONO, fontSize: 12, padding: "20px 0" }}>No agent data</div>
-          )}
-        </Panel>
-
-        {/* Discovery sources */}
-        <Panel>
-          <SectionTitle title="Agent Discovery Sources" sub={`${sourceList.length} active source${sourceList.length !== 1 ? "s" : ""} · ${total} total signals`} />
-          {sourceList.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {sourceList.map(({ key, count, meta }) => (
-                <div key={key}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.text, marginBottom: 5 }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: meta.color, flexShrink: 0, display: "inline-block" }} />
-                      {meta.label}
-                    </span>
-                    <span style={{ fontFamily: MONO, color: T.textDim }}>{count} agents</span>
-                  </div>
-                  <div style={{ background: T.panelHi, borderRadius: 2, height: 6 }}>
-                    <div style={{ width: `${(count / maxSrc) * 100}%`, background: meta.color, height: 6, borderRadius: 2, opacity: 0.75, transition: "width 0.5s" }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ color: T.textMute, fontFamily: MONO, fontSize: 12, padding: "20px 0" }}>No discovery data</div>
-          )}
-        </Panel>
-      </div>
-
       {/* ── Top Cost Drivers — gateway cost accounting; hidden on the
            Observability surface (its cost story is OTel usage signals) ─────── */}
       {!isObservability && <CollapsiblePanel group="dashboard" storageKey="oa-panel-dash-cost-drivers"
@@ -443,110 +296,6 @@ export default function ExecutiveDashboard({ onNavigate }) {
           <div style={{ color: T.textMute, fontFamily: MONO, fontSize: 12 }}>No cost data for the last 30 days</div>
         )}
       </CollapsiblePanel>}
-
-      {/* ── Runtime Dependency Map ───────────────────────────────────────────────── */}
-      <CollapsiblePanel group="dashboard" storageKey="oa-panel-dash-deps"
-        title="Runtime Dependency Map"
-        subtitle={isObservability
-          ? "Top agent dependencies by observed volume · runtime evidence"
-          : "Top agent dependencies by traffic volume · real-time gateway data"}
-        actions={<button onClick={() => onNavigate?.("relationship_map")} style={DASH_ACTION_BTN}>View Dependency Map →</button>}>
-        {topRels.length > 0 ? (
-          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-            {/* Column headers */}
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 80px 80px", gap: 12, padding: "0 4px 10px", borderBottom: `1px solid ${T.border}`, marginBottom: 4, minWidth: 560 }}>
-              {["Source Agent → Target System", "Relationship", "Evidence", "Strength", "Requests"].map(h => (
-                <div key={h} style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.12em", textTransform: "uppercase" }}>{h}</div>
-              ))}
-            </div>
-            {topRels.map((r, i) => {
-              const ev    = relationshipEvidenceLabel(r);   // qualitative — no percentage
-              const REL_COLOR = {
-                calls: T.info, uses_tool: T.teal, invokes_workflow: T.warn,
-                triggers: T.warn, writes_to: T.crit, reads_from: T.accent, sends_event_to: T.purple,
-              };
-              const relColor = REL_COLOR[r.relationship_type] || T.textDim;
-              const TYPE_ICON = { mcp_tool: "🔧", mcp_server: "🖧", workflow: "⚡", api: "🌐", database: "🗄", crm: "📋", spreadsheet: "📊", agent: "🤖", unknown: "?" };
-              const icon = TYPE_ICON[r.target_type] || "◈";
-              return (
-                <div key={r.id} style={{
-                  display: "grid", gridTemplateColumns: "2fr 1fr 1fr 80px 80px", gap: 12,
-                  padding: "10px 4px", borderBottom: i < topRels.length - 1 ? `1px solid ${T.border}` : "none",
-                  alignItems: "center", minWidth: 560,
-                }}>
-                  {/* Source → Target */}
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <span style={{ fontFamily: MONO, fontSize: 12, color: T.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}
-                            title={r.source_agent_name}>{r.source_agent_name}</span>
-                      <span style={{ color: T.textMute, fontSize: 11 }}>→</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: T.textDim }}>{icon} {r.target_name}</span>
-                    </div>
-                    <div style={{ fontSize: 10, fontFamily: MONO, color: T.textMute, marginTop: 2 }}>
-                      Last seen {fmtRelDate(r.last_seen_at)}
-                    </div>
-                  </div>
-                  {/* Relationship type */}
-                  <div>
-                    <span style={{
-                      padding: "2px 8px", borderRadius: 3, fontSize: 10, fontFamily: MONO,
-                      background: relColor + "1A", color: relColor, border: `1px solid ${relColor}33`,
-                    }}>{r.relationship_type.replace(/_/g, " ")}</span>
-                  </div>
-                  {/* Evidence */}
-                  <div style={{ fontFamily: MONO, fontSize: 10, color: T.textMute }}>
-                    {r.evidence_source.replace(/_/g, " ")}
-                  </div>
-                  {/* Evidence strength (qualitative, not a percentage) */}
-                  <div style={{ display: "flex", alignItems: "center" }}>
-                    <span title={ev.why}
-                      style={{ padding: "2px 8px", borderRadius: 3, fontSize: 10, fontFamily: MONO,
-                        background: ev.color + "1A", color: ev.color, border: `1px solid ${ev.color}33`, whiteSpace: "nowrap" }}>
-                      {ev.label}
-                    </span>
-                  </div>
-                  {/* Request count */}
-                  <div style={{ fontFamily: MONO, fontSize: 12, color: T.text, textAlign: "right" }}>
-                    {r.request_count.toLocaleString()}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div style={{ padding: "28px 0", textAlign: "center" }}>
-            <div style={{ fontSize: 28, marginBottom: 12 }}>🔗</div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: T.text, marginBottom: 8 }}>
-              No runtime dependencies discovered yet
-            </div>
-            <div style={{ fontSize: 12, color: T.textDim, maxWidth: 520, margin: "0 auto 20px", lineHeight: 1.7 }}>
-              Dependencies appear automatically once telemetry flows — tool, MCP, database, and API
-              links are derived from OpenTelemetry span attributes.
-            </div>
-            <div style={{ background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 6, padding: "12px 16px", display: "inline-block", textAlign: "left", marginBottom: 20 }}>
-              {[
-                ["tool.name",    "create_lead"],
-                ["mcp.server",   "hubspot-mcp"],
-                ["db.system",    "postgresql"],
-                ["url.full",     "https://api.example/v1"],
-              ].map(([k, v]) => (
-                <div key={k} style={{ fontFamily: MONO, fontSize: 11, marginBottom: 3 }}>
-                  <span style={{ color: T.teal }}>{k}:</span>{" "}
-                  <span style={{ color: T.textDim }}>{v}</span>
-                </div>
-              ))}
-            </div>
-            <div>
-              <button
-                onClick={() => onNavigate?.("relationship_map")}
-                style={{ background: T.teal + "1A", border: `1px solid ${T.teal}55`, color: T.teal, padding: "7px 18px", borderRadius: 5, fontSize: 12, fontFamily: MONO, cursor: "pointer", letterSpacing: "0.04em" }}
-              >
-                View Dependency Map →
-              </button>
-            </div>
-          </div>
-        )}
-      </CollapsiblePanel>
 
       {/* ── High Risk + Action Items ───────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "3fr 2fr", gap: 16 }}>

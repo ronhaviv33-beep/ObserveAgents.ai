@@ -143,6 +143,12 @@ export async function fetchSecurityAlerts() {
   return r.json()
 }
 
+export async function fetchBudgetsStatus() {
+  const r = await authFetch(`${BASE}/budgets/status`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch budget status (HTTP ${r?.status ?? 'network error'})`)
+  return r.json()
+}
+
 export async function fetchAudit(params = {}) {
   const q = new URLSearchParams(params).toString()
   const r = await authFetch(`${BASE}/audit?${q}`)
@@ -712,6 +718,12 @@ export async function dismissFinding(id) {
 export async function resolveFinding(id) {
   const r = await authFetch(`${BASE}/intelligence/findings/${id}/resolve`, { method: 'POST' })
   if (!r || !r.ok) throw new Error('Failed to resolve finding')
+  return r.json()
+}
+
+export async function reopenFinding(id) {
+  const r = await authFetch(`${BASE}/intelligence/findings/${id}/reopen`, { method: 'POST' })
+  if (!r || !r.ok) throw new Error('Failed to reopen finding')
   return r.json()
 }
 

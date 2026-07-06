@@ -1,6 +1,8 @@
 services:
-  # ── Production app (app.observeagents.ai + gateway.observeagents.ai) ─────────
-  # FastAPI serves API + React frontend from same origin. Real customer data only.
+  # ── Production backend + Observability surface ──────────────────────────────
+  # (app.observeagents.ai + gateway.observeagents.ai)
+  # The single backend: ALL APIs (OTLP ingestion and the /v1 gateway proxy) plus
+  # the Observability UI served from the same origin. Real customer data only.
   # DEMO_MODE must stay false here — demo lives in the separate service below.
   - type: web
     name: ai-asset-app
@@ -12,6 +14,11 @@ services:
       mountPath: /data
       sizeGB: 1
     envVars:
+      # ── Product surface (build-time; Vite reads VITE_* during npm run build) ─
+      # Production always builds an explicit surface — "combined" is the unset
+      # fallback for local dev and the demo only, never the production default.
+      - key: VITE_PRODUCT_SURFACE
+        value: observability
       # ── Environment separation ──────────────────────────────────────────────
       - key: APP_ENV
         value: production
@@ -49,6 +56,24 @@ services:
       - key: CREDENTIAL_ENCRYPTION_KEY
         sync: false
 
+  # ── Gateway console (static frontend, Gateway surface) ──────────────────────
+  # Separate deployable frontend for the ObserveAgents Gateway product: the same
+  # dashboard codebase built with VITE_PRODUCT_SURFACE=gateway, talking to the
+  # single backend above (gateway.observeagents.ai — also the SDK traffic host).
+  # One backend, one database; only the frontend build differs per surface.
+  # Going live: attach a console hostname in the Render dashboard and add that
+  # origin to ai-asset-app's FRONTEND_ORIGIN env var for CORS.
+  - type: web
+    name: observeagents-gateway-console
+    runtime: static
+    buildCommand: cd dashboard && npm install && npm run build
+    staticPublishPath: dashboard/dist
+    envVars:
+      - key: VITE_PRODUCT_SURFACE
+        value: gateway
+      - key: VITE_API_BASE
+        value: https://gateway.observeagents.ai
+
   # ── Marketing website (static, single-page) ─────────────────────────────────
   # Public landing site built from website/. Owns www.observeagents.ai (attach
   # in the Render dashboard); the apex redirects to www. The app's canonical
@@ -62,6 +87,9 @@ services:
   # ── Public demo (demo.observeagents.ai) ─────────────────────────────────────
   # Separate service + separate disk/DB. No login, synthetic data, read-only.
   # This is the ONLY place DEMO_MODE=true is set.
+  # VITE_PRODUCT_SURFACE is intentionally unset here: the demo ships the blended
+  # "combined" showcase surface so visitors can walk both products. Combined is
+  # demo/transition-only — production targets always set an explicit surface.
   - type: web
     name: ai-asset-demo
     runtime: python
