@@ -40,8 +40,9 @@ const _clean = (v, fallback) => {
   return raw || fallback;
 };
 
-// Primary production app lives at the apex domain (observeagents.ai), NOT app.*.
-export const PUBLIC_APP_URL     = _clean(import.meta.env.VITE_PUBLIC_APP_URL,     "https://observeagents.ai");
+// The app's canonical address is app.observeagents.ai; the apex redirects to
+// www.observeagents.ai (marketing site).
+export const PUBLIC_APP_URL     = _clean(import.meta.env.VITE_PUBLIC_APP_URL,     "https://app.observeagents.ai");
 export const PUBLIC_GATEWAY_URL  = _clean(import.meta.env.VITE_PUBLIC_GATEWAY_URL, "https://gateway.observeagents.ai");
 export const PUBLIC_DEMO_URL     = _clean(import.meta.env.VITE_PUBLIC_DEMO_URL,    "https://demo.observeagents.ai");
 export const PUBLIC_API_URL      = _clean(import.meta.env.VITE_PUBLIC_API_URL,     "https://api.observeagents.ai");

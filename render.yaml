@@ -17,14 +17,15 @@ services:
         value: production
       - key: DEMO_MODE
         value: "false"
-      # Apex domain is the canonical customer-facing app URL (NOT app.*).
-      # app.observeagents.ai stays CORS-allowed via config.PUBLIC_ORIGINS.
+      # Domain swap: app.observeagents.ai is the canonical app URL; the apex
+      # redirects to www.observeagents.ai (marketing static site). The apex
+      # stays CORS-allowed via config.PUBLIC_ORIGINS during propagation.
       - key: PUBLIC_APP_URL
-        value: https://observeagents.ai
+        value: https://app.observeagents.ai
       - key: PUBLIC_GATEWAY_URL
         value: https://gateway.observeagents.ai
       - key: PUBLIC_MARKETING_URL
-        value: https://observeagents.ai
+        value: https://www.observeagents.ai
       - key: JWT_SECRET
         generateValue: true
       - key: GUARD_MODE
@@ -49,9 +50,9 @@ services:
         sync: false
 
   # ── Marketing website (static, single-page) ─────────────────────────────────
-  # Public landing site built from website/. Attach the domain manually in the
-  # Render dashboard (e.g. www.observeagents.ai) — the apex currently serves the
-  # app, so choosing which host gets the site is a deliberate decision.
+  # Public landing site built from website/. Owns www.observeagents.ai (attach
+  # in the Render dashboard); the apex redirects to www. The app's canonical
+  # address is app.observeagents.ai.
   - type: web
     name: observeagents-website
     runtime: static
@@ -81,7 +82,7 @@ services:
       - key: PUBLIC_GATEWAY_URL
         value: https://demo.observeagents.ai
       - key: PUBLIC_MARKETING_URL
-        value: https://observeagents.ai
+        value: https://www.observeagents.ai
       - key: JWT_SECRET
         generateValue: true
       - key: GUARD_MODE

@@ -17,7 +17,8 @@ ObserveAgents discovers AI systems from runtime evidence (OpenTelemetry traces a
 - **Integrations** — discovery and evidence sources: OTel/OTLP and the gateway today; GitHub, Jira, Slack, n8n, MCP next
 - **Demo seed data** — one command (`python scripts/seed_demo_data.py`) seeds a realistic five-system demo
 
-- Dashboard: https://observeagents.ai
+- Website: https://www.observeagents.ai
+- Dashboard: https://app.observeagents.ai
 - Gateway: https://gateway.observeagents.ai
 
 > Hosting note: the platform is also reachable at the Render fallback URL (`https://ai-asset-app.onrender.com`); the custom domains above are canonical.
