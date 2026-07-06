@@ -72,21 +72,23 @@ function ObservabilitySetup() {
       </SetupStep>
 
       <SetupStep n={2} title="Point your OpenTelemetry exporter at Observe">
-        Observe accepts <strong style={{ color: T.text }}>OTLP/HTTP JSON</strong> at{" "}
-        <code style={{ fontFamily: FONT_MONO, color: T.accent, fontSize: 11 }}>POST /otel/v1/traces</code>.
+        Observe accepts <strong style={{ color: T.text }}>OTLP/HTTP JSON and protobuf</strong> at{" "}
+        <code style={{ fontFamily: FONT_MONO, color: T.accent, fontSize: 11 }}>POST /otel/v1/traces</code> —
+        most SDKs (including Python and OpenLLMetry-style instrumentation) can point directly at Observe,
+        no Collector required. Traces only for now; metrics/logs ingestion is on the roadmap.
         <StaticCode label="Exporter environment variables" code={`OTEL_EXPORTER_OTLP_ENDPOINT=${appUrl}/otel
 OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer gk-<your-api-key>
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 OTEL_SERVICE_NAME=my-agent
 OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,team=my-team`} />
       </SetupStep>
 
-      <SetupStep n={3} title="Use a Collector for protobuf SDKs">
-        Most language SDKs export protobuf, which Observe rejects with 415. Route them through an
-        OpenTelemetry Collector that re-encodes to JSON:
+      <SetupStep n={3} title="Optional: route through a Collector for enterprise setups">
+        Direct export is the fastest start. Use an OpenTelemetry Collector when you want
+        buffering, retries, processing, or one routing point for many services:
         <StaticCode label="otel-collector.yaml (exporter section)" color={T.purple} code={`exporters:
   otlphttp/observeagents:
     endpoint: ${appUrl}/otel     # exporter appends /v1/traces
-    encoding: json                          # REQUIRED
     headers:
       Authorization: "Bearer gk-<your-api-key>"`} />
       </SetupStep>
@@ -477,11 +479,15 @@ export OPENAI_BASE_URL=GATEWAY_URL/v1`,
             <div style={{ fontSize:12, color:T.textDim, lineHeight:1.7, marginBottom:10 }}>
               Already instrumented with OTel? Point your exporter at{" "}
               <code style={{ fontFamily:FONT_MONO, color:T.accent, fontSize:11 }}>POST {gatewayUrl.replace(/\/v1$/, "")}/otel/v1/traces</code>{" "}
-              and AI systems, dependencies, and execution timelines appear automatically. Prompt and response content is never stored.
+              and AI systems, dependencies, and execution timelines appear automatically.{" "}
+              <strong style={{ color:T.text }}>Both OTLP/HTTP JSON and protobuf are accepted</strong> — most SDKs
+              (including Python and OpenLLMetry-style instrumentation) can send directly, no Collector required.
+              Prompt and response content is never stored.
             </div>
             <pre style={{ margin:0, padding:"10px 12px", background:T.panel, border:`1px solid ${T.border}`, borderRadius:6, fontFamily:FONT_MONO, fontSize:11, color:T.textDim, overflowX:"auto" }}>
 {`OTEL_EXPORTER_OTLP_ENDPOINT=${gatewayUrl.replace(/\/v1$/, "")}/otel
 OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer gk-<your-api-key>
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 OTEL_SERVICE_NAME=my-agent
 OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production`}
             </pre>

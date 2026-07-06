@@ -48,7 +48,7 @@
 
 ### מסלול A — אתם כבר משתמשים ב-OpenTelemetry
 
-אם שירות ה-AI שלכם כבר פולט OTel traces, פשוט מכוונים את ה-pipeline הקיים אל Observe. **חשוב: נקודת הקצה מקבלת OTLP/HTTP בפורמט JSON בלבד — protobuf נדחה.** המשמעות לפי סטאק:
+אם שירות ה-AI שלכם כבר פולט OTel traces, פשוט מכוונים את ה-pipeline הקיים אל Observe. **נקודת הקצה מקבלת גם OTLP/HTTP JSON וגם protobuf**, כך שרוב ה-SDKs יכולים לשלוח ישירות; ה-Collector נשאר המסלול המומלץ לארגונים. המשמעות לפי סטאק:
 
 **דרך OpenTelemetry Collector (מומלץ — עובד לכל שפה):**
 
@@ -56,7 +56,7 @@
 exporters:
   otlphttp/observeagents:
     endpoint: "https://<your-observeagents-url>/otel"
-    encoding: json          # חובה — Observe מקבל OTLP JSON, לא protobuf
+    encoding: json          # מוצג json; Observe מקבל כעת גם protobuf ישירות
     headers:
       Authorization: "Bearer gk-<your-api-key>"
 
@@ -79,7 +79,7 @@ const exporter = new OTLPTraceExporter({
 });
 ```
 
-**Python ושפות אחרות שה-exporter שלהן שולח protobuf:** נתבו דרך תצורת ה-Collector שלמעלה — הוא ממיר ל-JSON עבורכם.
+**Python ושפות אחרות שה-exporter שלהן שולח protobuf:** אפשר לכוון ישירות אל Observe (`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`), או לנתב דרך ה-Collector שלמעלה לניתוב ועיבוד ארגוני.
 
 ### מסלול B — אין OTel, אבל אתם קוראים ל-API בסגנון OpenAI/Anthropic
 
@@ -285,7 +285,7 @@ curl https://gateway.observeagents.ai/v1/chat/completions \
 | תסמין | סיבה סבירה |
 |---|---|
 | `401` על `/otel/v1/traces` | כותרת `Authorization: Bearer gk-…` חסרה/שגויה ב-exporter/Collector |
-| `415 Content-Type must be application/json` | ה-exporter שולח protobuf — נתבו דרך Collector עם `encoding: json` |
+| `415 Unsupported Content-Type` | ה-Content-Type אינו JSON ואינו protobuf — בדקו את הגדרת הפרוטוקול של ה-exporter |
 | traces מגיעים אבל המערכת נקראת `observed-ai-system:…` | חסר resource attribute בשם `service.name` — הגדירו אותו |
 | Runtime מציג traces אבל Asset Intelligence ריק | לחצו **▶ Run Intelligence** (הגזירה מופעלת לפי דרישה) |
 | ה-gateway מחזיר `424 provider_not_configured` | הוסיפו מפתח ספק תחת Settings → Organization AI Providers (שלב 0.4) |

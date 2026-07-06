@@ -48,7 +48,7 @@ Pick **one** AI service to start with. Two paths — use whichever matches your 
 
 ### Path A — You already use OpenTelemetry
 
-If your AI service already emits OTel traces, you point your existing pipeline at Observe. **Important: the endpoint accepts OTLP/HTTP JSON only — protobuf is rejected.** What that means per stack:
+If your AI service already emits OTel traces, you point your existing pipeline at Observe. **The endpoint accepts both OTLP/HTTP JSON and OTLP/HTTP protobuf**, so most SDKs can post directly; the Collector remains the recommended enterprise path. What that means per stack:
 
 **Via an OpenTelemetry Collector (recommended — works for every language):**
 
@@ -56,7 +56,7 @@ If your AI service already emits OTel traces, you point your existing pipeline a
 exporters:
   otlphttp/observeagents:
     endpoint: "https://<your-observeagents-url>/otel"
-    encoding: json          # required — Observe accepts OTLP JSON, not protobuf
+    encoding: json          # json shown; Observe also accepts protobuf directly
     headers:
       Authorization: "Bearer gk-<your-api-key>"
 
@@ -79,7 +79,7 @@ const exporter = new OTLPTraceExporter({
 });
 ```
 
-**Python and other languages whose OTLP/HTTP exporters send protobuf:** route through the Collector config above — it transcodes to JSON for you.
+**Python and other languages whose OTLP/HTTP exporters send protobuf:** point them directly at Observe (`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`), or route through the Collector above for enterprise routing and processing.
 
 ### Path B — No OTel, but you call OpenAI/Anthropic-compatible APIs
 
@@ -285,7 +285,7 @@ As systems connect, **Discovery Center** shows newly observed systems awaiting r
 | Symptom | Likely cause |
 |---|---|
 | `401` on `/otel/v1/traces` | Missing/wrong `Authorization: Bearer gk-…` header on the exporter/Collector |
-| `415 Content-Type must be application/json` | Your exporter sends protobuf — route through a Collector with `encoding: json` |
+| `415 Unsupported Content-Type` | Content-Type is neither JSON nor protobuf — check the exporter's protocol setting |
 | Traces arrive but system is named `observed-ai-system:…` | No `service.name` resource attribute — set it |
 | Runtime shows traces but Asset Intelligence is empty | Click **▶ Run Intelligence** (derivation is on-demand) |
 | Gateway returns `424 provider_not_configured` | Add the provider key under Settings → Organization AI Providers (Phase 0.4) |

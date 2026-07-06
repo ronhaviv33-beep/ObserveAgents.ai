@@ -352,3 +352,59 @@ def test_org_isolation():
         assert trace_id not in {t["trace_id"] for t in resp.json()}
     finally:
         db.close()
+
+
+def test_session_id_groups_traces():
+    """Traces carrying session.id (Claude Code) or gen_ai.conversation.id
+    (SemConv) expose session_id in the list and detail APIs."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "sess")
+        session = uuid.uuid4().hex
+
+        # Two traces in the same session (session.id on the root span)
+        trace_ids = []
+        for i in range(2):
+            trace_id = uuid.uuid4().hex
+            root_id = uuid.uuid4().hex[:16]
+            spans = [
+                _otlp_span(trace_id, root_id, "claude_code.interaction",
+                           attrs={"session.id": session}),
+            ]
+            resp = _post_spans(token, spans, "sess-agent")
+            assert resp.status_code == 202, resp.text
+            trace_ids.append(trace_id)
+
+        # One trace with the SemConv key on a child span (root has none)
+        conv_trace = uuid.uuid4().hex
+        root_id = uuid.uuid4().hex[:16]
+        child_id = uuid.uuid4().hex[:16]
+        spans = [
+            _otlp_span(conv_trace, root_id, "agent.request"),
+            _otlp_span(conv_trace, child_id, "llm.chat", parent_span_id=root_id,
+                       attrs={"gen_ai.conversation.id": "conv-42"}),
+        ]
+        resp = _post_spans(token, spans, "sess-agent")
+        assert resp.status_code == 202, resp.text
+
+        # One trace with no session at all
+        solo_trace = uuid.uuid4().hex
+        spans = [_otlp_span(solo_trace, uuid.uuid4().hex[:16], "agent.request")]
+        resp = _post_spans(token, spans, "sess-agent")
+        assert resp.status_code == 202, resp.text
+
+        resp = _get(token, "/runtime/traces")
+        assert resp.status_code == 200
+        by_id = {t["trace_id"]: t for t in resp.json()}
+        assert by_id[trace_ids[0]]["session_id"] == session
+        assert by_id[trace_ids[1]]["session_id"] == session
+        assert by_id[conv_trace]["session_id"] == "conv-42"
+        assert by_id[solo_trace]["session_id"] is None
+
+        # Detail endpoint carries it too
+        resp = _get(token, f"/runtime/traces/{trace_ids[0]}")
+        assert resp.status_code == 200
+        assert resp.json()["session_id"] == session
+    finally:
+        db.close()

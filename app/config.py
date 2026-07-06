@@ -63,18 +63,19 @@ def is_demo_mode() -> bool:
 
 
 # ── Public URLs ───────────────────────────────────────────────────────────────
-# Primary production app lives at the apex domain (observeagents.ai), NOT app.*.
-PUBLIC_APP_URL      = _clean(os.getenv("PUBLIC_APP_URL"),      "https://observeagents.ai")
+# Domain layout: the marketing site owns www.observeagents.ai (apex redirects
+# to it); the production app's canonical address is app.observeagents.ai.
+PUBLIC_APP_URL      = _clean(os.getenv("PUBLIC_APP_URL"),      "https://app.observeagents.ai")
 PUBLIC_GATEWAY_URL  = _clean(os.getenv("PUBLIC_GATEWAY_URL"),  "https://gateway.observeagents.ai")
 PUBLIC_DEMO_URL     = _clean(os.getenv("PUBLIC_DEMO_URL"),     "https://demo.observeagents.ai")
 PUBLIC_API_URL      = _clean(os.getenv("PUBLIC_API_URL"),      "https://api.observeagents.ai")
-PUBLIC_MARKETING_URL = _clean(os.getenv("PUBLIC_MARKETING_URL"), "https://observeagents.ai")
+PUBLIC_MARKETING_URL = _clean(os.getenv("PUBLIC_MARKETING_URL"), "https://www.observeagents.ai")
 RENDER_FALLBACK_URL = _clean(os.getenv("RENDER_FALLBACK_URL"), "https://ai-asset-app.onrender.com")
 
 # The canonical public origins that should always be allowed by CORS, in
 # addition to any explicit FRONTEND_ORIGIN entries and local dev origins.
-# app.observeagents.ai is kept allow-listed (its cert was issued) even though
-# the apex domain is now canonical for customer-facing copy.
+# The apex stays allow-listed during the www/app domain swap — requests may
+# still arrive from it while DNS propagates.
 PUBLIC_ORIGINS = [
     PUBLIC_APP_URL,
     "https://observeagents.ai",

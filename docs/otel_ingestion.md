@@ -1,6 +1,6 @@
 # OTel GenAI Trace Ingestion
 
-ObserveAgents.ai accepts OpenTelemetry traces via OTLP/HTTP JSON. This is an additional discovery path alongside the proxy gateway — agents that emit OTel spans are automatically catalogued, their model/tool/API dependencies are mapped, and provenance events are recorded for audit.
+ObserveAgents.ai accepts OpenTelemetry traces via OTLP/HTTP — **JSON and protobuf**. This is an additional discovery path alongside the proxy gateway — agents that emit OTel spans are automatically catalogued, their model/tool/API dependencies are mapped, and provenance events are recorded for audit.
 
 ---
 
@@ -8,11 +8,26 @@ ObserveAgents.ai accepts OpenTelemetry traces via OTLP/HTTP JSON. This is an add
 
 ```
 POST /otel/v1/traces
-Content-Type: application/json
-Authorization: Bearer <token>  |  Authorization: Bearer gk-<api-key>
+Content-Type: application/json  |  application/x-protobuf
+Authorization: Bearer <token>   |  Authorization: Bearer gk-<api-key>
 ```
 
-Protobuf is not supported. gRPC is not supported.
+**Both OTLP/HTTP encodings are accepted at the same endpoint:**
+
+| Content-Type | Encoding |
+|---|---|
+| `application/json` (charset params allowed; missing content-type treated as JSON) | OTLP/HTTP JSON |
+| `application/x-protobuf`, `application/protobuf`, `application/vnd.google.protobuf` | OTLP/HTTP protobuf (`ExportTraceServiceRequest`) |
+
+Anything else returns `415`. gRPC is not supported. **Traces only** — metrics/logs
+payloads posted here return `400` with a clear message; metrics/logs ingestion is
+a separate roadmap item. A valid envelope with zero spans is accepted (`202`)
+with zero counts on both encodings. Privacy behavior is identical for JSON and
+protobuf — both feed the same scrub pipeline. Protobuf span links are ignored.
+
+Positioning: **direct protobuf is for fast developer onboarding** (point an SDK
+straight at Observe); the **Collector remains the recommended enterprise path**
+for routing, processing, retries, and multi-destination export.
 
 ---
 
@@ -145,7 +160,7 @@ Observe follows the [OpenTelemetry GenAI Semantic Conventions](https://github.co
 
 Three things to know up front:
 
-- **Observe accepts OTLP/HTTP JSON** (protobuf is rejected with `415` — route SDK exporters through a Collector with `encoding: json`).
+- **Observe accepts OTLP/HTTP JSON and OTLP/HTTP protobuf** at the same endpoint — SDK exporters that emit protobuf (Python, OpenLLMetry, …) can point directly at Observe; the Collector path still works and is recommended for enterprise routing.
 - **`gen_ai.provider.name` is the preferred provider attribute.** `gen_ai.system` (deprecated upstream) is still fully supported for backward compatibility.
 - **Raw prompt/response/tool content is scrubbed at ingestion and should not be sent intentionally** — see the privacy guarantee below.
 
@@ -284,6 +299,9 @@ Do not send these attributes intentionally — if they arrive, they are redacted
 - `gen_ai.tool.call.result`
 - `tool.arguments`
 - `tool.result`
+- `prompt`, `response`, `messages` (bare content attribute names some instrumentations emit)
+- `traceloop.entity.input` / `traceloop.entity.output` (legacy OpenLLMetry entity content)
+- `gen_ai.prompt.<n>.*` / `gen_ai.completion.<n>.*` (legacy OpenLLMetry numbered content attributes; `gen_ai.prompt.name` / `gen_ai.prompt.version` remain safe metadata)
 - `gen_ai.prompt.variable.*` (values dropped entirely; variable *names* are kept as `gen_ai.prompt.variables`)
 
 For each redacted field, only this metadata is stored:
@@ -309,6 +327,28 @@ Per-organization content capture opt-in is planned for a future release.
 ---
 
 ## Exporter configuration
+
+### Direct OTLP protobuf quick start
+
+SDKs whose OTLP/HTTP exporters emit protobuf (Python, OpenLLMetry/Traceloop-style
+instrumentation, and most language SDKs by default) can now point **directly**
+at Observe — no Collector required for a first integration:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=https://YOUR_OBSERVE_HOST/otel
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer gk-<your-api-key>
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_SERVICE_NAME=my-agent
+```
+
+Exact syntax varies by SDK — some take the full traces URL
+(`https://YOUR_OBSERVE_HOST/otel/v1/traces`) in a traces-specific variable, and
+framework instrumentations like OpenLLMetry accept an `api_endpoint`-style
+argument at init. Traces only: metrics/logs export must stay pointed elsewhere
+until Observe's metrics ingestion ships.
+
+Use direct protobuf for fast onboarding; use the Collector below when you want
+enterprise routing, batching/retries, processing, or multi-destination export.
 
 ### Environment variables (any OTel SDK)
 

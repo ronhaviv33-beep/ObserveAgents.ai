@@ -746,6 +746,9 @@ class AssetFinding(Base):
     evidence_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="open", index=True)
+    # How many underlying occurrences (e.g. slow spans) this single finding represents.
+    # Recomputed absolutely on every intelligence run, never incremented.
+    occurrence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(

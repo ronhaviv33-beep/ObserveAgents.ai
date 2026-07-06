@@ -83,6 +83,9 @@ def _upsert_capability(
             last_seen=now,
         )
         db.add(row)
+        # Session runs with autoflush=False: flush so the next dedup query
+        # in the same run can see this row.
+        db.flush()
         return (True, False)
     row.last_seen = now
     row.updated_at = now
@@ -102,6 +105,8 @@ def _upsert_finding(
     source: str,
     now: datetime,
     evidence: dict | None = None,
+    occurrence_count: int = 1,
+    replace_evidence: bool = False,
 ) -> tuple[bool, bool]:
     row = (
         db.query(AssetFinding)
@@ -127,14 +132,24 @@ def _upsert_finding(
             evidence_json=json.dumps(evidence) if evidence else None,
             source=source,
             status="open",
+            occurrence_count=occurrence_count,
             first_seen=now,
             last_seen=now,
         )
         db.add(row)
+        # Session runs with autoflush=False: flush so the next dedup query
+        # in the same run can see this row.
+        db.flush()
         return (True, False)
     row.last_seen = now
     row.updated_at = now
+    row.occurrence_count = occurrence_count
     if evidence:
+        if replace_evidence:
+            # Aggregated findings recompute their evidence from all spans on
+            # every run — the fresh aggregate is the truth, not a delta.
+            row.evidence_json = json.dumps(evidence)
+            return (False, True)
         existing: dict = {}
         if row.evidence_json:
             try:
@@ -149,8 +164,54 @@ def _upsert_finding(
     return (False, True)
 
 
+def _merge_duplicate_rows(db: Session, org_id: int) -> None:
+    """
+    Collapse duplicate finding/capability rows created before in-run dedup was
+    enforced (the session runs with autoflush=False, so pending inserts were
+    invisible to the dedup query within a single derive run). Keeps the oldest
+    row per dedup key, widens its first_seen/last_seen window, prefers "open"
+    status, and folds the duplicate count into occurrence_count.
+    """
+    find_groups: dict[tuple, list[AssetFinding]] = {}
+    for row in db.query(AssetFinding).filter(AssetFinding.organization_id == org_id).all():
+        find_groups.setdefault(
+            (row.asset_key, row.category, row.finding_type, row.source), []
+        ).append(row)
+    for rows in find_groups.values():
+        if len(rows) < 2:
+            continue
+        rows.sort(key=lambda r: r.id)
+        keep = rows[0]
+        keep.first_seen = min(r.first_seen for r in rows)
+        keep.last_seen = max(r.last_seen for r in rows)
+        if any(r.status == "open" for r in rows):
+            keep.status = "open"
+        keep.occurrence_count = max(keep.occurrence_count or 1, len(rows))
+        for extra in rows[1:]:
+            db.delete(extra)
+
+    cap_groups: dict[tuple, list[AssetCapability]] = {}
+    for row in db.query(AssetCapability).filter(AssetCapability.organization_id == org_id).all():
+        cap_groups.setdefault(
+            (row.asset_key, row.capability_type, row.capability_name, row.source), []
+        ).append(row)
+    for rows in cap_groups.values():
+        if len(rows) < 2:
+            continue
+        rows.sort(key=lambda r: r.id)
+        keep = rows[0]
+        keep.first_seen = min(r.first_seen for r in rows)
+        keep.last_seen = max(r.last_seen for r in rows)
+        for extra in rows[1:]:
+            db.delete(extra)
+
+    db.flush()
+
+
 def derive_asset_intelligence(db: Session, org_id: int) -> dict:
     caps_created = caps_updated = finds_created = finds_updated = 0
+
+    _merge_duplicate_rows(db, org_id)
 
     otel_assets = db.query(OtelAsset).filter(OtelAsset.organization_id == org_id).all()
     registry_by_id = {
@@ -328,14 +389,51 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
             finds_created += c
             finds_updated += u
 
-    # span-based performance and operations findings
+    # span-based performance and operations findings — accumulated in memory
+    # first so each dedup key becomes exactly one row per run, carrying an
+    # occurrence_count instead of one row per matching span.
+    finding_acc: dict[tuple[str, str, str], dict] = {}
+    mcp_cap_acc: dict[tuple[str, str], dict] = {}
+
+    def _acc_find(
+        asset_key: str,
+        asset_id: int | None,
+        category: str,
+        finding_type: str,
+        severity: str,
+        title: str,
+        summary: str,
+        span_id: str | None,
+        duration_ms: float | None = None,
+        error_type: str | None = None,
+        mcp_method: str | None = None,
+    ) -> None:
+        key = (asset_key, category, finding_type)
+        agg = finding_acc.get(key)
+        if agg is None:
+            agg = finding_acc[key] = {
+                "asset_id": asset_id, "severity": severity,
+                "title": title, "summary": summary,
+                "count": 0, "span_ids": [],
+                "max_duration_ms": None,
+                "error_types": set(), "mcp_methods": set(),
+            }
+        agg["count"] += 1
+        if span_id and len(agg["span_ids"]) < 5:
+            agg["span_ids"].append(span_id)
+        if duration_ms is not None:
+            agg["max_duration_ms"] = max(agg["max_duration_ms"] or 0, duration_ms)
+        if error_type:
+            agg["error_types"].add(str(error_type))
+        if mcp_method:
+            agg["mcp_methods"].add(str(mcp_method))
+
     spans = db.query(OtelSpan).filter(OtelSpan.organization_id == org_id).all()
     for span in spans:
         asset_key = svc_to_key.get(span.service_name)
         if not asset_key:
             continue
         asset_id = svc_to_asset_id.get(span.service_name)
-        now = datetime.now(timezone.utc)
 
         attrs: dict = {}
         if span.attributes_json:
@@ -349,47 +447,38 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
             is_llm = any(k.startswith("gen_ai.") for k in attrs)
             is_tool = any(k.startswith("tool.") for k in attrs)
             if is_llm and dur >= 10000:
-                finding_type = "slow_llm_call"
-                title = "Slow LLM Call Detected"
-                summary = "An LLM call for this service exceeded 10,000 ms."
+                _acc_find(asset_key, asset_id, "performance", "slow_llm_call", "medium",
+                          "Slow LLM Call Detected",
+                          "An LLM call for this service exceeded 10,000 ms.",
+                          span.span_id, duration_ms=dur)
             elif is_tool:
-                finding_type = "slow_tool_call"
-                title = "Slow Tool Call Detected"
-                summary = "A tool call for this service exceeded 5,000 ms."
+                _acc_find(asset_key, asset_id, "performance", "slow_tool_call", "medium",
+                          "Slow Tool Call Detected",
+                          "A tool call for this service exceeded 5,000 ms.",
+                          span.span_id, duration_ms=dur)
             else:
-                finding_type = "slow_runtime_step"
-                title = "Slow Runtime Step Detected"
-                summary = "A workflow step for this service exceeded 5,000 ms."
-            c, u = _upsert_finding(
-                db, org_id, asset_id, asset_key, "performance", finding_type, "medium",
-                title, summary, "otel_trace", now,
-                evidence={"span_id": span.span_id, "duration_ms": dur},
-            )
-            finds_created += c
-            finds_updated += u
+                _acc_find(asset_key, asset_id, "performance", "slow_runtime_step", "medium",
+                          "Slow Runtime Step Detected",
+                          "A workflow step for this service exceeded 5,000 ms.",
+                          span.span_id, duration_ms=dur)
 
         # MCP telemetry (mcp.method.name is the SemConv marker for MCP spans)
         mcp_method = attrs.get("mcp.method.name")
         if mcp_method:
             cap_name = extract_tool_name(attrs) or str(mcp_method)
-            c, u = _upsert_capability(
-                db, org_id, asset_id, asset_key, "mcp", cap_name, "otel_trace", now,
-                evidence={"mcp.method.name": mcp_method,
-                          "mcp.protocol.version": attrs.get("mcp.protocol.version")},
-            )
-            caps_created += c
-            caps_updated += u
+            cap_key = (asset_key, cap_name)
+            if cap_key not in mcp_cap_acc:
+                mcp_cap_acc[cap_key] = {
+                    "asset_id": asset_id,
+                    "evidence": {"mcp.method.name": mcp_method,
+                                 "mcp.protocol.version": attrs.get("mcp.protocol.version")},
+                }
             env = (svc_to_env.get(span.service_name) or "").lower()
             if env in ("production", "prod"):
-                c, u = _upsert_finding(
-                    db, org_id, asset_id, asset_key, "security", "mcp_tool_access", "medium",
-                    "MCP Tool Access in Production",
-                    "This AI system invokes MCP tools in a production environment.",
-                    "otel_trace", now,
-                    evidence={"span_id": span.span_id, "mcp.method.name": mcp_method},
-                )
-                finds_created += c
-                finds_updated += u
+                _acc_find(asset_key, asset_id, "security", "mcp_tool_access", "medium",
+                          "MCP Tool Access in Production",
+                          "This AI system invokes MCP tools in a production environment.",
+                          span.span_id, mcp_method=str(mcp_method))
 
         # Errors: OTLP status ERROR or SemConv error.type / JSON-RPC error code.
         error_type = extract_error_type(attrs, span.status_code)
@@ -410,14 +499,34 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
                 finding_type = "runtime_error"
                 title = "Runtime Errors Detected"
                 summary = "This service has logged spans with error status."
-            c, u = _upsert_finding(
-                db, org_id, asset_id, asset_key, "operations", finding_type, "medium",
-                title, summary, "otel_trace", now,
-                evidence={"span_id": span.span_id, "status_code": span.status_code,
-                          "error.type": error_type},
-            )
-            finds_created += c
-            finds_updated += u
+            _acc_find(asset_key, asset_id, "operations", finding_type, "medium",
+                      title, summary, span.span_id, error_type=error_type)
+
+    now = datetime.now(timezone.utc)
+
+    for (asset_key, cap_name), cap_agg in mcp_cap_acc.items():
+        c, u = _upsert_capability(
+            db, org_id, cap_agg["asset_id"], asset_key, "mcp", cap_name,
+            "otel_trace", now, evidence=cap_agg["evidence"],
+        )
+        caps_created += c
+        caps_updated += u
+
+    for (asset_key, category, finding_type), agg in finding_acc.items():
+        evidence: dict = {"span_count": agg["count"], "sample_span_ids": agg["span_ids"]}
+        if agg["max_duration_ms"] is not None:
+            evidence["max_duration_ms"] = agg["max_duration_ms"]
+        if agg["error_types"]:
+            evidence["error_types"] = sorted(agg["error_types"])
+        if agg["mcp_methods"]:
+            evidence["mcp_methods"] = sorted(agg["mcp_methods"])
+        c, u = _upsert_finding(
+            db, org_id, agg["asset_id"], asset_key, category, finding_type,
+            agg["severity"], agg["title"], agg["summary"], "otel_trace", now,
+            evidence=evidence, occurrence_count=agg["count"], replace_evidence=True,
+        )
+        finds_created += c
+        finds_updated += u
 
     db.commit()
 

@@ -334,7 +334,7 @@ OBSERVE_GATEWAY_API_KEY=gk-<your-api-key>
 
 ### 6.3 Start an OpenTelemetry Collector
 
-**Why a Collector is required:** Observe's OTLP endpoint accepts **JSON only** — direct protobuf posts are rejected with `415`. Most OTel SDK exporters (including Python's) send protobuf. The Collector bridges the two: your agents send protobuf to the Collector locally, and the Collector forwards **OTLP/HTTP JSON** to Observe.
+**Why the Collector (recommended, no longer required):** Observe now accepts **both OTLP/HTTP JSON and protobuf**, so agents can post directly. The Collector remains the recommended path for this simulation because it mirrors an enterprise rollout: local buffering, retries, and one place to route every agent's telemetry.
 
 Create `otel-collector.yaml`:
 
@@ -352,7 +352,7 @@ exporters:
     # The exporter appends /v1/traces automatically,
     # so this must end with /otel (NOT /otel/v1/traces).
     endpoint: ${env:OBSERVE_URL}/otel
-    encoding: json          # REQUIRED — Observe rejects protobuf with 415
+    encoding: json          # json shown; Observe also accepts protobuf directly
     headers:
       Authorization: "Bearer ${env:OBSERVE_API_KEY}"
 

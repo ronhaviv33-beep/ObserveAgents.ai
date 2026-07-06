@@ -36,7 +36,30 @@ REDACTED_KEYS: frozenset[str] = frozenset({
     "gen_ai.tool.call.result",
     "tool.arguments",
     "tool.result",
+    # bare content attribute names some instrumentations emit
+    "prompt",
+    "response",
+    "messages",
+    # legacy Traceloop/OpenLLMetry entity content attributes
+    "traceloop.entity.input",
+    "traceloop.entity.output",
 })
+
+# Legacy OpenLLMetry numbered content attributes: gen_ai.prompt.0.content,
+# gen_ai.completion.0.role, ... — anything under gen_ai.prompt.<n>. or
+# gen_ai.completion.<n>. is raw content. NOTE: gen_ai.prompt.name and
+# gen_ai.prompt.version are safe metadata and must keep passing through —
+# the digit check below guarantees that.
+_LEGACY_CONTENT_PREFIXES = ("gen_ai.prompt.", "gen_ai.completion.")
+
+
+def _is_legacy_content_key(key: str) -> bool:
+    for prefix in _LEGACY_CONTENT_PREFIXES:
+        if key.startswith(prefix):
+            rest = key[len(prefix):]
+            if rest and rest[0].isdigit():
+                return True
+    return False
 
 # Keys whose redaction metadata includes argument_keys (schema without values)
 _ARGUMENT_KEYS: frozenset[str] = frozenset({
@@ -72,7 +95,7 @@ def scrub_attributes(attrs: dict) -> dict:
         if key.startswith(_PROMPT_VARIABLE_PREFIX):
             prompt_variable_names.append(key[len(_PROMPT_VARIABLE_PREFIX):])
             continue
-        if key in REDACTED_KEYS:
+        if key in REDACTED_KEYS or _is_legacy_content_key(key):
             sha256_hex, size = _hash_and_size(value)
             meta: dict = {"redacted": True, "sha256": sha256_hex, "size_bytes": size}
             if isinstance(value, list):

@@ -213,7 +213,7 @@ def test_alembic_upgrade_completes_on_create_all_db():
 
     with side_engine.connect() as c:
         version = c.execute(sa.text("SELECT version_num FROM alembic_version")).scalar()
-    assert version == "d5e6f7a8b9c0"
+    assert version == "e6f7a8b9c0d1"
     side_engine.dispose()
     os.unlink(side_db)
 

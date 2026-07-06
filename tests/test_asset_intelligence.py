@@ -14,6 +14,9 @@ Tests:
   10. Dismiss a finding
   11. Resolve a finding
   12. Org isolation — org B has no capabilities or findings from org A's spans
+  13. Many slow spans in one run → single finding with occurrence_count
+  14. Many MCP spans in one run → single capability
+  15. Merge pass heals duplicate rows created by the pre-fix bug
 """
 from __future__ import annotations
 
@@ -734,5 +737,151 @@ def test_org_isolation():
         ).count()
         assert b_caps == 0
         assert b_finds == 0
+    finally:
+        db.close()
+
+
+def test_many_slow_spans_one_run_single_finding_with_count():
+    """N slow spans in a single run collapse into one finding carrying
+    occurrence_count — the in-run dedup that autoflush=False used to break."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "manyslow")
+        start = 1_700_000_000_000_000_000
+        for i in range(4):
+            payload = _make_span(
+                trace_id=uuid.uuid4().hex,
+                span_id=uuid.uuid4().hex[:16],
+                name=f"step-{i}",
+                attrs={},
+                resource_attrs={"service.name": "many-slow-agent"},
+                start_nano=start,
+                end_nano=start + (6 + i) * 1_000_000_000,  # 6..9 seconds
+            )
+            resp = _post_traces(token, payload)
+            assert resp.status_code == 202
+
+        resp = _run_intelligence(token)
+        assert resp.status_code == 200
+
+        findings = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org.id,
+            AssetFinding.finding_type == "slow_runtime_step",
+        ).all()
+        assert len(findings) == 1
+        assert findings[0].occurrence_count == 4
+        evidence = json.loads(findings[0].evidence_json)
+        assert evidence["span_count"] == 4
+        assert len(evidence["sample_span_ids"]) == 4
+        assert evidence["max_duration_ms"] >= 9000
+
+        # Idempotent: a second run keeps one row with the same count
+        resp = _run_intelligence(token)
+        assert resp.status_code == 200
+        db.expire_all()
+        findings = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org.id,
+            AssetFinding.finding_type == "slow_runtime_step",
+        ).all()
+        assert len(findings) == 1
+        assert findings[0].occurrence_count == 4
+
+        # API exposes the count
+        resp = _client.get(
+            "/intelligence/findings",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        row = next(f for f in resp.json() if f["finding_type"] == "slow_runtime_step")
+        assert row["occurrence_count"] == 4
+    finally:
+        db.close()
+
+
+def test_many_mcp_spans_one_run_single_capability():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "manymcp")
+        for i in range(3):
+            payload = _make_span(
+                trace_id=uuid.uuid4().hex,
+                span_id=uuid.uuid4().hex[:16],
+                name=f"mcp-call-{i}",
+                attrs={"mcp.method.name": "tools/call", "gen_ai.tool.name": "jira_search"},
+                resource_attrs={"service.name": "many-mcp-agent"},
+            )
+            resp = _post_traces(token, payload)
+            assert resp.status_code == 202
+
+        resp = _run_intelligence(token)
+        assert resp.status_code == 200
+
+        caps = db.query(AssetCapability).filter(
+            AssetCapability.organization_id == org.id,
+            AssetCapability.capability_type == "mcp",
+        ).all()
+        assert len(caps) == 1
+    finally:
+        db.close()
+
+
+def test_merge_pass_heals_existing_duplicates():
+    """Rows duplicated by the pre-fix bug are merged on the next derive run:
+    oldest row kept, seen-window widened, open status wins, count folded in."""
+    from datetime import datetime, timedelta, timezone as _tz
+
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "heal")
+        t0 = datetime.now(_tz.utc) - timedelta(hours=2)
+        statuses = ["resolved", "open", "open"]
+        for i, status in enumerate(statuses):
+            db.add(AssetFinding(
+                organization_id=org.id,
+                asset_key="deadbeef" * 8,
+                category="performance",
+                finding_type="slow_llm_call",
+                severity="medium",
+                title="Slow LLM Call Detected",
+                summary="An LLM call for this service exceeded 10,000 ms.",
+                source="otel_trace",
+                status=status,
+                first_seen=t0 + timedelta(minutes=i),
+                last_seen=t0 + timedelta(minutes=i),
+            ))
+            db.add(AssetCapability(
+                organization_id=org.id,
+                asset_key="deadbeef" * 8,
+                capability_type="mcp",
+                capability_name="jira_search",
+                source="otel_trace",
+                first_seen=t0 + timedelta(minutes=i),
+                last_seen=t0 + timedelta(minutes=i),
+            ))
+        db.commit()
+
+        resp = _run_intelligence(token)
+        assert resp.status_code == 200
+        db.expire_all()
+
+        findings = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org.id,
+            AssetFinding.finding_type == "slow_llm_call",
+        ).all()
+        assert len(findings) == 1
+        kept = findings[0]
+        assert kept.status == "open"          # any-open wins over the kept row's resolved
+        assert kept.occurrence_count == 3     # duplicate count folded in
+        assert kept.first_seen <= kept.last_seen
+        assert (kept.last_seen - kept.first_seen) >= timedelta(minutes=2)
+
+        caps = db.query(AssetCapability).filter(
+            AssetCapability.organization_id == org.id,
+            AssetCapability.capability_type == "mcp",
+        ).all()
+        assert len(caps) == 1
     finally:
         db.close()

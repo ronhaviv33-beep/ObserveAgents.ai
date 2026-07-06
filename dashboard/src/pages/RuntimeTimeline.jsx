@@ -67,6 +67,7 @@ function TraceWaterfall({ trace, onBack }) {
         </button>
         <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: T.textMute }}>
           trace <span style={{ color: T.text }}>{trace.trace_id.slice(0, 16)}…</span>
+          {trace.session_id && <> · session <span style={{ color: T.text }}>{trace.session_id.slice(0, 8)}</span></>}
         </div>
       </div>
 
@@ -155,9 +156,27 @@ export default function RuntimeTimeline() {
   const byService = serviceFilter === "all" ? traces : traces.filter((t) => t.service_name === serviceFilter);
 
   const { query, setQuery, filtered } = useSearch(byService, (t) =>
-    `${t.trace_id} ${t.root_span_name || ""} ${t.service_name || ""}`);
+    `${t.trace_id} ${t.root_span_name || ""} ${t.service_name || ""} ${t.session_id || ""}`);
   const { sortKey, sortDir, toggle, sort } = useSortable("start_time");
   const rows = sort(filtered, (t, key) => t[key]);
+
+  // Arrange traces by session: consecutive interactions from the same agent
+  // session (session.id / gen_ai.conversation.id) render under one header.
+  // Groups keep the position of their first trace in the current sort order.
+  const groups = useMemo(() => {
+    const out = [];
+    const idx = new Map();
+    rows.forEach((t) => {
+      const key = t.session_id || `solo:${t.trace_id}`;
+      if (!idx.has(key)) {
+        const g = { key, session_id: t.session_id, traces: [] };
+        idx.set(key, g);
+        out.push(g);
+      }
+      idx.get(key).traces.push(t);
+    });
+    return out;
+  }, [rows]);
 
   const stats = useMemo(() => {
     const durations = traces.map((t) => t.duration_ms).filter((d) => d != null);
@@ -231,25 +250,44 @@ export default function RuntimeTimeline() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((t) => (
-                  <tr key={t.trace_id} onClick={() => openTrace(t.trace_id)}
-                    style={{ borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = T.panelHi; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                    <td style={{ padding: "10px 8px", fontSize: 13, color: T.text }}>
-                      {t.root_span_name || <span style={{ color: T.textMute, fontFamily: FONT_MONO }}>{t.trace_id.slice(0, 12)}…</span>}
-                    </td>
-                    <td style={{ padding: "10px 8px", fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>{t.service_name || "—"}</td>
-                    <td style={{ padding: "10px 8px", fontSize: 12, color: T.textDim, fontFamily: FONT_MONO, whiteSpace: "nowrap" }}>{fmtWhen(t.start_time)}</td>
-                    <td style={{ padding: "10px 8px", fontSize: 12, color: T.text, fontFamily: FONT_MONO }}>{fmtMs(t.duration_ms)}</td>
-                    <td style={{ padding: "10px 8px", fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>{t.span_count}</td>
-                    <td style={{ padding: "10px 8px" }}>
-                      {t.error_count > 0
-                        ? <Pill color={T.crit}>{t.error_count} error{t.error_count > 1 ? "s" : ""}</Pill>
-                        : <span style={{ color: T.textMute, fontFamily: FONT_MONO, fontSize: 11 }}>—</span>}
-                    </td>
-                  </tr>
-                ))}
+                {groups.map((g) => {
+                  const grouped = g.session_id && g.traces.length > 1;
+                  const totalMs = g.traces.reduce((s, t) => s + (t.duration_ms || 0), 0);
+                  const starts = g.traces.map((t) => t.start_time).filter(Boolean).sort();
+                  return (
+                    <React.Fragment key={g.key}>
+                      {grouped && (
+                        <tr style={{ background: T.panelHi, borderBottom: `1px solid ${T.border}` }}>
+                          <td colSpan={6} style={{ padding: "8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textDim, letterSpacing: "0.04em" }}>
+                            ⛓ session <span style={{ color: T.text }}>{g.session_id.slice(0, 8)}</span>
+                            {" · "}{g.traces.length} interactions
+                            {" · "}{fmtMs(totalMs)} total
+                            {" · "}{fmtWhen(starts[0])} → {fmtWhen(starts[starts.length - 1])}
+                          </td>
+                        </tr>
+                      )}
+                      {g.traces.map((t) => (
+                        <tr key={t.trace_id} onClick={() => openTrace(t.trace_id)}
+                          style={{ borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = T.panelHi; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                          <td style={{ padding: "10px 8px", paddingLeft: grouped ? 26 : 8, fontSize: 13, color: T.text }}>
+                            {t.root_span_name || <span style={{ color: T.textMute, fontFamily: FONT_MONO }}>{t.trace_id.slice(0, 12)}…</span>}
+                          </td>
+                          <td style={{ padding: "10px 8px", fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>{t.service_name || "—"}</td>
+                          <td style={{ padding: "10px 8px", fontSize: 12, color: T.textDim, fontFamily: FONT_MONO, whiteSpace: "nowrap" }}>{fmtWhen(t.start_time)}</td>
+                          <td style={{ padding: "10px 8px", fontSize: 12, color: T.text, fontFamily: FONT_MONO }}>{fmtMs(t.duration_ms)}</td>
+                          <td style={{ padding: "10px 8px", fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>{t.span_count}</td>
+                          <td style={{ padding: "10px 8px" }}>
+                            {t.error_count > 0
+                              ? <Pill color={T.crit}>{t.error_count} error{t.error_count > 1 ? "s" : ""}</Pill>
+                              : <span style={{ color: T.textMute, fontFamily: FONT_MONO, fontSize: 11 }}>—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -396,7 +396,15 @@ function FindingsTab({ findings, assetNames, capabilitiesTotal, loading, canAct,
                   onMouseEnter={(e) => { e.currentTarget.style.background = T.panelHi; }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                   <td style={{ padding: "10px 8px", fontSize: 12, color: T.text, fontFamily: FONT_MONO }}>{assetNames[f.asset_key] || "—"}</td>
-                  <td style={{ padding: "10px 8px", fontSize: 13, color: T.text }}>{f.title}</td>
+                  <td style={{ padding: "10px 8px", fontSize: 13, color: T.text }}>
+                    {f.title}
+                    {(f.occurrence_count || 1) > 1 && (
+                      <span title={`${f.occurrence_count} occurrences grouped into this finding`}
+                        style={{ marginLeft: 8, fontFamily: FONT_MONO, fontSize: 10, color: T.textDim, border: `1px solid ${T.border}`, borderRadius: 10, padding: "1px 7px", whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                        ×{f.occurrence_count}
+                      </span>
+                    )}
+                  </td>
                   <td style={{ padding: "10px 8px" }}><Pill color={CATEGORY_COLOR[f.category] || T.textDim}>{f.category}</Pill></td>
                   <td style={{ padding: "10px 8px" }}><Pill color={SEV_COLOR[f.severity] || T.textDim}>{f.severity}</Pill></td>
                   <td style={{ padding: "10px 8px", fontSize: 12, fontFamily: FONT_MONO, color: f.status === "open" ? T.warn : T.textMute }}>{f.status}</td>
@@ -423,7 +431,7 @@ function FindingsTab({ findings, assetNames, capabilitiesTotal, loading, canAct,
                     <td colSpan={canAct ? 7 : 6} style={{ padding: "14px 18px", background: T.panelHi }}>
                       <div style={{ fontSize: 13, color: T.text, lineHeight: 1.6, marginBottom: 8 }}>{f.summary}</div>
                       <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: T.textMute }}>
-                        {f.finding_type} · source {f.source} · first seen {fmtWhen(f.first_seen)}
+                        {(f.occurrence_count || 1) > 1 ? `${f.occurrence_count} occurrences · ` : ""}{f.finding_type} · source {f.source} · first seen {fmtWhen(f.first_seen)}
                       </div>
                       {f.evidence && (
                         <pre style={{ marginTop: 10, marginBottom: 0, padding: "10px 12px", background: T.panel, border: `1px solid ${T.border}`, borderRadius: 4, fontFamily: FONT_MONO, fontSize: 11, color: T.textDim, overflowX: "auto" }}>

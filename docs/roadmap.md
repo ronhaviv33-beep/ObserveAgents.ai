@@ -1,0 +1,152 @@
+# ObserveAgents Roadmap
+
+*The central forward roadmap. The full shipped-feature checklist lives in the [README roadmap table](../README.md#roadmap); this document tracks what comes next, phased.*
+
+ObserveAgents is becoming the **system of record for enterprise AI**: it turns runtime evidence into AI inventory, ownership, dependencies, capabilities, findings, and observe-only guardrail recommendations. Every phase below extends that spine — nothing here changes the observe-first posture.
+
+---
+
+## Forward phases
+
+| Phase | Theme | Summary |
+|---|---|---|
+| O1 | Ecosystem Discovery | GitHub / Jira / Slack / n8n / MCP evidence connectors; Active / Dormant / Runtime-only correlation with the runtime inventory |
+| O2 | Ingestion depth | OTLP **protobuf** support — ✅ shipped (direct OpenLLMetry-style onboarding, no Collector required); OTLP **metrics** ingestion (Claude Code / coding-agent token & cost accounting) still ahead |
+| O3 | Content-free security verdicts | In-flight scanning at ingestion (prompt injection, PII-in-prompt, toxicity) storing **verdicts only** — never content; Runtime "Security checks" filter |
+| O4 | Monitors & notifications | Server-side guardrail monitors with thresholds; budget alerts via webhook (Slack / Teams); alert rules on finding families |
+| O5 | Product surface deployments | Per-surface builds of the Observability and Gateway products (separation plan Phase 4); surface-scoped API keys |
+| O6 | Enterprise readiness | SSO (Okta / Google OAuth), per-tenant API key table, HA / fail-over story, documented self-host path |
+| O7 | Observe MCP server | Read-only MCP tools (`list_ai_systems`, `get_findings`, `get_trace`, `get_cost_signals`) so customers' agents can query their AI inventory |
+| O8 | **Observe Advisor MVP** | From *what happened* to *what this agent needs to learn next* — see below |
+
+---
+
+## O8 — Observe Advisor MVP
+
+Most observability tools stop at:
+
+> This trace was slow. This request failed. This model was expensive.
+
+ObserveAgents should answer:
+
+> **What does this agent need to learn next?**
+
+Observe Advisor turns the findings the platform already derives into concrete, reviewable improvement recommendations for agent teams. It is an **advisory layer only**:
+
+> Observe recommends skill improvements based on runtime evidence. It does **not** automatically rewrite, deploy, or change agent behavior.
+
+### Sub-phases
+
+| Sub-phase | Deliverable |
+|---|---|
+| O8.1 | Finding-to-Recommendation Engine — map finding types to recommendation templates |
+| O8.2 | Skill Gap Detection — infer weak/missing capabilities from finding patterns per asset |
+| O8.3 | Agent Skill Recommendations — the per-agent "what to learn next" surface |
+| O8.4 | Skill Improvement Playbooks — practical implementation guidance attached to each recommendation |
+| O8.5 | Validation Signals — measure whether the improvement worked, from the same telemetry |
+| O8.6 | Optional ticket/export to Jira / GitHub / Linear |
+
+---
+
+### Agent Skill Recommendations
+
+ObserveAgents can use runtime findings to recommend which skills an AI agent should **add, improve, or validate**.
+
+This is not automatic code generation, not automatic agent rewriting, not auto-deployment, and never a hidden behavior change. It is an Advisor feature: findings become skill gaps, skill gaps become recommendations, recommendations come with playbooks, and playbooks close the loop with validation signals.
+
+#### The pipeline
+
+```
+Runtime Evidence
+  → Finding
+    → Skill Gap
+      → Skill Recommendation
+        → Skill Improvement Playbook
+          → Validation Signal
+```
+
+**Finding** — what Observe detected from runtime telemetry (an existing AssetFinding: error patterns, token usage, tool surface, environment context).
+
+**Skill Gap** — the missing or weak capability *inferred* from the finding: not "the trace failed" but "this agent lacks fallback behavior."
+
+**Skill Recommendation** — the skill the agent team should add or improve, named in the team's language.
+
+**Skill Improvement Playbook** — practical implementation guidance for the team: concrete steps, ordered, scoped to their agent.
+
+**Validation Signal** — how Observe can later verify whether the improvement worked, from the same telemetry that produced the finding. The loop closes with evidence, not opinion.
+
+#### Finding → skill examples
+
+| Finding | Recommended skill |
+|---|---|
+| `repeated_tool_errors` | Tool fallback handling skill |
+| `high_token_usage` | Context compression skill |
+| `broad_tool_surface` | Tool routing skill |
+| `human_review_recommended` | Human handoff decisioning skill |
+| `unknown_provider_model` | Provider review skill |
+| `slow_retrieval` | Retrieval filtering skill |
+| `repeated_workflow_failure` | Workflow recovery skill |
+
+#### Skill categories
+
+1. **Tool-use skills** — tool selection · retry/fallback handling · tool argument validation · MCP tool selection
+2. **Reasoning/workflow skills** — planning before tool use · task decomposition · confidence estimation · human handoff
+3. **Cost/performance skills** — context compression · summary caching · model routing · retrieval filtering
+4. **Security/safety skills** — sensitive dependency review · high-risk tool review · unknown provider review · least-privilege tool use
+5. **Domain skills** — support triage · finance analysis · engineering code search · HR onboarding · research synthesis
+
+#### Worked examples
+
+##### Example 1 — Jira lookup failures
+
+- **Finding:** `repeated_tool_errors` on `jira_search`
+- **Skill Gap:** Agent lacks robust issue lookup and fallback behavior.
+- **Recommendation:** Add a Jira lookup fallback skill.
+- **Playbook:**
+  - Validate issue key format before calling Jira
+  - Fall back to text search when exact lookup fails
+  - Retry once, not repeatedly
+  - Escalate after repeated failure
+  - Log `error.type` and tool status on every attempt
+- **Validation:**
+  - Fewer `jira_search` failures
+  - Lower support-agent trace duration
+  - Fewer human escalations caused by failed lookups
+
+##### Example 2 — High token usage
+
+- **Finding:** `high_token_usage` in research-agent
+- **Skill Gap:** Agent lacks context compression.
+- **Recommendation:** Add a context compression and summary reuse skill.
+- **Playbook:**
+  - Summarize retrieved context before final reasoning
+  - Reuse cached summaries for repeated topics
+  - Prefer a smaller model for low-risk summarization
+- **Validation:**
+  - Lower average input tokens
+  - Lower cost signals
+  - Same or better task completion rate
+
+##### Example 3 — Broad tool surface
+
+- **Finding:** `agent_has_broad_tool_surface`
+- **Skill Gap:** Agent lacks disciplined tool routing.
+- **Recommendation:** Add a tool selection/routing skill.
+- **Playbook:**
+  - Classify task type before tool use
+  - Choose one primary tool per task stage
+  - Require review for high-risk tools
+  - Record the selected tool and a reason code
+- **Validation:**
+  - Fewer unnecessary tool calls
+  - Fewer high-risk tool invocations
+  - Clearer execution timeline
+
+#### Safety and scope boundaries
+
+- Recommendations are **advisory** — nothing is applied automatically.
+- **Human review is required** before any recommendation is implemented.
+- No automatic code changes; no automatic deployment; no hidden agent behavior changes.
+- No harmful or weaponized skill recommendations.
+- No instructions for evasion, offensive misuse, or unsafe autonomous behavior.
+- The Advisor inherits the platform's privacy stance: it reasons over derived findings and metadata, never raw prompt/response content.
