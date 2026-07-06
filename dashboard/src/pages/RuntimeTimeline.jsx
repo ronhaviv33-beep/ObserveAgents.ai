@@ -185,15 +185,17 @@ export default function RuntimeTimeline() {
     return out;
   }, [rows]);
 
+  // Stat tiles follow the current selection (service filter + search), not
+  // the whole database — pick an agent and the numbers are that agent's.
   const stats = useMemo(() => {
-    const durations = traces.map((t) => t.duration_ms).filter((d) => d != null);
+    const durations = filtered.map((t) => t.duration_ms).filter((d) => d != null);
     return {
-      traces: traces.length,
-      spans: traces.reduce((s, t) => s + (t.span_count || 0), 0),
+      traces: filtered.length,
+      spans: filtered.reduce((s, t) => s + (t.span_count || 0), 0),
       avgMs: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null,
-      errored: traces.filter((t) => (t.error_count || 0) > 0).length,
+      errored: filtered.filter((t) => (t.error_count || 0) > 0).length,
     };
-  }, [traces]);
+  }, [filtered]);
 
   if (selected) {
     return <TraceWaterfall trace={selected} onBack={() => setSelected(null)} />;
@@ -219,7 +221,7 @@ export default function RuntimeTimeline() {
         }>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <SearchBox query={query} onChange={setQuery} placeholder="Search traces…" count={filtered.length} total={byService.length} />
-          {services.length > 1 && (
+          {services.length > 0 && (
             <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)}
               style={{ background: T.panelHi, color: T.text, border: `1px solid ${T.border}`, padding: "6px 8px", borderRadius: 4, fontSize: 12, fontFamily: FONT_MONO, cursor: "pointer", marginBottom: 10 }}>
               <option value="all">All services</option>
