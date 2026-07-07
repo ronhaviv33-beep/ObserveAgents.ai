@@ -34,7 +34,9 @@ import EcosystemDiscovery from "./pages/EcosystemDiscovery.jsx";
 import RelationshipMap from "./pages/RelationshipMap.jsx";
 import RuntimeTimeline from "./pages/RuntimeTimeline.jsx";
 import AssetIntelligence from "./pages/AssetIntelligence.jsx";
-import GatewayControlCenter from "./pages/GatewayControlCenter.jsx";
+// ui2 (redesign step 2): V2 replaces pages/GatewayControlCenter.jsx, which
+// stays in the tree for rollback — see docs/ui_redesign_plan.md.
+import GatewayControlCenterV2 from "./pages/GatewayControlCenterV2.jsx";
 import Guardrails from "./pages/Guardrails.jsx";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
@@ -791,8 +793,9 @@ export default function App() {
       case "runtime":          return <RuntimeTimeline />;
       case "intelligence":     return <AssetIntelligence onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
       case "gateway_control_center":
-        return <GatewayControlCenter isAdmin={user?.role === "admin" || user?.is_platform_admin}
-                                     focusAssetKey={gccFocusKey} onClearFocus={() => setGccFocusKey(null)} />;
+        return <GatewayControlCenterV2 isAdmin={user?.role === "admin" || user?.is_platform_admin}
+                                       focusAssetKey={gccFocusKey} onClearFocus={() => setGccFocusKey(null)}
+                                       onNavigate={navigate} />;
       case "guardrails":       return <Guardrails />;
       // ── Existing pages (unchanged) ──────────────────────────────────────
       case "cost":      return <CostIntelligence />;
