@@ -508,6 +508,8 @@ export default function App() {
   // One-click Observe → Gateway Control Center transition (GCR4): the source
   // page sets the focus asset, the Control Center opens pre-filtered to it.
   const [gccFocusKey, setGccFocusKey] = useState(null);
+  // Overview "Runtime activity" rows deep-link into Runtime filtered to one agent.
+  const [rtFocusService, setRtFocusService] = useState(null);
 
   // Navigate to a page and push a browser history entry so back/forward works.
   const navigate = useCallback((id) => {
@@ -789,7 +791,7 @@ export default function App() {
     switch (page) {
       // ── New primary pages ───────────────────────────────────────────────
       case "dashboard":      return isDemoMode() ? <DemoDashboard onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
-      case "overview_hub":   return <OverviewV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
+      case "overview_hub":   return <OverviewV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); if (opts.runtimeAgent !== undefined) setRtFocusService(opts.runtimeAgent); navigate(pg); }} />;
       // Demo-only teaching page: on customer builds the hash falls back to the dashboard.
       case "surfaces_demo":  return isDemoMode() ? <SurfacesDemo onNavigate={navigate} />
                                     : <ExecutiveDashboard onNavigate={navigate} />;
@@ -800,7 +802,7 @@ export default function App() {
       case "security_intel": return <SecurityIntelligenceV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
       case "ecosystem":        return <EcosystemDiscovery />;
       case "relationship_map": return <RelationshipMap />;
-      case "runtime":          return <RuntimeTimelineV2 onNavigate={navigate} />;
+      case "runtime":          return <RuntimeTimelineV2 onNavigate={navigate} focusService={rtFocusService} onFocusConsumed={() => setRtFocusService(null)} />;
       case "intelligence":     return <AssetIntelligenceV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
       case "gateway_control_center":
         return <GatewayControlCenterV2 isAdmin={user?.role === "admin" || user?.is_platform_admin}

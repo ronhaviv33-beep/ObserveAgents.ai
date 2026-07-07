@@ -148,14 +148,15 @@ function TraceWaterfall({ trace, onBack }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function RuntimeTimelineV2({ onNavigate }) {
+export default function RuntimeTimelineV2({ onNavigate, focusService = null, onFocusConsumed }) {
   const [traces, setTraces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [serviceFilter, setServiceFilter] = useState("all");
-  const [services, setServices] = useState([]);
+  // A deep link (Overview agent row) can open this page pre-filtered.
+  const [serviceFilter, setServiceFilter] = useState(focusService || "all");
+  const [services, setServices] = useState(() => (focusService ? [focusService] : []));
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState("start_time");
   const [sortDir, setSortDir] = useState("desc");
@@ -186,6 +187,7 @@ export default function RuntimeTimelineV2({ onNavigate }) {
       .finally(() => setLoading(false));
   }, [serviceFilter]);
   useEffect(() => { (async () => { await Promise.resolve(); load(); })(); }, [load]);
+  useEffect(() => { (async () => { await Promise.resolve(); if (focusService) onFocusConsumed?.(); })(); }, [focusService, onFocusConsumed]);
 
   const openTrace = (traceId) => {
     setDetailLoading(true);

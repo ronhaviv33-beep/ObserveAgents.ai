@@ -134,10 +134,21 @@ export default function OverviewV2({ onNavigate }) {
   const traceRows   = useMemo(() => traces?.data || [], [traces]);
   const errorTraces = traceRows.filter((t) => (t.error_count || 0) > 0).length;
   const slowTraces  = traceRows.filter((t) => (t.duration_ms || 0) >= SLOW_MS).length;
-  const lastSeenAgents = useMemo(() => {
-    const seen = new Map();
-    traceRows.forEach((t) => { if (t.service_name && !seen.has(t.service_name)) seen.set(t.service_name, t.start_time); });
-    return [...seen.entries()].slice(0, 5);
+  // One row per agent: all its recent events correlated into a single line,
+  // not a feed of every individual trace.
+  const agentActivity = useMemo(() => {
+    const byAgent = new Map();
+    traceRows.forEach((t) => {
+      const key = t.service_name || "unknown";
+      let a = byAgent.get(key);
+      if (!a) { a = { agent: key, events: 0, errors: 0, slow: 0, totalMs: 0, withMs: 0, last: null }; byAgent.set(key, a); }
+      a.events += 1;
+      a.errors += t.error_count || 0;
+      if ((t.duration_ms || 0) >= SLOW_MS) a.slow += 1;
+      if (t.duration_ms != null) { a.totalMs += t.duration_ms; a.withMs += 1; }
+      if (!a.last || (t.start_time || "") > a.last) a.last = t.start_time;
+    });
+    return [...byAgent.values()].sort((x, y) => (y.last || "").localeCompare(x.last || ""));
   }, [traceRows]);
 
   const att = attention || {};
@@ -228,23 +239,24 @@ export default function OverviewV2({ onNavigate }) {
         <Section label="Runtime activity"
           right={<span style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textMute }}>{errorTraces} error · {slowTraces} slow</span>}>
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "6px 18px" }}>
-            {traceRows.length > 0 ? traceRows.slice(0, 8).map((t, i) => (
-              <div key={t.trace_id}
-                onClick={surfaceAllowsPage("runtime") ? () => nav("runtime") : undefined}
-                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0",
-                  borderBottom: i < Math.min(traceRows.length, 8) - 1 ? `1px solid ${C.border}` : "none",
+            {agentActivity.length > 0 ? agentActivity.slice(0, 8).map((a, i) => (
+              <div key={a.agent}
+                onClick={surfaceAllowsPage("runtime") ? () => onNavigate?.("runtime", { runtimeAgent: a.agent }) : undefined}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0",
+                  borderBottom: i < Math.min(agentActivity.length, 8) - 1 ? `1px solid ${C.border}` : "none",
                   cursor: surfaceAllowsPage("runtime") ? "pointer" : "default" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {t.root_span_name || t.trace_id.slice(0, 12)}
+                  <div style={{ fontSize: 13, color: C.text, fontFamily: FONT.mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {a.agent}
                   </div>
                   <div style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textMute, marginTop: 2 }}>
-                    {t.service_name || "—"} · {relTime(t.start_time)}
+                    last activity {relTime(a.last)} · avg {fmtMs(a.withMs ? Math.round(a.totalMs / a.withMs) : null)}
                   </div>
                 </div>
-                <span style={{ fontFamily: FONT.mono, fontSize: 11.5, color: (t.duration_ms || 0) >= SLOW_MS ? C.riskMedium : C.text }}>{fmtMs(t.duration_ms)}</span>
-                {t.error_count > 0
-                  ? <StatusPill tone={C.riskHigh}>{t.error_count} error{t.error_count > 1 ? "s" : ""}</StatusPill>
+                <StatusPill tone={C.textDim}>{a.events} event{a.events !== 1 ? "s" : ""}</StatusPill>
+                {a.slow > 0 && <StatusPill tone={C.riskMedium}>{a.slow} slow</StatusPill>}
+                {a.errors > 0
+                  ? <StatusPill tone={C.riskHigh}>{a.errors} error{a.errors > 1 ? "s" : ""}</StatusPill>
                   : <span style={{ fontFamily: FONT.mono, fontSize: 11, color: C.textMute }}>ok</span>}
               </div>
             )) : (
@@ -255,13 +267,6 @@ export default function OverviewV2({ onNavigate }) {
               </div>
             )}
           </div>
-          {lastSeenAgents.length > 0 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-              {lastSeenAgents.map(([name, ts]) => (
-                <StatusPill key={name} tone={C.textDim}>{name} · {relTime(ts)}</StatusPill>
-              ))}
-            </div>
-          )}
         </Section>
 
         <Section label="Gateway control preview"
