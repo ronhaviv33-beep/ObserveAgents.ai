@@ -22,16 +22,30 @@ import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
 import ExecutiveDashboard from "./pages/ExecutiveDashboard.jsx";
-import OverviewHub from "./pages/OverviewHub.jsx";
+// ui2 (redesign step 1): OverviewV2 replaces pages/OverviewHub.jsx, which stays
+// in the tree for rollback — see docs/ui_redesign_plan.md.
+import OverviewV2 from "./ui2/OverviewV2.jsx";
 import SurfacesDemo from "./pages/SurfacesDemo.jsx";
-import DemoDashboard from "./pages/DemoDashboard.jsx";
+// ui2 (demo): V2 replaces pages/DemoDashboard.jsx, which stays for rollback.
+import DemoDashboardV2 from "./pages/DemoDashboardV2.jsx";
 import DiscoveryCenter from "./pages/DiscoveryCenter.jsx";
 import GovernanceCenter from "./pages/GovernanceCenter.jsx";
-import SecurityIntelligence from "./pages/SecurityIntelligence.jsx";
+// ui2 (redesign step 3): V2 replaces pages/SecurityIntelligence.jsx, which
+// stays in the tree for rollback — see docs/ui_redesign_plan.md.
+import SecurityIntelligenceV2 from "./pages/SecurityIntelligenceV2.jsx";
 import EcosystemDiscovery from "./pages/EcosystemDiscovery.jsx";
 import RelationshipMap from "./pages/RelationshipMap.jsx";
-import RuntimeTimeline from "./pages/RuntimeTimeline.jsx";
-import AssetIntelligence from "./pages/AssetIntelligence.jsx";
+// ui2 (redesign step 6): V2 replaces pages/RuntimeTimeline.jsx, which stays
+// in the tree for rollback — see docs/ui_redesign_plan.md.
+import RuntimeTimelineV2 from "./pages/RuntimeTimelineV2.jsx";
+// ui2 (redesign step 4): V2 replaces pages/AssetIntelligence.jsx, which
+// stays in the tree for rollback — see docs/ui_redesign_plan.md.
+import AssetIntelligenceV2 from "./pages/AssetIntelligenceV2.jsx";
+// ui2 (redesign step 2): V2 replaces pages/GatewayControlCenter.jsx, which
+// stays in the tree for rollback — see docs/ui_redesign_plan.md.
+import GatewayControlCenterV2 from "./pages/GatewayControlCenterV2.jsx";
+// ui2 shell (redesign, final visual layer): sidebar/topbar/app chrome.
+import AppShell from "./ui2/AppShell.jsx";
 import Guardrails from "./pages/Guardrails.jsx";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
@@ -61,7 +75,9 @@ import { ORGS, TEAMS, AGENTS, MODELS, providerFromModel, tierFromModel, approved
 import { ALERT_META, applyFilters, runDetections, agg, estimateSavings, computeRiskScore, execSummary } from "./data/alertMeta.js";
 import { useLiveData } from "./hooks/useLiveData.js";
 import { UserContext, useUser, RolesContext, useRoles, ROLES, canSeePage, userCan, canAccess } from "./auth.jsx";
-import CustomerWelcomePage from "./pages/PlatformGuide.jsx";
+// ui2 (redesign step 5): V2 replaces pages/PlatformGuide.jsx, which stays
+// in the tree for rollback — see docs/ui_redesign_plan.md.
+import PlatformGuideV2 from "./pages/PlatformGuideV2.jsx";
 import SimpleIntegrationsPage from "./pages/Setup.jsx";
 import SettingsPage, { GUARD_MODE_META } from "./pages/Settings.jsx";
 import { useBreakpoint } from "./hooks/useBreakpoint.js";
@@ -320,6 +336,7 @@ const PAGES = [
   { id:"relationship_map", label:"Runtime Dependency Map" },
   { id:"runtime",          label:"Runtime" },
   { id:"intelligence",     label:"Asset Intelligence" },
+  { id:"gateway_control_center", label:"Gateway Control Center" },
   { id:"guardrails",       label:"Guardrails" },
   { id:"budgets",          label:"Budgets" },
   { id:"pricing",        label:"Pricing Registry" },
@@ -361,7 +378,9 @@ const NAV_GROUPS_COMBINED = [
       { id: "agent_inventory",  label: "Agents" },
       { id: "runtime",          label: "Runtime" },
       { id: "relationship_map", label: "Dependency Map" },
-      { id: "ecosystem",        label: "Ecosystem Discovery" },
+      // "ecosystem" removed from nav: the page presents the O1 connector story
+      // (GitHub/Jira/Slack signals) that isn't shipped yet. Still routable by
+      // direct #ecosystem hash for easy restore when O1 lands.
     ],
   },
   {
@@ -369,6 +388,7 @@ const NAV_GROUPS_COMBINED = [
     items: [
       { id: "intelligence",  label: "Asset Intelligence" },
       { id: "security_intel",label: "Security Intelligence" },
+      { id: "gateway_control_center", label: "Gateway Control Center" },
       { id: "cost",          label: "Cost Intelligence" },
       { id: "budgets",       label: "Budgets" },
       { id: "pricing",       label: "Pricing Registry" },
@@ -413,6 +433,14 @@ const NAV_GROUPS_OBSERVABILITY = [
     ],
   },
   {
+    // One app, both workspaces (O9): the Control Center is reachable from the
+    // Observe surface — moving to it is navigation, not a deployment choice.
+    label: "GATEWAY CONTROL",
+    items: [
+      { id: "gateway_control_center", label: "Control Center" },
+    ],
+  },
+  {
     label: "ADMINISTRATION",
     items: [
       { id: "governance",    label: "Governance Readiness" },
@@ -443,6 +471,7 @@ const NAV_GROUPS_GATEWAY = [
   {
     label: "GATEWAY",
     items: [
+      { id: "gateway_control_center", label: "Control Center" },
       { id: "discovery",       label: "Discovery Center" },
       { id: "agent_inventory", label: "Agents" },
       { id: "providers",       label: "Providers" },
@@ -477,6 +506,11 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const bp = useBreakpoint();
   const [discoveryInitialTab, setDiscoveryInitialTab] = useState("verified");
+  // One-click Observe → Gateway Control Center transition (GCR4): the source
+  // page sets the focus asset, the Control Center opens pre-filtered to it.
+  const [gccFocusKey, setGccFocusKey] = useState(null);
+  // Overview "Runtime activity" rows deep-link into Runtime filtered to one agent.
+  const [rtFocusService, setRtFocusService] = useState(null);
 
   // Navigate to a page and push a browser history entry so back/forward works.
   const navigate = useCallback((id) => {
@@ -745,7 +779,7 @@ export default function App() {
     // Pages outside this product surface fall back to the dashboard
     // (belt-and-braces — nav and history guards already prevent this state).
     if (!surfaceAllowsPage(page)) {
-      return isDemoMode() ? <DemoDashboard onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
+      return isDemoMode() ? <DemoDashboardV2 onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
     }
     if (!user?.is_platform_admin && !canAccess(user?.role, page, rolesMap)) {
       return (
@@ -757,20 +791,24 @@ export default function App() {
     }
     switch (page) {
       // ── New primary pages ───────────────────────────────────────────────
-      case "dashboard":      return isDemoMode() ? <DemoDashboard onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
-      case "overview_hub":   return <OverviewHub onNavigate={navigate} />;
+      case "dashboard":      return isDemoMode() ? <DemoDashboardV2 onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
+      case "overview_hub":   return <OverviewV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); if (opts.runtimeAgent !== undefined) setRtFocusService(opts.runtimeAgent); navigate(pg); }} />;
       // Demo-only teaching page: on customer builds the hash falls back to the dashboard.
       case "surfaces_demo":  return isDemoMode() ? <SurfacesDemo onNavigate={navigate} />
                                     : <ExecutiveDashboard onNavigate={navigate} />;
-      case "welcome":        return <CustomerWelcomePage onNavigate={navigate} />;
+      case "welcome":        return <PlatformGuideV2 onNavigate={navigate} />;
       case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); navigate(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
       case "governance":     return <GovernanceCenter />;
-      case "security_intel": return <SecurityIntelligence />;
+      case "security_intel": return <SecurityIntelligenceV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
       case "ecosystem":        return <EcosystemDiscovery />;
       case "relationship_map": return <RelationshipMap />;
-      case "runtime":          return <RuntimeTimeline />;
-      case "intelligence":     return <AssetIntelligence />;
+      case "runtime":          return <RuntimeTimelineV2 onNavigate={navigate} focusService={rtFocusService} onFocusConsumed={() => setRtFocusService(null)} />;
+      case "intelligence":     return <AssetIntelligenceV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
+      case "gateway_control_center":
+        return <GatewayControlCenterV2 isAdmin={user?.role === "admin" || user?.is_platform_admin}
+                                       focusAssetKey={gccFocusKey} onClearFocus={() => setGccFocusKey(null)}
+                                       onNavigate={navigate} />;
       case "guardrails":       return <Guardrails />;
       // ── Existing pages (unchanged) ──────────────────────────────────────
       case "cost":      return <CostIntelligence />;
@@ -798,262 +836,88 @@ export default function App() {
   };
 
   if (!authChecked || apiRecords === null || rolesMap === null) {
-    return <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", color:T.textDim, fontFamily:FONT_MONO }}>Connecting to AI Asset Management…</div>;
+    return <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", color:T.textDim, fontFamily:FONT_MONO }}>Connecting to ObserveAgents…</div>;
   }
 
   if (!user) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
+  // ── ui2 shell composition — all state stays here; the shell only renders ──
+  const visibleGroups = NAV_GROUPS.map((group) => ({
+    label: group.label,
+    items: group.items
+      .filter((item) =>
+        (!item.demoOnly || isDemoMode()) &&
+        (item.platformAdminOnly ? user?.is_platform_admin : canAccess(user?.role, item.id, rolesMap)))
+      .map((item) => (item.id === "alerts" && critCount > 0 ? { ...item, badge: critCount } : item)),
+  })).filter((g) => g.items.length > 0);
+
+  const topbarItems = [
+    ...(platformMode ? [{ label: (GUARD_MODE_META[platformMode]?.label || platformMode).toLowerCase(), color: GUARD_MODE_META[platformMode]?.color, title: GUARD_MODE_META[platformMode]?.desc, dot: true }] : []),
+    { label: filters.team === "all" ? "all teams" : allTeams.find((t) => t.id === filters.team)?.name },
+    { label: `last ${filters.range}d` },
+    ...(isDemoMode() ? [{ label: "demo", color: "#FFB547", dot: true }] : []),
+    ...(pricingLastUpdated ? [{ label: `pricing as of ${pricingLastUpdated}`, title: "Date pricing table was last audited against provider rates" }] : []),
+  ];
+
+  const shellUser = user && {
+    name: user.name,
+    roleColor: user.is_platform_admin ? "#B47AFF" : (rolesMap[user.role]?.color ?? "#8A93A8"),
+    roleLabel: user.is_platform_admin ? "platform admin" : `${user.role} · ${user.team}`,
+  };
+
+  const orgSwitcher = user?.is_platform_admin ? {
+    value: viewOrgId,
+    options: allOrgs.filter((o) => !o.is_internal),
+    onChange: (v) => { setViewOrgId(v); setViewOrg(v); setSidebarPopResult(null); refresh(); },
+    showReload: allOrgs.filter((o) => !o.is_internal).length === 0,
+    onReload: () => fetchOrganizations().then((orgs) => { if (orgs.length) setAllOrgs(orgs); }),
+    showSeed: Boolean(viewOrgId && (isDemoMode() || isDevelopment())),
+    popping: sidebarPopping, clearing: sidebarClearing,
+    onPopulate: handleSidebarPopulate, onClear: handleSidebarClear,
+    result: sidebarPopResult,
+  } : null;
+
   return (
     <UserContext.Provider value={user}>
     <RolesContext.Provider value={rolesMap}>
-    <div style={{ minHeight:"100vh", background:T.bg, color:T.text, fontFamily:FONT_UI, fontSize:14, display:"flex", overflowX:"hidden", position:"relative" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
-        * { box-sizing:border-box; }
-        html, body { overflow-x:hidden; max-width:100vw; }
-        ::-webkit-scrollbar { width:8px; height:8px; }
-        ::-webkit-scrollbar-track { background:${T.bg}; }
-        ::-webkit-scrollbar-thumb { background:${T.border}; border-radius:4px; }
-        ::-webkit-scrollbar-thumb:hover { background:${T.borderHi}; }
-        select { appearance:none; background-image:url("data:image/svg+xml;utf8,<svg fill='%237A8499' xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24'><polygon points='6,9 18,9 12,16'/></svg>"); background-repeat:no-repeat; background-position:right 8px center; padding-right:22px !important; }
-        button:focus { outline:none; }
-        @media (max-width:639px) {
-          ::-webkit-scrollbar { width:4px; height:4px; }
-        }
-      `}</style>
+    <AppShell
+      brand={{ name: BRAND.name, subtitle: PRODUCT_SUBTITLE || BRAND.subtitle }}
+      groups={visibleGroups} page={page}
+      pageLabel={PAGES.find((p) => p.id === page)?.label}
+      onNavigate={navigate}
+      user={shellUser} onLogout={handleLogout}
+      status={{
+        demoMode: isDemoMode(),
+        eventsLabel: `${filteredEvents.length.toLocaleString()} events / ${filters.range}d`,
+        updatedLabel: lastRefresh ? `updated ${lastRefresh.toLocaleTimeString("en-US")}` : null,
+      }}
+      demoToggle={{ show: isDemoMode() || isDevelopment(), demoMode, onToggle: handleToggleDemoMode }}
+      onRefresh={refresh} orgSwitcher={orgSwitcher}
+      topbarItems={topbarItems}
+      viewingOrg={user?.is_platform_admin && viewOrgId ? allOrgs.find((o) => String(o.id) === String(viewOrgId))?.name : null}
+      bp={bp} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}>
 
-      {/* Mobile/Tablet: fixed top bar */}
-      {!bp.isDesktop && (
-        <div style={{ position:"fixed", top:0, left:0, right:0, height:52, background:T.panel, borderBottom:`1px solid ${T.border}`, display:"flex", alignItems:"center", padding:"0 16px", gap:12, zIndex:150, flexShrink:0 }}>
-          <button
-            onClick={() => setSidebarOpen(o => !o)}
-            aria-label="Toggle navigation"
-            style={{ background:"none", border:"none", color:T.text, cursor:"pointer", padding:0, display:"flex", flexDirection:"column", gap:4, minWidth:44, minHeight:44, justifyContent:"center", alignItems:"center" }}>
-            <span style={{ display:"block", width:18, height:2, background:T.text, borderRadius:1 }}/>
-            <span style={{ display:"block", width:18, height:2, background:T.text, borderRadius:1 }}/>
-            <span style={{ display:"block", width:18, height:2, background:T.text, borderRadius:1 }}/>
-          </button>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <div style={{ width:20, height:20, background:T.accent, borderRadius:3, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT_MONO, fontWeight:600, fontSize:11, color:T.bg }}>◆</div>
-            <div style={{ fontSize:13, fontWeight:600, letterSpacing:"-0.01em" }}>{BRAND.name}</div>
-          </div>
-          <div style={{ marginLeft:"auto", fontSize:10, color:T.textDim, fontFamily:FONT_MONO, textTransform:"uppercase", letterSpacing:"0.1em", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:160 }}>
-            {PAGES.find(p => p.id === page)?.label}
-          </div>
+      {!["dashboard","overview_hub","surfaces_demo","home","agent_inventory","discovery","governance","relationship_map","runtime","intelligence","gateway_control_center","guardrails","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
+
+      {/* Admin-only: surface missing/invalid secrets detected at startup */}
+      {user?.role === "admin" && secretWarnings.length > 0 && (
+        <div style={{ marginBottom:16 }}>
+          {secretWarnings.map((w, i) => (
+            <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:10, background:"rgba(239,68,68,0.08)", border:`1px solid ${T.crit}`, borderRadius:6, padding:"10px 14px", marginBottom:8 }}>
+              <span style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:13, flexShrink:0 }}>⚠</span>
+              <div>
+                <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3 }}>Configuration Warning</div>
+                <div style={{ color:T.text, fontSize:12, fontFamily:FONT_MONO, lineHeight:1.5 }}>{w}</div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Mobile/Tablet: sidebar backdrop — starts at 52px so top bar + hamburger stay tappable */}
-      {!bp.isDesktop && sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          style={{ position:"fixed", top:52, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.55)", zIndex:190, touchAction:"none" }}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside style={
-        bp.isDesktop
-          ? { width:230, background:T.panel, borderRight:`1px solid ${T.border}`, padding:"22px 16px", display:"flex", flexDirection:"column", flexShrink:0 }
-          : { position:"fixed", top:52, left:0, bottom:0, width:"min(320px, 85vw)", background:T.panel, borderRight:`1px solid ${T.border}`, padding:"16px", display:"flex", flexDirection:"column", zIndex:200, transition:"transform 0.25s ease", overflowY:"auto", transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)" }
-      }>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:bp.isDesktop ? 32 : 20, padding:"0 6px" }}>
-          <div style={{ width:22, height:22, background:T.accent, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:FONT_MONO, fontWeight:600, fontSize:12, color:T.bg }}>◆</div>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:13, fontWeight:600, letterSpacing:"-0.01em" }}>{BRAND.name}</div>
-            <div style={{ fontSize:9, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.08em", textTransform:"uppercase", marginTop:1 }}>{PRODUCT_SUBTITLE || BRAND.subtitle}</div>
-          </div>
-          {!bp.isDesktop && (
-            <button
-              onClick={() => setSidebarOpen(false)}
-              aria-label="Close navigation"
-              style={{ background:"none", border:"none", color:T.textMute, cursor:"pointer", fontSize:18, lineHeight:1, padding:0, minWidth:36, minHeight:36, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-              ✕
-            </button>
-          )}
-        </div>
-
-        <nav style={{ display:"flex", flexDirection:"column", gap:0, flex:1, overflowY:"auto" }}>
-          {NAV_GROUPS.map((group, gi) => {
-            const visibleItems = group.items.filter(item =>
-              (!item.demoOnly || isDemoMode()) &&
-              (item.platformAdminOnly ? user?.is_platform_admin : canAccess(user?.role, item.id, rolesMap))
-            );
-            if (visibleItems.length === 0) return null;
-            return (
-              <div key={gi} style={{ marginBottom: group.label ? 6 : 8 }}>
-                {group.label && (
-                  <div style={{ fontSize:8, letterSpacing:"0.18em", textTransform:"uppercase", color:T.textMute, fontFamily:FONT_MONO, padding:"10px 10px 5px", fontWeight:500 }}>
-                    {group.label}
-                  </div>
-                )}
-                {visibleItems.map(item => (
-                  <button key={item.id} onClick={()=>{ navigate(item.id); if(!bp.isDesktop) setSidebarOpen(false); }}
-                    style={{ background:page===item.id?T.panelHi:"transparent", border:"none", color:page===item.id?T.text:T.textDim, textAlign:"left", padding:"8px 10px", fontSize:12, borderRadius:4, cursor:"pointer", fontFamily:FONT_UI, display:"flex", alignItems:"center", gap:10, borderLeft:page===item.id?`2px solid ${T.accent}`:"2px solid transparent", transition:"all 0.1s", width:"100%", minHeight:44 }}>
-                    {item.label}
-                    {item.id==="alerts" && critCount>0 && (
-                      <span style={{ marginLeft:"auto", background:T.crit, color:T.bg, fontSize:10, fontFamily:FONT_MONO, padding:"1px 6px", borderRadius:8, fontWeight:600 }}>{critCount}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            );
-          })}
-        </nav>
-
-        <div style={{ marginTop:"auto", padding:"12px 8px", display:"flex", flexDirection:"column", gap:10 }}>
-          {/* Platform admin org switcher */}
-          {user?.is_platform_admin && (
-            <div style={{ background:T.panelHi, border:`1px solid ${T.purple ?? "#a78bfa"}`, borderRadius:6, padding:"8px 10px" }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
-                <div style={{ fontSize:8, fontFamily:FONT_MONO, color:T.purple ?? "#a78bfa", textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:600 }}>
-                  ◆ Platform View
-                </div>
-                {allOrgs.filter(o => !o.is_internal).length === 0 && (
-                  <button
-                    onClick={() => fetchOrganizations().then(orgs => { if (orgs.length) setAllOrgs(orgs); })}
-                    title="Reload organizations"
-                    style={{ background:"transparent", border:"none", color:T.purple ?? "#a78bfa", fontSize:11, cursor:"pointer", padding:"0 2px", lineHeight:1 }}
-                  >↻</button>
-                )}
-              </div>
-              <select
-                value={viewOrgId || ""}
-                onChange={e => {
-                  const v = e.target.value || null;
-                  setViewOrgId(v);
-                  setViewOrg(v);
-                  setSidebarPopResult(null);
-                  refresh();
-                }}
-                style={{ width:"100%", background:T.panel, border:`1px solid ${T.border}`, color:T.text, padding:"4px 6px", borderRadius:3, fontSize:11, fontFamily:FONT_MONO, cursor:"pointer" }}
-              >
-                <option value="">All / Platform</option>
-                {allOrgs.filter(o => !o.is_internal).length === 0
-                  ? <option disabled value="">loading orgs…</option>
-                  : allOrgs.filter(o => !o.is_internal).map(o => (
-                      <option key={o.id} value={String(o.id)}>{o.name}</option>
-                    ))
-                }
-              </select>
-              {viewOrgId && (isDemoMode() || isDevelopment()) && (
-                <div style={{ marginTop:6, display:"flex", flexDirection:"column", gap:4 }}>
-                  <button
-                    onClick={handleSidebarPopulate}
-                    disabled={sidebarPopping || sidebarClearing}
-                    title="Seed realistic enterprise data: 5 teams, 5 agents, 30 days of telemetry, 10 MCP relationships, budgets"
-                    style={{ width:"100%", background:T.accent, color:T.bg, border:"none", padding:"5px 8px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:(sidebarPopping||sidebarClearing)?0.5:1, letterSpacing:"0.06em" }}>
-                    {sidebarPopping ? "Populating…" : "Populate Organization"}
-                  </button>
-                  <button
-                    onClick={handleSidebarClear}
-                    disabled={sidebarPopping || sidebarClearing}
-                    title="Delete all demo data (is_demo=true). Real customer data is not affected."
-                    style={{ width:"100%", background:"transparent", color:T.crit, border:`1px solid ${T.crit}44`, padding:"5px 8px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", opacity:(sidebarPopping||sidebarClearing)?0.5:1, letterSpacing:"0.06em" }}>
-                    {sidebarClearing ? "Clearing…" : "Clear Demo Data"}
-                  </button>
-                  {sidebarPopResult && (
-                    <div style={{ fontSize:9, fontFamily:FONT_MONO, color: sidebarPopResult.ok ? T.accent : T.crit, lineHeight:1.4 }}>
-                      {sidebarPopResult.ok ? "✓ " : "✗ "}{sidebarPopResult.msg}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-          {/* User badge */}
-          {user && (
-            <div style={{ background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:6, padding:"8px 10px", display:"flex", alignItems:"center", gap:8 }}>
-              <div style={{ width:8, height:8, borderRadius:"50%", background: rolesMap[user.role]?.color ?? T.textDim, flexShrink:0 }}/>
-              <div style={{ flex:1, overflow:"hidden" }}>
-                <div style={{ fontSize:12, fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.name}</div>
-                <div style={{ fontSize:9, fontFamily:FONT_MONO, color: user.is_platform_admin ? (T.purple ?? "#a78bfa") : (rolesMap[user.role]?.color ?? T.textDim), textTransform:"uppercase", letterSpacing:"0.1em" }}>
-                  {user.is_platform_admin ? "platform admin" : `${user.role} · ${user.team}`}
-                </div>
-              </div>
-              <button title="Sign out" onClick={handleLogout}
-                style={{ background:"transparent", border:"none", color:T.textMute, fontSize:12, cursor:"pointer", padding:"2px 4px", lineHeight:1, fontFamily:FONT_MONO }}>⏻</button>
-            </div>
-          )}
-          <div style={{ fontSize:10, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.08em", lineHeight:1.8 }}>
-            {/* Demo-only status indicator — never shown in production */}
-            {isDemoMode() && <div style={{ color:T.warn }}>● demo mode</div>}
-            <span style={{ color:T.textMute }}>{filteredEvents.length.toLocaleString()} events / {filters.range}d</span>
-            {lastRefresh && <div style={{ color:T.textMute, marginTop:2 }}>updated {lastRefresh.toLocaleTimeString("en-US")}</div>}
-          </div>
-          {/* Demo/live toggle is a demo control — only available in demo/dev */}
-          {(isDemoMode() || isDevelopment()) && (
-            <button onClick={handleToggleDemoMode} title={demoMode?"Switch to live data":"Switch to demo mode"} style={{ width:"100%", background:"transparent", border:`1px solid ${demoMode?T.warn:T.accentDim}`, color:demoMode?T.warn:T.accent, padding:"6px 10px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>{demoMode?"⇄ show live":"⇄ show demo"}</button>
-          )}
-          <button onClick={refresh} style={{ width:"100%", background:"transparent", border:`1px solid ${T.border}`, color:T.textDim, padding:"6px 10px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase" }}>↻ Refresh</button>
-        </div>
-      </aside>
-
-      {/* Main */}
-      <main style={{ flex:1, padding: bp.isMobile ? "68px 16px 24px" : bp.isTablet ? "72px 20px 24px" : "20px 28px", overflow:"auto", minWidth:0 }}>
-        <header style={{ display: bp.isMobile ? "none" : "flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, flexWrap:"wrap", gap:8 }}>
-          <div>
-            <div style={{ fontSize:11, color:T.textMute, fontFamily:FONT_MONO, letterSpacing:"0.12em", textTransform:"uppercase" }}>{page}</div>
-            <h1 style={{ fontSize: bp.isTablet ? 18 : 22, fontWeight:500, margin:"4px 0 0", letterSpacing:"-0.015em" }}>{PAGES.find((p)=>p.id===page)?.label}</h1>
-          </div>
-          <div style={{ display:"flex", gap:10, alignItems:"center", fontFamily:FONT_MONO, fontSize:11, color:T.textDim, flexWrap:"wrap" }}>
-            {user?.is_platform_admin && viewOrgId && (() => {
-              const org = allOrgs.find(o => String(o.id) === String(viewOrgId));
-              return org ? (
-                <span style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(167,139,250,0.12)", border:"1px solid rgba(167,139,250,0.3)", color:T.purple ?? "#a78bfa", padding:"3px 9px", borderRadius:4, fontSize:10 }}>
-                  ◆ Viewing: {org.name}
-                </span>
-              ) : null;
-            })()}
-            {platformMode && (
-              <>
-                <span title={GUARD_MODE_META[platformMode]?.desc}
-                  style={{ display:"inline-flex", alignItems:"center", gap:5, color:GUARD_MODE_META[platformMode]?.color }}>
-                  ● {(GUARD_MODE_META[platformMode]?.label || platformMode).toLowerCase()}
-                </span>
-                <span style={{ color:T.textMute }}>|</span>
-              </>
-            )}
-            <span>{filters.team==="all"?"all teams":allTeams.find((t)=>t.id===filters.team)?.name}</span>
-            <span style={{ color:T.textMute }}>|</span>
-            <span>last {filters.range}d</span>
-            {isDemoMode() && (
-              <>
-                <span style={{ color:T.textMute }}>|</span>
-                <span style={{ color:T.warn }}>● demo</span>
-              </>
-            )}
-            {pricingLastUpdated && (
-              <>
-                <span style={{ color:T.textMute }}>|</span>
-                <span title="Date pricing table was last audited against provider rates" style={{ color:T.textMute }}>pricing as of {pricingLastUpdated}</span>
-              </>
-            )}
-          </div>
-        </header>
-
-        {!["dashboard","overview_hub","surfaces_demo","home","agent_inventory","discovery","governance","relationship_map","runtime","intelligence","guardrails","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
-
-        {/* Admin-only: surface missing/invalid secrets detected at startup */}
-        {user?.role === "admin" && secretWarnings.length > 0 && (
-          <div style={{ marginBottom:16 }}>
-            {secretWarnings.map((w, i) => (
-              <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:10, background:"rgba(239,68,68,0.08)", border:`1px solid ${T.crit}`, borderRadius:6, padding:"10px 14px", marginBottom:8 }}>
-                <span style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:13, flexShrink:0 }}>⚠</span>
-                <div>
-                  <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", marginBottom:3 }}>Configuration Warning</div>
-                  <div style={{ color:T.text, fontSize:12, fontFamily:FONT_MONO, lineHeight:1.5 }}>{w}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <PageErrorBoundary key={`${page}-${demoMode}`}>{renderPage()}</PageErrorBoundary>
-      </main>
-    </div>
+      <PageErrorBoundary key={`${page}-${demoMode}`}>{renderPage()}</PageErrorBoundary>
+    </AppShell>
     </RolesContext.Provider>
     </UserContext.Provider>
   );

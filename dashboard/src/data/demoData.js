@@ -95,7 +95,7 @@ export function buildLiveMetadata(apiRecords) {
     if (!teamMap[teamId])   teamMap[teamId]   = { id: teamId, org: "org_live", name: r.team };
     if (!agentMap[agentId]) agentMap[agentId] = { id: agentId, name: r.agent, team: teamId, workflow: `live_wf_${r.agent.replace(/\s+/g, "_").toLowerCase()}`, tool: "openai_api" };
   }
-  return { liveOrg: { id: "org_live", name: "Live (AI Asset Management)" }, liveTeams: Object.values(teamMap), liveAgents: Object.values(agentMap) };
+  return { liveOrg: { id: "org_live", name: "Live (ObserveAgents)" }, liveTeams: Object.values(teamMap), liveAgents: Object.values(agentMap) };
 }
 
 function mulberry32(seed) {

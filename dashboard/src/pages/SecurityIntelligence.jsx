@@ -111,7 +111,7 @@ const STH = ({ children, sortKey, sort, onSort, style }) => {
   );
 };
 
-export default function SecurityIntelligence() {
+export default function SecurityIntelligence({ onNavigate }) {
   const [alerts, setAlerts]   = useState([]);
   const [agents, setAgents]   = useState([]);
   const [intelAssets, setIntelAssets] = useState([]);
@@ -281,7 +281,7 @@ export default function SecurityIntelligence() {
                 <thead>
                   <tr>
                     <TH>AI System</TH><TH>Environment</TH><TH>Risky Capabilities</TH>
-                    <TH>Open Security Findings</TH><TH>High Severity</TH>
+                    <TH>Open Security Findings</TH><TH>High Severity</TH><TH>Control</TH>
                   </tr>
                 </thead>
                 <tbody>
@@ -300,6 +300,15 @@ export default function SecurityIntelligence() {
                       </TD>
                       <TD style={{ fontFamily: MONO, color: a._secOpen > 0 ? T.warn : T.textDim }}>{a._secOpen}</TD>
                       <TD style={{ fontFamily: MONO, color: a.high_findings_count > 0 ? T.crit : T.textDim }}>{a.high_findings_count}</TD>
+                      <TD>
+                        {/* GCR4: one-click Observe -> Gateway Control Center */}
+                        {onNavigate && (a.findings || []).some(f => f.category === "control" && f.status === "open")
+                          ? <button onClick={() => onNavigate("gateway_control_center", { gccFocus: a.asset_key })}
+                              style={{ background: "transparent", color: T.warn, border: `1px solid ${T.warn}55`, borderRadius: 6, padding: "4px 10px", fontSize: 10, fontFamily: MONO, cursor: "pointer", whiteSpace: "nowrap" }}>
+                              Review in Control Center
+                            </button>
+                          : <span style={{ color: T.textMute, fontFamily: MONO, fontSize: 11 }}>—</span>}
+                      </TD>
                     </tr>
                   ))}
                 </tbody>

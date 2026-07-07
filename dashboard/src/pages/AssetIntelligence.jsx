@@ -122,8 +122,12 @@ function FindingRow({ f, canAct, onAction }) {
   );
 }
 
-function AssetCard({ asset, expanded, onToggle, canAct, onFindingAction }) {
+function AssetCard({ asset, expanded, onToggle, canAct, onFindingAction, onNavigate }) {
   const a = asset;
+  // GCR4: one-click Observe → Gateway Control Center when this asset is an
+  // open control candidate (category="control" finding derived by the engine).
+  const controlCandidate = (a.findings || []).find(
+    (f) => f.category === "control" && f.status === "open");
   const findingBits = [];
   if (a.open_findings_count > 0) findingBits.push(`${a.open_findings_count} open`);
   if (a.high_findings_count > 0) findingBits.push(`${a.high_findings_count} high`);
@@ -210,13 +214,24 @@ function AssetCard({ asset, expanded, onToggle, canAct, onFindingAction }) {
                   <FindingRow key={f.id} f={f} canAct={canAct} onAction={onFindingAction} />
                 ))}
           </div>
+
+          {controlCandidate && onNavigate && (
+            <div>
+              <button
+                onClick={(e) => { e.stopPropagation(); onNavigate("gateway_control_center", { gccFocus: a.asset_key }); }}
+                style={{ background: "transparent", color: T.warn, border: `1px solid ${T.warn}55`,
+                  borderRadius: 6, padding: "6px 14px", fontSize: 11, fontFamily: FONT_MONO, cursor: "pointer" }}>
+                Review in Gateway Control Center →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function AISystemsTab({ assets, capabilitiesTotal, loading, canAct, onFindingAction }) {
+function AISystemsTab({ assets, capabilitiesTotal, loading, canAct, onFindingAction, onNavigate }) {
   const [expanded, setExpanded] = useState(null);
   const { query, setQuery, filtered } = useSearch(assets, (a) =>
     `${a.asset_name} ${a.environment || ""} ${(a.models || []).join(" ")} ${(a.providers || []).join(" ")} ${(a.tools || []).join(" ")}`);
@@ -239,7 +254,7 @@ function AISystemsTab({ assets, capabilitiesTotal, loading, canAct, onFindingAct
           <AssetCard key={a.asset_key} asset={a}
             expanded={expanded === a.asset_key}
             onToggle={() => setExpanded(expanded === a.asset_key ? null : a.asset_key)}
-            canAct={canAct} onFindingAction={onFindingAction} />
+            canAct={canAct} onFindingAction={onFindingAction} onNavigate={onNavigate} />
         ))}
       </div>
     </div>
@@ -459,7 +474,7 @@ function FindingsTab({ findings, assetNames, capabilitiesTotal, loading, canAct,
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function AssetIntelligence() {
+export default function AssetIntelligence({ onNavigate }) {
   const user = useUser();
   const canAct = ["admin", "analyst"].includes(user?.role) || user?.is_platform_admin;
 
@@ -562,7 +577,7 @@ export default function AssetIntelligence() {
 
         {tab === "systems" && (
           <AISystemsTab assets={assets} capabilitiesTotal={capabilities.length} loading={loading}
-            canAct={canAct} onFindingAction={handleFindingAction} />
+            canAct={canAct} onFindingAction={handleFindingAction} onNavigate={onNavigate} />
         )}
         {tab === "capabilities" && (
           <CapabilitiesTab capabilities={capabilities} assetNames={assetNames} loading={loading} />

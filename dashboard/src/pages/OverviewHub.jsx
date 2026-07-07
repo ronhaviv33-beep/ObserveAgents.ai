@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 } from "recharts";
@@ -8,7 +8,7 @@ import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import { surfaceAllowsPage } from "../productSurface.js";
 import {
   getTelemetrySummary, getCostTrend, getAssetSummary, getOpenFindings,
-  getBudgetsStatus, getRecentTraces, getSecurityAlerts, getAttention,
+  getRecentTraces, getSecurityAlerts, getAttention,
 } from "../overviewApi.js";
 
 const ROLE_KEY = "oa-overview-role";
@@ -119,7 +119,6 @@ export default function OverviewHub({ onNavigate }) {
   const [cost, setCost]           = useState(null);
   const [assets, setAssets]       = useState(null);
   const [findings, setFindings]   = useState(null);
-  const [budgets, setBudgets]     = useState(null);
   const [traces, setTraces]       = useState(null);
   const [alerts, setAlerts]       = useState(null);
   const [loading, setLoading]     = useState(true);
@@ -130,19 +129,29 @@ export default function OverviewHub({ onNavigate }) {
 
   useEffect(() => {
     (async () => {
-      const [att, s, c, a, f, b, t, al] = await Promise.all([
+      const [att, s, c, a, f, t, al] = await Promise.all([
         getAttention(), getTelemetrySummary(), getCostTrend(30), getAssetSummary(),
-        getOpenFindings(), getBudgetsStatus(), getRecentTraces(20), getSecurityAlerts(),
+        getOpenFindings(), getRecentTraces(20), getSecurityAlerts(),
       ]);
       setAttention(att); setSummary(s); setCost(c); setAssets(a);
-      setFindings(f); setBudgets(b); setTraces(t); setAlerts(al);
+      setFindings(f); setTraces(t); setAlerts(al);
       setLoading(false);
     })();
   }, []);
 
-  // 30s auto-refresh — attention strip data only.
+  // 30-second refresh cadence for the attention strip, surfaced as a visible
+  // countdown instead of a sentence. The ref drives the cycle; state only renders it.
+  const nextRef = useRef(30);
+  const [nextIn, setNextIn] = useState(30);
   useEffect(() => {
-    const id = setInterval(refreshAttention, 30_000);
+    const id = setInterval(() => {
+      nextRef.current -= 1;
+      if (nextRef.current <= 0) {
+        nextRef.current = 30;
+        refreshAttention();
+      }
+      setNextIn(nextRef.current);
+    }, 1000);
     return () => clearInterval(id);
   }, [refreshAttention]);
 
@@ -175,8 +184,6 @@ export default function OverviewHub({ onNavigate }) {
 
   const att = attention || {};
   const trendData = (cost?.data.trends || []).map((p) => ({ date: p.date?.slice(5), cost: p.cost_usd }));
-  const budgetRows = [...(budgets?.data || [])].sort((a, b) => (b.pct || 0) - (a.pct || 0)).slice(0, 8);
-  const maxBudgetPct = Math.max(100, ...budgetRows.map((b) => b.pct || 0));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, fontFamily: FONT }}>
@@ -185,9 +192,6 @@ export default function OverviewHub({ onNavigate }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: bp.isMobile ? 20 : 24, fontWeight: 700, color: T.text, letterSpacing: "-0.025em" }}>Overview</h2>
-          <div style={{ fontSize: 12, color: T.textMute, fontFamily: MONO, marginTop: 5 }}>
-            Is anything on fire — and where do I go next?
-          </div>
         </div>
         <div style={{ display: "inline-flex", border: `1px solid ${T.border}`, borderRadius: 6, overflow: "hidden" }}>
           {["executive", "operator"].map((r) => (
@@ -209,25 +213,15 @@ export default function OverviewHub({ onNavigate }) {
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
           <span style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.14em", textTransform: "uppercase" }}>Attention</span>
           {att.demo && <SamplePill />}
-          <span style={{ fontSize: 10, fontFamily: MONO, color: T.textMute }}>· refreshes every 30s</span>
+          <span style={{ marginLeft: "auto", fontSize: 10, fontFamily: MONO, color: T.textMute }}>
+            next refresh · <span style={{ color: T.textDim }}>{nextIn}s</span>
+          </span>
         </div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <AttentionCard label="High-severity open findings" value={att.highOpenFindings}
-            sub={att.highOpenFindings > 0 ? "Needs review now" : "All clear"}
-            tone={att.highOpenFindings > 0 ? T.crit : T.accent}
-            target="intelligence" onNavigate={onNavigate} />
-          <AttentionCard label="Budget breaches" value={att.budgetsBlocked}
-            sub={att.budgetsBlocked > 0 ? "Teams in block" : att.budgetsWarning > 0 ? `${att.budgetsWarning} warning` : "All within limits"}
-            tone={att.budgetsBlocked > 0 ? T.crit : att.budgetsWarning > 0 ? T.warn : T.accent}
-            target="budgets" onNavigate={onNavigate} />
-          <AttentionCard label="Traces with errors" value={att.errorTraces}
-            sub={att.errorTraces > 0 ? "In recent executions" : "No errored traces"}
-            tone={att.errorTraces > 0 ? T.crit : T.accent}
-            target="runtime" onNavigate={onNavigate} />
-          <AttentionCard label="Systems discovered" value={att.systemsTotal}
-            sub={`${att.systemsManaged ?? 0} managed`}
-            tone={T.info}
-            target="intelligence" onNavigate={onNavigate} />
+          <AttentionCard label="Agent needs owner" value={att.agentsNeedingOwner}
+            sub="Observed AI assets without assigned ownership should be reviewed before production expansion."
+            tone={(att.agentsNeedingOwner ?? 0) > 0 ? T.warn : T.accent}
+            target="governance" onNavigate={onNavigate} />
         </div>
       </div>
 
@@ -317,23 +311,6 @@ export default function OverviewHub({ onNavigate }) {
               ) : emptyNote("No systems discovered yet.")}
             </Card>
           </div>
-
-          <Card>
-            <PanelTitle title="Budget posture by team" sub={`${budgetRows.length} rule${budgetRows.length !== 1 ? "s" : ""}`} demo={budgets?.demo}
-              target="budgets" targetLabel="Budgets" onNavigate={onNavigate} />
-            {budgetRows.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {budgetRows.map((b) => {
-                  const color = b.status === "blocked" ? T.crit : b.status === "warning" ? T.warn : T.accent;
-                  return (
-                    <HBar key={b.id} label={`${b.team}${b.agent ? ` · ${b.agent}` : ""} (${b.period})`}
-                      value={b.pct || 0} max={maxBudgetPct} color={color}
-                      right={`${fmt$(b.spend_usd)} / ${fmt$(b.limit_usd)} · ${Math.round(b.pct || 0)}%`} />
-                  );
-                })}
-              </div>
-            ) : emptyNote("No budget rules configured.")}
-          </Card>
         </>
       )}
 

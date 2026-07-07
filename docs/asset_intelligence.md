@@ -114,6 +114,14 @@ Agent-specific, environment-aware security findings derived from runtime evidenc
 | `repeated_tool_errors` | ≥ 3 tool/MCP error spans | medium · high prod |
 | `human_review_recommended` | High-risk runtime combination | medium · high if ≥ 2 reasons |
 
+### Control (`source: observe_to_control`)
+
+| finding_type | Trigger | Severity |
+|---|---|---|
+| `gateway_control_recommended` | Asset has any open high-severity finding, or an open `human_review_recommended` at any severity | high · medium |
+
+One candidate per asset, surfaced in the **Gateway Control Center** with trigger provenance and suggested controls. Dismissal is independent of the underlying findings and sticky until a *new* trigger finding type appears; only admins can change its status. See [gateway_control_center_architecture.md](gateway_control_center_architecture.md).
+
 ### Dependency
 
 | finding_type | Trigger | Severity |

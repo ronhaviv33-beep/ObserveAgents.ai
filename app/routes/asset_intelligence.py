@@ -332,6 +332,16 @@ async def list_findings(
     return [_serialize_finding(r) for r in rows]
 
 
+def _require_control_action_allowed(row: AssetFinding, user) -> None:
+    """Gateway control candidates: everyone can view, only admins can act
+    (decided in docs/gateway_control_center_architecture.md)."""
+    if row.category == "control" and user.role != "admin" and not getattr(user, "is_platform_admin", False):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admins can act on Gateway control recommendations",
+        )
+
+
 @router.post("/intelligence/findings/{finding_id}/dismiss")
 async def dismiss_finding(
     finding_id: int,
@@ -346,6 +356,7 @@ async def dismiss_finding(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Finding not found")
+    _require_control_action_allowed(row, current_user)
     row.status = "dismissed"
     db.commit()
     return {"id": finding_id, "status": "dismissed"}
@@ -365,6 +376,7 @@ async def resolve_finding(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Finding not found")
+    _require_control_action_allowed(row, current_user)
     row.status = "resolved"
     db.commit()
     return {"id": finding_id, "status": "resolved"}
@@ -385,6 +397,7 @@ async def reopen_finding(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Finding not found")
+    _require_control_action_allowed(row, current_user)
     row.status = "open"
     db.commit()
     return {"id": finding_id, "status": "open"}
