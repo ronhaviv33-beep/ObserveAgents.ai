@@ -363,7 +363,9 @@ const NAV_GROUPS_COMBINED = [
       { id: "agent_inventory",  label: "Agents" },
       { id: "runtime",          label: "Runtime" },
       { id: "relationship_map", label: "Dependency Map" },
-      { id: "ecosystem",        label: "Ecosystem Discovery" },
+      // "ecosystem" removed from nav: the page presents the O1 connector story
+      // (GitHub/Jira/Slack signals) that isn't shipped yet. Still routable by
+      // direct #ecosystem hash for easy restore when O1 lands.
     ],
   },
   {
@@ -816,7 +818,7 @@ export default function App() {
   };
 
   if (!authChecked || apiRecords === null || rolesMap === null) {
-    return <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", color:T.textDim, fontFamily:FONT_MONO }}>Connecting to AI Asset Management…</div>;
+    return <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", color:T.textDim, fontFamily:FONT_MONO }}>Connecting to ObserveAgents…</div>;
   }
 
   if (!user) {

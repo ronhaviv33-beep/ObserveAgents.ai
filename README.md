@@ -157,9 +157,9 @@ client = openai.OpenAI(
        │
        ▼
            React Dashboard
-  (Dashboard · Runtime · Asset Intelligence · Security Intelligence ·
-   Cost Intelligence · Budgets · Pricing Registry · Guardrails ·
-   Dependency Map · Discovery · Ecosystem · Setup · Users · Settings)
+  (Dashboard · Overview · Runtime · Asset Intelligence · Security Intelligence ·
+   Gateway Control Center · Cost Intelligence · Budgets · Pricing Registry ·
+   Guardrails · Dependency Map · Discovery · Setup · Users · Settings)
 ```
 
 ---
@@ -210,6 +210,7 @@ Grouped by product surface. Shared spine (inventory, pricing reference, auth) li
 
 ### Security Intelligence
 Answers: *which AI systems have risky runtime-observed behavior?*
+- **AI Agent Runtime Security Intelligence** — agent-specific, environment-aware security findings derived from runtime evidence (`source=runtime_security`, occurrence-deduped): database/API reach, MCP tools in production, broad tool surface, unknown providers, missing ownership, repeated tool errors, and human-review combinations — see [docs/ai_agent_runtime_security_intelligence.md](docs/ai_agent_runtime_security_intelligence.md)
 - **Risky AI Systems** — per-system risky capability surface (mcp / database / shell / external_api / crm / filesystem) with open security findings and high-severity counts, derived from asset intelligence
 - **Runtime security signals** — monitor unmanaged assets, high-capability agents, risky capability surfaces, and unusual runtime behavior
 - 8 automated detection rules (cost spike, large prompt, workflow failure spike, premium model misuse, after-hours activity, agent loop, unapproved model, unvetted model)
@@ -217,6 +218,14 @@ Answers: *which AI systems have risky runtime-observed behavior?*
 - Full audit log — expandable rows with prompt, response, block reason, and findings; load-more pagination
 - Optional sensitive-content checks — can be enabled per org for customers that want additional runtime safety signals
 - TLS via reverse proxy, HS256 JWT, secrets never returned via API, all data stays in your deployment
+
+### Gateway Control Center (Observe-to-Control)
+Turns observed runtime risk into Gateway control **recommendations** — one production app, both workspaces, one-click transition. *Observe first. Control only what matters.*
+- **Control candidates** derived automatically on every intelligence run: any agent with open high-severity evidence, or a human-review recommendation at any severity, enters the review queue
+- Every candidate is **evidence-backed** — trigger findings with provenance, environment, and suggested controls typed `soft` (works from OTel evidence alone), `routing` (route through Gateway), or `hard` (labeled "requires Gateway routing")
+- One-click **"Review in Gateway Control Center"** from Asset Intelligence and Security Intelligence, pre-filtered to the agent — no env-var switch, no redeploy
+- **Everyone can view; only admins act** (dismiss/reopen, enforced server-side). Dismissal is independent of the underlying findings and sticky until *new* evidence appears
+- **No enforcement, no rerouting** — hard controls only become real after traffic is routed through the Gateway *and* a human explicitly approves (future GCR5+). See [docs/gateway_control_center_architecture.md](docs/gateway_control_center_architecture.md)
 
 ## Gateway Features
 
@@ -305,11 +314,13 @@ Visible pages also depend on the built product surface (`VITE_PRODUCT_SURFACE`) 
 
 | Page | Who can see it |
 |---|---|
-| Dashboard, Platform Guide | Everyone |
-| Discovery Center, Agents, Runtime, Dependency Map, Ecosystem Discovery | Everyone |
+| Dashboard, Overview, Platform Guide | Everyone |
+| Discovery Center, Agents, Runtime, Dependency Map | Everyone |
 | Asset Intelligence, Security Intelligence, Cost Intelligence | Everyone |
+| Gateway Control Center (view for everyone; dismiss/reopen actions admin-only) | Everyone |
 | Budgets (read-only for viewer/analyst; rules managed by admin) | Everyone |
 | Pricing Registry, Guardrails | Everyone |
+| Gateway vs OTEL explainer | Demo environment only |
 | Governance Readiness, Security & Audit, Users, API Keys, Settings | Admin only |
 | Setup (Integrations) | Admin + Analyst |
 | Chat | Admin + Analyst |
@@ -580,6 +591,11 @@ The phased forward roadmap — including **Observe Advisor** and Agent Skill Rec
 | ✅ | Advisory Guardrails — observe-only guardrail catalog + per-team guard modes |
 | ✅ | Demo seed data — five-system synthetic demo through the real ingestion pipeline |
 | ✅ | Product surface separation — per-surface frontend builds (`VITE_PRODUCT_SURFACE=observability` / `gateway`) with explicit deploy targets |
+| ✅ | AI Agent Runtime Security Intelligence — agent-specific, environment-aware security findings from runtime evidence ([docs](docs/ai_agent_runtime_security_intelligence.md)) |
+| ✅ | Gateway Control Center (GCR2–GCR4) — Observe-to-Control candidates, evidence-backed suggested controls, one-click navigation ([docs](docs/gateway_control_center_architecture.md)) |
+| ✅ | Postgres-ready storage — `DATABASE_URL` switch to managed Postgres, validated end-to-end on PG 16 (SQLite stays the zero-config default) |
+| 🔜 | AI Agent Detection Rules & Alerts — configurable runtime rules + Slack/webhook notifications ([design](docs/ai_agent_detection_rules_plan.md)) |
+| 🔜 | Gateway Control Center GCR5+ — policy drafts, explicit approval workflow, enforcement for routed agents only |
 | 🔜 | Ecosystem Discovery — GitHub / Jira / Slack / n8n / MCP evidence sources, Active/Dormant/Runtime-only correlation |
 | 🔜 | Per-tenant API key table (issue org keys, not user JWTs) |
 | 🔜 | Budget alerts via webhook (Slack / Teams at 80%) |
