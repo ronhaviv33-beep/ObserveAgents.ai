@@ -26,7 +26,8 @@ import ExecutiveDashboard from "./pages/ExecutiveDashboard.jsx";
 // in the tree for rollback — see docs/ui_redesign_plan.md.
 import OverviewV2 from "./ui2/OverviewV2.jsx";
 import SurfacesDemo from "./pages/SurfacesDemo.jsx";
-import DemoDashboard from "./pages/DemoDashboard.jsx";
+// ui2 (demo): V2 replaces pages/DemoDashboard.jsx, which stays for rollback.
+import DemoDashboardV2 from "./pages/DemoDashboardV2.jsx";
 import DiscoveryCenter from "./pages/DiscoveryCenter.jsx";
 import GovernanceCenter from "./pages/GovernanceCenter.jsx";
 // ui2 (redesign step 3): V2 replaces pages/SecurityIntelligence.jsx, which
@@ -778,7 +779,7 @@ export default function App() {
     // Pages outside this product surface fall back to the dashboard
     // (belt-and-braces — nav and history guards already prevent this state).
     if (!surfaceAllowsPage(page)) {
-      return isDemoMode() ? <DemoDashboard onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
+      return isDemoMode() ? <DemoDashboardV2 onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
     }
     if (!user?.is_platform_admin && !canAccess(user?.role, page, rolesMap)) {
       return (
@@ -790,7 +791,7 @@ export default function App() {
     }
     switch (page) {
       // ── New primary pages ───────────────────────────────────────────────
-      case "dashboard":      return isDemoMode() ? <DemoDashboard onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
+      case "dashboard":      return isDemoMode() ? <DemoDashboardV2 onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
       case "overview_hub":   return <OverviewV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); if (opts.runtimeAgent !== undefined) setRtFocusService(opts.runtimeAgent); navigate(pg); }} />;
       // Demo-only teaching page: on customer builds the hash falls back to the dashboard.
       case "surfaces_demo":  return isDemoMode() ? <SurfacesDemo onNavigate={navigate} />
