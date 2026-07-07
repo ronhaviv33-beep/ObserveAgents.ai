@@ -120,6 +120,8 @@ Candidate triggers may include (all already derivable from existing findings and
 
 Being a candidate is **not** an accusation and **not** an action — it is a review queue entry with evidence attached.
 
+**Candidate threshold (decided):** an asset becomes a candidate when it has any **high-severity** finding or rule match, **or** a `human_review_recommended` finding **at any severity, including medium** — human-review combinations are exactly the signal the Control Center exists to route to a person, so they qualify even when no single contributing finding is high on its own. Other medium findings alone do not create candidates; that keeps the queue short and the recommendation meaningful.
+
 ## Candidate status model
 
 Full future status vocabulary:
@@ -137,6 +139,8 @@ Full future status vocabulary:
 | `dismissed` | Reviewed and consciously declined |
 
 **MVP recommendation: start with `recommended` / `reviewing` / `dismissed` only.** (Plain `recommended`/`dismissed` is acceptable if `reviewing` adds UI cost.) Every state from `control_plan_created` onward is **future-only** — they exist in the vocabulary now so the status column never needs a breaking rename, but no MVP code path sets them.
+
+**Dismissal independence (decided):** dismissing a candidate does **not** dismiss the underlying findings, and vice versa. They answer different questions — a finding says *"this behavior was observed"*; a candidate says *"this agent should be considered for Gateway control"*. Dismissing the candidate means "I decline to control this agent," while the evidence stays open in Observe for the team that owns it. This also keeps the audit trail honest (a Control Center action never silently mutates the Observe source of truth) and lets the candidate be re-recommended if *new* high-risk evidence appears after dismissal — a dismissed candidate stays dismissed for its existing evidence, but a newly triggered finding type reopens the question deliberately.
 
 ## Suggested controls
 
@@ -232,6 +236,8 @@ Gateway Control Center page sections:
 Agent card / table fields:
 
 `agent name` · `asset key` · `owner/team` · `environment` · `risk level` · `triggered findings` · `triggered rules` · `last seen` · `recommended controls` · `status` · action button (**Review** / **Create Control Plan**)
+
+**Access control (decided):** the Control Center is visible to **admin, analyst, and viewer** roles — everyone who can see findings can see why an agent is recommended for control. **Only admin can act**: review, dismiss, create a control plan, approve. Analyst and viewer get the full read-only view with action buttons hidden/disabled, following the same role-gating pattern the rest of the dashboard uses (`require_page_access` server-side, role checks in `auth.jsx` client-side).
 
 Implementation later follows the existing conventions: PAGES/NAV_GROUPS/renderPage registration in `dashboard/src/App.jsx`, roles in `app/roles.py` + `dashboard/src/auth.jsx`, theme tokens, `Card`/`Pill`/`sevColor` from `ui.jsx`.
 
