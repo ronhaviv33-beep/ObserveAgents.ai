@@ -35,7 +35,9 @@ import SecurityIntelligenceV2 from "./pages/SecurityIntelligenceV2.jsx";
 import EcosystemDiscovery from "./pages/EcosystemDiscovery.jsx";
 import RelationshipMap from "./pages/RelationshipMap.jsx";
 import RuntimeTimeline from "./pages/RuntimeTimeline.jsx";
-import AssetIntelligence from "./pages/AssetIntelligence.jsx";
+// ui2 (redesign step 4): V2 replaces pages/AssetIntelligence.jsx, which
+// stays in the tree for rollback — see docs/ui_redesign_plan.md.
+import AssetIntelligenceV2 from "./pages/AssetIntelligenceV2.jsx";
 // ui2 (redesign step 2): V2 replaces pages/GatewayControlCenter.jsx, which
 // stays in the tree for rollback — see docs/ui_redesign_plan.md.
 import GatewayControlCenterV2 from "./pages/GatewayControlCenterV2.jsx";
@@ -793,7 +795,7 @@ export default function App() {
       case "ecosystem":        return <EcosystemDiscovery />;
       case "relationship_map": return <RelationshipMap />;
       case "runtime":          return <RuntimeTimeline />;
-      case "intelligence":     return <AssetIntelligence onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
+      case "intelligence":     return <AssetIntelligenceV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
       case "gateway_control_center":
         return <GatewayControlCenterV2 isAdmin={user?.role === "admin" || user?.is_platform_admin}
                                        focusAssetKey={gccFocusKey} onClearFocus={() => setGccFocusKey(null)}
