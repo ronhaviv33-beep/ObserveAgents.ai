@@ -29,7 +29,9 @@ import SurfacesDemo from "./pages/SurfacesDemo.jsx";
 import DemoDashboard from "./pages/DemoDashboard.jsx";
 import DiscoveryCenter from "./pages/DiscoveryCenter.jsx";
 import GovernanceCenter from "./pages/GovernanceCenter.jsx";
-import SecurityIntelligence from "./pages/SecurityIntelligence.jsx";
+// ui2 (redesign step 3): V2 replaces pages/SecurityIntelligence.jsx, which
+// stays in the tree for rollback — see docs/ui_redesign_plan.md.
+import SecurityIntelligenceV2 from "./pages/SecurityIntelligenceV2.jsx";
 import EcosystemDiscovery from "./pages/EcosystemDiscovery.jsx";
 import RelationshipMap from "./pages/RelationshipMap.jsx";
 import RuntimeTimeline from "./pages/RuntimeTimeline.jsx";
@@ -787,7 +789,7 @@ export default function App() {
       case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); navigate(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
       case "governance":     return <GovernanceCenter />;
-      case "security_intel": return <SecurityIntelligence onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
+      case "security_intel": return <SecurityIntelligenceV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
       case "ecosystem":        return <EcosystemDiscovery />;
       case "relationship_map": return <RelationshipMap />;
       case "runtime":          return <RuntimeTimeline />;
