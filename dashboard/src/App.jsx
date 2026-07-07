@@ -70,7 +70,9 @@ import { ORGS, TEAMS, AGENTS, MODELS, providerFromModel, tierFromModel, approved
 import { ALERT_META, applyFilters, runDetections, agg, estimateSavings, computeRiskScore, execSummary } from "./data/alertMeta.js";
 import { useLiveData } from "./hooks/useLiveData.js";
 import { UserContext, useUser, RolesContext, useRoles, ROLES, canSeePage, userCan, canAccess } from "./auth.jsx";
-import CustomerWelcomePage from "./pages/PlatformGuide.jsx";
+// ui2 (redesign step 5): V2 replaces pages/PlatformGuide.jsx, which stays
+// in the tree for rollback — see docs/ui_redesign_plan.md.
+import PlatformGuideV2 from "./pages/PlatformGuideV2.jsx";
 import SimpleIntegrationsPage from "./pages/Setup.jsx";
 import SettingsPage, { GUARD_MODE_META } from "./pages/Settings.jsx";
 import { useBreakpoint } from "./hooks/useBreakpoint.js";
@@ -787,7 +789,7 @@ export default function App() {
       // Demo-only teaching page: on customer builds the hash falls back to the dashboard.
       case "surfaces_demo":  return isDemoMode() ? <SurfacesDemo onNavigate={navigate} />
                                     : <ExecutiveDashboard onNavigate={navigate} />;
-      case "welcome":        return <CustomerWelcomePage onNavigate={navigate} />;
+      case "welcome":        return <PlatformGuideV2 onNavigate={navigate} />;
       case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); navigate(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
       case "governance":     return <GovernanceCenter />;
