@@ -18,9 +18,9 @@ export default function CustomerWelcomePage({ onNavigate }) {
     { icon: "▶", color: T.accent,  title: "Runtime",                  page: "runtime",           desc: "See live AI traces and execution timelines — where every request actually spends its time." },
     { icon: "◈", color: T.purple,  title: "Asset Intelligence",       page: "intelligence",      desc: "Understand every AI system: its models, tools, dependencies, capabilities, and findings — grouped in one place." },
     { icon: "⚑", color: T.crit,   title: "Security Intelligence",    page: "security_intel",    desc: "Find risky runtime behavior like database access, MCP usage, external APIs, and broad tool access." },
-    isObservability
-      ? { icon: "$", color: T.accent, title: "Cost Signals",          page: "runtime",           desc: "Token usage and slow steps per trace — usage signals from OpenTelemetry, not billing." }
-      : { icon: "$", color: T.accent, title: "Cost Intelligence",     page: "cost",              desc: "Spot heavy, slow, or potentially expensive AI workflows. Usage signals, not exact billing." },
+    ...(isObservability ? [] : [
+      { icon: "$", color: T.accent, title: "Cost Intelligence",     page: "cost",              desc: "Spot heavy, slow, or potentially expensive AI workflows. Usage signals, not exact billing." },
+    ]),
     { icon: "⊛", color: T.info,    title: "Guardrails",               page: "guardrails",        desc: "Start in observe-only mode: detect, explain, and recommend — without blocking production AI." },
     { icon: "🔗", color: T.teal,   title: "Dependency Map",           page: "relationship_map",  desc: "See what every AI system connects to — MCP servers, tools, workflows, APIs, and databases." },
   ];
@@ -108,11 +108,37 @@ export default function CustomerWelcomePage({ onNavigate }) {
         </div>
       </div>
 
+      {/* How the platform works — Observe-first operation model */}
+      <div style={{ marginBottom:32, padding:"24px 28px", background:T.panel,
+        border:`1px solid ${T.border}`, borderRadius:10 }}>
+        <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.textMute, letterSpacing:"0.12em",
+          textTransform:"uppercase", marginBottom:12 }}>How ObserveAgents works</div>
+        <div style={{ fontSize:13, color:T.textDim, lineHeight:1.75, maxWidth:720, marginBottom:14 }}>
+          ObserveAgents starts with OpenTelemetry runtime evidence. AI systems send OTLP traces into
+          Runtime, where spans and signals reveal what agents actually do. That evidence powers Asset
+          Intelligence, Security Intelligence, and Detection Rules. When an agent shows risk, cost,
+          reliability, or governance signals, it can be reviewed in the Gateway Control Center with
+          recommended controls — observe-only until explicitly configured.
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:14 }}>
+          {["OTel / OTLP", "Runtime", "Asset Intelligence", "Security Intelligence", "Detection Rules", "Gateway Control Center"].map((step, i, arr) => (
+            <React.Fragment key={step}>
+              <span style={{ fontSize:11, fontFamily:FONT_MONO, color:T.text,
+                background:T.panelHi, border:`1px solid ${T.border}`, borderRadius:5, padding:"5px 10px", whiteSpace:"nowrap" }}>{step}</span>
+              {i < arr.length - 1 && <span style={{ color:T.textMute, fontSize:11 }}>→</span>}
+            </React.Fragment>
+          ))}
+        </div>
+        <div style={{ fontSize:12, fontFamily:FONT_MONO, color:T.accent }}>
+          Observe first. Control only what matters.
+        </div>
+      </div>
+
       {/* What's discovered automatically */}
       <div style={{ marginBottom:32, padding:"24px 28px", background:`${T.teal}08`,
         border:`1px solid ${T.teal}22`, borderRadius:10 }}>
         <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.teal, letterSpacing:"0.14em",
-          textTransform:"uppercase", marginBottom:16 }}>◆ Discovered automatically</div>
+          textTransform:"uppercase", marginBottom:16 }}>Trace discovered</div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:12 }}>
           {discoveredItems.map(item => (
             <div key={item.label} style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
