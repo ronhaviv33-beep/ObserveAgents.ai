@@ -32,6 +32,7 @@ import EcosystemDiscovery from "./pages/EcosystemDiscovery.jsx";
 import RelationshipMap from "./pages/RelationshipMap.jsx";
 import RuntimeTimeline from "./pages/RuntimeTimeline.jsx";
 import AssetIntelligence from "./pages/AssetIntelligence.jsx";
+import GatewayControlCenter from "./pages/GatewayControlCenter.jsx";
 import Guardrails from "./pages/Guardrails.jsx";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
@@ -320,6 +321,7 @@ const PAGES = [
   { id:"relationship_map", label:"Runtime Dependency Map" },
   { id:"runtime",          label:"Runtime" },
   { id:"intelligence",     label:"Asset Intelligence" },
+  { id:"gateway_control_center", label:"Gateway Control Center" },
   { id:"guardrails",       label:"Guardrails" },
   { id:"budgets",          label:"Budgets" },
   { id:"pricing",        label:"Pricing Registry" },
@@ -369,6 +371,7 @@ const NAV_GROUPS_COMBINED = [
     items: [
       { id: "intelligence",  label: "Asset Intelligence" },
       { id: "security_intel",label: "Security Intelligence" },
+      { id: "gateway_control_center", label: "Gateway Control Center" },
       { id: "cost",          label: "Cost Intelligence" },
       { id: "budgets",       label: "Budgets" },
       { id: "pricing",       label: "Pricing Registry" },
@@ -413,6 +416,14 @@ const NAV_GROUPS_OBSERVABILITY = [
     ],
   },
   {
+    // One app, both workspaces (O9): the Control Center is reachable from the
+    // Observe surface — moving to it is navigation, not a deployment choice.
+    label: "GATEWAY CONTROL",
+    items: [
+      { id: "gateway_control_center", label: "Control Center" },
+    ],
+  },
+  {
     label: "ADMINISTRATION",
     items: [
       { id: "governance",    label: "Governance Readiness" },
@@ -443,6 +454,7 @@ const NAV_GROUPS_GATEWAY = [
   {
     label: "GATEWAY",
     items: [
+      { id: "gateway_control_center", label: "Control Center" },
       { id: "discovery",       label: "Discovery Center" },
       { id: "agent_inventory", label: "Agents" },
       { id: "providers",       label: "Providers" },
@@ -477,6 +489,9 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const bp = useBreakpoint();
   const [discoveryInitialTab, setDiscoveryInitialTab] = useState("verified");
+  // One-click Observe → Gateway Control Center transition (GCR4): the source
+  // page sets the focus asset, the Control Center opens pre-filtered to it.
+  const [gccFocusKey, setGccFocusKey] = useState(null);
 
   // Navigate to a page and push a browser history entry so back/forward works.
   const navigate = useCallback((id) => {
@@ -766,11 +781,14 @@ export default function App() {
       case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); navigate(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
       case "governance":     return <GovernanceCenter />;
-      case "security_intel": return <SecurityIntelligence />;
+      case "security_intel": return <SecurityIntelligence onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
       case "ecosystem":        return <EcosystemDiscovery />;
       case "relationship_map": return <RelationshipMap />;
       case "runtime":          return <RuntimeTimeline />;
-      case "intelligence":     return <AssetIntelligence />;
+      case "intelligence":     return <AssetIntelligence onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
+      case "gateway_control_center":
+        return <GatewayControlCenter isAdmin={user?.role === "admin" || user?.is_platform_admin}
+                                     focusAssetKey={gccFocusKey} onClearFocus={() => setGccFocusKey(null)} />;
       case "guardrails":       return <Guardrails />;
       // ── Existing pages (unchanged) ──────────────────────────────────────
       case "cost":      return <CostIntelligence />;
@@ -1034,7 +1052,7 @@ export default function App() {
           </div>
         </header>
 
-        {!["dashboard","overview_hub","surfaces_demo","home","agent_inventory","discovery","governance","relationship_map","runtime","intelligence","guardrails","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
+        {!["dashboard","overview_hub","surfaces_demo","home","agent_inventory","discovery","governance","relationship_map","runtime","intelligence","gateway_control_center","guardrails","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
 
         {/* Admin-only: surface missing/invalid secrets detected at startup */}
         {user?.role === "admin" && secretWarnings.length > 0 && (

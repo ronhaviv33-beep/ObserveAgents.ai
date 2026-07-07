@@ -1,6 +1,8 @@
 # Gateway Control Center Architecture
 
-*Architecture plan only. Nothing here is implemented yet: no code, no migrations, no frontend or backend changes, no Gateway behavior change, no enforcement, no rerouting. The existing `VITE_PRODUCT_SURFACE` mechanism stays in place. Roadmap phase: **O9 — Gateway Control Center / Observe-to-Control** (see [roadmap.md](roadmap.md)).*
+*Roadmap phase: **O9 — Gateway Control Center / Observe-to-Control** (see [roadmap.md](roadmap.md)).*
+
+**Implementation status:** GCR1 (this doc) and **GCR2–GCR4 are shipped** — candidate derivation (`app/gateway_control.py` → `gateway_control_recommended` findings), the Gateway Control Center page (`dashboard/src/pages/GatewayControlCenter.jsx`, visible on both surfaces), and one-click deep links from Asset/Security Intelligence. GCR5+ (policy drafts, approval workflow, enforcement for routed agents) remain future. Still true by construction: no enforcement, no rerouting, no migrations, no Gateway behavior change.
 
 ---
 

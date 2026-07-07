@@ -16,6 +16,10 @@ from sqlalchemy.orm import Session
 from app.models import AssetCapability, AssetFinding, AssetRegistry, OtelAsset, OtelSpan
 from app.genai_semconv import extract_error_type, extract_tool_name, is_mcp_span
 from app.runtime_security_intelligence import derive_runtime_security_findings
+from app.gateway_control import (
+    CONTROL_CATEGORY, CONTROL_FINDING_TYPE, CONTROL_SOURCE,
+    derive_gateway_control_candidates,
+)
 
 _log = logging.getLogger("ai_asset_mgmt.intelligence")
 
@@ -554,6 +558,43 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
             d["finding_type"], d["severity"], d["title"], d["summary"],
             "runtime_security", now,
             evidence=d["evidence"], occurrence_count=d.get("occurrence_count", 1),
+            replace_evidence=True,
+        )
+        finds_created += c
+        finds_updated += u
+
+    # Gateway Control Center (GCR2) — derive control candidates from the open
+    # findings this run just settled. Dismissal is sticky: a dismissed/resolved
+    # candidate is only reopened when a *new* trigger finding type appears;
+    # otherwise its row (and frozen evidence) is left untouched.
+    for d in derive_gateway_control_candidates(db, org_id):
+        existing = (
+            db.query(AssetFinding)
+            .filter(
+                AssetFinding.organization_id == org_id,
+                AssetFinding.asset_key == d["asset_key"],
+                AssetFinding.category == CONTROL_CATEGORY,
+                AssetFinding.finding_type == CONTROL_FINDING_TYPE,
+                AssetFinding.source == CONTROL_SOURCE,
+            )
+            .first()
+        )
+        if existing is not None and existing.status != "open":
+            prev_types: set[str] = set()
+            if existing.evidence_json:
+                try:
+                    prev_types = set((json.loads(existing.evidence_json) or {}).get("trigger_finding_types") or [])
+                except (json.JSONDecodeError, TypeError):
+                    prev_types = set()
+            if set(d["evidence"]["trigger_finding_types"]) - prev_types:
+                existing.status = "open"  # new evidence reopens the question deliberately
+            else:
+                continue
+        c, u = _upsert_finding(
+            db, org_id, d["asset_id"], d["asset_key"], CONTROL_CATEGORY,
+            CONTROL_FINDING_TYPE, d["severity"], d["title"], d["summary"],
+            CONTROL_SOURCE, now,
+            evidence=d["evidence"], occurrence_count=d["occurrence_count"],
             replace_evidence=True,
         )
         finds_created += c

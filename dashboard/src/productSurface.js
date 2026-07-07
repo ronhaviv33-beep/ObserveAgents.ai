@@ -38,6 +38,9 @@ export const PRODUCT_SUBTITLE = {
 
 // Page ids hidden per surface. Hiding removes the page from nav AND makes
 // deep links (#hash) fall back to the dashboard. Combined hides nothing.
+// NOTE: "gateway_control_center" is deliberately absent from BOTH hidden sets —
+// O9's one-app model: the Observe surface reaches Gateway Control with one
+// click (docs/gateway_control_center_architecture.md), no env-var switch.
 const _HIDDEN = {
   observability: new Set([
     // gateway product pages
