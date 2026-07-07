@@ -13,11 +13,12 @@ ObserveAgents is becoming the **system of record for enterprise AI**: it turns r
 | O1 | Ecosystem Discovery | GitHub / Jira / Slack / n8n / MCP evidence connectors; Active / Dormant / Runtime-only correlation with the runtime inventory |
 | O2 | Ingestion depth | OTLP **protobuf** support — ✅ shipped (direct OpenLLMetry-style onboarding, no Collector required); OTLP **metrics** ingestion (Claude Code / coding-agent token & cost accounting) still ahead |
 | O3 | Content-free security verdicts | In-flight scanning at ingestion (prompt injection, PII-in-prompt, toxicity) storing **verdicts only** — never content; Runtime "Security checks" filter |
-| O4 | Monitors & notifications | Server-side guardrail monitors with thresholds; budget alerts via webhook (Slack / Teams); alert rules on finding families |
+| O4 | Monitors & notifications | Server-side guardrail monitors with thresholds; budget alerts via webhook (Slack / Teams); alert rules on finding families — concrete design: [ai_agent_detection_rules_plan.md](ai_agent_detection_rules_plan.md) |
 | O5 | Product surface deployments | Per-surface builds of the Observability and Gateway products (separation plan Phase 4); surface-scoped API keys |
 | O6 | Enterprise readiness | SSO (Okta / Google OAuth), per-tenant API key table, HA / fail-over story, documented self-host path |
 | O7 | Observe MCP server | Read-only MCP tools (`list_ai_systems`, `get_findings`, `get_trace`, `get_cost_signals`) so customers' agents can query their AI inventory |
 | O8 | **Observe Advisor MVP** | From *what happened* to *what this agent needs to learn next* — see below |
+| O9 | **Gateway Control Center / Observe-to-Control** | A one-click workspace that turns observed runtime risk into Gateway control recommendations for specific AI agents. One production app: Observe workspace (source of truth) + Gateway Control Center (action workspace) — no env-var switch, no redeploy, no enforcement without explicit approval. *Observe first. Control only what matters.* Design: [gateway_control_center_architecture.md](gateway_control_center_architecture.md) |
 
 **Shipped:** **AI Agent Runtime Security Intelligence MVP** — agent-specific, environment-aware security findings derived from runtime evidence (database/API reach, MCP in production, broad tool surface, unknown providers, missing ownership, repeated tool errors, human-review combinations). Observe-only, derivation-only, no new ingestion. See [ai_agent_runtime_security_intelligence.md](ai_agent_runtime_security_intelligence.md). O3's in-flight content verdicts (prompt injection / PII / toxicity) remain ahead as the next security layer.
 
