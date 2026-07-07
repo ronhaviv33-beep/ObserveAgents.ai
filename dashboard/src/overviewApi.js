@@ -167,6 +167,14 @@ export const getOpenFindings = () =>
     return Array.isArray(res) ? res : [];
   }, FIX_FINDINGS);
 
+/** Gateway control candidates — category=control findings, any status.
+ *  @returns {Promise<{data: Finding[], demo: boolean}>} */
+export const getControlCandidates = () =>
+  withFallback(async () => {
+    const res = await fetchIntelligenceFindings({ category: "control" });
+    return Array.isArray(res) ? res : [];
+  }, []);
+
 /** @returns {Promise<{data: BudgetStatusItem[], demo: boolean}>} */
 export const getBudgetsStatus = () =>
   withFallback(async () => {

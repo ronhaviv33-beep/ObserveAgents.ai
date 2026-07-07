@@ -22,7 +22,9 @@ import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
 import ExecutiveDashboard from "./pages/ExecutiveDashboard.jsx";
-import OverviewHub from "./pages/OverviewHub.jsx";
+// ui2 (redesign step 1): OverviewV2 replaces pages/OverviewHub.jsx, which stays
+// in the tree for rollback — see docs/ui_redesign_plan.md.
+import OverviewV2 from "./ui2/OverviewV2.jsx";
 import SurfacesDemo from "./pages/SurfacesDemo.jsx";
 import DemoDashboard from "./pages/DemoDashboard.jsx";
 import DiscoveryCenter from "./pages/DiscoveryCenter.jsx";
@@ -775,7 +777,7 @@ export default function App() {
     switch (page) {
       // ── New primary pages ───────────────────────────────────────────────
       case "dashboard":      return isDemoMode() ? <DemoDashboard onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
-      case "overview_hub":   return <OverviewHub onNavigate={navigate} />;
+      case "overview_hub":   return <OverviewV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
       // Demo-only teaching page: on customer builds the hash falls back to the dashboard.
       case "surfaces_demo":  return isDemoMode() ? <SurfacesDemo onNavigate={navigate} />
                                     : <ExecutiveDashboard onNavigate={navigate} />;
