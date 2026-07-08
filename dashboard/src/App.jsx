@@ -330,7 +330,7 @@ const PAGES = [
   { id:"agent_inventory",label:"AI Agent Inventory" },
   { id:"discovery",      label:"Discovery Center" },
   { id:"governance",     label:"Governance Readiness" },
-  { id:"cost",           label:"Cost Intelligence" },
+  { id:"cost",           label:"Cost Signals" },
   { id:"security_intel", label:"Security Intelligence" },
   { id:"ecosystem",        label:"Ecosystem Discovery" },
   { id:"relationship_map", label:"Runtime Dependency Map" },
@@ -345,6 +345,8 @@ const PAGES = [
   { id:"apikeys",        label:"API Keys" },
   { id:"settings",       label:"Settings" },
   // Legacy pages (not in primary nav but still routable)
+  // Rollback route for the pre-ui2 live landing — direct #exec_dashboard hash only.
+  { id:"exec_dashboard", label:"Executive Dashboard" },
   { id:"home",           label:"Home" },
   { id:"overview",       label:"Overview" },
   { id:"agents",         label:"Agent Activity" },
@@ -359,46 +361,50 @@ const PAGES = [
 ];
 
 // NAV_GROUPS: sidebar rendering — only primary navigation, grouped by section.
-// This is the COMBINED-mode nav — today's blended surface, unchanged.
+// COMBINED-mode nav, ordered to read the product flow: observe runtime
+// evidence first, review control recommendations second, administer last.
 const NAV_GROUPS_COMBINED = [
   {
     label: null,
     items: [
       { id: "dashboard", label: "Dashboard" },
-      { id: "overview_hub", label: "Overview" },
+      // demoOnly: in live mode #dashboard renders OverviewV2 itself, so a
+      // separate Overview item only adds value next to the demo dashboard.
+      { id: "overview_hub", label: "Overview", demoOnly: true },
       // demoOnly: rendered only when the backend reports demo_mode (isDemoMode())
       { id: "surfaces_demo", label: "Gateway vs OTEL", demoOnly: true },
       { id: "welcome",   label: "Platform Guide" },
     ],
   },
   {
-    label: "DISCOVERY & INVENTORY",
+    label: "OBSERVE",
     items: [
-      { id: "discovery",        label: "Discovery Center" },
-      { id: "agent_inventory",  label: "Agents" },
       { id: "runtime",          label: "Runtime" },
+      { id: "intelligence",     label: "Asset Intelligence" },
+      { id: "security_intel",   label: "Security Intelligence" },
       { id: "relationship_map", label: "Dependency Map" },
+      { id: "agent_inventory",  label: "Agents" },
+      { id: "cost",             label: "Cost Signals" },
+      // "discovery" removed from nav: Asset Intelligence is the primary
+      // inventory surface now. Still routable by direct #discovery hash.
       // "ecosystem" removed from nav: the page presents the O1 connector story
       // (GitHub/Jira/Slack signals) that isn't shipped yet. Still routable by
       // direct #ecosystem hash for easy restore when O1 lands.
     ],
   },
   {
-    label: "INTELLIGENCE",
+    label: "CONTROL",
     items: [
-      { id: "intelligence",  label: "Asset Intelligence" },
-      { id: "security_intel",label: "Security Intelligence" },
       { id: "gateway_control_center", label: "Gateway Control Center" },
-      { id: "cost",          label: "Cost Intelligence" },
-      { id: "budgets",       label: "Budgets" },
-      { id: "pricing",       label: "Pricing Registry" },
       { id: "guardrails",    label: "Guardrails" },
+      { id: "budgets",       label: "Budgets" },
     ],
   },
   {
     label: "ADMINISTRATION",
     items: [
       { id: "governance",    label: "Governance Readiness" },
+      { id: "pricing",       label: "Pricing Registry" },
       { id: "security",      label: "Security & Audit" },
       { id: "users",         label: "Users" },
       { id: "apikeys",       label: "API Keys" },
@@ -416,7 +422,8 @@ const NAV_GROUPS_OBSERVABILITY = [
     label: null,
     items: [
       { id: "dashboard", label: "Dashboard" },
-      { id: "overview_hub", label: "Overview" },
+      // demoOnly: in live mode #dashboard renders OverviewV2 itself.
+      { id: "overview_hub", label: "Overview", demoOnly: true },
       // demoOnly: rendered only when the backend reports demo_mode (isDemoMode())
       { id: "surfaces_demo", label: "Gateway vs OTEL", demoOnly: true },
       { id: "welcome",   label: "Platform Guide" },
@@ -776,12 +783,22 @@ export default function App() {
   const pageProps = { events: filteredEvents, allTeams, allAgents, A, alerts, savings, risk };
 
   const renderPage = () => {
+    // OverviewV2 deep-links into Gateway Control (gccFocus) and Runtime
+    // (runtimeAgent) — one wrapper shared by every route that renders it.
+    const overviewNav = (pg, opts = {}) => {
+      if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus);
+      if (opts.runtimeAgent !== undefined) setRtFocusService(opts.runtimeAgent);
+      navigate(pg);
+    };
     // Pages outside this product surface fall back to the dashboard
     // (belt-and-braces — nav and history guards already prevent this state).
     if (!surfaceAllowsPage(page)) {
-      return isDemoMode() ? <DemoDashboardV2 onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
+      return isDemoMode() ? <DemoDashboardV2 onNavigate={navigate} /> : <OverviewV2 onNavigate={overviewNav} />;
     }
-    if (!user?.is_platform_admin && !canAccess(user?.role, page, rolesMap)) {
+    // exec_dashboard is the direct-hash rollback route for the pre-ui2
+    // landing; it inherits the dashboard page permission.
+    const accessPage = page === "exec_dashboard" ? "dashboard" : page;
+    if (!user?.is_platform_admin && !canAccess(user?.role, accessPage, rolesMap)) {
       return (
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:300, gap:12, color:T.textMute, fontFamily:FONT_MONO }}>
           <div style={{ fontSize:24, color:T.crit }}>⊘</div>
@@ -791,11 +808,13 @@ export default function App() {
     }
     switch (page) {
       // ── New primary pages ───────────────────────────────────────────────
-      case "dashboard":      return isDemoMode() ? <DemoDashboardV2 onNavigate={navigate} /> : <ExecutiveDashboard onNavigate={navigate} />;
-      case "overview_hub":   return <OverviewV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); if (opts.runtimeAgent !== undefined) setRtFocusService(opts.runtimeAgent); navigate(pg); }} />;
+      // Live landing is the observe-first OverviewV2; the pre-ui2 executive
+      // dashboard stays reachable at #exec_dashboard for rollback.
+      case "dashboard":      return isDemoMode() ? <DemoDashboardV2 onNavigate={navigate} /> : <OverviewV2 onNavigate={overviewNav} />;
+      case "overview_hub":   return <OverviewV2 onNavigate={overviewNav} />;
       // Demo-only teaching page: on customer builds the hash falls back to the dashboard.
       case "surfaces_demo":  return isDemoMode() ? <SurfacesDemo onNavigate={navigate} />
-                                    : <ExecutiveDashboard onNavigate={navigate} />;
+                                    : <OverviewV2 onNavigate={overviewNav} />;
       case "welcome":        return <PlatformGuideV2 onNavigate={navigate} />;
       case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); navigate(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
@@ -819,6 +838,9 @@ export default function App() {
       case "apikeys":   return <ApiKeysPage demoMode={demoMode} />;
       case "settings":      return <SettingsPage />;
       // ── Legacy pages (still routable, removed from primary nav) ────────
+      // Rollback-only route for the pre-ui2 live landing. Direct #exec_dashboard
+      // hash only — never add this to a nav group.
+      case "exec_dashboard": return <ExecutiveDashboard onNavigate={navigate} />;
       case "home":           return <Home onNavigate={navigate} />;
       case "chat":           return <ChatPage demoMode={demoMode} />;
       case "assets":    return <AssetsPage />;
