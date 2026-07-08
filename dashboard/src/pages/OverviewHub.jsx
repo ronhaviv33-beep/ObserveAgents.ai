@@ -198,7 +198,7 @@ export default function OverviewHub({ onNavigate }) {
             <button key={r} onClick={() => pickRole(r)}
               style={{
                 background: role === r ? T.accent : "transparent",
-                color: role === r ? "#001b10" : T.textDim,
+                color: role === r ? "#06121F" : T.textDim,
                 border: "none", padding: "8px 20px", fontSize: 12, fontWeight: 600,
                 fontFamily: FONT, cursor: "pointer", textTransform: "capitalize",
               }}>

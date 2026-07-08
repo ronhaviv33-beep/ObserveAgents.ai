@@ -4,11 +4,11 @@ import { relationshipEvidenceLabel } from "../discoveryStatus.js";
 import CollapsiblePanel, { PanelGroupControls } from "../components/CollapsiblePanel.jsx";
 
 const T = {
-  bg: "#0A0B0F", panel: "#0F1117", panelHi: "#141823",
-  border: "#1E2230", borderHi: "#2A3242",
-  text: "#E8ECF4", textDim: "#7A8499", textMute: "#4B5468",
-  accent: "#7CFFB2", warn: "#FFB547", crit: "#FF5C7A",
-  info: "#6FA8FF", yellow: "#FFD700", purple: "#B47AFF",
+  bg: "#0B1020", panel: "#111827", panelHi: "#1E293B",
+  border: "#334155", borderHi: "#475569",
+  text: "#F8FAFC", textDim: "#CBD5E1", textMute: "#94A3B8",
+  accent: "#4ADE80", warn: "#FBBF24", crit: "#F87171",
+  info: "#60A5FA", yellow: "#FFD700", purple: "#A78BFA",
 };
 const MONO = "'JetBrains Mono','IBM Plex Mono',monospace";
 const FONT = "'Geist','Söhne',-apple-system,sans-serif";
@@ -157,10 +157,10 @@ function relativeTime(iso) {
 }
 
 const LIFECYCLE_MAP = {
-  unassigned:       { label: "Unassigned",  color: "#FFB547", bg: "#3D2E0D" },
-  needs_validation: { label: "Needs Val.",  color: "#B47AFF", bg: "#1E1A3D" },
-  managed:          { label: "Managed",     color: "#7CFFB2", bg: "#1A3D2B" },
-  retired:          { label: "Retired",     color: "#4B5468", bg: "#141823" },
+  unassigned:       { label: "Unassigned",  color: "#FBBF24", bg: "rgba(245,158,11,0.14)" },
+  needs_validation: { label: "Needs Val.",  color: "#A78BFA", bg: "rgba(139,92,246,0.14)" },
+  managed:          { label: "Managed",     color: "#4ADE80", bg: "rgba(34,197,94,0.14)" },
+  retired:          { label: "Retired",     color: "#94A3B8", bg: "#1E293B" },
 };
 
 function ProviderAgentsModal({ provider, agents, onClose }) {
@@ -202,9 +202,9 @@ function ProviderAgentsModal({ provider, agents, onClose }) {
                 const risk = a.risk || "—";
                 const riskColor = risk === "high" ? T.crit : risk === "medium" ? T.warn : risk === "low" ? T.accent : T.textMute;
                 return (
-                  <tr key={a.id || a.name || i} style={{ background: i % 2 === 0 ? T.panel : "#0C0E14" }}
+                  <tr key={a.id || a.name || i} style={{ background: i % 2 === 0 ? T.panel : "#0D1424" }}
                     onMouseEnter={e => e.currentTarget.style.background = T.panelHi}
-                    onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? T.panel : "#0C0E14"}>
+                    onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? T.panel : "#0D1424"}>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
                       <div style={{ fontSize: 13, fontFamily: MONO, color: T.text, fontWeight: 500 }}>{a.name || a.agent_name}</div>
                       <span style={{ display: "inline-block", background: lc.bg, color: lc.color, fontSize: 9, fontFamily: MONO, fontWeight: 600, padding: "1px 6px", borderRadius: 3, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 3 }}>{lc.label}</span>
@@ -212,12 +212,12 @@ function ProviderAgentsModal({ provider, agents, onClose }) {
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 12, color: T.textDim, fontFamily: MONO }}>{a.team || "—"}</td>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
                       {a.environment && a.environment !== "Unknown"
-                        ? <span style={{ fontSize: 11, fontFamily: MONO, color: T.info, background: "#0D1F3D", padding: "2px 7px", borderRadius: 3 }}>{a.environment}</span>
+                        ? <span style={{ fontSize: 11, fontFamily: MONO, color: T.info, background: "rgba(96,165,250,0.14)", padding: "2px 7px", borderRadius: 3 }}>{a.environment}</span>
                         : <span style={{ fontSize: 11, color: T.textMute }}>—</span>}
                     </td>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 12, color: T.textDim }}>{a.owner === "Unassigned" ? <span style={{ color: T.warn, fontSize: 11, fontFamily: MONO }}>Unassigned</span> : (a.owner || "—")}</td>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
-                      <span style={{ background: a.status === "active" ? "#1A3D2B" : "#141823", color: a.status === "active" ? T.accent : T.textDim, fontSize: 11, fontFamily: MONO, fontWeight: 600, padding: "2px 8px", borderRadius: 4, textTransform: "capitalize" }}>{a.status || "—"}</span>
+                      <span style={{ background: a.status === "active" ? "rgba(34,197,94,0.14)" : "#1E293B", color: a.status === "active" ? T.accent : T.textDim, fontSize: 11, fontFamily: MONO, fontWeight: 600, padding: "2px 8px", borderRadius: 4, textTransform: "capitalize" }}>{a.status || "—"}</span>
                     </td>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
                       <span style={{ fontSize: 11, fontFamily: MONO, color: riskColor, textTransform: "capitalize" }}>{risk}</span>
@@ -292,7 +292,7 @@ function RelationshipModal({ category, rows, onClose }) {
                 {filtered.map((r, i) => {
                   const ev = relationshipEvidenceLabel(r);
                   return (
-                    <tr key={r.id ?? `${r.source_agent_name}-${r.target_name}-${i}`} style={{ background: i % 2 === 0 ? T.panel : "#0C0E14" }}>
+                    <tr key={r.id ?? `${r.source_agent_name}-${r.target_name}-${i}`} style={{ background: i % 2 === 0 ? T.panel : "#0D1424" }}>
                       <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 13, fontFamily: MONO, color: T.text, fontWeight: 500 }}>{r.source_agent_name}</td>
                       <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 12, fontFamily: MONO, color: T.textDim }}>{(r.relationship_type || "").replace(/_/g, " ")}</td>
                       <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 11, fontFamily: MONO, color: meta.color, textTransform: "uppercase" }}>{(r.target_type || "").replace(/_/g, " ")}</td>

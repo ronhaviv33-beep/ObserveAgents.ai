@@ -15,19 +15,19 @@ import CollapsiblePanel, { PanelGroupControls } from '../components/CollapsibleP
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const T = {
-  bg:       '#0F1117',
-  panel:    '#171B26',
-  panelHi:  '#1E2330',
-  border:   '#2A2F3E',
-  borderHi: '#3A4055',
-  text:     '#E8EAF0',
-  textDim:  '#8B91A8',
-  textMute: '#555D78',
-  accent:   '#6FA8FF',
-  success:  '#4CAF82',
-  warn:     '#FFB547',
-  crit:     '#FF5C7A',
-  purple:   '#B47AFF',
+  bg:       '#111827',
+  panel:    '#1E293B',
+  panelHi:  '#1E293B',
+  border:   '#475569',
+  borderHi: '#475569',
+  text:     '#F8FAFC',
+  textDim:  '#CBD5E1',
+  textMute: '#94A3B8',
+  accent:   '#60A5FA',
+  success:  '#4ADE80',
+  warn:     '#FBBF24',
+  crit:     '#F87171',
+  purple:   '#A78BFA',
   teal:     '#5BD9C5',
 }
 const FONT_MONO = "'JetBrains Mono', 'Fira Code', monospace"

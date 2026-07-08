@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback, useId } from "react";
 
 // ── Shared ObserveAgents dark palette (matches the per-page T tokens) ──────────
 const C = {
-  panel: "#0F1117", panelHi: "#141823",
-  border: "#1E2230",
-  text: "#E8ECF4", textDim: "#7A8499", textMute: "#4B5468",
-  accent: "#7CFFB2",
+  panel: "#111827", panelHi: "#1E293B",
+  border: "#334155",
+  text: "#F8FAFC", textDim: "#CBD5E1", textMute: "#94A3B8",
+  accent: "#4ADE80",
 };
 const MONO = "'JetBrains Mono','IBM Plex Mono',ui-monospace,monospace";
 const FONT = "'Geist','Söhne',-apple-system,BlinkMacSystemFont,sans-serif";

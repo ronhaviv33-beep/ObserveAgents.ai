@@ -25,8 +25,8 @@ export default function AppShell({
         ::-webkit-scrollbar-track { background:${C.bg}; }
         ::-webkit-scrollbar-thumb { background:${C.border}; border-radius:4px; }
         ::-webkit-scrollbar-thumb:hover { background:${C.borderStrong}; }
-        select { appearance:none; background-image:url("data:image/svg+xml;utf8,<svg fill='%238A93A8' xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24'><polygon points='6,9 18,9 12,16'/></svg>"); background-repeat:no-repeat; background-position:right 8px center; padding-right:22px !important; }
-        button:focus { outline:none; }
+        select { appearance:none; background-image:url("data:image/svg+xml;utf8,<svg fill='%23CBD5E1' xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24'><polygon points='6,9 18,9 12,16'/></svg>"); background-repeat:no-repeat; background-position:right 8px center; padding-right:22px !important; }
+        button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline:2px solid ${C.accent}; outline-offset:2px; }
         @media (max-width:639px) {
           ::-webkit-scrollbar { width:4px; height:4px; }
         }

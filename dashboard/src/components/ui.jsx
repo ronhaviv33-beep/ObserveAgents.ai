@@ -27,7 +27,7 @@ export const Stat = ({ label, value, delta, suffix, accent }) => (
 );
 
 export const Pill = ({ children, color }) => (
-  <span style={{ display:"inline-flex", alignItems:"center", padding:"2px 8px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.08em", textTransform:"uppercase", background:`${color}18`, color, border:`1px solid ${color}33` }}>{children}</span>
+  <span style={{ display:"inline-flex", alignItems:"center", padding:"2px 8px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.08em", textTransform:"uppercase", background:`${color}24`, color, border:`1px solid ${color}59` }}>{children}</span>
 );
 
 export const sevColor = (s) => s==="critical"?T.crit:s==="warning"?T.warn:T.info;
@@ -57,6 +57,7 @@ export const SortableTh = ({ label, sortKey, active, dir, onToggle, style: extra
   <th onClick={() => onToggle(sortKey)}
     style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em",
       textTransform:"uppercase", color: active ? T.text : T.textDim, fontWeight:500,
+      background:T.panelHi, borderBottom:`1px solid ${T.border}`,
       cursor:"pointer", userSelect:"none", whiteSpace:"nowrap", ...extraStyle }}
     title={`Sort by ${label}`}>
     {label}
@@ -82,8 +83,8 @@ export const SearchBox = ({ query, onChange, placeholder = "Search…", count, t
         value={query}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{ width:"100%", boxSizing:"border-box", background:T.panelHi, color:T.text, border:`1px solid ${query ? T.accent+"55" : T.border}`,
-          padding:"6px 10px 6px 28px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, outline:"none" }}
+        style={{ width:"100%", boxSizing:"border-box", background:T.panelHi, color:T.text, border:`1px solid ${query ? T.accent+"88" : T.border}`,
+          padding:"6px 10px 6px 28px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO }}
       />
       {query && (
         <button onClick={() => onChange("")}

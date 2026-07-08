@@ -350,7 +350,7 @@ function RolesManagementSection() {
   const [serverRoles, setServerRoles] = useState(Object.values(rolesMap));
   const [err, setErr] = useState(null);
   const [adding, setAdding] = useState(false);
-  const [newForm, setNewForm] = useState({ name:"", label:"", color:"#7A8499", pages:[], can:[] });
+  const [newForm, setNewForm] = useState({ name:"", label:"", color:"#CBD5E1", pages:[], can:[] });
   const [saving, setSaving] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
 
@@ -367,7 +367,7 @@ function RolesManagementSection() {
     try {
       await createRole(newForm);
       setAdding(false);
-      setNewForm({ name:"", label:"", color:"#7A8499", pages:[], can:[] });
+      setNewForm({ name:"", label:"", color:"#CBD5E1", pages:[], can:[] });
       await load();
     } catch (e) { setErr(e.message); }
     finally { setSaving(false); }

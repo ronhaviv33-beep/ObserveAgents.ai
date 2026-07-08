@@ -7,11 +7,11 @@ import CollapsiblePanel from "../components/CollapsiblePanel.jsx";
 const agentActionId = (a) => a?.id || a?.asset_key || a?.agent_id;
 
 const T = {
-  bg: "#0A0B0F", panel: "#0F1117", panelHi: "#141823",
-  border: "#1E2230", borderHi: "#2A3242",
-  text: "#E8ECF4", textDim: "#7A8499", textMute: "#4B5468",
-  accent: "#7CFFB2", warn: "#FFB547", crit: "#FF5C7A",
-  info: "#6FA8FF", yellow: "#FFD700", purple: "#B47AFF",
+  bg: "#0B1020", panel: "#111827", panelHi: "#1E293B",
+  border: "#334155", borderHi: "#475569",
+  text: "#F8FAFC", textDim: "#CBD5E1", textMute: "#94A3B8",
+  accent: "#4ADE80", warn: "#FBBF24", crit: "#F87171",
+  info: "#60A5FA", yellow: "#FFD700", purple: "#A78BFA",
 };
 const MONO = "'JetBrains Mono','IBM Plex Mono',monospace";
 const FONT = "'Geist','Söhne',-apple-system,sans-serif";

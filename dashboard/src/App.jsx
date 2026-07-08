@@ -6,10 +6,10 @@ class PageErrorBoundary extends Component {
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 24, fontFamily: "monospace", fontSize: 13, color: "#FF5C7A", background: "#1a1a1a", borderRadius: 8, border: "1px solid #FF5C7A44" }}>
+        <div style={{ padding: 24, fontFamily: "monospace", fontSize: 13, color: "#F87171", background: "#111827", borderRadius: 8, border: "1px solid #F8717144" }}>
           <strong>Page error:</strong> {String(this.state.error.message || this.state.error)}
           <br /><br />
-          <button onClick={() => this.setState({ error: null })} style={{ background: "transparent", border: "1px solid #FF5C7A", color: "#FF5C7A", padding: "4px 12px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace" }}>Retry</button>
+          <button onClick={() => this.setState({ error: null })} style={{ background: "transparent", border: "1px solid #F87171", color: "#F87171", padding: "4px 12px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace" }}>Retry</button>
         </div>
       );
     }
@@ -879,13 +879,13 @@ export default function App() {
     ...(platformMode ? [{ label: (GUARD_MODE_META[platformMode]?.label || platformMode).toLowerCase(), color: GUARD_MODE_META[platformMode]?.color, title: GUARD_MODE_META[platformMode]?.desc, dot: true }] : []),
     { label: filters.team === "all" ? "all teams" : allTeams.find((t) => t.id === filters.team)?.name },
     { label: `last ${filters.range}d` },
-    ...(isDemoMode() ? [{ label: "demo", color: "#FFB547", dot: true }] : []),
+    ...(isDemoMode() ? [{ label: "demo", color: "#FBBF24", dot: true }] : []),
     ...(pricingLastUpdated ? [{ label: `pricing as of ${pricingLastUpdated}`, title: "Date pricing table was last audited against provider rates" }] : []),
   ];
 
   const shellUser = user && {
     name: user.name,
-    roleColor: user.is_platform_admin ? "#B47AFF" : (rolesMap[user.role]?.color ?? "#8A93A8"),
+    roleColor: user.is_platform_admin ? "#A78BFA" : (rolesMap[user.role]?.color ?? "#CBD5E1"),
     roleLabel: user.is_platform_admin ? "platform admin" : `${user.role} · ${user.team}`,
   };
 

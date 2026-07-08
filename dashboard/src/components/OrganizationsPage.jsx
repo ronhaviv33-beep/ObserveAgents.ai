@@ -104,7 +104,7 @@ export default function OrganizationsPage() {
     return d.toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" });
   };
 
-  const purple = "#B47AFF";
+  const purple = "#A78BFA";
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16, maxWidth:900 }}>
