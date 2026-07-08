@@ -933,3 +933,314 @@ def test_reopen_finding():
         assert r.status_code == 404
     finally:
         db.close()
+
+
+# ── 16. GenAI SemConv capability + finding derivation ─────────────────────────
+
+def test_genai_semconv_capabilities_derived():
+    """gen_ai.data_source.id / workflow.name / prompt.name / mcp.resource.uri
+    become normalized capabilities; mcp.resource.uri is sanitized (no query)."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "gcap")
+        trace_id = uuid.uuid4().hex
+
+        payload = _make_span(
+            trace_id=trace_id,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={
+                "gen_ai.provider.name": "openai",
+                "gen_ai.request.model": "gpt-4o",
+                "gen_ai.data_source.id": "kb-products",
+                "gen_ai.workflow.name": "order-support-flow",
+                "gen_ai.prompt.name": "support-triage",
+                "gen_ai.prompt.version": "3",
+                "mcp.method.name": "resources/read",
+                "mcp.resource.uri": "postgres://db.internal/orders?password=hunter2#frag",
+            },
+            resource_attrs={"service.name": "genai-cap-agent"},
+        )
+        assert _post_traces(token, payload).status_code == 202
+        assert _run_intelligence(token).status_code == 200
+
+        caps = db.query(AssetCapability).filter(
+            AssetCapability.organization_id == org.id,
+        ).all()
+        by_type = {(c.capability_type, c.capability_name): c for c in caps}
+
+        assert ("data_source", "kb-products") in by_type
+        assert ("workflow", "order-support-flow") in by_type
+        assert ("prompt", "support-triage") in by_type
+        prompt_ev = json.loads(by_type[("prompt", "support-triage")].evidence_json)
+        assert prompt_ev["gen_ai.prompt.version"] == "3"
+
+        mcp_res = [c for c in caps if c.capability_type == "mcp_resource"]
+        assert len(mcp_res) == 1
+        assert mcp_res[0].capability_name == "postgres://db.internal/orders"
+        assert "hunter2" not in (mcp_res[0].capability_name or "")
+        assert "hunter2" not in (mcp_res[0].evidence_json or "")
+
+        # all otel-derived
+        for c in caps:
+            assert c.source == "otel_trace"
+
+    finally:
+        db.close()
+
+
+def test_genai_tool_type_evidence_no_duplicate_row():
+    """gen_ai.tool.type lands as evidence on the classified tool capability
+    without creating a second row for the same tool."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "gtool")
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="execute_tool query_database",
+            attrs={
+                "gen_ai.operation.name": "execute_tool",
+                "gen_ai.tool.name": "query_database",
+                "gen_ai.tool.type": "function",
+            },
+            resource_attrs={"service.name": "genai-tool-agent"},
+        )
+        assert _post_traces(token, payload).status_code == 202
+        assert _run_intelligence(token).status_code == 200
+
+        rows = db.query(AssetCapability).filter(
+            AssetCapability.organization_id == org.id,
+            AssetCapability.capability_name == "query_database",
+        ).all()
+        assert len(rows) == 1
+        assert rows[0].capability_type == "database"
+        assert json.loads(rows[0].evidence_json)["gen_ai.tool.type"] == "function"
+
+    finally:
+        db.close()
+
+
+def test_model_mismatch_finding():
+    """Genuinely different request/response models fire the governance finding;
+    a dated snapshot (prefix) does not."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "gmm")
+
+        # dated snapshot — must NOT fire
+        ok = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={
+                "gen_ai.request.model": "gpt-4o",
+                "gen_ai.response.model": "gpt-4o-2024-08-06",
+            },
+            resource_attrs={"service.name": "mm-snapshot-agent"},
+        )
+        # different model — must fire
+        bad = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={
+                "gen_ai.request.model": "gpt-4o",
+                "gen_ai.response.model": "gpt-4o-mini",
+            },
+            resource_attrs={"service.name": "mm-mismatch-agent"},
+        )
+        assert _post_traces(token, ok).status_code == 202
+        assert _post_traces(token, bad).status_code == 202
+        assert _run_intelligence(token).status_code == 200
+
+        findings = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org.id,
+            AssetFinding.finding_type == "request_response_model_mismatch",
+        ).all()
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.category == "governance"
+        assert f.severity == "low"
+        ev = json.loads(f.evidence_json)
+        assert "gpt-4o -> gpt-4o-mini" in ev["details"]
+
+    finally:
+        db.close()
+
+
+def test_high_token_usage_finding_threshold():
+    """Fires at 100k total tokens on one span; not at 99k."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "gtok")
+
+        under = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={
+                "gen_ai.request.model": "gpt-4o",
+                "gen_ai.usage.input_tokens": 98_000,
+                "gen_ai.usage.output_tokens": 1_000,
+            },
+            resource_attrs={"service.name": "tok-under-agent"},
+        )
+        over = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={
+                "gen_ai.request.model": "gpt-4o",
+                "gen_ai.usage.input_tokens": 95_000,
+                "gen_ai.usage.output_tokens": 5_000,
+                "gen_ai.usage.reasoning.output_tokens": 2_500,
+            },
+            resource_attrs={"service.name": "tok-over-agent"},
+        )
+        assert _post_traces(token, under).status_code == 202
+        assert _post_traces(token, over).status_code == 202
+        assert _run_intelligence(token).status_code == 200
+
+        findings = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org.id,
+            AssetFinding.finding_type == "high_token_usage",
+        ).all()
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.category == "performance"
+        assert f.severity == "medium"
+        ev = json.loads(f.evidence_json)
+        assert ev["max_total_tokens"] == 100_000
+        assert ev["max_reasoning_tokens"] == 2_500
+
+    finally:
+        db.close()
+
+
+def test_genai_capabilities_rerun_no_duplicates():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "grerun")
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={
+                "gen_ai.workflow.name": "rerun-flow",
+                "gen_ai.data_source.id": "rerun-kb",
+            },
+            resource_attrs={"service.name": "genai-rerun-agent"},
+        )
+        assert _post_traces(token, payload).status_code == 202
+        assert _run_intelligence(token).status_code == 200
+        assert _run_intelligence(token).status_code == 200
+
+        for cap_type, cap_name in (("workflow", "rerun-flow"), ("data_source", "rerun-kb")):
+            rows = db.query(AssetCapability).filter(
+                AssetCapability.organization_id == org.id,
+                AssetCapability.capability_type == cap_type,
+                AssetCapability.capability_name == cap_name,
+            ).all()
+            assert len(rows) == 1, f"duplicate {cap_type} rows after rerun"
+
+    finally:
+        db.close()
+
+
+# ── 17. runtime_usage from ProvenanceEvent scalar columns ─────────────────────
+
+from app.models import ProvenanceEvent
+
+
+def _summary_asset(token: str, name: str) -> dict | None:
+    resp = _client.get(
+        "/intelligence/asset-summary",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200, resp.text
+    return next((a for a in resp.json()["assets"] if a["asset_name"] == name), None)
+
+
+def test_asset_summary_runtime_usage():
+    """asset-summary exposes per-asset runtime usage aggregated from the
+    provenance scalar columns (written at ingest, no /intelligence/run needed)."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "rusage")
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={
+                "gen_ai.system": "openai",
+                "gen_ai.request.model": "gpt-4o",
+                "gen_ai.usage.input_tokens": 150,
+                "gen_ai.usage.output_tokens": 50,
+            },
+            resource_attrs={"service.name": "usage-agent"},
+        )
+        assert _post_traces(token, payload).status_code == 202
+
+        asset = _summary_asset(token, "usage-agent")
+        assert asset is not None
+        usage = asset["runtime_usage"]
+        assert usage is not None
+        assert usage["llm_call_count"] == 1
+        assert usage["input_tokens"] == 150
+        assert usage["output_tokens"] == 50
+        assert usage["last_activity"] is not None
+
+        # Org isolation: org B's summary has no such asset
+        org_b, _, token_b = _make_org_and_token(db, "rusage-b")
+        assert _summary_asset(token_b, "usage-agent") is None
+    finally:
+        db.close()
+
+
+def test_asset_summary_runtime_usage_null_scalars():
+    """Pre-migration provenance rows (NULL scalars) still produce a
+    runtime_usage block with zeroed tokens and no avg TTFC."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "rusagenull")
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={
+                "gen_ai.system": "openai",
+                "gen_ai.request.model": "gpt-4o",
+                "gen_ai.usage.input_tokens": 99,
+                "gen_ai.usage.output_tokens": 11,
+            },
+            resource_attrs={"service.name": "usage-null-agent"},
+        )
+        assert _post_traces(token, payload).status_code == 202
+
+        for ev in db.query(ProvenanceEvent).filter(
+            ProvenanceEvent.organization_id == org.id,
+        ).all():
+            ev.input_tokens = None
+            ev.output_tokens = None
+            ev.request_stream = None
+            ev.time_to_first_chunk_ms = None
+        db.commit()
+
+        asset = _summary_asset(token, "usage-null-agent")
+        assert asset is not None
+        usage = asset["runtime_usage"]
+        assert usage is not None
+        assert usage["event_count"] == 1
+        assert usage["input_tokens"] == 0
+        assert usage["output_tokens"] == 0
+        assert usage["avg_time_to_first_chunk_ms"] is None
+    finally:
+        db.close()

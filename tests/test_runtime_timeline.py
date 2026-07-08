@@ -408,3 +408,240 @@ def test_session_id_groups_traces():
         assert resp.json()["session_id"] == session
     finally:
         db.close()
+
+
+# ── 8. GenAI scalar columns in the read path ──────────────────────────────────
+
+import time
+
+from app.models import OtelSpan
+
+_GENAI_ATTRS = {
+    "gen_ai.operation.name": "chat",
+    "gen_ai.provider.name": "openai",
+    "gen_ai.request.model": "gpt-4o",
+    "gen_ai.response.model": "gpt-4o-2024-08-06",
+    "gen_ai.usage.input_tokens": 120,
+    "gen_ai.usage.output_tokens": 40,
+    "gen_ai.request.stream": True,
+    "ttft_ms": 350,
+    "gen_ai.response.finish_reasons": "stop",
+}
+
+
+def _ingest_genai_span(token: str, service_name: str, attrs: dict | None = None,
+                       start_nano: int = _BASE_NANO) -> tuple[str, str]:
+    trace_id = uuid.uuid4().hex
+    span_id = uuid.uuid4().hex[:16]
+    resp = _post_spans(token, [
+        _otlp_span(trace_id, span_id, "chat gpt-4o", attrs=attrs or dict(_GENAI_ATTRS),
+                   start_nano=start_nano, end_nano=start_nano + 1_000_000_000),
+    ], service_name)
+    assert resp.status_code == 202, resp.text
+    return trace_id, span_id
+
+
+def test_trace_detail_genai_from_scalars():
+    """The gen_ai summary and usage totals come from the scalar columns."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "genai")
+        trace_id, span_id = _ingest_genai_span(token, "genai-scalar-agent")
+
+        body = _get(token, f"/runtime/traces/{trace_id}").json()
+        span = next(s for s in body["spans"] if s["span_id"] == span_id)
+
+        g = span["gen_ai"]
+        assert g is not None
+        assert g["operation"] == "chat"
+        assert g["provider"] == "openai"
+        assert g["request_model"] == "gpt-4o"
+        assert g["response_model"] == "gpt-4o-2024-08-06"
+        assert g["input_tokens"] == 120
+        assert g["output_tokens"] == 40
+        assert g["streaming"] is True
+        assert g["time_to_first_chunk_ms"] == 350
+        assert g["finish_reasons"] == ["stop"]
+
+        assert span["operation"] == "chat"
+        assert body["usage"]["input_tokens"] == 120
+        assert body["usage"]["output_tokens"] == 40
+    finally:
+        db.close()
+
+
+def test_trace_detail_genai_json_fallback():
+    """Pre-migration rows (all scalar columns NULL) still get a gen_ai summary
+    and usage totals from the scrubbed attributes_json."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "genaifb")
+        trace_id, span_id = _ingest_genai_span(token, "genai-fallback-agent")
+
+        row = db.query(OtelSpan).filter(
+            OtelSpan.organization_id == org.id,
+            OtelSpan.trace_id == trace_id,
+        ).one()
+        for col in (
+            "gen_ai_operation_name", "gen_ai_provider_name", "gen_ai_request_model",
+            "gen_ai_response_model", "gen_ai_input_tokens", "gen_ai_output_tokens",
+            "gen_ai_reasoning_output_tokens", "gen_ai_cache_read_input_tokens",
+            "gen_ai_cache_creation_input_tokens", "gen_ai_finish_reasons_json",
+            "gen_ai_request_stream", "gen_ai_time_to_first_chunk_ms",
+        ):
+            setattr(row, col, None)
+        db.commit()
+
+        body = _get(token, f"/runtime/traces/{trace_id}").json()
+        span = next(s for s in body["spans"] if s["span_id"] == span_id)
+
+        g = span["gen_ai"]
+        assert g is not None
+        assert g["provider"] == "openai"
+        assert g["request_model"] == "gpt-4o"
+        assert g["input_tokens"] == 120
+        assert g["streaming"] is True
+        assert g["time_to_first_chunk_ms"] == 350
+        assert body["usage"]["input_tokens"] == 120
+        assert body["usage"]["output_tokens"] == 40
+    finally:
+        db.close()
+
+
+def test_trace_detail_non_genai_span_gen_ai_none():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "nogenai")
+        trace_id = uuid.uuid4().hex
+        resp = _post_spans(token, [
+            _otlp_span(trace_id, uuid.uuid4().hex[:16], "GET /users",
+                       attrs={"http.method": "GET"}),
+        ], "plain-http-svc")
+        assert resp.status_code == 202, resp.text
+
+        body = _get(token, f"/runtime/traces/{trace_id}").json()
+        assert body["spans"][0]["gen_ai"] is None
+        assert body["usage"] is None
+    finally:
+        db.close()
+
+
+def test_trace_list_genai_filters():
+    """provider/model/operation filters select whole traces via the scalar columns."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "gfilter")
+
+        # Trace A: non-genai root + openai/gpt-4o/chat child (2 spans total)
+        trace_a = uuid.uuid4().hex
+        root_id = uuid.uuid4().hex[:16]
+        resp = _post_spans(token, [
+            _otlp_span(trace_a, root_id, "agent.request"),
+            _otlp_span(trace_a, uuid.uuid4().hex[:16], "llm.chat", parent_span_id=root_id,
+                       attrs={"gen_ai.operation.name": "chat",
+                              "gen_ai.provider.name": "openai",
+                              "gen_ai.request.model": "gpt-4o"}),
+        ], "filter-agent-a")
+        assert resp.status_code == 202, resp.text
+
+        # Trace B: response-model-only span
+        trace_b, _ = _ingest_genai_span(token, "filter-agent-b", attrs={
+            "gen_ai.provider.name": "anthropic",
+            "gen_ai.response.model": "claude-sonnet-5-20250929",
+        })
+
+        rows = _get(token, "/runtime/traces?provider=openai").json()
+        assert [r["trace_id"] for r in rows] == [trace_a]
+        assert rows[0]["span_count"] == 2  # whole trace, not just matching spans
+
+        rows = _get(token, "/runtime/traces?model=claude-sonnet-5-20250929").json()
+        assert [r["trace_id"] for r in rows] == [trace_b]
+
+        rows = _get(token, "/runtime/traces?operation=chat").json()
+        assert [r["trace_id"] for r in rows] == [trace_a]
+
+        assert _get(token, "/runtime/traces?provider=nope").json() == []
+
+        # Org isolation
+        org_b, _, token_b = _make_org_and_token(db, "gfilter-b")
+        assert _get(token_b, "/runtime/traces?provider=openai").json() == []
+    finally:
+        db.close()
+
+
+def test_genai_usage_totals_and_grouping():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "gusage")
+
+        _ingest_genai_span(token, "usage-agent-1")  # openai, 120/40, stream, ttfc 350
+        _ingest_genai_span(token, "usage-agent-2", attrs={
+            "gen_ai.operation.name": "chat",
+            "gen_ai.provider.name": "anthropic",
+            "gen_ai.request.model": "claude-sonnet-5",
+            "gen_ai.usage.input_tokens": 80,
+            "gen_ai.usage.output_tokens": 20,
+            "ttft_ms": 150,
+        })
+
+        body = _get(token, "/runtime/genai-usage").json()
+        totals = body["totals"]
+        assert totals["input_tokens"] == 200
+        assert totals["output_tokens"] == 60
+        assert totals["genai_span_count"] == 2
+        assert totals["streaming_count"] == 1
+        assert totals["avg_time_to_first_chunk_ms"] == 250.0
+
+        providers = {p["name"]: p for p in body["providers"]}
+        assert providers["openai"]["input_tokens"] == 120
+        assert providers["anthropic"]["input_tokens"] == 80
+        models = {m["name"]: m for m in body["models"]}
+        assert models["gpt-4o"]["span_count"] == 1
+        assert models["claude-sonnet-5"]["span_count"] == 1
+
+        # hours window: only a now-timestamped span is inside ?hours=1
+        # (_BASE_NANO spans are from 2023)
+        _ingest_genai_span(token, "usage-agent-recent", attrs={
+            "gen_ai.provider.name": "openai",
+            "gen_ai.usage.input_tokens": 7,
+            "gen_ai.usage.output_tokens": 3,
+        }, start_nano=time.time_ns())
+        windowed = _get(token, "/runtime/genai-usage?hours=1").json()
+        assert windowed["totals"]["input_tokens"] == 7
+        assert windowed["totals"]["genai_span_count"] == 1
+
+        # Org isolation
+        org_b, _, token_b = _make_org_and_token(db, "gusage-b")
+        empty = _get(token_b, "/runtime/genai-usage").json()
+        assert empty["totals"]["input_tokens"] == 0
+        assert empty["totals"]["genai_span_count"] == 0
+        assert empty["providers"] == []
+        assert empty["models"] == []
+    finally:
+        db.close()
+
+
+def test_genai_span_response_has_no_attributes_or_content():
+    """The gen_ai summary must not reintroduce attribute blobs or raw content."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "gpriv")
+        attrs = dict(_GENAI_ATTRS)
+        attrs["gen_ai.input.messages"] = '[{"role":"user","content":"top-secret-prompt"}]'
+        trace_id, _ = _ingest_genai_span(token, "genai-priv-agent", attrs=attrs)
+
+        resp = _get(token, f"/runtime/traces/{trace_id}")
+        body = resp.json()
+        for s in body["spans"]:
+            assert "attributes" not in s
+            assert "attributes_json" not in s
+            assert "resource_attributes_json" not in s
+        assert "top-secret-prompt" not in resp.text
+    finally:
+        db.close()

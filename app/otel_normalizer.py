@@ -34,6 +34,7 @@ from app.relationships import upsert_relationship
 from app.genai_semconv import (
     MEMORY_OPERATIONS,
     extract_agent_meta,
+    extract_genai_scalar_fields,
     extract_operation,
     extract_provider,
     extract_response_meta,
@@ -465,6 +466,8 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
         # ── Privacy scrub for storage ─────────────────────────────────────────
         scrubbed_attrs = scrub_attributes(attrs)
         raw_content_hash = _content_hash(attrs)
+        # Safe scalar GenAI metadata (never content) for the queryable columns.
+        genai = extract_genai_scalar_fields(attrs)
 
         # ── Persist OtelSpan ──────────────────────────────────────────────────
         try:
@@ -491,6 +494,18 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                     resource_attributes_json=json.dumps(resource_attrs),
                     events_json=json.dumps(span.get("events") or []),
                     links_json=json.dumps(span.get("links") or []),
+                    gen_ai_operation_name=genai["operation_name"],
+                    gen_ai_provider_name=genai["provider_name"],
+                    gen_ai_request_model=genai["request_model"],
+                    gen_ai_response_model=genai["response_model"],
+                    gen_ai_input_tokens=genai["input_tokens"],
+                    gen_ai_output_tokens=genai["output_tokens"],
+                    gen_ai_reasoning_output_tokens=genai["reasoning_output_tokens"],
+                    gen_ai_cache_read_input_tokens=genai["cache_read_input_tokens"],
+                    gen_ai_cache_creation_input_tokens=genai["cache_creation_input_tokens"],
+                    gen_ai_finish_reasons_json=genai["finish_reasons_json"],
+                    gen_ai_request_stream=genai["request_stream"],
+                    gen_ai_time_to_first_chunk_ms=genai["time_to_first_chunk_ms"],
                 ))
                 db.commit()
                 spans_ingested += 1
@@ -518,6 +533,10 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                 target_name = model
                 relation_type = "uses_model"
                 _agent_models[agent_name].add(model)
+                # Response model can differ from the requested one (e.g. dated
+                # snapshots) — surface it in the asset's model inventory too.
+                if genai["response_model"] and genai["response_model"] != model:
+                    _agent_models[agent_name].add(genai["response_model"])
                 usage = extract_usage(attrs)
                 response_meta = extract_response_meta(attrs)
                 rel = ResolvedRelationship(
@@ -695,6 +714,14 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
                     attributes_json=json.dumps(safe_attrs) if safe_attrs else None,
                     content_hash=raw_content_hash,
                     content_redacted=True,
+                    gen_ai_provider_name=genai["provider_name"],
+                    gen_ai_request_model=genai["request_model"],
+                    gen_ai_response_model=genai["response_model"],
+                    input_tokens=genai["input_tokens"],
+                    output_tokens=genai["output_tokens"],
+                    finish_reasons_json=genai["finish_reasons_json"],
+                    request_stream=genai["request_stream"],
+                    time_to_first_chunk_ms=genai["time_to_first_chunk_ms"],
                 ))
                 db.commit()
                 provenance_count += 1
