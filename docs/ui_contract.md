@@ -6,7 +6,7 @@
 
 ## 1. Product story (paste this into the design tool first)
 
-**ObserveAgents is an Enterprise AI Intelligence Platform — the system of record for enterprise AI agents.**
+**ObserveAgents is the runtime visibility and control layer for AI agents — teams see, understand, and control their agents from runtime evidence.**
 
 The operating model, which the UI must communicate everywhere:
 
@@ -27,7 +27,7 @@ Prefer: *runtime evidence · AI assets · ownership · findings · security inte
 
 ### Design direction (current system, treat as a starting point)
 
-- Dark enterprise console. Current tokens: bg `#0A0B0F`, panel `#0F1117`, panel-high `#141823`, border `#1E2230`, text `#E8ECF4`, dim `#7A8499`, mute `#4B5468`, accent (green) `#7CFFB2`, warn `#FFB547`, critical `#FF5C7A`, info `#6FA8FF`, purple `#B47AFF`, teal for dependency accents.
+- Dark evidence-first console. Current tokens: bg `#0A0B0F`, panel `#0F1117`, panel-high `#141823`, border `#1E2230`, text `#E8ECF4`, dim `#7A8499`, mute `#4B5468`, accent (green) `#7CFFB2`, warn `#FFB547`, critical `#FF5C7A`, info `#6FA8FF`, purple `#B47AFF`, teal for dependency accents.
 - Typography: UI font "Geist" (sans), data/labels in "JetBrains Mono". Severity is always color-coded (critical/high = red, medium = amber, low/info = blue/gray).
 - Executive-first: generous whitespace, low information density on landing pages, detail behind expansion. Tables everywhere are sortable + searchable.
 - Recurring primitives: stat tile (small uppercase mono label + big number), pill/badge (severity, environment, status, `×N` occurrence count), collapsible panel, horizontal bar list, empty states with one explanatory sentence.
@@ -244,7 +244,7 @@ Finding severity values: `critical | high | medium | low | info`. Finding status
 
 ## 6. Ready-to-paste Lovable master prompt
 
-> Build a dark, executive-grade enterprise console called **ObserveAgents — Enterprise AI Intelligence Platform**. It is the system of record for enterprise AI agents: customers send OpenTelemetry traces, and the platform turns runtime evidence into an AI inventory, security findings, and Gateway control recommendations. Tagline used in the UI: **"Observe first. Control only what matters."** The product never blocks anything — every security feature is observe-only: detect, explain, recommend.
+> Build a dark, evidence-first console called **ObserveAgents — Runtime visibility & control for AI agents**. It is the runtime visibility and control layer for AI agents: teams send OpenTelemetry traces, and the platform turns runtime evidence into an AI inventory, security findings, and Gateway control recommendations. Tagline used in the UI: **"Observe first. Control only what matters."** The product never blocks anything — every security feature is observe-only: detect, explain, recommend.
 >
 > Design: dark theme (bg #0A0B0F, panels #0F1117, borders #1E2230, text #E8ECF4, green accent #7CFFB2, amber #FFB547 for warnings, red #FF5C7A for high severity, blue #6FA8FF for info). Sans-serif UI font, monospaced font for data labels and numbers. Executive-first: whitespace, restrained density, detail behind expansion. Sortable/searchable tables, severity pills, "×N" occurrence badges, empty states with one helpful sentence.
 >

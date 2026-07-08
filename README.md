@@ -1,10 +1,10 @@
 # ObserveAgents
 
-**The System of Record for Enterprise AI**
+**The runtime visibility and control layer for AI agents**
 
-> ObserveAgents helps organizations understand, govern, and improve enterprise AI agents from runtime evidence.
+> ObserveAgents helps teams see, understand, and control their AI agents from runtime evidence.
 
-Every AI agent leaves evidence when it runs. ObserveAgents turns that evidence into a canonical AI inventory — what exists, who owns it, what it depends on, what needs attention — and into evidence-backed recommendations for which agents need control.
+**See what your AI agents are actually doing.** Connect OpenTelemetry, discover your agents, inspect runtime behavior, detect risky patterns, and review what needs control — before it becomes a production problem.
 
 > **Observe first. Control only what matters.**
 
@@ -38,7 +38,7 @@ OTel / OTLP  →  Runtime  →  Asset Intelligence  →  Security Intelligence
 
 ## The product experience
 
-One production app, two connected workspaces, built on the **ui2 design system** (evidence-first, risk-first, dark enterprise console — see [docs/ui_redesign_plan.md](docs/ui_redesign_plan.md)):
+One production app, two connected workspaces, built on the **ui2 design system** (evidence-first, risk-first, dark console — see [docs/ui_redesign_plan.md](docs/ui_redesign_plan.md)):
 
 ### Observe workspace — the source of truth
 
@@ -464,4 +464,4 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 ## Author
 
 **Ron Haviv**
-SOC Analyst · Security Operations · Enterprise AI Intelligence
+SOC Analyst · Security Operations · AI Agent Observability

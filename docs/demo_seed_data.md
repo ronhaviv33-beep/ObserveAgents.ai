@@ -1,6 +1,6 @@
 # Demo Seed Data
 
-One command populates a local/dev database with a realistic Enterprise AI Intelligence demo: five AI systems observed via OpenTelemetry, with execution traces, discovered assets, derived capabilities, and findings across all five intelligence categories.
+One command populates a local/dev database with a realistic ObserveAgents demo: five AI systems observed via OpenTelemetry, with execution traces, discovered assets, derived capabilities, and findings across all five intelligence categories.
 
 **This is synthetic demo data for local/dev use — not production data.**
 

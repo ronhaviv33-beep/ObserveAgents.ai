@@ -6,9 +6,9 @@ This document defines the core product architecture of ObserveAgents.ai ("Observ
 
 ## 1. Product Positioning
 
-**Observe is an Enterprise AI Intelligence Platform.**
+**Observe is the runtime visibility and control layer for AI agents.**
 
-> Observe helps organizations understand what AI exists, what is actively running, how it is connected, and how it evolves over time.
+> Observe helps teams understand what AI exists, what is actively running, how it is connected, and how it evolves over time.
 
 Observe is explicitly **not**:
 

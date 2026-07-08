@@ -2,7 +2,7 @@
 
 *The central forward roadmap. The full shipped-feature checklist lives in the [README roadmap table](../README.md#roadmap); this document tracks what comes next, phased.*
 
-ObserveAgents is becoming the **system of record for enterprise AI**: it turns runtime evidence into AI inventory, ownership, dependencies, capabilities, findings, and observe-only guardrail recommendations. Every phase below extends that spine — nothing here changes the observe-first posture.
+ObserveAgents is the **runtime visibility and control layer for AI agents**: it turns runtime evidence into AI inventory, ownership, dependencies, capabilities, findings, and observe-only guardrail recommendations. Every phase below extends that spine — nothing here changes the observe-first posture.
 
 ---
 

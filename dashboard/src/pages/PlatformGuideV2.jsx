@@ -84,7 +84,7 @@ export default function PlatformGuideV2({ onNavigate }) {
         border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -70, right: -70, width: 300, height: 300, borderRadius: "50%",
           background: `${C.accent}06`, pointerEvents: "none" }} />
-        <div style={{ ...microLabel, color: C.accent, marginBottom: 14 }}>ObserveAgents · Enterprise AI Intelligence Platform</div>
+        <div style={{ ...microLabel, color: C.accent, marginBottom: 14 }}>ObserveAgents · Runtime visibility & control for AI agents</div>
         <div style={{ fontSize: bp.isMobile ? 23 : 31, fontWeight: 700, color: C.text, marginBottom: 14, lineHeight: 1.18, letterSpacing: "-0.02em" }}>
           See your real AI footprint.<br />
           <span style={{ color: C.accent }}>No manual registration needed.</span>

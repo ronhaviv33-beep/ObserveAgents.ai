@@ -22,7 +22,7 @@ The guiding principle: **Go deep, not just fast.** One went fast. One went deep.
 
 ## Product North Star
 
-**ObserveAgents is the system of record for enterprise AI.**
+**ObserveAgents is the runtime visibility and control layer for AI agents.**
 
 Every architectural and product decision should reinforce this core flow:
 
