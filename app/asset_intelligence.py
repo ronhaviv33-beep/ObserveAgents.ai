@@ -10,11 +10,17 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 from sqlalchemy.orm import Session
 
 from app.models import AssetCapability, AssetFinding, AssetRegistry, OtelAsset, OtelSpan
-from app.genai_semconv import extract_error_type, extract_tool_name, is_mcp_span
+from app.genai_semconv import (
+    extract_error_type,
+    extract_genai_scalar_fields,
+    extract_tool_name,
+    is_mcp_span,
+)
 from app.runtime_security_intelligence import derive_runtime_security_findings
 from app.gateway_control import (
     CONTROL_CATEGORY, CONTROL_FINDING_TYPE, CONTROL_SOURCE,
@@ -22,6 +28,9 @@ from app.gateway_control import (
 )
 
 _log = logging.getLogger("ai_asset_mgmt.intelligence")
+
+# A single LLM call at or above this many input+output tokens is flagged.
+HIGH_TOKEN_USAGE_THRESHOLD = 100_000
 
 
 def _make_asset_key(org_id: int, name: str) -> str:
@@ -51,6 +60,21 @@ def _classify_capability(name: str) -> str:
     if any(x in n for x in ("http", "url", "api", "external")):
         return "external_api"
     return "unknown"
+
+
+def _sanitize_uri(uri: str) -> str:
+    """Keep scheme://host/path only — query strings, fragments, and userinfo
+    can carry credentials or secrets and must never be persisted."""
+    try:
+        parts = urlsplit(uri)
+    except ValueError:
+        return uri.split("?", 1)[0].split("#", 1)[0][:255]
+    if not parts.scheme:
+        return uri.split("?", 1)[0].split("#", 1)[0][:255]
+    host = parts.hostname or ""
+    if parts.port:
+        host = f"{host}:{parts.port}"
+    return f"{parts.scheme}://{host}{parts.path}"[:255]
 
 
 def _upsert_capability(
@@ -94,7 +118,33 @@ def _upsert_capability(
         return (True, False)
     row.last_seen = now
     row.updated_at = now
+    if evidence:
+        # Merge new evidence keys into the existing row — e.g. gen_ai.tool.type
+        # arriving for a tool capability first created from the OtelAsset
+        # aggregate (which carries no evidence).
+        existing_ev: dict = {}
+        if row.evidence_json:
+            try:
+                existing_ev = json.loads(row.evidence_json) or {}
+            except (json.JSONDecodeError, TypeError):
+                existing_ev = {}
+        merged = {**existing_ev, **{k: v for k, v in evidence.items() if v is not None}}
+        if merged != existing_ev:
+            row.evidence_json = json.dumps(merged)
     return (False, True)
+
+
+def _is_model_variant(a: str, b: str) -> bool:
+    """True when one model name is a dated/versioned snapshot of the other
+    (gpt-4o → gpt-4o-2024-08-06), as opposed to a genuinely different model
+    (gpt-4o → gpt-4o-mini)."""
+    if a == b:
+        return True
+    shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+    if not longer.startswith(shorter):
+        return False
+    suffix = longer[len(shorter):].lstrip("-_.@:")
+    return bool(suffix) and all(ch.isdigit() or ch in "-_." for ch in suffix)
 
 
 def _upsert_finding(
@@ -399,6 +449,8 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
     # occurrence_count instead of one row per matching span.
     finding_acc: dict[tuple[str, str, str], dict] = {}
     mcp_cap_acc: dict[tuple[str, str], dict] = {}
+    # Span-derived GenAI/MCP capabilities, keyed (asset_key, cap_type, cap_name).
+    genai_cap_acc: dict[tuple[str, str, str], dict] = {}
 
     def _acc_find(
         asset_key: str,
@@ -412,6 +464,9 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
         duration_ms: float | None = None,
         error_type: str | None = None,
         mcp_method: str | None = None,
+        detail: str | None = None,
+        token_count: int | None = None,
+        reasoning_tokens: int | None = None,
     ) -> None:
         key = (asset_key, category, finding_type)
         agg = finding_acc.get(key)
@@ -422,6 +477,8 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
                 "count": 0, "span_ids": [],
                 "max_duration_ms": None,
                 "error_types": set(), "mcp_methods": set(),
+                "details": set(),
+                "max_total_tokens": None, "max_reasoning_tokens": None,
             }
         agg["count"] += 1
         if span_id and len(agg["span_ids"]) < 5:
@@ -432,6 +489,26 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
             agg["error_types"].add(str(error_type))
         if mcp_method:
             agg["mcp_methods"].add(str(mcp_method))
+        if detail and len(agg["details"]) < 10:
+            agg["details"].add(str(detail))
+        if token_count is not None:
+            agg["max_total_tokens"] = max(agg["max_total_tokens"] or 0, token_count)
+        if reasoning_tokens is not None:
+            agg["max_reasoning_tokens"] = max(agg["max_reasoning_tokens"] or 0, reasoning_tokens)
+
+    def _acc_cap(
+        asset_key: str,
+        asset_id: int | None,
+        cap_type: str,
+        name: object,
+        evidence: dict | None = None,
+    ) -> None:
+        if not name:
+            return
+        key = (asset_key, cap_type, str(name)[:255])
+        entry = genai_cap_acc.setdefault(key, {"asset_id": asset_id, "evidence": {}})
+        if evidence:
+            entry["evidence"].update({k: v for k, v in evidence.items() if v is not None})
 
     spans = db.query(OtelSpan).filter(OtelSpan.organization_id == org_id).all()
     for span in spans:
@@ -485,6 +562,41 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
                           "This AI system invokes MCP tools in a production environment.",
                           span.span_id, mcp_method=str(mcp_method))
 
+        # GenAI SemConv capabilities — safe scalar metadata only, never content.
+        genai = extract_genai_scalar_fields(attrs)
+        _acc_cap(asset_key, asset_id, "data_source", attrs.get("gen_ai.data_source.id"))
+        _acc_cap(asset_key, asset_id, "workflow", attrs.get("gen_ai.workflow.name"))
+        _acc_cap(asset_key, asset_id, "prompt", attrs.get("gen_ai.prompt.name"),
+                 {"gen_ai.prompt.version": attrs.get("gen_ai.prompt.version")})
+        resource_uri = attrs.get("mcp.resource.uri")
+        if resource_uri:
+            _acc_cap(asset_key, asset_id, "mcp_resource", _sanitize_uri(str(resource_uri)),
+                     {"mcp.method.name": mcp_method})
+        tool_type = attrs.get("gen_ai.tool.type")
+        tool_name = extract_tool_name(attrs)
+        if tool_type and tool_name:
+            # Same (type, name) key as the OtelAsset tools_json path → refreshes
+            # the same capability row instead of creating a duplicate.
+            _acc_cap(asset_key, asset_id, _classify_capability(tool_name), tool_name,
+                     {"gen_ai.tool.type": str(tool_type)[:64]})
+
+        # GenAI findings from the scalar metadata.
+        req_model = genai["request_model"]
+        resp_model = genai["response_model"]
+        if req_model and resp_model and not _is_model_variant(req_model, resp_model):
+            _acc_find(asset_key, asset_id, "governance", "request_response_model_mismatch", "low",
+                      "Request/Response Model Mismatch",
+                      "LLM calls for this service returned responses from a different model than requested.",
+                      span.span_id, detail=f"{req_model} -> {resp_model}")
+
+        total_tokens = (genai["input_tokens"] or 0) + (genai["output_tokens"] or 0)
+        if total_tokens >= HIGH_TOKEN_USAGE_THRESHOLD:
+            _acc_find(asset_key, asset_id, "performance", "high_token_usage", "medium",
+                      "High Token Usage Detected",
+                      f"A single LLM call for this service used {HIGH_TOKEN_USAGE_THRESHOLD:,} or more tokens.",
+                      span.span_id, token_count=total_tokens,
+                      reasoning_tokens=genai["reasoning_output_tokens"])
+
         # Errors: OTLP status ERROR or SemConv error.type / JSON-RPC error code.
         error_type = extract_error_type(attrs, span.status_code)
         if error_type is not None:
@@ -519,6 +631,14 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
         caps_updated += u
         mcp_finding_assets.setdefault(asset_key, cap_agg["asset_id"])
 
+    for (asset_key, cap_type, cap_name), cap_agg in genai_cap_acc.items():
+        c, u = _upsert_capability(
+            db, org_id, cap_agg["asset_id"], asset_key, cap_type, cap_name,
+            "otel_trace", now, evidence=cap_agg["evidence"] or None,
+        )
+        caps_created += c
+        caps_updated += u
+
     # The per-asset findings loop above only sees capabilities that already
     # existed when it queried — span-derived MCP capabilities are created here,
     # after it ran. Upsert mcp_enabled for these assets now so a single run
@@ -541,6 +661,12 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
             evidence["error_types"] = sorted(agg["error_types"])
         if agg["mcp_methods"]:
             evidence["mcp_methods"] = sorted(agg["mcp_methods"])
+        if agg["details"]:
+            evidence["details"] = sorted(agg["details"])
+        if agg["max_total_tokens"] is not None:
+            evidence["max_total_tokens"] = agg["max_total_tokens"]
+        if agg["max_reasoning_tokens"] is not None:
+            evidence["max_reasoning_tokens"] = agg["max_reasoning_tokens"]
         c, u = _upsert_finding(
             db, org_id, agg["asset_id"], asset_key, category, finding_type,
             agg["severity"], agg["title"], agg["summary"], "otel_trace", now,

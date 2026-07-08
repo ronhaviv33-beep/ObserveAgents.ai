@@ -444,3 +444,56 @@ def test_protobuf_gen_ai_system_backcompat():
         assert "Anthropic" in json.loads(oa.providers_json)
     finally:
         db.close()
+
+
+# ── 13. Protobuf GenAI scalar columns parity ──────────────────────────────────
+
+def test_pb_genai_scalar_columns_extracted():
+    """Protobuf-encoded gen_ai.* attrs (int/bool/double/array values) populate
+    the scalar columns identically to the JSON path."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "genaicol")
+        trace_id = uuid.uuid4().hex
+        span_id = uuid.uuid4().hex[:16]
+
+        raw = _pb_request(
+            [{
+                "trace_id": trace_id,
+                "span_id": span_id,
+                "name": "chat gpt-4o",
+                "attrs": {
+                    "gen_ai.operation.name": "chat",
+                    "gen_ai.provider.name": "openai",
+                    "gen_ai.request.model": "gpt-4o",
+                    "gen_ai.response.model": "gpt-4o-2024-08-06",
+                    "gen_ai.usage.input_tokens": 900,
+                    "gen_ai.usage.output_tokens": 210,
+                    "gen_ai.response.finish_reasons": ["stop"],
+                    "gen_ai.request.stream": True,
+                    "gen_ai.response.time_to_first_chunk": 1.25,
+                },
+            }],
+            resource_attrs={"service.name": "pb-genai-col-agent"},
+        )
+        resp = _post_pb(token, raw)
+        assert resp.status_code == 202, resp.text
+
+        row = db.query(OtelSpan).filter(
+            OtelSpan.organization_id == org.id,
+            OtelSpan.trace_id == trace_id,
+        ).first()
+        assert row is not None
+        assert row.gen_ai_operation_name == "chat"
+        assert row.gen_ai_provider_name == "openai"
+        assert row.gen_ai_request_model == "gpt-4o"
+        assert row.gen_ai_response_model == "gpt-4o-2024-08-06"
+        assert row.gen_ai_input_tokens == 900
+        assert row.gen_ai_output_tokens == 210
+        assert json.loads(row.gen_ai_finish_reasons_json) == ["stop"]
+        assert row.gen_ai_request_stream is True
+        assert row.gen_ai_time_to_first_chunk_ms == 1250
+
+    finally:
+        db.close()

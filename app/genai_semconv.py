@@ -16,6 +16,8 @@ Compatibility rules:
 """
 from __future__ import annotations
 
+import json
+
 # ── Operations (gen_ai.operation.name well-known values) ─────────────────────
 INFERENCE_OPERATIONS = frozenset({"chat", "text_completion", "generate_content"})
 MEMORY_OPERATIONS = frozenset({
@@ -113,14 +115,34 @@ def _int_or_none(v: object) -> int | None:
         return None
 
 
+def _first_present(attrs: dict, *keys: str) -> object:
+    """First key present in attrs (two-arg .get chains would lose a real 0)."""
+    for key in keys:
+        if key in attrs:
+            return attrs[key]
+    return None
+
+
 def extract_usage(attrs: dict) -> dict:
-    """gen_ai.usage.* token counts (ints or None)."""
+    """gen_ai.usage.* token counts (ints or None).
+
+    Accepts the deprecated prompt_tokens/completion_tokens names and the
+    underscore spelling variants of the cache/reasoning keys.
+    """
     return {
-        "input_tokens": _int_or_none(attrs.get("gen_ai.usage.input_tokens")),
-        "output_tokens": _int_or_none(attrs.get("gen_ai.usage.output_tokens")),
-        "cache_creation_input_tokens": _int_or_none(attrs.get("gen_ai.usage.cache_creation.input_tokens")),
-        "cache_read_input_tokens": _int_or_none(attrs.get("gen_ai.usage.cache_read.input_tokens")),
-        "reasoning_output_tokens": _int_or_none(attrs.get("gen_ai.usage.reasoning.output_tokens")),
+        "input_tokens": _int_or_none(_first_present(
+            attrs, "gen_ai.usage.input_tokens", "gen_ai.usage.prompt_tokens")),
+        "output_tokens": _int_or_none(_first_present(
+            attrs, "gen_ai.usage.output_tokens", "gen_ai.usage.completion_tokens")),
+        "cache_creation_input_tokens": _int_or_none(_first_present(
+            attrs, "gen_ai.usage.cache_creation.input_tokens",
+            "gen_ai.usage.cache_creation_input_tokens")),
+        "cache_read_input_tokens": _int_or_none(_first_present(
+            attrs, "gen_ai.usage.cache_read.input_tokens",
+            "gen_ai.usage.cache_read_input_tokens")),
+        "reasoning_output_tokens": _int_or_none(_first_present(
+            attrs, "gen_ai.usage.reasoning.output_tokens",
+            "gen_ai.usage.reasoning_output_tokens")),
     }
 
 
@@ -139,6 +161,79 @@ def extract_response_meta(attrs: dict) -> dict:
             if attrs.get("gen_ai.response.time_to_first_chunk") is not None
             else attrs.get("ttft_ms")
         ),
+    }
+
+
+def _bool_or_none(v: object) -> bool | None:
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str) and v.lower() in ("true", "false"):
+        return v.lower() == "true"
+    if isinstance(v, (int, float)):
+        return bool(v)
+    return None
+
+
+def extract_time_to_first_chunk_ms(attrs: dict) -> int | None:
+    """Time-to-first-chunk in milliseconds.
+
+    gen_ai.response.time_to_first_chunk is SECONDS per SemConv → ×1000;
+    ttft_ms (the attribute Claude Code emits) is already milliseconds.
+    Conversion is keyed off which attribute carried the value — deterministic,
+    no magnitude guessing (a non-compliant emitter sending ms under the
+    SemConv key will produce inflated values, capped below). Negative or
+    >24h values are treated as junk → None.
+    """
+    raw = attrs.get("gen_ai.response.time_to_first_chunk")
+    if raw is not None:
+        try:
+            ms = float(raw) * 1000.0
+        except (TypeError, ValueError):
+            return None
+    else:
+        raw = attrs.get("ttft_ms")
+        if raw is None:
+            return None
+        try:
+            ms = float(raw)
+        except (TypeError, ValueError):
+            return None
+    if ms < 0 or ms > 86_400_000:
+        return None
+    return int(ms)
+
+
+def extract_genai_scalar_fields(attrs: dict) -> dict:
+    """Column-ready GenAI SemConv scalars for OtelSpan / ProvenanceEvent.
+
+    Reads only enum/metadata keys — never message, tool-argument, prompt, or
+    completion content (those are scrubbed separately in app/otel_privacy.py).
+    Strings are truncated to their column lengths so Postgres inserts never
+    overflow.
+    """
+    def _s(v: object, n: int) -> str | None:
+        return str(v)[:n] if v is not None and str(v) else None
+
+    usage = extract_usage(attrs)
+    finish = extract_response_meta(attrs)["finish_reasons"]
+    stream = _bool_or_none(_first_present(
+        attrs, "gen_ai.request.stream", "gen_ai.openai.request.stream", "llm.is_streaming"))
+    return {
+        "operation_name": _s(extract_operation(attrs), 64),
+        # Raw wire value — not the capitalized display label used elsewhere.
+        "provider_name": _s(extract_provider(attrs), 128),
+        "request_model": _s(attrs.get("gen_ai.request.model"), 255),
+        "response_model": _s(attrs.get("gen_ai.response.model"), 255),
+        "input_tokens": usage["input_tokens"],
+        "output_tokens": usage["output_tokens"],
+        "reasoning_output_tokens": usage["reasoning_output_tokens"],
+        "cache_read_input_tokens": usage["cache_read_input_tokens"],
+        "cache_creation_input_tokens": usage["cache_creation_input_tokens"],
+        "finish_reasons_json": (
+            json.dumps([str(r)[:64] for r in finish][:16]) if finish else None
+        ),
+        "request_stream": stream,
+        "time_to_first_chunk_ms": extract_time_to_first_chunk_ms(attrs),
     }
 
 

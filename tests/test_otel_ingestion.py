@@ -97,13 +97,15 @@ def _make_span(
             for k, v in (attrs or {}).items()
         ],
     }
-    # Simplify: use stringValue for everything except explicit ints
+    # Simplify: use stringValue for everything except explicit bools/ints/floats/lists
     span["attributes"] = [
         {
             "key": k,
             "value": (
-                {"intValue": v} if isinstance(v, int)
+                {"boolValue": v} if isinstance(v, bool)
+                else {"intValue": v} if isinstance(v, int)
                 else {"doubleValue": v} if isinstance(v, float)
+                else {"arrayValue": {"values": [{"stringValue": str(i)} for i in v]}} if isinstance(v, list)
                 else {"stringValue": str(v)}
             ),
         }
@@ -709,3 +711,185 @@ def test_otel_asset_org_isolation():
 
     finally:
         db.close()
+
+
+# ── G. GenAI SemConv scalar columns ───────────────────────────────────────────
+
+def test_genai_scalar_columns_extracted():
+    """Full gen_ai.* span → all 12 OtelSpan columns + 8 ProvenanceEvent columns,
+    while raw content attributes stay redacted (privacy regression)."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "genaicol")
+        trace_id = uuid.uuid4().hex
+        span_id  = uuid.uuid4().hex[:16]
+
+        payload = _make_span(
+            trace_id=trace_id,
+            span_id=span_id,
+            name="chat claude-sonnet-5",
+            attrs={
+                "gen_ai.operation.name": "chat",
+                "gen_ai.provider.name": "anthropic",
+                "gen_ai.request.model": "claude-sonnet-5",
+                "gen_ai.response.model": "claude-sonnet-5-20250929",
+                "gen_ai.usage.input_tokens": 1200,
+                "gen_ai.usage.output_tokens": 350,
+                "gen_ai.usage.reasoning.output_tokens": 90,
+                "gen_ai.usage.cache_read.input_tokens": 800,
+                "gen_ai.usage.cache_creation.input_tokens": 400,
+                "gen_ai.response.finish_reasons": ["stop"],
+                "gen_ai.request.stream": True,
+                "gen_ai.response.time_to_first_chunk": 0.35,  # seconds per SemConv
+                # content keys — must never be stored raw
+                "gen_ai.input.messages": '[{"role":"user","content":"secret-input"}]',
+                "gen_ai.output.messages": '[{"role":"assistant","content":"secret-output"}]',
+            },
+            resource_attrs={"service.name": "genai-col-agent"},
+        )
+        resp = _post_traces(token, payload)
+        assert resp.status_code == 202, resp.text
+
+        row = db.query(OtelSpan).filter(
+            OtelSpan.organization_id == org.id,
+            OtelSpan.trace_id == trace_id,
+            OtelSpan.span_id == span_id,
+        ).first()
+        assert row is not None
+        assert row.gen_ai_operation_name == "chat"
+        assert row.gen_ai_provider_name == "anthropic"
+        assert row.gen_ai_request_model == "claude-sonnet-5"
+        assert row.gen_ai_response_model == "claude-sonnet-5-20250929"
+        assert row.gen_ai_input_tokens == 1200
+        assert row.gen_ai_output_tokens == 350
+        assert row.gen_ai_reasoning_output_tokens == 90
+        assert row.gen_ai_cache_read_input_tokens == 800
+        assert row.gen_ai_cache_creation_input_tokens == 400
+        assert json.loads(row.gen_ai_finish_reasons_json) == ["stop"]
+        assert row.gen_ai_request_stream is True
+        assert row.gen_ai_time_to_first_chunk_ms == 350
+
+        event = db.query(ProvenanceEvent).filter(
+            ProvenanceEvent.organization_id == org.id,
+            ProvenanceEvent.trace_id == trace_id,
+            ProvenanceEvent.span_id == span_id,
+        ).first()
+        assert event is not None
+        assert event.event_type == "llm_call"
+        assert event.gen_ai_provider_name == "anthropic"
+        assert event.gen_ai_request_model == "claude-sonnet-5"
+        assert event.gen_ai_response_model == "claude-sonnet-5-20250929"
+        assert event.input_tokens == 1200
+        assert event.output_tokens == 350
+        assert json.loads(event.finish_reasons_json) == ["stop"]
+        assert event.request_stream is True
+        assert event.time_to_first_chunk_ms == 350
+
+        # Privacy regression: raw content never stored, in either JSON store.
+        for blob in (row.attributes_json, event.attributes_json or ""):
+            assert "secret-input" not in blob
+            assert "secret-output" not in blob
+        stored_attrs = json.loads(row.attributes_json)
+        assert stored_attrs["gen_ai.input.messages"]["redacted"] is True
+
+    finally:
+        db.close()
+
+
+def test_genai_columns_null_for_non_genai_span():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "genainull")
+        trace_id = uuid.uuid4().hex
+        span_id  = uuid.uuid4().hex[:16]
+
+        payload = _make_span(
+            trace_id=trace_id,
+            span_id=span_id,
+            name="GET /api/users",
+            attrs={"http.method": "GET", "url.full": "https://api.example.com/users"},
+            resource_attrs={"service.name": "genai-null-svc"},
+        )
+        resp = _post_traces(token, payload)
+        assert resp.status_code == 202, resp.text
+
+        row = db.query(OtelSpan).filter(
+            OtelSpan.organization_id == org.id,
+            OtelSpan.trace_id == trace_id,
+        ).first()
+        assert row is not None
+        assert row.gen_ai_operation_name is None
+        assert row.gen_ai_provider_name is None
+        assert row.gen_ai_request_model is None
+        assert row.gen_ai_input_tokens is None
+        assert row.gen_ai_request_stream is None
+        assert row.gen_ai_time_to_first_chunk_ms is None
+
+    finally:
+        db.close()
+
+
+def test_genai_deprecated_token_names_extracted():
+    """gen_ai.usage.prompt_tokens / completion_tokens (deprecated) map onto the
+    input/output token columns."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "genaidep")
+        trace_id = uuid.uuid4().hex
+        span_id  = uuid.uuid4().hex[:16]
+
+        payload = _make_span(
+            trace_id=trace_id,
+            span_id=span_id,
+            name="chat",
+            attrs={
+                "gen_ai.system": "openai",
+                "gen_ai.request.model": "gpt-4o",
+                "gen_ai.usage.prompt_tokens": 77,
+                "gen_ai.usage.completion_tokens": 33,
+            },
+            resource_attrs={"service.name": "genai-dep-agent"},
+        )
+        resp = _post_traces(token, payload)
+        assert resp.status_code == 202, resp.text
+
+        row = db.query(OtelSpan).filter(
+            OtelSpan.organization_id == org.id,
+            OtelSpan.trace_id == trace_id,
+        ).first()
+        assert row is not None
+        assert row.gen_ai_input_tokens == 77
+        assert row.gen_ai_output_tokens == 33
+        # gen_ai.system (deprecated) still resolves the provider
+        assert row.gen_ai_provider_name == "openai"
+
+    finally:
+        db.close()
+
+
+def test_genai_composite_indexes_exist_on_fresh_db():
+    """The model-declared composite indexes must exist on a create_all() DB
+    (fresh DBs stamp head and never run migrations)."""
+    import sqlalchemy as sa
+    from app.database import engine
+
+    inspector = sa.inspect(engine)
+    span_ix = {ix["name"] for ix in inspector.get_indexes("otel_spans")}
+    assert "ix_otel_spans_org_trace_start" in span_ix
+    assert "ix_otel_spans_org_genai_op_start" in span_ix
+    assert "ix_otel_spans_org_genai_provider_model_start" in span_ix
+
+    ev_ix = {ix["name"] for ix in inspector.get_indexes("provenance_events")}
+    assert "ix_provenance_events_org_event_target_ts" in ev_ix
+    assert "ix_provenance_events_org_source_event_ts" in ev_ix
+    assert "ix_provenance_events_org_genai_provider_model_ts" in ev_ix
+
+    assert "ix_asset_findings_org_asset_status_sev_cat" in {
+        ix["name"] for ix in inspector.get_indexes("asset_findings")
+    }
+    assert "ix_asset_capabilities_org_asset_type_name_source" in {
+        ix["name"] for ix in inspector.get_indexes("asset_capabilities")
+    }

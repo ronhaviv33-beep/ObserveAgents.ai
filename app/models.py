@@ -4,7 +4,7 @@ import re
 import uuid as _uuid
 from datetime import datetime, timezone
 from cryptography.fernet import Fernet
-from sqlalchemy import Integer, String, Float, Text, DateTime, Boolean, ForeignKey, UniqueConstraint
+from sqlalchemy import Integer, String, Float, Text, DateTime, Boolean, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -607,6 +607,12 @@ class OtelSpan(Base):
     __tablename__ = "otel_spans"
     __table_args__ = (
         UniqueConstraint("organization_id", "trace_id", "span_id", name="uq_otel_spans_org_trace_span"),
+        Index("ix_otel_spans_org_trace_start", "organization_id", "trace_id", "start_time"),
+        Index("ix_otel_spans_org_genai_op_start", "organization_id", "gen_ai_operation_name", "start_time"),
+        Index(
+            "ix_otel_spans_org_genai_provider_model_start",
+            "organization_id", "gen_ai_provider_name", "gen_ai_request_model", "start_time",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -626,6 +632,20 @@ class OtelSpan(Base):
     resource_attributes_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # resource attributes
     events_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     links_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # GenAI SemConv scalars extracted at ingest — queryable metadata only, never
+    # content. attributes_json remains the full (scrubbed) attribute store.
+    gen_ai_operation_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    gen_ai_provider_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    gen_ai_request_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    gen_ai_response_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    gen_ai_input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gen_ai_output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gen_ai_reasoning_output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gen_ai_cache_read_input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gen_ai_cache_creation_input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gen_ai_finish_reasons_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of finish reasons
+    gen_ai_request_stream: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    gen_ai_time_to_first_chunk_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -637,13 +657,29 @@ class ProvenanceEvent(Base):
     Records what happened without storing raw prompt/response/tool content.
     """
     __tablename__ = "provenance_events"
+    __table_args__ = (
+        Index(
+            "ix_provenance_events_org_event_target_ts",
+            "organization_id", "event_type", "target_type", "target_name", "timestamp",
+        ),
+        Index(
+            "ix_provenance_events_org_source_event_ts",
+            "organization_id", "source_name", "event_type", "timestamp",
+        ),
+        Index(
+            "ix_provenance_events_org_genai_provider_model_ts",
+            "organization_id", "gen_ai_provider_name", "gen_ai_request_model", "timestamp",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     trace_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     span_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     parent_span_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    event_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)  # llm_call | tool_call | agent_step | db_call | external_api_call
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # llm_call | tool_call | agent_step | db_call | external_api_call | agent_invocation
+    # | workflow_step | plan_step | retrieval_call | memory_op
     source_type: Mapped[str | None] = mapped_column(String(64), nullable=True)       # agent | workflow | service
     source_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     target_type: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # model | tool | database | api | mcp_server
@@ -653,6 +689,15 @@ class ProvenanceEvent(Base):
     attributes_json: Mapped[str | None] = mapped_column(Text, nullable=True)         # non-sensitive span attrs
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)      # SHA-256 of combined input+output if present
     content_redacted: Mapped[bool] = mapped_column(Boolean, default=True)            # always True — content never stored
+    # GenAI SemConv scalars copied from the originating span — metadata only.
+    gen_ai_provider_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    gen_ai_request_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    gen_ai_response_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    finish_reasons_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of finish reasons
+    request_stream: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    time_to_first_chunk_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -703,6 +748,12 @@ class AssetCapability(Base):
     Application-level dedup — no DB unique constraint.
     """
     __tablename__ = "asset_capabilities"
+    __table_args__ = (
+        Index(
+            "ix_asset_capabilities_org_asset_type_name_source",
+            "organization_id", "asset_key", "capability_type", "capability_name", "source",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
@@ -710,7 +761,8 @@ class AssetCapability(Base):
     asset_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     capability_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     # provider|model|tool|mcp|database|filesystem|shell|external_api|runtime|workflow
-    # |cloud_api|crm|messaging|source_control|retrieval|memory|unknown
+    # |cloud_api|crm|messaging|source_control|retrieval|memory|data_source|prompt
+    # |mcp_resource|unknown
     capability_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     source: Mapped[str] = mapped_column(String(64), nullable=False, index=True)  # otel_trace|sdk|observed
     evidence_json: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -733,6 +785,12 @@ class AssetFinding(Base):
     Application-level dedup on (org, asset_key, category, finding_type, source).
     """
     __tablename__ = "asset_findings"
+    __table_args__ = (
+        Index(
+            "ix_asset_findings_org_asset_status_sev_cat",
+            "organization_id", "asset_key", "status", "severity", "category",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)

@@ -553,3 +553,100 @@ def test_org_isolation_for_new_derivations():
         assert {"mcp_tool_access", "mcp_error"} <= {f.finding_type for f in a_finds}
     finally:
         db.close()
+
+
+# ── 10. extract_genai_scalar_fields unit tests ────────────────────────────────
+
+from app.genai_semconv import extract_genai_scalar_fields, extract_time_to_first_chunk_ms
+
+
+def test_scalar_fields_full_extraction():
+    fields = extract_genai_scalar_fields({
+        "gen_ai.operation.name": "chat",
+        "gen_ai.provider.name": "anthropic",
+        "gen_ai.request.model": "claude-sonnet-5",
+        "gen_ai.response.model": "claude-sonnet-5-20250929",
+        "gen_ai.usage.input_tokens": 100,
+        "gen_ai.usage.output_tokens": 50,
+        "gen_ai.usage.reasoning.output_tokens": 10,
+        "gen_ai.usage.cache_read.input_tokens": 20,
+        "gen_ai.usage.cache_creation.input_tokens": 30,
+        "gen_ai.response.finish_reasons": ["stop", "length"],
+        "gen_ai.request.stream": True,
+        "gen_ai.response.time_to_first_chunk": 0.35,
+    })
+    assert fields["operation_name"] == "chat"
+    assert fields["provider_name"] == "anthropic"
+    assert fields["request_model"] == "claude-sonnet-5"
+    assert fields["response_model"] == "claude-sonnet-5-20250929"
+    assert fields["input_tokens"] == 100
+    assert fields["output_tokens"] == 50
+    assert fields["reasoning_output_tokens"] == 10
+    assert fields["cache_read_input_tokens"] == 20
+    assert fields["cache_creation_input_tokens"] == 30
+    assert json.loads(fields["finish_reasons_json"]) == ["stop", "length"]
+    assert fields["request_stream"] is True
+    assert fields["time_to_first_chunk_ms"] == 350
+
+
+def test_scalar_fields_deprecated_token_names():
+    fields = extract_genai_scalar_fields({
+        "gen_ai.usage.prompt_tokens": 5,
+        "gen_ai.usage.completion_tokens": 0,  # legitimate zero must survive
+    })
+    assert fields["input_tokens"] == 5
+    assert fields["output_tokens"] == 0
+
+
+def test_scalar_fields_underscore_cache_reasoning_variants():
+    fields = extract_genai_scalar_fields({
+        "gen_ai.usage.cache_read_input_tokens": 7,
+        "gen_ai.usage.cache_creation_input_tokens": 8,
+        "gen_ai.usage.reasoning_output_tokens": 9,
+    })
+    assert fields["cache_read_input_tokens"] == 7
+    assert fields["cache_creation_input_tokens"] == 8
+    assert fields["reasoning_output_tokens"] == 9
+
+
+def test_scalar_fields_finish_reasons_string_normalized():
+    fields = extract_genai_scalar_fields({"gen_ai.response.finish_reasons": "stop"})
+    assert json.loads(fields["finish_reasons_json"]) == ["stop"]
+
+
+def test_scalar_fields_stream_string_values():
+    assert extract_genai_scalar_fields({"gen_ai.request.stream": "true"})["request_stream"] is True
+    assert extract_genai_scalar_fields({"gen_ai.request.stream": "false"})["request_stream"] is False
+    assert extract_genai_scalar_fields({})["request_stream"] is None
+
+
+def test_time_to_first_chunk_units():
+    # SemConv key is seconds → ms
+    assert extract_time_to_first_chunk_ms({"gen_ai.response.time_to_first_chunk": 0.35}) == 350
+    # ttft_ms is already ms
+    assert extract_time_to_first_chunk_ms({"ttft_ms": 420}) == 420
+    # junk values → None
+    assert extract_time_to_first_chunk_ms({"gen_ai.response.time_to_first_chunk": -1}) is None
+    assert extract_time_to_first_chunk_ms({"gen_ai.response.time_to_first_chunk": "abc"}) is None
+    assert extract_time_to_first_chunk_ms({"ttft_ms": "abc"}) is None
+    assert extract_time_to_first_chunk_ms({}) is None
+    # > 24h is junk
+    assert extract_time_to_first_chunk_ms({"ttft_ms": 90_000_000}) is None
+
+
+def test_scalar_fields_never_read_content_keys():
+    """A dict containing only content keys yields all-None fields — the
+    extractor must never touch message/tool/prompt content."""
+    fields = extract_genai_scalar_fields({
+        "gen_ai.input.messages": "secret",
+        "gen_ai.output.messages": "secret",
+        "gen_ai.system_instructions": "secret",
+        "gen_ai.tool.call.arguments": "secret",
+        "gen_ai.tool.call.result": "secret",
+        "tool.arguments": "secret",
+        "tool.result": "secret",
+        "prompt": "secret",
+        "response": "secret",
+    })
+    assert all(v is None for v in fields.values())
+    assert "secret" not in json.dumps({k: v for k, v in fields.items() if v is not None})
