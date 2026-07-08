@@ -1,6 +1,6 @@
 # Asset Intelligence
 
-ObserveAgents.ai is an **Enterprise AI Intelligence Platform**. Asset Intelligence is the analysis layer that reads OTel evidence collected during trace ingestion and derives structured, actionable intelligence across six dimensions:
+ObserveAgents.ai is the **runtime visibility and control layer for AI agents**. Asset Intelligence is the analysis layer that reads OTel evidence collected during trace ingestion and derives structured, actionable intelligence across six dimensions:
 
 | Layer | What it tells you |
 |---|---|

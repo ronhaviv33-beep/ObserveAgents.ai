@@ -70,7 +70,7 @@ export function gatewayBaseUrl(demoMode = false) {
 // ── Branding ────────────────────────────────────────────────────────────────
 export const BRAND = {
   name:     "ObserveAgents",
-  subtitle: "Enterprise AI Intelligence Platform",
-  tagline:  "Understand what AI exists, what is running, how it is connected, and how it evolves.",
-  taglineLines: ["Understand what AI exists.", "What is running, how it is connected.", "And how it evolves over time."],
+  subtitle: "Runtime visibility & control for AI agents",
+  tagline:  "See what your AI agents are actually doing.",
+  taglineLines: ["See what your AI agents are actually doing.", "Discover agents, inspect runtime behavior, detect risky patterns.", "Review what needs control — before it becomes a production problem."],
 };

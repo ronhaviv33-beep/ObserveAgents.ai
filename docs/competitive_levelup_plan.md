@@ -47,7 +47,7 @@ Every one of these platforms is **observability-first**. None of them owns:
 2. **Two products, one spine** — Observability (see) and Gateway (control) sharing the same inventory, so observation can graduate into control (observe → alert → enforce, per team) without a second vendor.
 3. **Privacy-first by construction** — Datadog scans-and-redacts; Dynatrace *stores* full prompt→response lineage for audit. Observe **never persists content at all** (hash + size + counts only). For regulated orgs that can't ship prompts to a SaaS, that's not a feature — it's the buying reason.
 
-**The wedge:** don't compete as "another LLM observability tool." Position as **the system of record for enterprise AI** — inventory, ownership, risk, and cost accountability — that happens to have first-class OTel observability and an optional control plane. That is the "something special."
+**The wedge:** don't compete as "another LLM observability tool." Position as **the runtime visibility and control layer for AI agents** — inventory, ownership, risk, and cost accountability — that happens to have first-class OTel observability and an optional control plane. That is the "something special."
 
 ---
 

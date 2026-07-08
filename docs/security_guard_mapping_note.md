@@ -1,6 +1,6 @@
 # Design note: from a local guard script to product behavior
 
-*How a Bash guard script that blocks secret-file access and blind remote execution maps into ObserveAgents — as findings in Observability, as optional policy in the Gateway. General to enterprise AI agents on any platform.*
+*How a Bash guard script that blocks secret-file access and blind remote execution maps into ObserveAgents — as findings in Observability, as optional policy in the Gateway. General to AI agents on any platform.*
 
 ## 1. Verdict
 

@@ -1,6 +1,6 @@
 # ObserveAgents.ai — System Architecture
 
-**Enterprise AI Intelligence Platform.** Observe helps organizations understand what AI exists, what is actively running, how it is connected, and how it evolves over time.
+**The runtime visibility and control layer for AI agents.** Observe helps teams understand what AI exists, what is actively running, how it is connected, and how it evolves over time.
 
 This document describes the system as implemented today. Companion docs:
 - [product_discovery_model.md](product_discovery_model.md) — the Runtime + Ecosystem discovery product model

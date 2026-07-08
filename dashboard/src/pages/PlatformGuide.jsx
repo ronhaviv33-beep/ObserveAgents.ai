@@ -72,7 +72,7 @@ export default function CustomerWelcomePage({ onNavigate }) {
           background:`${T.teal}05`, pointerEvents:"none" }} />
 
         <div style={{ fontSize:11, fontFamily:FONT_MONO, color:T.accent, letterSpacing:"0.15em",
-          textTransform:"uppercase", marginBottom:12 }}>ObserveAgents · Enterprise AI Intelligence Platform</div>
+          textTransform:"uppercase", marginBottom:12 }}>ObserveAgents · Runtime visibility & control for AI agents</div>
 
         <div style={{ fontSize: bp.isMobile ? 22 : 32, fontWeight:700, color:T.text, marginBottom:14, lineHeight:1.15 }}>
           See your real AI footprint.<br/>
