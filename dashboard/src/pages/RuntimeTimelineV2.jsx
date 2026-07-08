@@ -44,6 +44,21 @@ const fmtWhen = (iso) => {
   return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 };
 
+/** Compact one-line GenAI summary for a span (metadata only, never content). */
+const genAiLine = (g) => {
+  if (!g) return null;
+  const parts = [];
+  if (g.provider) parts.push(g.provider);
+  const model = g.response_model || g.request_model;
+  if (model) parts.push(model);
+  if (g.input_tokens != null || g.output_tokens != null) {
+    parts.push(`${(g.input_tokens ?? 0).toLocaleString()}→${(g.output_tokens ?? 0).toLocaleString()} tok`);
+  }
+  if (g.time_to_first_chunk_ms != null) parts.push(`ttfc ${g.time_to_first_chunk_ms}ms`);
+  if (g.streaming) parts.push("stream");
+  return parts.length ? parts.join(" · ") : null;
+};
+
 /** Nesting depth per span from its parent chain (cycle-safe). */
 function withDepth(spans) {
   const byId = Object.fromEntries(spans.map((s) => [s.span_id, s]));
@@ -98,6 +113,10 @@ function TraceWaterfall({ trace, onBack }) {
         <MetricCard label="Total time" value={fmtMs(trace.duration_ms)} />
         <MetricCard label="Steps" value={trace.span_count} />
         <MetricCard label="Errors" value={trace.error_count} tone={trace.error_count > 0 ? C.riskHigh : C.text} />
+        {trace.usage && (
+          <MetricCard label="Tokens in / out"
+            value={`${(trace.usage.input_tokens ?? 0).toLocaleString()} / ${(trace.usage.output_tokens ?? 0).toLocaleString()}`} />
+        )}
       </div>
 
       <Section label="Execution timeline"
@@ -111,12 +130,18 @@ function TraceWaterfall({ trace, onBack }) {
               const barColor = s.error ? C.riskHigh : meta.color;
               const left = Math.min(((s.offset_ms ?? 0) / total) * 100, 100);
               const width = Math.max(Math.min(((s.duration_ms ?? 0) / total) * 100, 100 - left), 0.5);
+              const gLine = genAiLine(s.gen_ai);
               return (
                 <div key={s.span_id}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", borderRadius: RADIUS.sm, background: s.error ? `${C.riskHigh}0D` : "transparent" }}>
                   <div style={{ width: 280, minWidth: 180, display: "flex", alignItems: "center", gap: 8, paddingLeft: s.depth * 16, flexShrink: 0, overflow: "hidden" }}>
                     {s.depth > 0 && <span style={{ color: C.textMute, fontFamily: FONT.mono, fontSize: 10, flexShrink: 0 }}>└</span>}
-                    <span title={s.name} style={{ fontSize: 12, color: s.error ? C.riskHigh : C.text, fontFamily: FONT.mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+                    <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+                      <span title={s.name} style={{ fontSize: 12, color: s.error ? C.riskHigh : C.text, fontFamily: FONT.mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+                      {gLine && (
+                        <span title={gLine} style={{ fontSize: 10, color: C.textMute, fontFamily: FONT.mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{gLine}</span>
+                      )}
+                    </div>
                   </div>
                   <div style={{ width: 82, flexShrink: 0 }}><StatusPill tone={meta.color}>{meta.label}</StatusPill></div>
                   <div style={{ flex: 1, position: "relative", height: 18, background: C.surfaceRaised, borderRadius: 3, overflow: "hidden", minWidth: 120 }}>

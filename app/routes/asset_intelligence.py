@@ -7,11 +7,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import AssetCapability, AssetFinding, AssetRegistry, OtelAsset
+from app.models import AssetCapability, AssetFinding, AssetRegistry, OtelAsset, ProvenanceEvent
 from app.org_config import get_org_config
 from app.asset_intelligence import derive_asset_intelligence
 
@@ -178,6 +179,44 @@ async def asset_summary(
     for f in db.query(AssetFinding).filter(AssetFinding.organization_id == org_id).all():
         finds_by_key[f.asset_key].append(f)
 
+    # Runtime GenAI usage per asset from the provenance scalar columns
+    # (SQL aggregation only — raw span attributes stay unread). source_name
+    # is the same stable identity that produces AssetRegistry.asset_key.
+    usage_rows = (
+        db.query(
+            ProvenanceEvent.source_name,
+            func.count(ProvenanceEvent.id).label("event_count"),
+            func.sum(case((ProvenanceEvent.event_type == "llm_call", 1), else_=0)).label("llm_call_count"),
+            func.sum(ProvenanceEvent.input_tokens).label("input_tokens"),
+            func.sum(ProvenanceEvent.output_tokens).label("output_tokens"),
+            func.sum(case((ProvenanceEvent.request_stream.is_(True), 1), else_=0)).label("streaming_count"),
+            func.avg(ProvenanceEvent.time_to_first_chunk_ms).label("avg_ttfc"),
+            func.max(ProvenanceEvent.timestamp).label("last_activity"),
+        )
+        .filter(
+            ProvenanceEvent.organization_id == org_id,
+            ProvenanceEvent.source_name.isnot(None),
+        )
+        .group_by(ProvenanceEvent.source_name)
+        .all()
+    )
+    usage_by_key: dict[str, dict] = {}
+    usage_by_name: dict[str, dict] = {}
+    for r in usage_rows:
+        entry = {
+            "event_count": r.event_count,
+            "llm_call_count": int(r.llm_call_count or 0),
+            "input_tokens": int(r.input_tokens or 0),
+            "output_tokens": int(r.output_tokens or 0),
+            "streaming_count": int(r.streaming_count or 0),
+            "avg_time_to_first_chunk_ms": (
+                round(float(r.avg_ttfc), 1) if r.avg_ttfc is not None else None
+            ),
+            "last_activity": r.last_activity.isoformat() if r.last_activity else None,
+        }
+        usage_by_key[hashlib.sha256(f"{org_id}:{r.source_name}".encode()).hexdigest()[:64]] = entry
+        usage_by_name[r.source_name] = entry
+
     now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
     assets = []
     for oa in otel_assets:
@@ -228,6 +267,7 @@ async def asset_summary(
             "high_findings_count": sum(1 for f in open_finds if f.severity in ("high", "critical")),
             "finding_categories": dict(categories),
             "status": status,
+            "runtime_usage": usage_by_key.get(asset_key) or usage_by_name.get(asset_name),
             "capabilities": [_serialize_cap(c) for c in caps],
             "findings": [_serialize_finding(f) for f in finds],
         })
@@ -279,6 +319,7 @@ async def asset_summary(
             "high_findings_count": sum(1 for f in open_finds if f.severity in ("high", "critical")),
             "finding_categories": dict(categories),
             "status": status,
+            "runtime_usage": usage_by_key.get(reg.asset_key),
             "capabilities": [_serialize_cap(c) for c in caps],
             "findings": [_serialize_finding(f) for f in finds],
         })

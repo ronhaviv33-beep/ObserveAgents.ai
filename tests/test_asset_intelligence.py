@@ -1151,3 +1151,96 @@ def test_genai_capabilities_rerun_no_duplicates():
 
     finally:
         db.close()
+
+
+# ── 17. runtime_usage from ProvenanceEvent scalar columns ─────────────────────
+
+from app.models import ProvenanceEvent
+
+
+def _summary_asset(token: str, name: str) -> dict | None:
+    resp = _client.get(
+        "/intelligence/asset-summary",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200, resp.text
+    return next((a for a in resp.json()["assets"] if a["asset_name"] == name), None)
+
+
+def test_asset_summary_runtime_usage():
+    """asset-summary exposes per-asset runtime usage aggregated from the
+    provenance scalar columns (written at ingest, no /intelligence/run needed)."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "rusage")
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={
+                "gen_ai.system": "openai",
+                "gen_ai.request.model": "gpt-4o",
+                "gen_ai.usage.input_tokens": 150,
+                "gen_ai.usage.output_tokens": 50,
+            },
+            resource_attrs={"service.name": "usage-agent"},
+        )
+        assert _post_traces(token, payload).status_code == 202
+
+        asset = _summary_asset(token, "usage-agent")
+        assert asset is not None
+        usage = asset["runtime_usage"]
+        assert usage is not None
+        assert usage["llm_call_count"] == 1
+        assert usage["input_tokens"] == 150
+        assert usage["output_tokens"] == 50
+        assert usage["last_activity"] is not None
+
+        # Org isolation: org B's summary has no such asset
+        org_b, _, token_b = _make_org_and_token(db, "rusage-b")
+        assert _summary_asset(token_b, "usage-agent") is None
+    finally:
+        db.close()
+
+
+def test_asset_summary_runtime_usage_null_scalars():
+    """Pre-migration provenance rows (NULL scalars) still produce a
+    runtime_usage block with zeroed tokens and no avg TTFC."""
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    try:
+        org, user, token = _make_org_and_token(db, "rusagenull")
+        payload = _make_span(
+            trace_id=uuid.uuid4().hex,
+            span_id=uuid.uuid4().hex[:16],
+            name="chat",
+            attrs={
+                "gen_ai.system": "openai",
+                "gen_ai.request.model": "gpt-4o",
+                "gen_ai.usage.input_tokens": 99,
+                "gen_ai.usage.output_tokens": 11,
+            },
+            resource_attrs={"service.name": "usage-null-agent"},
+        )
+        assert _post_traces(token, payload).status_code == 202
+
+        for ev in db.query(ProvenanceEvent).filter(
+            ProvenanceEvent.organization_id == org.id,
+        ).all():
+            ev.input_tokens = None
+            ev.output_tokens = None
+            ev.request_stream = None
+            ev.time_to_first_chunk_ms = None
+        db.commit()
+
+        asset = _summary_asset(token, "usage-null-agent")
+        assert asset is not None
+        usage = asset["runtime_usage"]
+        assert usage is not None
+        assert usage["event_count"] == 1
+        assert usage["input_tokens"] == 0
+        assert usage["output_tokens"] == 0
+        assert usage["avg_time_to_first_chunk_ms"] is None
+    finally:
+        db.close()

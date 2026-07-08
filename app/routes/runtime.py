@@ -4,20 +4,22 @@ Runtime Discovery read API — Execution Timeline over ingested OTel spans.
 Read-only views assembled from otel_spans; no new collection, no writes.
 GET /runtime/traces            → recent traces (one row per trace_id)
 GET /runtime/traces/{trace_id} → full span tree for the trace waterfall
+GET /runtime/genai-usage       → org-wide GenAI usage aggregates
 """
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import case, func
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import OtelSpan
-from app.genai_semconv import classify_step, extract_error_type, extract_operation, extract_usage
+from app.genai_semconv import classify_step, extract_error_type, extract_genai_scalar_fields
 
 router = APIRouter(tags=["Runtime"])
 
@@ -31,6 +33,58 @@ _USAGE_FIELDS = (
     "cache_read_input_tokens",
     "reasoning_output_tokens",
 )
+
+# extract_genai_scalar_fields() keys; each maps 1:1 to OtelSpan.gen_ai_<key>.
+_GENAI_SCALAR_KEYS = (
+    "operation_name",
+    "provider_name",
+    "request_model",
+    "response_model",
+    "input_tokens",
+    "output_tokens",
+    "reasoning_output_tokens",
+    "cache_read_input_tokens",
+    "cache_creation_input_tokens",
+    "finish_reasons_json",
+    "request_stream",
+    "time_to_first_chunk_ms",
+)
+
+
+def _genai_fields_for_span(span: OtelSpan, attrs: dict) -> dict:
+    """Scalar columns first; pre-migration rows (all columns NULL) fall back
+    to extracting from the already-parsed scrubbed attributes."""
+    vals = {k: getattr(span, f"gen_ai_{k}") for k in _GENAI_SCALAR_KEYS}
+    if all(v is None for v in vals.values()):
+        vals = extract_genai_scalar_fields(attrs)
+    return vals
+
+
+def _genai_payload(vals: dict) -> dict | None:
+    """Safe per-span GenAI summary — enum/scalar metadata only, never content."""
+    if all(v is None for v in vals.values()):
+        return None
+    finish = None
+    if vals["finish_reasons_json"]:
+        try:
+            parsed = json.loads(vals["finish_reasons_json"])
+            finish = parsed if isinstance(parsed, list) else None
+        except (json.JSONDecodeError, TypeError):
+            finish = None
+    return {
+        "operation": vals["operation_name"],
+        "provider": vals["provider_name"],
+        "request_model": vals["request_model"],
+        "response_model": vals["response_model"],
+        "input_tokens": vals["input_tokens"],
+        "output_tokens": vals["output_tokens"],
+        "reasoning_output_tokens": vals["reasoning_output_tokens"],
+        "cache_read_input_tokens": vals["cache_read_input_tokens"],
+        "cache_creation_input_tokens": vals["cache_creation_input_tokens"],
+        "finish_reasons": finish,
+        "streaming": vals["request_stream"],
+        "time_to_first_chunk_ms": vals["time_to_first_chunk_ms"],
+    }
 
 
 def _duration_ms(start, end) -> int | None:
@@ -85,10 +139,20 @@ def _step_type(attrs: dict, span_name: str = "") -> str:
 @router.get("/runtime/traces")
 async def list_traces(
     service_name: Optional[str] = Query(None),
+    provider: Optional[str] = Query(None),
+    model: Optional[str] = Query(None),
+    operation: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Recent traces, one row per trace_id.
+
+    provider/model/operation filter on the indexed GenAI scalar columns
+    (exact match; a trace matches when any of its spans matches, and its
+    span/error counts stay whole-trace). Pre-migration spans whose scalar
+    columns are NULL are not matched by these filters.
+    """
     org_id = current_user.organization_id
 
     q = (
@@ -103,6 +167,24 @@ async def list_traces(
     )
     if service_name:
         q = q.filter(OtelSpan.service_name == service_name)
+
+    genai_filters = []
+    if provider:
+        genai_filters.append(OtelSpan.gen_ai_provider_name == provider)
+    if model:
+        genai_filters.append(or_(
+            OtelSpan.gen_ai_request_model == model,
+            OtelSpan.gen_ai_response_model == model,
+        ))
+    if operation:
+        genai_filters.append(OtelSpan.gen_ai_operation_name == operation)
+    if genai_filters:
+        matching = (
+            select(OtelSpan.trace_id)
+            .where(OtelSpan.organization_id == org_id, *genai_filters)
+            .distinct()
+        )
+        q = q.filter(OtelSpan.trace_id.in_(matching))
 
     rows = (
         q.group_by(OtelSpan.trace_id)
@@ -208,10 +290,10 @@ async def get_trace(
         if trace_start is not None and s.start_time is not None:
             offset_ms = int((s.start_time - trace_start).total_seconds() * 1000)
 
-        usage = extract_usage(attrs)
+        genai = _genai_fields_for_span(s, attrs)
         for f in _USAGE_FIELDS:
-            if usage[f] is not None:
-                usage_totals[f] += usage[f]
+            if genai[f] is not None:
+                usage_totals[f] += genai[f]
                 usage_seen = True
 
         span_dicts.append({
@@ -221,7 +303,8 @@ async def get_trace(
             "service_name": s.service_name,
             "kind": s.span_kind,
             "step_type": _step_type(attrs, s.span_name or ""),
-            "operation": extract_operation(attrs),
+            "operation": genai["operation_name"],
+            "gen_ai": _genai_payload(genai),
             "start_time": s.start_time.isoformat() if s.start_time else None,
             "end_time": s.end_time.isoformat() if s.end_time else None,
             "offset_ms": offset_ms,
@@ -245,4 +328,86 @@ async def get_trace(
         "error_count": sum(1 for d in span_dicts if d["error"]),
         "usage": usage_totals if usage_seen else None,
         "spans": span_dicts,
+    }
+
+
+@router.get("/runtime/genai-usage")
+async def genai_usage(
+    hours: Optional[int] = Query(None, ge=1, le=24 * 90),
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Org-wide GenAI usage aggregates over the indexed scalar columns.
+
+    SQL-only aggregation — pre-migration spans with NULL scalar columns are
+    not counted (no JSON fallback for aggregates by design).
+    """
+    org_id = current_user.organization_id
+    filters = [OtelSpan.organization_id == org_id]
+    if hours:
+        filters.append(OtelSpan.start_time >= datetime.now(timezone.utc) - timedelta(hours=hours))
+
+    genai_pred = or_(
+        OtelSpan.gen_ai_operation_name.isnot(None),
+        OtelSpan.gen_ai_provider_name.isnot(None),
+        OtelSpan.gen_ai_request_model.isnot(None),
+        OtelSpan.gen_ai_response_model.isnot(None),
+        OtelSpan.gen_ai_input_tokens.isnot(None),
+        OtelSpan.gen_ai_output_tokens.isnot(None),
+    )
+    row = (
+        db.query(
+            func.sum(OtelSpan.gen_ai_input_tokens).label("input_tokens"),
+            func.sum(OtelSpan.gen_ai_output_tokens).label("output_tokens"),
+            func.sum(OtelSpan.gen_ai_reasoning_output_tokens).label("reasoning_output_tokens"),
+            func.sum(OtelSpan.gen_ai_cache_read_input_tokens).label("cache_read_input_tokens"),
+            func.sum(OtelSpan.gen_ai_cache_creation_input_tokens).label("cache_creation_input_tokens"),
+            func.sum(case((genai_pred, 1), else_=0)).label("genai_span_count"),
+            func.sum(case((OtelSpan.gen_ai_request_stream.is_(True), 1), else_=0)).label("streaming_count"),
+            func.avg(OtelSpan.gen_ai_time_to_first_chunk_ms).label("avg_ttfc"),
+        )
+        .filter(*filters)
+        .one()
+    )
+
+    def _breakdown(column):
+        rows = (
+            db.query(
+                column.label("name"),
+                func.count(OtelSpan.id).label("span_count"),
+                func.sum(OtelSpan.gen_ai_input_tokens).label("input_tokens"),
+                func.sum(OtelSpan.gen_ai_output_tokens).label("output_tokens"),
+            )
+            .filter(*filters, column.isnot(None))
+            .group_by(column)
+            .order_by(func.count(OtelSpan.id).desc())
+            .limit(10)
+            .all()
+        )
+        return [
+            {
+                "name": r.name,
+                "span_count": r.span_count,
+                "input_tokens": int(r.input_tokens or 0),
+                "output_tokens": int(r.output_tokens or 0),
+            }
+            for r in rows
+        ]
+
+    return {
+        "window_hours": hours,
+        "totals": {
+            "input_tokens": int(row.input_tokens or 0),
+            "output_tokens": int(row.output_tokens or 0),
+            "reasoning_output_tokens": int(row.reasoning_output_tokens or 0),
+            "cache_read_input_tokens": int(row.cache_read_input_tokens or 0),
+            "cache_creation_input_tokens": int(row.cache_creation_input_tokens or 0),
+            "genai_span_count": int(row.genai_span_count or 0),
+            "streaming_count": int(row.streaming_count or 0),
+            "avg_time_to_first_chunk_ms": (
+                round(float(row.avg_ttfc), 1) if row.avg_ttfc is not None else None
+            ),
+        },
+        "providers": _breakdown(OtelSpan.gen_ai_provider_name),
+        "models": _breakdown(OtelSpan.gen_ai_request_model),
     }

@@ -39,6 +39,17 @@ const relTime = (iso) => {
 };
 
 const openFinds = (a) => (a.findings || []).filter((f) => f.status === "open");
+
+/** Compact structured-evidence line for a finding — never a raw JSON dump. */
+const evidenceLine = (ev) => {
+  if (!ev) return null;
+  const parts = [];
+  if (ev.span_count != null) parts.push(`spans ${ev.span_count}`);
+  if (ev.max_total_tokens != null) parts.push(`max ${Number(ev.max_total_tokens).toLocaleString()} tok`);
+  if (ev.max_reasoning_tokens != null) parts.push(`max reasoning ${Number(ev.max_reasoning_tokens).toLocaleString()}`);
+  if (Array.isArray(ev.details) && ev.details.length) parts.push(ev.details.slice(0, 3).join(" · "));
+  return parts.length ? parts.join(" · ") : null;
+};
 const needsOwner = (a) => openFinds(a).some((f) => OWNER_TYPES.includes(f.finding_type));
 const hasSecurityRisk = (a) => openFinds(a).some((f) => f.category === "security" && SEV_RANK[f.severity] >= 3);
 const traceDiscovered = (a) => (a.status || []).includes("runtime_observed");
@@ -251,6 +262,9 @@ export default function AssetIntelligenceV2({ onNavigate }) {
               <Section label="Runtime evidence">
                 <div style={{ fontSize: 12, fontFamily: FONT.mono, color: C.textDim, lineHeight: 1.8 }}>
                   {selected.trace_count || 0} trace{(selected.trace_count || 0) !== 1 ? "s" : ""} · {selected.span_count || 0} spans · last activity {relTime(selected.last_seen)}
+                  {selected.runtime_usage && (
+                    <> · {selected.runtime_usage.llm_call_count || 0} LLM calls · {(selected.runtime_usage.input_tokens || 0).toLocaleString()}→{(selected.runtime_usage.output_tokens || 0).toLocaleString()} tokens</>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 10 }}>
                   <ChipList label="Providers" items={selected.providers} tone={C.riskLow} />
@@ -296,6 +310,9 @@ export default function AssetIntelligenceV2({ onNavigate }) {
                               <StatusPill tone={C.textMute}>{f.finding_type}</StatusPill>
                               <span style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textMute, marginLeft: "auto" }}>{f.source} · {relTime(f.last_seen)}</span>
                               <div style={{ flexBasis: "100%", fontSize: 11.5, color: C.textDim, lineHeight: 1.55 }}>{f.summary}</div>
+                              {evidenceLine(f.evidence) && (
+                                <div style={{ flexBasis: "100%", fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, lineHeight: 1.5 }}>{evidenceLine(f.evidence)}</div>
+                              )}
                             </div>
                           ))}
                         </div>
