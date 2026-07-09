@@ -4,7 +4,7 @@ import { gatewayBaseUrl } from "../config.js";
 import { T, FONT_MONO } from "../theme.js";
 import { Card, Pill } from "./ui.jsx";
 
-export default function ApiKeysPage() {
+export default function ApiKeysPage({ demoMode = false }) {
   const [keys,      setKeys]      = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [form,      setForm]      = useState({ name: "", team: "" });
@@ -133,7 +133,7 @@ export default function ApiKeysPage() {
 
       {/* ── Show-once modal + first-request onboarding ── */}
       {newKey && (() => {
-        const gatewayUrl = gatewayBaseUrl();
+        const gatewayUrl = gatewayBaseUrl(demoMode);
         const snippet = `from openai import OpenAI
 
 client = OpenAI(

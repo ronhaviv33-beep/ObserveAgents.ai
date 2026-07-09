@@ -4,9 +4,9 @@ import { gatewayBaseUrl } from "../config.js";
 import { T, FONT_UI, FONT_MONO } from "../theme.js";
 import { Card } from "./ui.jsx";
 
-export default function OnboardingPage({ onNavigate }) {
+export default function OnboardingPage({ onNavigate, demoMode = false }) {
   const currentUser = useUser();
-  const gatewayUrl  = gatewayBaseUrl();
+  const gatewayUrl  = gatewayBaseUrl(demoMode);
   const [copied, setCopied] = useState(null);
 
   const copy = (id, text) => {
