@@ -344,7 +344,7 @@ const PAGES = [
   { id:"guardrails",       label:"Guardrails" },
   { id:"budgets",          label:"Budgets" },
   { id:"pricing",        label:"Pricing Registry" },
-  { id:"security",       label:"Security & Audit" },
+  { id:"security",       label:"Security" },
   { id:"users",          label:"Users" },
   { id:"apikeys",        label:"API Keys" },
   { id:"settings",       label:"Settings" },
@@ -410,7 +410,7 @@ const NAV_GROUPS_COMBINED = [
     items: [
       { id: "governance",    label: "Governance Readiness" },
       { id: "pricing",       label: "Pricing Registry" },
-      { id: "security",      label: "Security & Audit" },
+      { id: "security",      label: "Security" },
       { id: "users",         label: "Users" },
       { id: "apikeys",       label: "API Keys" },
       { id: "integrations",  label: "Setup" },
@@ -457,7 +457,7 @@ const NAV_GROUPS_OBSERVABILITY = [
     label: "ADMINISTRATION",
     items: [
       { id: "governance",    label: "Governance Readiness" },
-      { id: "security",      label: "Security & Audit" },
+      { id: "security",      label: "Security" },
       { id: "users",         label: "Users" },
       { id: "apikeys",       label: "API Keys" },
       { id: "integrations",  label: "OTel Setup" },
@@ -497,7 +497,7 @@ const NAV_GROUPS_GATEWAY = [
     label: "ADMINISTRATION",
     items: [
       { id: "governance",    label: "Governance Readiness" },
-      { id: "security",      label: "Audit" },
+      { id: "security",      label: "Security" },
       { id: "users",         label: "Users" },
       { id: "apikeys",       label: "API Keys" },
       { id: "integrations",  label: "SDK Setup" },
