@@ -171,6 +171,15 @@ export const getOpenFindings = () =>
     return Array.isArray(res) ? res : [];
   }, FIX_FINDINGS);
 
+/** Detection rule matches — findings with source=detection_rules, any status
+ *  (Rules & Alerts shows dismissed/resolved matches as history).
+ *  @returns {Promise<{data: Finding[], demo: boolean}>} */
+export const getRuleMatches = () =>
+  withFallback(async () => {
+    const res = await fetchIntelligenceFindings({});
+    return (Array.isArray(res) ? res : []).filter((f) => f.source === "detection_rules");
+  }, FIX_FINDINGS.filter((f) => f.source === "detection_rules"));
+
 /** Gateway control candidates — category=control findings, any status.
  *  @returns {Promise<{data: Finding[], demo: boolean}>} */
 export const getControlCandidates = () =>
