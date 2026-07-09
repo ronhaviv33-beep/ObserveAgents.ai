@@ -71,8 +71,8 @@ def _audit_rows():
 
 def test_upstream_502_returns_error_to_caller():
     """Gateway must forward 502 to the caller when the upstream fails."""
-    with patch("app.main.get_client_for_org", return_value=MagicMock()), \
-         patch("app.main.proxy_chat_complete",
+    with patch("app.routes.proxy.get_client_for_org", return_value=MagicMock()), \
+         patch("app.routes.proxy.proxy_chat_complete",
                new_callable=AsyncMock,
                side_effect=Exception("model_not_found: The model `gpt-99-ultra-unknown` does not exist")):
         r = _client.post("/v1/chat/completions",
@@ -86,8 +86,8 @@ def test_upstream_502_returns_error_to_caller():
 def test_upstream_error_row_saved_to_telemetry():
     """After a 502, a blocked row must exist in telemetry for the unknown model."""
     # Make one bad call
-    with patch("app.main.get_client_for_org", return_value=MagicMock()), \
-         patch("app.main.proxy_chat_complete",
+    with patch("app.routes.proxy.get_client_for_org", return_value=MagicMock()), \
+         patch("app.routes.proxy.proxy_chat_complete",
                new_callable=AsyncMock,
                side_effect=Exception("model_not_found: unknown model")):
         _client.post("/v1/chat/completions",
@@ -105,8 +105,8 @@ def test_upstream_error_row_saved_to_telemetry():
 
 def test_upstream_error_block_reason_starts_with_upstream_error():
     """block_reason must start with 'upstream_error:' so the audit log is clear."""
-    with patch("app.main.get_client_for_org", return_value=MagicMock()), \
-         patch("app.main.proxy_chat_complete",
+    with patch("app.routes.proxy.get_client_for_org", return_value=MagicMock()), \
+         patch("app.routes.proxy.proxy_chat_complete",
                new_callable=AsyncMock,
                side_effect=Exception("model_not_found: no such model")):
         _client.post("/v1/chat/completions",
@@ -128,8 +128,8 @@ def test_upstream_error_row_has_correct_model_and_agent():
     model = "o3-pro-unknown"
     hdrs = {**_proxy_hdrs, "X-Guard-Agent": agent}
 
-    with patch("app.main.get_client_for_org", return_value=MagicMock()), \
-         patch("app.main.proxy_chat_complete",
+    with patch("app.routes.proxy.get_client_for_org", return_value=MagicMock()), \
+         patch("app.routes.proxy.proxy_chat_complete",
                new_callable=AsyncMock,
                side_effect=Exception("upstream rejected model")):
         _client.post("/v1/chat/completions",
@@ -148,8 +148,8 @@ def test_upstream_error_row_has_correct_model_and_agent():
 def test_upstream_error_row_has_zero_tokens_and_zero_cost():
     """Blocked upstream-error rows have no tokens or cost — nothing was consumed."""
     model = "claude-opus-5-fake"
-    with patch("app.main.get_client_for_org", return_value=MagicMock()), \
-         patch("app.main.proxy_chat_complete",
+    with patch("app.routes.proxy.get_client_for_org", return_value=MagicMock()), \
+         patch("app.routes.proxy.proxy_chat_complete",
                new_callable=AsyncMock,
                side_effect=Exception("upstream error")):
         _client.post("/v1/chat/completions",
@@ -172,8 +172,8 @@ def test_successful_call_after_upstream_error_is_not_blocked():
         "choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
         "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     }
-    with patch("app.main.get_client_for_org", return_value=MagicMock()), \
-         patch("app.main.proxy_chat_complete", new_callable=AsyncMock, return_value=good_resp):
+    with patch("app.routes.proxy.get_client_for_org", return_value=MagicMock()), \
+         patch("app.routes.proxy.proxy_chat_complete", new_callable=AsyncMock, return_value=good_resp):
         r = _client.post("/v1/chat/completions",
                          json={"model": "gpt-4o-mini",
                                "messages": [{"role": "user", "content": "success check"}]},
@@ -189,8 +189,8 @@ def test_multiple_different_unknown_models_all_saved():
     """Each distinct unknown model gets its own blocked row."""
     unknown_models = ["gpt-5-preview-fake", "gemini-ultra-3-fake", "claude-opus-6-fake"]
     for model in unknown_models:
-        with patch("app.main.get_client_for_org", return_value=MagicMock()), \
-             patch("app.main.proxy_chat_complete",
+        with patch("app.routes.proxy.get_client_for_org", return_value=MagicMock()), \
+             patch("app.routes.proxy.proxy_chat_complete",
                    new_callable=AsyncMock,
                    side_effect=Exception(f"model {model} not found")):
             _client.post("/v1/chat/completions",

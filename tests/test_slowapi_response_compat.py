@@ -21,8 +21,8 @@ os.environ.update({
     "CREDENTIAL_ENCRYPTION_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     "DATABASE_URL":              f"sqlite:///{_db_path}",
 })
-sys.path.insert(0, "/home/user/ai-asset-management")
-os.chdir("/home/user/ai-asset-management")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.main import app, _seed_roles_for_org
 from app.database import SessionLocal

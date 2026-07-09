@@ -12,8 +12,8 @@ _db_path = f"/tmp/test_pricing_est_{uuid.uuid4().hex[:8]}.db"
 os.environ["JWT_SECRET"]                = "testsecret-pricing"
 os.environ["CREDENTIAL_ENCRYPTION_KEY"] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 os.environ["DATABASE_URL"]              = f"sqlite:///{_db_path}"
-sys.path.insert(0, "/home/user/aifinops-guard")
-os.chdir("/home/user/aifinops-guard")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
@@ -119,8 +119,8 @@ def _fake_resp(model: str):
 
 
 def test_known_model_telemetry_not_estimated():
-    with patch("app.main.get_client_for_org", return_value=MagicMock()), \
-         patch("app.main.proxy_chat_complete", new_callable=AsyncMock,
+    with patch("app.routes.proxy.get_client_for_org", return_value=MagicMock()), \
+         patch("app.routes.proxy.proxy_chat_complete", new_callable=AsyncMock,
                return_value=_fake_resp("gpt-4o-mini")):
         r = _client.post("/v1/chat/completions",
                          json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "hi"}]},
@@ -138,8 +138,8 @@ def test_known_model_telemetry_not_estimated():
 
 
 def test_unknown_model_telemetry_estimated():
-    with patch("app.main.get_client_for_org", return_value=MagicMock()), \
-         patch("app.main.proxy_chat_complete", new_callable=AsyncMock,
+    with patch("app.routes.proxy.get_client_for_org", return_value=MagicMock()), \
+         patch("app.routes.proxy.proxy_chat_complete", new_callable=AsyncMock,
                return_value=_fake_resp("gpt-99-ultra")):
         r = _client.post("/v1/chat/completions",
                          json={"model": "gpt-99-ultra", "messages": [{"role": "user", "content": "hi"}]},
