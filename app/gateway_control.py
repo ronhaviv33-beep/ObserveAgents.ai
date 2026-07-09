@@ -65,6 +65,12 @@ _CONTROL_MAP: dict[str, list[tuple[str, str]]] = {
     "agent_missing_owner":               [("owner assignment", "soft")],
     "unmanaged_runtime":                 [("owner assignment", "soft")],
     "human_review_recommended":          [("human review requirement", "soft")],
+    # Detection rule findings (app/detection_rules.py, source="detection_rules")
+    "rule_mcp_tool_access_threshold":    [("mcp/tool usage policy", "hard"),
+                                          ("rate limit", "hard")],
+    "rule_repeated_tool_errors":         [("alert-only rule", "soft")],
+    "rule_unknown_provider_in_production": [("provider allowlist", "hard"),
+                                            ("block unknown provider", "hard")],
 }
 _DEFAULT_CONTROLS: list[tuple[str, str]] = [("alert-only rule", "soft")]
 

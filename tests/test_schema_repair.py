@@ -213,7 +213,9 @@ def test_alembic_upgrade_completes_on_create_all_db():
 
     with side_engine.connect() as c:
         version = c.execute(sa.text("SELECT version_num FROM alembic_version")).scalar()
-    assert version == "e6f7a8b9c0d1"
+    # Compare against the actual script head so new migrations don't stale this test.
+    from alembic.script import ScriptDirectory
+    assert version == ScriptDirectory.from_config(cfg).get_current_head()
     side_engine.dispose()
     os.unlink(side_db)
 
