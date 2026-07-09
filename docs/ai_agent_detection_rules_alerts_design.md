@@ -317,9 +317,36 @@ Idempotency contract (inherited from the findings engine): re-running the evalua
 
 ---
 
+## R5 implementation note (shipped)
+
+The **webhook** slice of this design is implemented (`app/notifications.py`,
+`app/routes/notifications.py`, tables `notification_channels` /
+`notification_deliveries`):
+
+- **Webhooks first; Slack remains future.** Only `type="webhook"` is supported.
+- **Post-intelligence, not ingestion-path.** Delivery runs from
+  `derive_asset_intelligence` after it commits — never from `/otel/v1/traces`
+  or any span-ingest path.
+- **`detection_rules` findings only**, open, severity ≥ the channel's
+  `min_severity` (default medium).
+- **Cooldown prevents spam.** One webhook per (org, channel, finding) per 60
+  minutes; a suppressed attempt records a `skipped_cooldown` delivery row.
+- **Fail-safe.** A webhook error is recorded on the delivery row (exception
+  class + HTTP status only) and never breaks the intelligence run.
+- **No enforcement.** A notification is a POST to a customer endpoint; nothing
+  is blocked, rerouted, or configured.
+- **Secrets encrypted.** The webhook URL (which may embed a token) is
+  Fernet-encrypted at rest with the existing `CREDENTIAL_ENCRYPTION_KEY`
+  pattern and never returned by any API or written to any log — only the host
+  is exposed.
+- **Admin-only API:** `POST/GET/PATCH/DELETE /notifications/channels`.
+
+Still future (design below): Slack channels, async delivery workers with
+retry/backoff, per-channel rate caps beyond the cooldown, and a management UI.
+
 ## Slack and webhook notification design
 
-**Design only — not built in MVP.** Delivery runs async (never blocks the evaluator or any request path), with exponential-backoff retries and per-channel rate caps.
+**Slack and async delivery are still design-only** (the webhook slice above is shipped). Full delivery runs async (never blocks the evaluator or any request path), with exponential-backoff retries and per-channel rate caps.
 
 A Slack alert includes:
 
@@ -458,7 +485,7 @@ Potential mapping when a match materializes as a finding:
 | **R2** | Persist rule matches (dedup, occurrence_count, status lifecycle) |
 | **R3** | SecurityIntelligenceV2 rule-match bucket |
 | **R4** | Gateway Control candidate mapping from rule matches |
-| **R5** | Slack/webhook notification channels + deliveries |
+| **R5** | Webhook notification channels + deliveries ✅ (Slack still future) |
 | **R6** | Rules & Alerts UI (read-only first) |
 | **R7** | Configurable rule builder (thresholds, windows, scopes, watchlists) |
 | **R8** | Alert cooldown, snooze, acknowledgement workflow |

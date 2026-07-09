@@ -159,6 +159,68 @@ class ProviderCredential(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class NotificationChannel(Base):
+    """
+    Per-org outbound notification target for detection-rule alerts (R5).
+
+    MVP supports type="webhook" only. The webhook URL may embed a secret
+    (path/query token), so it is Fernet-encrypted at rest exactly like
+    ProviderCredential.encrypted_key — the plaintext URL is NEVER stored and
+    NEVER returned by any API. Only the host is exposed for display.
+    """
+    __tablename__ = "notification_channels"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    type: Mapped[str] = mapped_column(String(32), default="webhook")   # "webhook" (slack later)
+    name: Mapped[str] = mapped_column(String(128))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    encrypted_config_json: Mapped[str] = mapped_column(Text)           # Fernet ciphertext of {"url": "..."}
+    url_host: Mapped[str | None] = mapped_column(String(255), nullable=True)  # display only, host only
+    min_severity: Mapped[str] = mapped_column(String(16), default="medium")   # medium|high|critical
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class NotificationDelivery(Base):
+    """
+    One row per attempt to deliver one detection-rule finding to one channel.
+    The delivery log doubles as the cooldown ledger: the newest delivered row
+    for (org, channel, finding) gates re-notification within the cooldown window.
+    Never stores response bodies or the webhook URL — only its host + HTTP status.
+    """
+    __tablename__ = "notification_deliveries"
+    __table_args__ = (
+        Index(
+            "ix_notif_deliveries_org_channel_finding",
+            "organization_id", "channel_id", "finding_id",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    channel_id: Mapped[int] = mapped_column(Integer, ForeignKey("notification_channels.id"), nullable=False, index=True)
+    finding_id: Mapped[int] = mapped_column(Integer, ForeignKey("asset_findings.id"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(24), default="pending")  # pending|delivered|failed|skipped_cooldown
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    request_url_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    response_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(255), nullable=True)  # exception class + status only
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
 class Role(Base):
     """
     DB-managed role definitions, scoped per organization.

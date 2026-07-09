@@ -41,7 +41,7 @@ Examples:
 - high token usage (an Observability Cost Signal, not billing)
 - flagged dependency touched (customer-configured watchlist)
 
-**Posture:** observe-only first. Slack/webhook notifications next. Gateway enforcement only later — and only when traffic is explicitly routed through Gateway and controls are explicitly configured.
+**Posture:** observe-only first. **Webhook notifications shipped** (post-intelligence, `detection_rules` findings only, cooldown-throttled, no enforcement); Slack still ahead. Gateway enforcement only later — and only when traffic is explicitly routed through Gateway and controls are explicitly configured.
 
 > Rules observe and alert. Gateway can optionally enforce later.
 
