@@ -13,7 +13,7 @@ ObserveAgents is the **runtime visibility and control layer for AI agents**: it 
 | O1 | Ecosystem Discovery | GitHub / Jira / Slack / n8n / MCP evidence connectors; Active / Dormant / Runtime-only correlation with the runtime inventory |
 | O2 | Ingestion depth | OTLP **protobuf** support — ✅ shipped (direct OpenLLMetry-style onboarding, no Collector required); OTLP **metrics** ingestion (Claude Code / coding-agent token & cost accounting) still ahead |
 | O3 | Content-free security verdicts | In-flight scanning at ingestion (prompt injection, PII-in-prompt, toxicity) storing **verdicts only** — never content; Runtime "Security checks" filter |
-| O4 | Monitors & notifications | Server-side guardrail monitors with thresholds; budget alerts via webhook (Slack / Teams); alert rules on finding families — concrete design: [ai_agent_detection_rules_plan.md](ai_agent_detection_rules_plan.md) |
+| O4 | Monitors & notifications | **AI Agent Detection Rules & Alerts** (see below); budget alerts via webhook (Slack / Teams) — canonical design: [ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md) |
 | O5 | Product surface deployments | Per-surface builds of the Observability and Gateway products (separation plan Phase 4); surface-scoped API keys |
 | O6 | Enterprise readiness | SSO (Okta / Google OAuth), per-tenant API key table, HA / fail-over story, documented self-host path |
 | O7 | Observe MCP server | Read-only MCP tools (`list_ai_systems`, `get_findings`, `get_trace`, `get_cost_signals`) so customers' agents can query their AI inventory |
@@ -23,6 +23,29 @@ ObserveAgents is the **runtime visibility and control layer for AI agents**: it 
 **Shipped:** **AI Agent Runtime Security Intelligence MVP** — agent-specific, environment-aware security findings derived from runtime evidence (database/API reach, MCP in production, broad tool surface, unknown providers, missing ownership, repeated tool errors, human-review combinations). Observe-only, derivation-only, no new ingestion. See [ai_agent_runtime_security_intelligence.md](ai_agent_runtime_security_intelligence.md). O3's in-flight content verdicts (prompt injection / PII / toxicity) remain ahead as the next security layer.
 
 **Shipped:** **Gateway Control Center GCR2–GCR4 (O9 first slice)** — control-candidate derivation from high-risk runtime evidence (`category=control` findings), the Control Center action workspace in the same production app on both surfaces, and one-click Observe→Control navigation. No enforcement, no rerouting; GCR5+ (policy drafts, approval, enforcement for routed agents) remain ahead. See [gateway_control_center_architecture.md](gateway_control_center_architecture.md).
+
+---
+
+## O4 — AI Agent Detection Rules & Alerts
+
+**Definition:** configurable runtime rules that evaluate AI-agent behavior and create alerts when behavior crosses thresholds or matches risky patterns.
+
+Detection Rules are an intelligence layer: they consume normalized runtime evidence and existing asset/security context, and may create rule matches, alerts, findings, and Gateway Control Candidate recommendations. They never block, reroute, reconfigure the Gateway, mutate telemetry, or inspect raw prompts/responses.
+
+Examples:
+
+- MCP calls > threshold in a time window
+- repeated tool errors
+- unknown provider in production
+- database access + external API call in the same trace
+- high token usage (an Observability Cost Signal, not billing)
+- flagged dependency touched (customer-configured watchlist)
+
+**Posture:** observe-only first. Slack/webhook notifications next. Gateway enforcement only later — and only when traffic is explicitly routed through Gateway and controls are explicitly configured.
+
+> Rules observe and alert. Gateway can optionally enforce later.
+
+Canonical design with rule templates, evaluation model, dedup/anti-spam rules, future data model, and R0–R8 sequence: [ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md) (supersedes [ai_agent_detection_rules_plan.md](ai_agent_detection_rules_plan.md)).
 
 ---
 
