@@ -22,6 +22,7 @@ from app.genai_semconv import (
     is_mcp_span,
 )
 from app.detection_rules import DETECTION_RULES_SOURCE, derive_detection_rule_findings
+from app.notifications import deliver_detection_rule_notifications
 from app.runtime_security_intelligence import derive_runtime_security_findings
 from app.gateway_control import (
     CONTROL_CATEGORY, CONTROL_FINDING_TYPE, CONTROL_SOURCE,
@@ -743,6 +744,14 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
         finds_updated += u
 
     db.commit()
+
+    # Detection Rules webhook notifications (R5) — post-commit, intelligence
+    # workflow only (never the OTLP ingestion path). Fail-safe: a webhook error
+    # is recorded on its delivery row and never propagates to the run result.
+    try:
+        deliver_detection_rule_notifications(db, org_id, now)
+    except Exception:  # noqa: BLE001 — notifications must never break the run
+        _log.exception("detection-rule notification delivery failed")
 
     return {
         "capabilities_created": caps_created,

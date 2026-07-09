@@ -390,6 +390,9 @@ app.include_router(asset_intelligence_routes.router)
 from app.routes import runtime as runtime_routes  # noqa: E402
 app.include_router(runtime_routes.router)
 
+from app.routes import notifications as notifications_routes  # noqa: E402
+app.include_router(notifications_routes.router)
+
 # Always allow the canonical ObserveAgents public origins, the Render fallback,
 # and local dev — plus any explicit FRONTEND_ORIGIN entries. Deduped, order-stable.
 from app.config import PUBLIC_ORIGINS as _PUBLIC_ORIGINS, LOCAL_ORIGINS as _LOCAL_ORIGINS  # noqa: E402
