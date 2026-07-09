@@ -111,6 +111,10 @@ const FIX_FINDINGS = [
   { id: -2, category: "performance", finding_type: "slow_llm_call", severity: "medium",
     title: "Slow LLM Call Detected", status: "open", asset_key: "demo-1",
     occurrence_count: 6, last_seen: new Date().toISOString() },
+  { id: -3, category: "security", finding_type: "rule_mcp_tool_access_threshold", severity: "medium",
+    title: "MCP Tool Access Above Threshold", status: "open", asset_key: "demo-2",
+    source: "detection_rules", occurrence_count: 12, last_seen: new Date().toISOString(),
+    summary: "demo-research-agent called MCP tools 12 times in the current evidence window (threshold: 5)." },
 ];
 
 const FIX_BUDGETS = [

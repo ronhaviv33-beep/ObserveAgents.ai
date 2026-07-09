@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { ShieldAlert, AlertTriangle, Info, Wrench, Database, HelpCircle, UserX, RefreshCcw, Eye } from "lucide-react";
+import { ShieldAlert, AlertTriangle, Info, Wrench, Database, HelpCircle, UserX, RefreshCcw, Eye, SlidersHorizontal } from "lucide-react";
 import { C, FONT, RADIUS, microLabel, riskColor } from "../ui2/tokens.js";
 import PageHeader from "../ui2/PageHeader.jsx";
 import Section from "../ui2/Section.jsx";
@@ -27,6 +27,7 @@ const SEV_RANK = { critical: 5, high: 4, medium: 3, low: 2, info: 1 };
 
 // Investigation buckets — finding_type groups over open findings (any category:
 // tool errors live under operations, ownership under operations/security).
+// A bucket matches by `types` list, or by a `match(finding)` predicate.
 const BUCKETS = [
   { id: "mcp",      label: "MCP / tool risk", icon: Wrench,
     types: ["agent_uses_mcp_tool_in_production", "mcp_tool_access", "mcp_enabled",
@@ -42,6 +43,10 @@ const BUCKETS = [
     types: ["repeated_tool_errors", "tool_error", "mcp_error"] },
   { id: "review",   label: "Human review recommended", icon: Eye,
     types: ["human_review_recommended"] },
+  // R3 (docs/ai_agent_detection_rules_alerts_design.md): detection-rule matches
+  // grouped by provenance, not type — new built-in rules join automatically.
+  { id: "rules",    label: "Detection rule matches", icon: SlidersHorizontal,
+    match: (f) => f.source === "detection_rules" },
 ];
 
 /** Severity → alert icon for the finding cards. */
@@ -171,7 +176,8 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
 
   const bucketRows = useMemo(() => {
     const m = {};
-    for (const b of BUCKETS) m[b.id] = openFindings.filter((f) => b.types.includes(f.finding_type));
+    for (const b of BUCKETS) m[b.id] = openFindings.filter(
+      (f) => (b.match ? b.match(f) : b.types.includes(f.finding_type)));
     return m;
   }, [openFindings]);
 
