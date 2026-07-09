@@ -1,5 +1,6 @@
 import { Fragment, useState, useEffect, useMemo, useCallback } from "react";
-import { C, FONT, RADIUS, microLabel } from "../ui2/tokens.js";
+import { Bot, Sparkles, Wrench, Plug, Database, Circle } from "lucide-react";
+import { C, FONT, RADIUS } from "../ui2/tokens.js";
 import PageHeader from "../ui2/PageHeader.jsx";
 import Section from "../ui2/Section.jsx";
 import MetricCard from "../ui2/MetricCard.jsx";
@@ -19,18 +20,18 @@ import { fetchRuntimeTraces, fetchRuntimeTrace } from "../api.js";
  */
 
 const STEP_META = {
-  agent:        { color: C.accent,     label: "Agent" },
-  workflow:     { color: C.accent,     label: "Workflow" },
-  plan:         { color: C.purple,     label: "Plan" },
-  llm:          { color: C.purple,     label: "LLM" },
-  retrieval:    { color: C.teal,       label: "Retrieval" },
-  embedding:    { color: C.purple,     label: "Embedding" },
-  tool:         { color: C.teal,       label: "Tool" },
-  mcp_tool:     { color: C.riskMedium, label: "MCP Tool" },
-  memory:       { color: C.riskLow,    label: "Memory" },
-  database:     { color: C.riskLow,    label: "Database" },
-  external_api: { color: C.riskMedium, label: "API" },
-  step:         { color: C.textDim,    label: "Step" },
+  agent:        { color: C.accent,     label: "Agent",     icon: Bot },
+  workflow:     { color: C.accent,     label: "Workflow",  icon: Bot },
+  plan:         { color: C.purple,     label: "Plan",      icon: Sparkles },
+  llm:          { color: C.purple,     label: "LLM",       icon: Sparkles },
+  retrieval:    { color: C.teal,       label: "Retrieval", icon: Wrench },
+  embedding:    { color: C.purple,     label: "Embedding", icon: Sparkles },
+  tool:         { color: C.teal,       label: "Tool",      icon: Wrench },
+  mcp_tool:     { color: C.riskMedium, label: "MCP Tool",  icon: Plug },
+  memory:       { color: C.riskLow,    label: "Memory",    icon: Database },
+  database:     { color: C.riskLow,    label: "Database",  icon: Database },
+  external_api: { color: C.riskMedium, label: "API",       icon: Plug },
+  step:         { color: C.textDim,    label: "Step",      icon: Circle },
 };
 
 const fmtMs = (ms) => {
@@ -75,16 +76,23 @@ function withDepth(spans) {
   return spans.map((s) => ({ ...s, depth: depthOf(s) }));
 }
 
-const td = { padding: "10px 8px", fontSize: 12, color: C.textDim, fontFamily: FONT.mono };
+// Activity-rail feed styles: metadata chip and rail status dots.
+const chip = {
+  fontSize: 10.5, fontFamily: FONT.mono, color: C.textDim, background: C.surfaceRaised,
+  borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap", flexShrink: 0,
+};
 
-function Th({ label, k, sortKey, sortDir, onToggle }) {
-  const active = sortKey === k;
+const SORT_KEYS = [
+  ["start_time", "Started"], ["duration_ms", "Duration"], ["error_count", "Errors"],
+  ["root_span_name", "Request"], ["service_name", "Agent"], ["span_count", "Steps"],
+];
+
+/** Status dot sitting on the vertical rail; hollow variant for child traces. */
+function RailDot({ color, hollow }) {
   return (
-    <th onClick={() => onToggle(k)}
-      style={{ ...microLabel, textAlign: "left", padding: "8px", cursor: "pointer",
-        color: active ? C.text : C.textMute, userSelect: "none", whiteSpace: "nowrap" }}>
-      {label}{active ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
-    </th>
+    <span style={hollow
+      ? { width: 8, height: 8, borderRadius: "50%", background: "#FFFFFF", border: `2px solid ${color}`, boxShadow: "0 0 0 2px #FFFFFF", zIndex: 1 }
+      : { width: 10, height: 10, borderRadius: "50%", background: color, boxShadow: "0 0 0 2px #FFFFFF", zIndex: 1 }} />
   );
 }
 
@@ -127,6 +135,7 @@ function TraceWaterfall({ trace, onBack }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {spans.map((s) => {
               const meta = STEP_META[s.step_type] || STEP_META.step;
+              const StepIcon = meta.icon;
               const barColor = s.error ? C.riskHigh : meta.color;
               const left = Math.min(((s.offset_ms ?? 0) / total) * 100, 100);
               const width = Math.max(Math.min(((s.duration_ms ?? 0) / total) * 100, 100 - left), 0.5);
@@ -143,10 +152,15 @@ function TraceWaterfall({ trace, onBack }) {
                       )}
                     </div>
                   </div>
-                  <div style={{ width: 82, flexShrink: 0 }}><StatusPill tone={meta.color}>{meta.label}</StatusPill></div>
-                  <div style={{ flex: 1, position: "relative", height: 18, background: C.surfaceRaised, borderRadius: 3, overflow: "hidden", minWidth: 120 }}>
+                  <div style={{ width: 116, flexShrink: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 22, height: 22, borderRadius: 8, background: `${meta.color}14`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <StepIcon size={12} color={meta.color} strokeWidth={2.2} />
+                    </span>
+                    <StatusPill tone={meta.color}>{meta.label}</StatusPill>
+                  </div>
+                  <div style={{ flex: 1, position: "relative", height: 20, background: C.surfaceRaised, borderRadius: 6, overflow: "hidden", minWidth: 120 }}>
                     <div title={`${s.name}: ${fmtMs(s.duration_ms)} @ +${fmtMs(s.offset_ms)}`}
-                      style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 3, bottom: 3, background: barColor, borderRadius: 2, opacity: 0.85 }} />
+                      style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 3, bottom: 3, background: `linear-gradient(90deg, ${barColor}, ${barColor}CC)`, borderRadius: 4 }} />
                   </div>
                   <div style={{ width: 70, textAlign: "right", fontFamily: FONT.mono, fontSize: 11, color: s.error ? C.riskHigh : C.textDim, flexShrink: 0 }}>
                     {fmtMs(s.duration_ms)}
@@ -331,19 +345,29 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
               actionLabel={surfaceAllowsPage("integrations") ? "Open Setup" : undefined}
               onAction={() => onNavigate?.("integrations")} />
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: FONT.ui }}>
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                    <Th label="Request" k="root_span_name" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
-                    <Th label="Agent" k="service_name" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
-                    <Th label="Started" k="start_time" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
-                    <Th label="Duration" k="duration_ms" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
-                    <Th label="Steps" k="span_count" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
-                    <Th label="Errors" k="error_count" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
-                  </tr>
-                </thead>
-                <tbody>
+            <>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+                <span style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, marginRight: 2 }}>sort</span>
+                {SORT_KEYS.map(([k, label]) => {
+                  const active = sortKey === k;
+                  return (
+                    <button key={k} onClick={() => toggleSort(k)}
+                      style={{
+                        background: active ? C.accentSoft : "transparent",
+                        color: active ? C.accentDark : C.textMute,
+                        border: `1px solid ${active ? C.accentSoft : C.border}`,
+                        borderRadius: 999, padding: "3px 10px", fontSize: 10.5, fontFamily: FONT.mono,
+                        fontWeight: active ? 600 : 400, cursor: "pointer",
+                      }}>
+                      {label}{active ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ position: "relative" }}>
+                {/* the rail */}
+                <div style={{ position: "absolute", left: 14, top: 12, bottom: 12, width: 2, background: C.border, borderRadius: 1 }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {groups.map((g) => {
                     const grouped = g.session_id && g.traces.length > 1;
                     const isOpen = grouped && openSessions.has(g.key);
@@ -357,56 +381,70 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
                     return (
                       <Fragment key={g.key}>
                         {grouped && (
-                          <tr onClick={() => toggleSession(g.key)}
-                            style={{ borderBottom: `1px solid ${C.border}`, cursor: "pointer", background: isOpen ? C.surfaceRaised : "transparent" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = C.surfaceRaised; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = isOpen ? C.surfaceRaised : "transparent"; }}>
-                            <td style={{ ...td, fontSize: 13, color: C.text }}>
-                              <span style={{ color: C.textMute, fontFamily: FONT.mono, fontSize: 10, marginRight: 8 }}>{isOpen ? "▾" : "▸"}</span>
-                              {topName}
-                              <span style={{ marginLeft: 8, fontFamily: FONT.mono, fontSize: 10, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 10, padding: "1px 7px", whiteSpace: "nowrap" }}>
-                                ×{g.traces.length}
-                              </span>
-                              <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.textMute, marginTop: 3, marginLeft: 18 }}>
-                                ⛓ session {g.session_id.slice(0, 8)} · {fmtWhen(starts[0])} → {fmtWhen(starts[starts.length - 1])}
+                          <div style={{ display: "flex", alignItems: "flex-start" }}>
+                            <div style={{ width: 30, flexShrink: 0, display: "flex", justifyContent: "center", paddingTop: 15 }}>
+                              <RailDot color={totalErrors > 0 ? C.riskHigh : C.accent} />
+                            </div>
+                            <div onClick={() => toggleSession(g.key)}
+                              style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                                padding: "9px 12px", borderRadius: RADIUS.md, cursor: "pointer",
+                                background: isOpen ? C.surfaceRaised : "transparent" }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = C.surfaceHover; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = isOpen ? C.surfaceRaised : "transparent"; }}>
+                              <div style={{ flex: 1, minWidth: 160 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                  <span style={{ color: C.textMute, fontFamily: FONT.mono, fontSize: 10 }}>{isOpen ? "▾" : "▸"}</span>
+                                  <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{topName}</span>
+                                  <span style={{ fontFamily: FONT.mono, fontSize: 10, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 999, padding: "1px 7px", whiteSpace: "nowrap" }}>
+                                    ×{g.traces.length}
+                                  </span>
+                                </div>
+                                <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.textMute, marginTop: 3, marginLeft: 18 }}>
+                                  {g.traces[0].service_name || "—"} · ⛓ session {g.session_id.slice(0, 8)} · {fmtWhen(starts[0])} → {fmtWhen(starts[starts.length - 1])}
+                                </div>
                               </div>
-                            </td>
-                            <td style={td}>{g.traces[0].service_name || "—"}</td>
-                            <td style={{ ...td, whiteSpace: "nowrap" }}>{fmtWhen(starts[starts.length - 1])}</td>
-                            <td style={{ ...td, color: C.text }}>{fmtMs(totalMs)}</td>
-                            <td style={td}>{totalSteps}</td>
-                            <td style={{ padding: "10px 8px" }}>
-                              {totalErrors > 0
-                                ? <StatusPill tone={C.riskHigh}>{totalErrors} error{totalErrors > 1 ? "s" : ""}</StatusPill>
-                                : <span style={{ color: C.textMute, fontFamily: FONT.mono, fontSize: 11 }}>—</span>}
-                            </td>
-                          </tr>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                                <span style={chip}>{totalSteps} steps</span>
+                                {totalErrors > 0 && <StatusPill tone={C.riskHigh}>{totalErrors} error{totalErrors > 1 ? "s" : ""}</StatusPill>}
+                                <span style={{ ...chip, fontSize: 11.5, color: C.text, fontWeight: 600 }}>{fmtMs(totalMs)}</span>
+                              </div>
+                            </div>
+                          </div>
                         )}
                         {(!grouped || isOpen) && g.traces.map((t) => (
-                          <tr key={t.trace_id} onClick={() => openTrace(t.trace_id)}
-                            style={{ borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = C.surfaceRaised; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                            <td style={{ ...td, paddingLeft: grouped ? 34 : 8, fontSize: 13, color: C.text, fontFamily: FONT.ui }}>
-                              {t.root_span_name || <span style={{ color: C.textMute, fontFamily: FONT.mono }}>{t.trace_id.slice(0, 12)}…</span>}
-                            </td>
-                            <td style={td}>{t.service_name || "—"}</td>
-                            <td style={{ ...td, whiteSpace: "nowrap" }}>{fmtWhen(t.start_time)}</td>
-                            <td style={{ ...td, color: C.text }}>{fmtMs(t.duration_ms)}</td>
-                            <td style={td}>{t.span_count}</td>
-                            <td style={{ padding: "10px 8px" }}>
-                              {t.error_count > 0
-                                ? <StatusPill tone={C.riskHigh}>{t.error_count} error{t.error_count > 1 ? "s" : ""}</StatusPill>
-                                : <span style={{ color: C.textMute, fontFamily: FONT.mono, fontSize: 11 }}>—</span>}
-                            </td>
-                          </tr>
+                          <div key={t.trace_id} style={{ display: "flex", alignItems: "flex-start" }}>
+                            <div style={{ width: 30, flexShrink: 0, display: "flex", justifyContent: "center", paddingTop: grouped ? 16 : 15 }}>
+                              <RailDot color={t.error_count > 0 ? C.riskHigh : C.accent} hollow={grouped} />
+                            </div>
+                            <div onClick={() => openTrace(t.trace_id)}
+                              style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                                padding: "9px 12px", borderRadius: RADIUS.md, cursor: "pointer",
+                                marginLeft: grouped ? 22 : 0, background: "transparent" }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = C.surfaceHover; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                              <div style={{ flex: 1, minWidth: 160 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {t.root_span_name || <span style={{ color: C.textMute, fontFamily: FONT.mono, fontWeight: 400 }}>{t.trace_id.slice(0, 12)}…</span>}
+                                </div>
+                                <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.textMute, marginTop: 3 }}>
+                                  {t.service_name || "—"} · {fmtWhen(t.start_time)}
+                                  {!grouped && t.session_id && <> · ⛓ {t.session_id.slice(0, 8)}</>}
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                                <span style={chip}>{t.span_count} steps</span>
+                                {t.error_count > 0 && <StatusPill tone={C.riskHigh}>{t.error_count} error{t.error_count > 1 ? "s" : ""}</StatusPill>}
+                                <span style={{ ...chip, fontSize: 11.5, color: C.text, fontWeight: 600 }}>{fmtMs(t.duration_ms)}</span>
+                              </div>
+                            </div>
+                          </div>
                         ))}
                       </Fragment>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </div>
+            </>
           )}
           {detailLoading && (
             <div style={{ padding: "10px 0", textAlign: "center", color: C.textMute, fontFamily: FONT.mono, fontSize: 12 }}>Loading trace…</div>
