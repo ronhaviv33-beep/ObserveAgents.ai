@@ -6,13 +6,13 @@ const MONO = "'JetBrains Mono','IBM Plex Mono',monospace";
 
 // Stage → display metadata. Colors chosen from the existing palette.
 export const STAGE_META = {
-  DISCOVERED:   { label: "Discovered",   color: "#CBD5E1", description: "Observed through gateway traffic." },
-  ATTRIBUTED:   { label: "Attributed",   color: "#60A5FA", description: "Associated with a team, owner, or key from traffic." },
-  CLAIMED:      { label: "Claimed",      color: "#2DD4BF", description: "Ownership approved by a user." },
-  MANAGED:      { label: "Managed",      color: "#4ADE80", description: "Owned and configured under governance." },
-  NEEDS_REVIEW: { label: "Needs review", color: "#FBBF24", description: "Partial or conflicting identity evidence." },
-  STALE:        { label: "Stale",        color: "#94A3B8", description: "No recent activity." },
-  ARCHIVED:     { label: "Archived",     color: "#64748B", description: "Removed from active inventory." },
+  DISCOVERED:   { label: "Discovered",   color: "#475569", description: "Observed through gateway traffic." },
+  ATTRIBUTED:   { label: "Attributed",   color: "#0891B2", description: "Associated with a team, owner, or key from traffic." },
+  CLAIMED:      { label: "Claimed",      color: "#0D9488", description: "Ownership approved by a user." },
+  MANAGED:      { label: "Managed",      color: "#16A34A", description: "Owned and configured under governance." },
+  NEEDS_REVIEW: { label: "Needs review", color: "#D97706", description: "Partial or conflicting identity evidence." },
+  STALE:        { label: "Stale",        color: "#64748B", description: "No recent activity." },
+  ARCHIVED:     { label: "Archived",     color: "#94A3B8", description: "Removed from active inventory." },
 };
 
 const _STALE_DAYS = 30;
@@ -55,7 +55,7 @@ export function stageOf(agent = {}) {
 
 export function stageMeta(agent = {}) {
   const stage = stageOf(agent);
-  return STAGE_META[stage] || { label: stage || "—", color: "#CBD5E1", description: "" };
+  return STAGE_META[stage] || { label: stage || "—", color: "#475569", description: "" };
 }
 
 // Qualitative label for a runtime relationship — replaces the relationship
@@ -63,10 +63,10 @@ export function stageMeta(agent = {}) {
 export function relationshipEvidenceLabel(rel = {}) {
   const score = Number(rel.confidence_score) || 0;
   let label, color;
-  if (score >= 0.85)      { label = "Strong";   color = "#4ADE80"; }
-  else if (score >= 0.70) { label = "Likely";   color = "#2DD4BF"; }
-  else if (score >= 0.40) { label = "Observed"; color = "#60A5FA"; }
-  else                    { label = "Partial";  color = "#FBBF24"; }
+  if (score >= 0.85)      { label = "Strong";   color = "#16A34A"; }
+  else if (score >= 0.70) { label = "Likely";   color = "#0D9488"; }
+  else if (score >= 0.40) { label = "Observed"; color = "#0891B2"; }
+  else                    { label = "Partial";  color = "#D97706"; }
 
   const why = [];
   const n = rel.request_count;

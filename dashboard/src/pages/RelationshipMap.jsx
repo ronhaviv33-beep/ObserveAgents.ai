@@ -6,21 +6,21 @@ import CollapsiblePanel from '../components/CollapsiblePanel.jsx'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const T = {
-  bg:       '#111827',
-  panel:    '#1E293B',
-  panelHi:  '#1E293B',
-  border:   '#475569',
-  borderHi: '#475569',
-  text:     '#F8FAFC',
-  textDim:  '#CBD5E1',
-  textMute: '#94A3B8',
-  accent:   '#60A5FA',
-  success:  '#4ADE80',
-  warn:     '#FBBF24',
-  crit:     '#F87171',
-  purple:   '#A78BFA',
-  teal:     '#5BD9C5',
-  info:     '#60A5FA',
+  bg:       '#F8FAFC',
+  panel:    '#FFFFFF',
+  panelHi:  '#F1F5F9',
+  border:   '#E2E8F0',
+  borderHi: '#CBD5E1',
+  text:     '#0F172A',
+  textDim:  '#475569',
+  textMute: '#64748B',
+  accent:   '#2563EB',
+  success:  '#16A34A',
+  warn:     '#D97706',
+  crit:     '#DC2626',
+  purple:   '#7C3AED',
+  teal:     '#0D9488',
+  info:     '#0891B2',
 }
 const FONT_MONO = "'JetBrains Mono', 'Fira Code', monospace"
 const FONT_SANS = "'Inter', system-ui, sans-serif"
@@ -33,8 +33,8 @@ const TYPE_META = {
   workflow:   { color: T.warn,     icon: '⚡', label: 'Workflow' },
   api:        { color: T.info,     icon: '🌐', label: 'API' },
   database:   { color: T.success,  icon: '🗄',  label: 'Database' },
-  crm:        { color: '#FF8C69',  icon: '📋', label: 'CRM' },
-  spreadsheet:{ color: '#69FF8C',  icon: '📊', label: 'Spreadsheet' },
+  crm:        { color: '#EA580C',  icon: '📋', label: 'CRM' },
+  spreadsheet:{ color: '#16A34A',  icon: '📊', label: 'Spreadsheet' },
   provider:   { color: T.accent,   icon: '◈',  label: 'Provider' },
   model:      { color: T.purple,   icon: '⊞',  label: 'Model' },
   gateway:    { color: T.success,  icon: '⊕',  label: 'Gateway' },
@@ -566,7 +566,7 @@ function FlowNode({ type, label, sub }) {
 function FlowModal({ group, onClose }) {
   const ordered = [...group.rows].sort((a, b) => relOrder(a.relationship_type) - relOrder(b.relationship_type))
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderTop: `2px solid ${T.accent}`, borderRadius: '12px 12px 0 0', width: '100%', maxWidth: 760, maxHeight: '82vh', display: 'flex', flexDirection: 'column', fontFamily: FONT_SANS }}>
 
         {/* Header */}

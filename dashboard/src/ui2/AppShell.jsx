@@ -14,7 +14,9 @@ export default function AppShell({
   bp, sidebarOpen, setSidebarOpen,
   children,
 }) {
-  const mobilePad = bp.isMobile ? "68px 16px 24px" : bp.isTablet ? "72px 20px 24px" : "20px 28px";
+  // Desktop padding is mirrored by Topbar's full-bleed negative margins —
+  // change both together.
+  const mobilePad = bp.isMobile ? "68px 16px 24px" : bp.isTablet ? "72px 20px 24px" : "28px 36px";
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: FONT.ui, fontSize: 14, display: "flex", overflowX: "hidden", position: "relative" }}>
       <style>{`
@@ -25,7 +27,7 @@ export default function AppShell({
         ::-webkit-scrollbar-track { background:${C.bg}; }
         ::-webkit-scrollbar-thumb { background:${C.border}; border-radius:4px; }
         ::-webkit-scrollbar-thumb:hover { background:${C.borderStrong}; }
-        select { appearance:none; background-image:url("data:image/svg+xml;utf8,<svg fill='%23CBD5E1' xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24'><polygon points='6,9 18,9 12,16'/></svg>"); background-repeat:no-repeat; background-position:right 8px center; padding-right:22px !important; }
+        select { appearance:none; background-image:url("data:image/svg+xml;utf8,<svg fill='%2364748B' xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24'><polygon points='6,9 18,9 12,16'/></svg>"); background-repeat:no-repeat; background-position:right 8px center; padding-right:22px !important; }
         button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline:2px solid ${C.accent}; outline-offset:2px; }
         @media (max-width:639px) {
           ::-webkit-scrollbar { width:4px; height:4px; }
@@ -54,7 +56,7 @@ export default function AppShell({
       {/* Mobile/Tablet: sidebar backdrop */}
       {!bp.isDesktop && sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)}
-          style={{ position: "fixed", top: 52, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.55)", zIndex: 190, touchAction: "none" }} />
+          style={{ position: "fixed", top: 52, left: 0, right: 0, bottom: 0, background: "rgba(15,23,42,0.35)", zIndex: 190, touchAction: "none" }} />
       )}
 
       <Sidebar

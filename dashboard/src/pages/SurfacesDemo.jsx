@@ -145,7 +145,7 @@ export default function SurfacesDemo({ onNavigate }) {
             style={{
               background: T.panel, borderRadius: 10, padding: "20px 22px", cursor: "pointer",
               border: `1px solid ${lane === key ? m.color : T.border}`,
-              boxShadow: lane === key ? `0 0 0 1px ${m.color}, 0 0 24px ${m.color}22` : "none",
+              boxShadow: lane === key ? `0 0 0 2px ${m.color}33` : "none",
               transition: "border-color 0.2s, box-shadow 0.2s",
             }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
@@ -219,7 +219,7 @@ export default function SurfacesDemo({ onNavigate }) {
                   <CartesianGrid stroke={T.border} vertical={false} />
                   <XAxis dataKey="d" stroke={T.textMute} style={{ fontFamily: MONO, fontSize: 10 }} tickLine={false} />
                   <YAxis hide />
-                  <Tooltip contentStyle={{ background: T.panelHi, border: `1px solid ${T.borderHi}`, borderRadius: 4, fontFamily: MONO, fontSize: 11 }} />
+                  <Tooltip contentStyle={{ background: "#FFFFFF", border: `1px solid ${T.border}`, borderRadius: 8, boxShadow: "0 4px 12px rgba(15,23,42,0.08)", fontFamily: MONO, fontSize: 11 }} />
                   <Area type="monotone" dataKey="v" stroke={T.purple} strokeWidth={1.5} fill="url(#sdSpend)" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -229,7 +229,7 @@ export default function SurfacesDemo({ onNavigate }) {
                 <BarChart data={FINDINGS_BARS}>
                   <CartesianGrid stroke={T.border} vertical={false} />
                   <XAxis hide /><YAxis hide />
-                  <Tooltip contentStyle={{ background: T.panelHi, border: `1px solid ${T.borderHi}`, borderRadius: 4, fontFamily: MONO, fontSize: 11 }} cursor={{ fill: `${T.purple}11` }} />
+                  <Tooltip contentStyle={{ background: "#FFFFFF", border: `1px solid ${T.border}`, borderRadius: 8, boxShadow: "0 4px 12px rgba(15,23,42,0.08)", fontFamily: MONO, fontSize: 11 }} cursor={{ fill: `${T.purple}11` }} />
                   <Bar dataKey="v" fill={T.purple} opacity={0.7} radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

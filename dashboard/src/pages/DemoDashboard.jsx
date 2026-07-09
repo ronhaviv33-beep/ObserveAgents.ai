@@ -111,12 +111,12 @@ export default function DemoDashboard({ onNavigate }) {
         style={{
           position: "relative", overflow: "hidden", borderRadius: 16,
           border: `1px solid ${T.borderHi}`,
-          background: `radial-gradient(1200px 400px at 15% -20%, rgba(124,255,178,0.16), transparent 60%), radial-gradient(900px 360px at 95% 0%, rgba(180,122,255,0.14), transparent 55%), linear-gradient(180deg, ${T.panelHi}, ${T.panel})`,
+          background: `radial-gradient(1200px 400px at 15% -20%, rgba(37,99,235,0.08), transparent 60%), radial-gradient(900px 360px at 95% 0%, rgba(124,58,237,0.06), transparent 55%), linear-gradient(180deg, ${T.panelHi}, ${T.panel})`,
           padding: bp.isMobile ? "24px 16px" : "52px 44px", marginBottom: 28, ...fadeUp(0),
         }}
       >
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 12px", borderRadius: 999, border: `1px solid ${T.border}`, background: "rgba(124,255,178,0.06)", marginBottom: 22 }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: T.accent, boxShadow: `0 0 10px ${T.accent}` }} />
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 12px", borderRadius: 999, border: `1px solid ${T.border}`, background: "rgba(37,99,235,0.06)", marginBottom: 22 }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: T.accent, boxShadow: "none" }} />
           <span style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.accent, letterSpacing: "0.12em", textTransform: "uppercase" }}>Live Demo</span>
         </div>
         <div style={{ fontSize: 46, fontWeight: 700, letterSpacing: "-0.04em", lineHeight: 1.02 }}>{BRAND.name}</div>
@@ -147,7 +147,7 @@ export default function DemoDashboard({ onNavigate }) {
           <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden" }}>
             {ACTIVITY.map((a, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderTop: i ? `1px solid ${T.border}` : "none" }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: KIND_COLOR[a.kind] || T.accent, boxShadow: `0 0 8px ${KIND_COLOR[a.kind] || T.accent}` }} />
+                <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: KIND_COLOR[a.kind] || T.accent, boxShadow: "none" }} />
                 <div style={{ flex: 1, minWidth: 0, fontSize: 13 }}>
                   <span style={{ fontFamily: FONT_MONO, color: T.text }}>{a.agent}</span>
                   <span style={{ color: T.textDim }}> {a.action} </span>
@@ -166,7 +166,7 @@ export default function DemoDashboard({ onNavigate }) {
             {ECOSYSTEM.map((node, i) => (
               <React.Fragment key={node.label}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 10px", borderRadius: 8, border: `1px solid ${T.border}`, background: T.panelHi }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 2, background: node.color, flexShrink: 0, boxShadow: `0 0 8px ${node.color}` }} />
+                  <span style={{ width: 9, height: 9, borderRadius: 2, background: node.color, flexShrink: 0, boxShadow: "none" }} />
                   <span style={{ fontSize: 12, fontFamily: FONT_MONO, color: T.textMute, width: 64, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>{node.label}</span>
                   <span style={{ fontSize: 13, color: T.text }}>{node.desc}</span>
                 </div>
@@ -186,7 +186,7 @@ export default function DemoDashboard({ onNavigate }) {
           {CAPABILITIES.map((c) => (
             <div key={c.name} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 18px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{ width: 26, height: 26, borderRadius: 7, display: "grid", placeItems: "center", background: "rgba(124,255,178,0.08)", color: T.accent, fontSize: 14 }}>{c.icon}</span>
+                <span style={{ width: 26, height: 26, borderRadius: 7, display: "grid", placeItems: "center", background: "rgba(37,99,235,0.08)", color: T.accent, fontSize: 14 }}>{c.icon}</span>
                 <span style={{ fontSize: 14, fontWeight: 600 }}>{c.name}</span>
               </div>
               <div style={{ fontSize: 12.5, color: T.textDim, lineHeight: 1.5 }}>{c.desc}</div>

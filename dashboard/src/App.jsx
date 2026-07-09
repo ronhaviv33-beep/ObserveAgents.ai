@@ -6,10 +6,10 @@ class PageErrorBoundary extends Component {
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 24, fontFamily: "monospace", fontSize: 13, color: "#F87171", background: "#111827", borderRadius: 8, border: "1px solid #F8717144" }}>
+        <div style={{ padding: 24, fontFamily: "monospace", fontSize: 13, color: "#DC2626", background: "#FFFFFF", borderRadius: 8, border: "1px solid #DC262644" }}>
           <strong>Page error:</strong> {String(this.state.error.message || this.state.error)}
           <br /><br />
-          <button onClick={() => this.setState({ error: null })} style={{ background: "transparent", border: "1px solid #F87171", color: "#F87171", padding: "4px 12px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace" }}>Retry</button>
+          <button onClick={() => this.setState({ error: null })} style={{ background: "transparent", border: "1px solid #DC2626", color: "#DC2626", padding: "4px 12px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace" }}>Retry</button>
         </div>
       );
     }
@@ -163,7 +163,7 @@ function Overview({ A, events, allAgents, allTeams }) {
               <CartesianGrid stroke={T.border} vertical={false}/>
               <XAxis dataKey="date" tickFormatter={(d)=>new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric"})} stroke={T.textMute} style={{ fontFamily:FONT_MONO, fontSize:10 }}/>
               <YAxis stroke={T.textMute} style={{ fontFamily:FONT_MONO, fontSize:10 }} tickFormatter={(v)=>`$${v.toFixed(0)}`}/>
-              <Tooltip contentStyle={{ background:T.panelHi, border:`1px solid ${T.borderHi}`, borderRadius:4, fontFamily:FONT_MONO, fontSize:11 }} labelFormatter={(d)=>new Date(d).toLocaleDateString("en-US")} formatter={(v)=>[`$${v.toFixed(2)}`,"cost"]}/>
+              <Tooltip contentStyle={{ background:"#FFFFFF", border:`1px solid ${T.border}`, borderRadius:8, boxShadow:"0 4px 12px rgba(15,23,42,0.08)", fontFamily:FONT_MONO, fontSize:11 }} labelFormatter={(d)=>new Date(d).toLocaleDateString("en-US")} formatter={(v)=>[`$${v.toFixed(2)}`,"cost"]}/>
               <Area type="monotone" dataKey="cost" stroke={T.accent} strokeWidth={1.5} fill="url(#g1)"/>
             </AreaChart>
           </ResponsiveContainer>
@@ -879,13 +879,13 @@ export default function App() {
     ...(platformMode ? [{ label: (GUARD_MODE_META[platformMode]?.label || platformMode).toLowerCase(), color: GUARD_MODE_META[platformMode]?.color, title: GUARD_MODE_META[platformMode]?.desc, dot: true }] : []),
     { label: filters.team === "all" ? "all teams" : allTeams.find((t) => t.id === filters.team)?.name },
     { label: `last ${filters.range}d` },
-    ...(isDemoMode() ? [{ label: "demo", color: "#FBBF24", dot: true }] : []),
+    ...(isDemoMode() ? [{ label: "demo", color: "#D97706", dot: true }] : []),
     ...(pricingLastUpdated ? [{ label: `pricing as of ${pricingLastUpdated}`, title: "Date pricing table was last audited against provider rates" }] : []),
   ];
 
   const shellUser = user && {
     name: user.name,
-    roleColor: user.is_platform_admin ? "#A78BFA" : (rolesMap[user.role]?.color ?? "#CBD5E1"),
+    roleColor: user.is_platform_admin ? "#7C3AED" : (rolesMap[user.role]?.color ?? "#475569"),
     roleLabel: user.is_platform_admin ? "platform admin" : `${user.role} · ${user.team}`,
   };
 

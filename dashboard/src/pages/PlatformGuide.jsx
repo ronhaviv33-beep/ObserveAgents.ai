@@ -91,7 +91,7 @@ export default function CustomerWelcomePage({ onNavigate }) {
 
         <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
           <button onClick={() => onNavigate("integrations")}
-            style={{ background:T.accent, color:"#000", border:"none", borderRadius:6,
+            style={{ background:T.accent, color:"#FFF", border:"none", borderRadius:6,
               padding:"11px 24px", fontSize:13, fontWeight:700, fontFamily:FONT_UI, cursor:"pointer" }}>
             Get Data Flowing →
           </button>

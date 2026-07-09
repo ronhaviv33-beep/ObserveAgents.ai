@@ -1,26 +1,29 @@
 @import "tailwindcss";
 
-/* ObserveAgents dark theme — dark navy, not near-black. Mirrors src/theme.js
-   and src/ui2/tokens.js; keep the three in sync. */
+/* ObserveAgents light SaaS theme. Mirrors src/theme.js and
+   src/ui2/tokens.js; keep the three in sync. */
 :root {
-  --bg: #0B1020;
-  --surface: #111827;
-  --surface-2: #1E293B;
-  --border: #334155;
-  --border-strong: #475569;
+  --bg: #F8FAFC;
+  --surface: #FFFFFF;
+  --surface-soft: #F1F5F9;
+  --border: #E2E8F0;
 
-  --text-primary: #F8FAFC;
-  --text-secondary: #CBD5E1;
-  --text-muted: #94A3B8;
-  --text-disabled: #64748B;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
 
-  --accent: #38BDF8;
-  --accent-2: #8B5CF6;
+  --brand: #2563EB;
+  --brand-soft: #DBEAFE;
+  --brand-dark: #1D4ED8;
 
-  --success: #22C55E;
-  --warning: #F59E0B;
-  --danger: #EF4444;
-  --info: #38BDF8;
+  --accent-purple: #7C3AED;
+  --accent-cyan: #0891B2;
+
+  --success: #16A34A;
+  --warning: #D97706;
+  --danger: #DC2626;
+
+  color-scheme: light;
 }
 
 html {
@@ -44,22 +47,22 @@ body {
 }
 
 ::selection {
-  background: rgba(56, 189, 248, 0.3);
+  background: rgba(37, 99, 235, 0.18);
 }
 
 /* Visible keyboard focus everywhere: buttons, inputs, links, table rows,
    sidebar items. Mouse clicks stay outline-free via :focus-visible. */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: 2px;
 }
 
-/* Tables: separated header band, visible row borders, noticeable hover.
+/* Tables: light header band, visible row borders, soft hover.
    Rows that set an inline background (zebra striping, selected states)
    keep their own colors — inline styles win over these defaults. */
 thead th {
-  background: var(--surface-2);
+  background: var(--bg);
 }
 
 tbody tr {
@@ -67,5 +70,5 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background-color: rgba(148, 163, 184, 0.07);
+  background-color: var(--bg);
 }

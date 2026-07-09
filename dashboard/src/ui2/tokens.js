@@ -1,43 +1,45 @@
 // ui2 design tokens — the new design system's single source of visual truth.
-// Semantic names only: components never hardcode hex values. Dark is the
-// default theme; a future light theme swaps the values in `dark` below
+// Semantic names only: components never hardcode hex values. Light is the
+// default theme; a future dark theme swaps the values in `light` below
 // without touching any component.
 
-const dark = {
-  // surfaces — dark navy ramp: page bg → card → raised → hover, each one
-  // step lighter so panels and rows separate without heavy borders.
-  bg:            "#0B1020",
-  surface:       "#111827",
-  surfaceRaised: "#1E293B",
-  surfaceHover:  "#253349",
-  border:        "#334155",
-  borderStrong:  "#475569",
+const light = {
+  // surfaces — light SaaS ramp: soft slate page bg, white cards, and a
+  // slightly tinted raised/soft surface for headers and insets.
+  bg:            "#F8FAFC",
+  surface:       "#FFFFFF",
+  surfaceRaised: "#F1F5F9",
+  surfaceHover:  "#EEF2F7",
+  border:        "#E2E8F0",
+  borderStrong:  "#CBD5E1",
 
-  // text — every tier stays readable on all surfaces above.
-  text:     "#F8FAFC",
-  textDim:  "#CBD5E1",
-  textMute: "#94A3B8",
+  // text — dark, readable tiers on every surface above.
+  text:     "#0F172A",
+  textDim:  "#475569",
+  textMute: "#64748B",
 
   // brand + semantic
-  accent:      "#38BDF8",
-  accentInk:   "#06121F",   // text on accent fills
-  riskCritical:"#F87171",
-  riskHigh:    "#FB923C",
-  riskMedium:  "#FBBF24",
-  riskLow:     "#60A5FA",
-  riskInfo:    "#94A3B8",
-  purple:      "#A78BFA",
-  teal:        "#2DD4BF",
+  accent:      "#2563EB",
+  accentInk:   "#FFFFFF",   // text on accent fills
+  accentSoft:  "#EFF6FF",   // active nav / selected-row wash
+  accentDark:  "#1D4ED8",   // text on accentSoft
+  riskCritical:"#DC2626",
+  riskHigh:    "#EA580C",
+  riskMedium:  "#D97706",
+  riskLow:     "#0891B2",
+  riskInfo:    "#64748B",
+  purple:      "#7C3AED",
+  teal:        "#0D9488",
 };
 
-export const C = dark;
+export const C = light;
 
 export const FONT = {
   ui:   "'Geist','Söhne',-apple-system,'Segoe UI',sans-serif",
   mono: "'JetBrains Mono','IBM Plex Mono',monospace",
 };
 
-export const RADIUS = { sm: 6, md: 10, lg: 14 };
+export const RADIUS = { sm: 8, md: 12, lg: 16 };
 
 /** Risk level → color. The only place severity maps to color in ui2. */
 export const riskColor = (level) => ({
@@ -48,11 +50,12 @@ export const riskColor = (level) => ({
   info:     C.riskInfo,
 }[level] || C.riskInfo);
 
-/** Uppercase mono micro-label style used for section/card headers. */
+/** Small-caps label style used for section/card headers. */
 export const microLabel = {
-  fontSize: 9.5,
-  fontFamily: FONT.mono,
+  fontSize: 11,
+  fontFamily: FONT.ui,
+  fontWeight: 600,
   color: C.textMute,
-  letterSpacing: "0.14em",
+  letterSpacing: "0.06em",
   textTransform: "uppercase",
 };

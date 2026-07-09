@@ -28,7 +28,7 @@ function StaticCode({ label, code, color = T.accent }) {
         <span style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />
         <span style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textDim, flex: 1 }}>{label}</span>
         <button onClick={copy}
-          style={{ background: "transparent", border: `1px solid ${T.border}`, color: copied ? "#34d399" : T.textMute,
+          style={{ background: "transparent", border: `1px solid ${T.border}`, color: copied ? "#16A34A" : T.textMute,
             borderRadius: 4, padding: "2px 10px", fontSize: 10, fontFamily: FONT_MONO, cursor: "pointer" }}>
           {copied ? "copied" : "copy"}
         </button>
@@ -351,7 +351,7 @@ export OPENAI_BASE_URL=GATEWAY_URL/v1`,
           <pre style={{ margin:0, padding:"16px", fontSize:12, fontFamily:FONT_MONO, color:T.text, lineHeight:1.7, overflow:"auto", background:T.bg, maxHeight:380 }}>{snippet}</pre>
           <button onClick={() => copy(id, snippet)}
             style={{ position:"absolute", top:8, right:8, background:"transparent", border:`1px solid ${T.border}`,
-              color:copied===id?"#34d399":T.textMute, borderRadius:4, padding:"3px 10px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
+              color:copied===id?"#16A34A":T.textMute, borderRadius:4, padding:"3px 10px", fontSize:10, fontFamily:FONT_MONO, cursor:"pointer" }}>
             {copied===id?"copied":"copy"}
           </button>
         </div>
@@ -408,7 +408,7 @@ export OPENAI_BASE_URL=GATEWAY_URL/v1`,
         </ol>
         <button
           onClick={() => setSection(s => s === "gateway" ? null : "gateway")}
-          style={{ background:T.accent, color:"#000", border:"none", borderRadius:6,
+          style={{ background:T.accent, color:"#FFF", border:"none", borderRadius:6,
             padding:"9px 20px", fontSize:12, fontWeight:600, fontFamily:FONT_UI, cursor:"pointer" }}>
           Start Runtime Discovery →
         </button>
@@ -419,7 +419,7 @@ export OPENAI_BASE_URL=GATEWAY_URL/v1`,
         <div style={{ display:"grid", gridTemplateColumns: bp.isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: bp.isMobile ? 16 : 0 }}>
           {[
             { label:"AI Assets",        value:fmtMetric(metrics.agents),       color:T.accent },
-            { label:"Dependencies",      value:fmtMetric(metrics.dependencies), color:"#5BD9C5" },
+            { label:"Dependencies",      value:fmtMetric(metrics.dependencies), color:"#0D9488" },
             { label:"Workflows",         value:fmtMetric(metrics.workflows),    color:T.warn },
             { label:"Discovery Sources", value:fmtMetric(metrics.platforms),    color:T.info },
           ].map((m, i) => (

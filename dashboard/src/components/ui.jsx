@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import { T, FONT_UI, FONT_MONO } from "../theme.js";
 
 export const Card = ({ children, style, title, subtitle, right }) => (
-  <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:6, padding:18, ...style }}>
+  <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:16, padding:24, boxShadow:"0 1px 2px rgba(15,23,42,0.04)", ...style }}>
     {(title||right) && (
       <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:14 }}>
         <div>
-          {title    && <div style={{ fontSize:11, letterSpacing:"0.12em", textTransform:"uppercase", color:T.textDim, fontFamily:FONT_MONO, fontWeight:500 }}>{title}</div>}
+          {title    && <div style={{ fontSize:13, color:T.text, fontFamily:FONT_UI, fontWeight:600, letterSpacing:"-0.01em" }}>{title}</div>}
           {subtitle && <div style={{ fontSize:13, color:T.textMute, marginTop:4 }}>{subtitle}</div>}
         </div>
         {right}
@@ -18,7 +18,7 @@ export const Card = ({ children, style, title, subtitle, right }) => (
 
 export const Stat = ({ label, value, delta, suffix, accent }) => (
   <Card>
-    <div style={{ fontSize:10, letterSpacing:"0.14em", textTransform:"uppercase", color:T.textDim, fontFamily:FONT_MONO }}>{label}</div>
+    <div style={{ fontSize:11, letterSpacing:"0.06em", textTransform:"uppercase", color:T.textMute, fontFamily:FONT_UI, fontWeight:600 }}>{label}</div>
     <div style={{ fontSize:28, fontFamily:FONT_MONO, fontWeight:500, color:accent||T.text, marginTop:10, letterSpacing:"-0.02em", lineHeight:1 }}>
       {value}{suffix && <span style={{ fontSize:13, color:T.textDim, marginLeft:4, fontWeight:400 }}>{suffix}</span>}
     </div>
@@ -27,7 +27,7 @@ export const Stat = ({ label, value, delta, suffix, accent }) => (
 );
 
 export const Pill = ({ children, color }) => (
-  <span style={{ display:"inline-flex", alignItems:"center", padding:"2px 8px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.08em", textTransform:"uppercase", background:`${color}24`, color, border:`1px solid ${color}59` }}>{children}</span>
+  <span style={{ display:"inline-flex", alignItems:"center", padding:"2px 8px", borderRadius:6, fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.08em", textTransform:"uppercase", background:`${color}24`, color, border:`1px solid ${color}40` }}>{children}</span>
 );
 
 export const sevColor = (s) => s==="critical"?T.crit:s==="warning"?T.warn:T.info;
