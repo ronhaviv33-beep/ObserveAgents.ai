@@ -539,7 +539,7 @@ function AssetsPage() {
 
       {/* Claim Modal */}
       {claimTarget !== null && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.50)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={e => { if (e.target === e.currentTarget) setClaimTarget(null); }}>
           <div style={{ background: T2.panel, border: `1px solid ${T2.border}`, borderRadius: 10, padding: 32, width: "100%", maxWidth: 800, fontFamily: FONT_UI, maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 20, letterSpacing: "-0.01em" }}>

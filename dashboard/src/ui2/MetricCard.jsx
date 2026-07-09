@@ -6,7 +6,8 @@ export default function MetricCard({ label, value, sub, tone = C.text, onClick }
     <div onClick={onClick}
       style={{
         flex: 1, minWidth: 170, background: C.surface, border: `1px solid ${C.border}`,
-        borderRadius: RADIUS.md, padding: "18px 20px", cursor: onClick ? "pointer" : "default",
+        borderRadius: RADIUS.lg, padding: "20px 22px", cursor: onClick ? "pointer" : "default",
+        boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
         transition: "border-color .15s",
       }}
       onMouseEnter={(e) => { if (onClick) e.currentTarget.style.borderColor = C.borderStrong; }}

@@ -30,9 +30,9 @@ const Pill = ({ children, color }) => (
 
 // ── Guard Modes ───────────────────────────────────────────────────────────────
 export const GUARD_MODE_META = {
-  observe: { color: "#3b82f6", label: "Observe", desc: "Detects and reports what would have happened. Never blocks requests." },
-  alert:   { color: "#eab308", label: "Alert",   desc: "Flags issues and notifies. Still does not block." },
-  enforce: { color: "#ef4444", label: "Enforce", desc: "Blocks or requires action — only when enforcement is intentionally enabled." },
+  observe: { color: "#2563EB", label: "Observe", desc: "Detects and reports what would have happened. Never blocks requests." },
+  alert:   { color: "#CA8A04", label: "Alert",   desc: "Flags issues and notifies. Still does not block." },
+  enforce: { color: "#DC2626", label: "Enforce", desc: "Blocks or requires action — only when enforcement is intentionally enabled." },
 };
 
 function GuardModesSection() {
@@ -350,7 +350,7 @@ function RolesManagementSection() {
   const [serverRoles, setServerRoles] = useState(Object.values(rolesMap));
   const [err, setErr] = useState(null);
   const [adding, setAdding] = useState(false);
-  const [newForm, setNewForm] = useState({ name:"", label:"", color:"#7A8499", pages:[], can:[] });
+  const [newForm, setNewForm] = useState({ name:"", label:"", color:"#475569", pages:[], can:[] });
   const [saving, setSaving] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
 
@@ -367,7 +367,7 @@ function RolesManagementSection() {
     try {
       await createRole(newForm);
       setAdding(false);
-      setNewForm({ name:"", label:"", color:"#7A8499", pages:[], can:[] });
+      setNewForm({ name:"", label:"", color:"#475569", pages:[], can:[] });
       await load();
     } catch (e) { setErr(e.message); }
     finally { setSaving(false); }

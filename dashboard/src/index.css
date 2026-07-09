@@ -1,5 +1,31 @@
 @import "tailwindcss";
 
+/* ObserveAgents light SaaS theme. Mirrors src/theme.js and
+   src/ui2/tokens.js; keep the three in sync. */
+:root {
+  --bg: #F8FAFC;
+  --surface: #FFFFFF;
+  --surface-soft: #F1F5F9;
+  --border: #E2E8F0;
+
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+
+  --brand: #2563EB;
+  --brand-soft: #DBEAFE;
+  --brand-dark: #1D4ED8;
+
+  --accent-purple: #7C3AED;
+  --accent-cyan: #0891B2;
+
+  --success: #16A34A;
+  --warning: #D97706;
+  --danger: #DC2626;
+
+  color-scheme: light;
+}
+
 html {
   overflow-x: hidden;
 }
@@ -7,13 +33,42 @@ html {
 body {
   margin: 0;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
-  background: #0f1117;
-  color: #e2e8f0;
+  background: var(--bg);
+  color: var(--text-primary);
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   width: 100%;
   min-height: 100svh;
   overflow-x: hidden;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.18);
+}
+
+/* Visible keyboard focus everywhere: buttons, inputs, links, table rows,
+   sidebar items. Mouse clicks stay outline-free via :focus-visible. */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Tables: light header band, visible row borders, soft hover.
+   Rows that set an inline background (zebra striping, selected states)
+   keep their own colors — inline styles win over these defaults. */
+thead th {
+  background: var(--bg);
+}
+
+tbody tr {
+  transition: background-color 0.12s ease;
+}
+
+tbody tr:hover {
+  background-color: var(--bg);
 }

@@ -4,11 +4,11 @@ import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import CollapsiblePanel, { PanelGroupControls } from "../components/CollapsiblePanel.jsx";
 
 const T = {
-  bg: "#0A0B0F", panel: "#0F1117", panelHi: "#141823",
-  border: "#1E2230", borderHi: "#2A3242",
-  text: "#E8ECF4", textDim: "#7A8499", textMute: "#4B5468",
-  accent: "#7CFFB2", warn: "#FFB547", crit: "#FF5C7A",
-  info: "#6FA8FF", yellow: "#FFD700", purple: "#B47AFF",
+  bg: "#F8FAFC", panel: "#FFFFFF", panelHi: "#F1F5F9",
+  border: "#E2E8F0", borderHi: "#CBD5E1",
+  text: "#0F172A", textDim: "#475569", textMute: "#64748B",
+  accent: "#16A34A", warn: "#D97706", crit: "#DC2626",
+  info: "#0891B2", yellow: "#CA8A04", purple: "#7C3AED",
 };
 const MONO = "'JetBrains Mono','IBM Plex Mono',monospace";
 const FONT = "'Geist','Söhne',-apple-system,sans-serif";

@@ -104,7 +104,7 @@ export default function OrganizationsPage() {
     return d.toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" });
   };
 
-  const purple = "#B47AFF";
+  const purple = "#7C3AED";
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16, maxWidth:900 }}>
@@ -266,7 +266,7 @@ export default function OrganizationsPage() {
       </div>
       {/* ── Delete Confirmation Modal ── */}
       {deleteConfirm && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,0.45)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
           <div style={{ background:T.panel, border:`1px solid ${T.crit}55`, borderRadius:10, padding:28, minWidth:360, maxWidth:460, display:"flex", flexDirection:"column", gap:18 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontSize:22, color:T.crit }}>⊗</span>

@@ -71,8 +71,8 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
                   </td>
                   <td style={{ padding:"6px 8px" }}>
                     <div style={{ display:"flex", flexWrap:"wrap", gap:3 }}>
-                      {r.pricing_estimated && <Pill color="#f97316">unknown mdl</Pill>}
-                      {isLoopRow(r)      && <Pill color="#eab308">loop</Pill>}
+                      {r.pricing_estimated && <Pill color="#EA580C">unknown mdl</Pill>}
+                      {isLoopRow(r)      && <Pill color="#CA8A04">loop</Pill>}
                       {isAfterHours(r)   && <Pill color={T.info}>after-hrs</Pill>}
                       {!r.pricing_estimated && !isLoopRow(r) && !isAfterHours(r) && (
                         <span style={{ color:T.textMute, fontFamily:FONT_MONO, fontSize:11 }}>—</span>
@@ -80,7 +80,7 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
                     </div>
                   </td>
                   <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:12, color:T.textDim }}>{r.total_tokens.toLocaleString()}</td>
-                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:12, color: r.pricing_estimated ? "#f97316" : T.text }}>
+                  <td style={{ padding:"10px 8px", fontFamily:FONT_MONO, fontSize:12, color: r.pricing_estimated ? "#EA580C" : T.text }}>
                     {r.pricing_estimated && <span title="Conservative estimate — model not in pricing table" style={{ marginRight:2 }}>~</span>}
                     ${r.cost_usd.toFixed(6)}
                   </td>
@@ -110,9 +110,9 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
                             <div style={{ display:"flex", gap:6 }}>
                               {r.blocked   && <Pill color={T.crit}>blocked</Pill>}
                               {r.sensitive && <Pill color={T.warn}>Sensitive Content</Pill>}
-                              {loopFlag    && <Pill color="#eab308">loop</Pill>}
+                              {loopFlag    && <Pill color="#CA8A04">loop</Pill>}
                               {afterHrs    && <Pill color={T.info}>after-hrs</Pill>}
-                              {r.pricing_estimated && <Pill color="#f97316">est. pricing</Pill>}
+                              {r.pricing_estimated && <Pill color="#EA580C">est. pricing</Pill>}
                             </div>
                           </div>
 
@@ -135,7 +135,7 @@ function AuditLogTable({ audit, hasMore = false, loadingMore = false, onLoadMore
                             <Field label="Completion Tokens"  value={(r.completion_tokens || 0).toLocaleString()}           color={T.text} />
                             <Field label="Spend"
                               value={`${r.pricing_estimated === true ? "~" : ""}$${(r.cost_usd || 0).toFixed(6)}`}
-                              color={r.pricing_estimated === true ? "#f97316" : T.text} />
+                              color={r.pricing_estimated === true ? "#EA580C" : T.text} />
                           </div>
 
                           {/* Prompt */}

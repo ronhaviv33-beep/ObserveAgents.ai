@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { C, FONT, RADIUS, microLabel } from "../ui2/tokens.js";
+import { ShieldAlert, AlertTriangle, Info, Wrench, Database, HelpCircle, UserX, RefreshCcw, Eye } from "lucide-react";
+import { C, FONT, RADIUS, microLabel, riskColor } from "../ui2/tokens.js";
 import PageHeader from "../ui2/PageHeader.jsx";
 import Section from "../ui2/Section.jsx";
 import MetricCard from "../ui2/MetricCard.jsx";
@@ -27,21 +28,24 @@ const SEV_RANK = { critical: 5, high: 4, medium: 3, low: 2, info: 1 };
 // Investigation buckets — finding_type groups over open findings (any category:
 // tool errors live under operations, ownership under operations/security).
 const BUCKETS = [
-  { id: "mcp",      label: "MCP / tool risk",
+  { id: "mcp",      label: "MCP / tool risk", icon: Wrench,
     types: ["agent_uses_mcp_tool_in_production", "mcp_tool_access", "mcp_enabled",
             "agent_has_broad_tool_surface", "broad_tool_access", "shell_enabled"] },
-  { id: "data",     label: "Database & API access",
+  { id: "data",     label: "Database & API access", icon: Database,
     types: ["agent_has_database_access", "database_access", "agent_uses_unmanaged_external_api",
             "external_api_access", "sensitive_system_access", "filesystem_enabled"] },
-  { id: "provider", label: "Unknown providers / models",
+  { id: "provider", label: "Unknown providers / models", icon: HelpCircle,
     types: ["agent_uses_unknown_model_provider", "unknown_model"] },
-  { id: "owner",    label: "Missing ownership",
+  { id: "owner",    label: "Missing ownership", icon: UserX,
     types: ["agent_missing_owner", "unmanaged_runtime"] },
-  { id: "errors",   label: "Repeated tool errors",
+  { id: "errors",   label: "Repeated tool errors", icon: RefreshCcw,
     types: ["repeated_tool_errors", "tool_error", "mcp_error"] },
-  { id: "review",   label: "Human review recommended",
+  { id: "review",   label: "Human review recommended", icon: Eye,
     types: ["human_review_recommended"] },
 ];
+
+/** Severity → alert icon for the finding cards. */
+const SEV_ICON = { critical: ShieldAlert, high: ShieldAlert, medium: AlertTriangle, low: Info, info: Info };
 
 const relTime = (iso) => {
   if (!iso) return "—";
@@ -58,17 +62,25 @@ function BucketCard({ bucket, rows, active, onSelect }) {
   const high = rows.filter((f) => SEV_RANK[f.severity] >= 4).length;
   const med  = rows.filter((f) => f.severity === "medium").length;
   const topTypes = [...new Set(rows.map((f) => f.finding_type))].slice(0, 2);
+  const urgency = rows.length ? (high > 0 ? C.riskHigh : C.riskMedium) : C.textMute;
+  const BucketIcon = bucket.icon;
   return (
     <div onClick={rows.length ? onSelect : undefined}
       style={{
-        flex: "1 1 240px", minWidth: 220, background: C.surface,
-        border: `1px solid ${active ? C.borderStrong : C.border}`,
-        borderTop: `2px solid ${rows.length ? (high > 0 ? C.riskHigh : C.riskMedium) : C.border}`,
+        flex: "1 1 240px", minWidth: 220,
+        background: active ? C.accentSoft : C.surface,
+        border: `1px solid ${active ? C.accent : C.border}`,
         borderRadius: RADIUS.md, padding: "14px 16px",
+        boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
         cursor: rows.length ? "pointer" : "default", opacity: rows.length ? 1 : 0.55,
       }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: C.text }}>{bucket.label}</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ width: 26, height: 26, borderRadius: 8, background: `${urgency}14`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <BucketIcon size={14} color={urgency} strokeWidth={2} />
+          </span>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: C.text }}>{bucket.label}</span>
+        </span>
         <span style={{ fontSize: 18, fontWeight: 700, fontFamily: FONT.mono, color: rows.length ? C.text : C.textMute }}>{rows.length}</span>
       </div>
       <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, lineHeight: 1.6 }}>
@@ -91,35 +103,45 @@ function BucketCard({ bucket, rows, active, onSelect }) {
 }
 
 function FindingRow({ f, assetName, isCandidate, onNavigate }) {
+  const sevColor = riskColor(f.severity);
+  const SevIcon = SEV_ICON[f.severity] || Info;
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "13px 16px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-        <RiskBadge level={f.severity} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{f.title}</span>
-        {(f.occurrence_count || 1) > 1 && (
-          <span style={{ fontFamily: FONT.mono, fontSize: 10, color: C.textDim }}>×{f.occurrence_count}</span>
-        )}
-        <span style={{ marginLeft: "auto", fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute }}>{relTime(f.last_seen)}</span>
-      </div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-        {assetName && (
-          <button onClick={() => onNavigate?.("intelligence")}
-            style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.text,
-              fontSize: 10, fontFamily: FONT.mono, padding: "2px 9px", borderRadius: 999, cursor: "pointer" }}>
-            {assetName}
+    <div style={{ display: "flex", gap: 12, alignItems: "flex-start", background: C.surface,
+      border: `1px solid ${C.border}`, borderLeft: `3px solid ${sevColor}`,
+      borderRadius: RADIUS.md, padding: "13px 16px", boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}>
+      <span style={{ width: 30, height: 30, borderRadius: 8, background: `${sevColor}14`,
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+        <SevIcon size={15} color={sevColor} strokeWidth={2} />
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: C.text }}>{f.title}</span>
+          <RiskBadge level={f.severity} />
+          {(f.occurrence_count || 1) > 1 && (
+            <span style={{ fontFamily: FONT.mono, fontSize: 10, color: C.textDim }}>×{f.occurrence_count}</span>
+          )}
+          <span style={{ marginLeft: "auto", fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute }}>{relTime(f.last_seen)}</span>
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+          {assetName && (
+            <button onClick={() => onNavigate?.("intelligence")}
+              style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.text,
+                fontSize: 10, fontFamily: FONT.mono, padding: "2px 9px", borderRadius: 999, cursor: "pointer" }}>
+              {assetName}
+            </button>
+          )}
+          <StatusPill tone={C.textDim}>{f.finding_type}</StatusPill>
+          <StatusPill tone={C.textMute}>{f.source}</StatusPill>
+        </div>
+        <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>{f.summary}</div>
+        {isCandidate && surfaceAllowsPage("gateway_control_center") && (
+          <button onClick={() => onNavigate?.("gateway_control_center", { gccFocus: f.asset_key })}
+            style={{ marginTop: 10, background: "transparent", color: C.riskMedium, border: `1px solid ${C.riskMedium}44`,
+              borderRadius: RADIUS.sm, padding: "5px 13px", fontSize: 10.5, fontFamily: FONT.mono, cursor: "pointer" }}>
+            Review in Gateway Control Center →
           </button>
         )}
-        <StatusPill tone={C.textDim}>{f.finding_type}</StatusPill>
-        <StatusPill tone={C.textMute}>{f.source}</StatusPill>
       </div>
-      <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>{f.summary}</div>
-      {isCandidate && surfaceAllowsPage("gateway_control_center") && (
-        <button onClick={() => onNavigate?.("gateway_control_center", { gccFocus: f.asset_key })}
-          style={{ marginTop: 10, background: "transparent", color: C.riskMedium, border: `1px solid ${C.riskMedium}44`,
-            borderRadius: RADIUS.sm, padding: "5px 13px", fontSize: 10.5, fontFamily: FONT.mono, cursor: "pointer" }}>
-          Review in Gateway Control Center →
-        </button>
-      )}
     </div>
   );
 }

@@ -12,16 +12,16 @@ function NavItem({ item, active, onClick }) {
   return (
     <button onClick={onClick}
       style={{
-        background: active ? C.surfaceRaised : "transparent", border: "none",
-        color: active ? C.text : C.textDim, textAlign: "left", padding: "8px 10px",
-        fontSize: 12, borderRadius: RADIUS.sm, cursor: "pointer", fontFamily: FONT.ui,
+        background: active ? C.accentSoft : "transparent", border: "none",
+        color: active ? C.accentDark : C.textDim, textAlign: "left", padding: "8px 12px",
+        fontSize: 13, fontWeight: active ? 600 : 400,
+        borderRadius: RADIUS.sm, cursor: "pointer", fontFamily: FONT.ui,
         display: "flex", alignItems: "center", gap: 10, width: "100%", minHeight: 44,
-        borderLeft: active ? `2px solid ${C.accent}` : "2px solid transparent",
         transition: "all 0.1s",
       }}>
       {item.label}
       {item.badge != null && item.badge > 0 && (
-        <span style={{ marginLeft: "auto", background: C.riskHigh, color: C.bg, fontSize: 10, fontFamily: FONT.mono, padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>
+        <span style={{ marginLeft: "auto", background: C.riskHigh, color: "#FFFFFF", fontSize: 10, fontFamily: FONT.mono, padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>
           {item.badge}
         </span>
       )}

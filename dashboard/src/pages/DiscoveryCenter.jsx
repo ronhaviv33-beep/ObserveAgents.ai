@@ -6,11 +6,11 @@ import { stageMeta } from "../discoveryStatus.js";
 const agentActionId = (a) => a?.id || a?.asset_key || a?.agent_id;
 
 const T = {
-  bg: "#0A0B0F", panel: "#0F1117", panelHi: "#141823",
-  border: "#1E2230", borderHi: "#2A3142",
-  text: "#E8ECF4", textDim: "#7A8499", textMute: "#4B5468",
-  accent: "#7CFFB2", warn: "#FFB547", crit: "#FF5C7A",
-  info: "#6FA8FF", yellow: "#FFD700", purple: "#B47AFF",
+  bg: "#F8FAFC", panel: "#FFFFFF", panelHi: "#F1F5F9",
+  border: "#E2E8F0", borderHi: "#CBD5E1",
+  text: "#0F172A", textDim: "#475569", textMute: "#64748B",
+  accent: "#16A34A", warn: "#D97706", crit: "#DC2626",
+  info: "#0891B2", yellow: "#CA8A04", purple: "#7C3AED",
 };
 const MONO = "'JetBrains Mono','IBM Plex Mono',monospace";
 const FONT = "'Geist','Söhne',-apple-system,sans-serif";
@@ -31,7 +31,7 @@ const SOURCE_MAP = {
   gateway_telemetry: { label: "Gateway",    color: T.accent },
   github:            { label: "GitHub",     color: T.info },
   n8n:               { label: "n8n",        color: T.purple },
-  slack:             { label: "Slack",      color: "#E8A138" },
+  slack:             { label: "Slack",      color: "#B45309" },
   jira:              { label: "Jira",       color: T.warn },
   servicenow:        { label: "ServiceNow", color: T.crit },
   mcp:               { label: "MCP",        color: T.purple },
@@ -61,9 +61,9 @@ function StageBadge({ agent }) {
 
 function DiscoveryStatusBadge({ status }) {
   const map = {
-    verified:   { label: "Verified",   color: T.accent,    bg: "#1A3D2B" },
-    likely:     { label: "Likely",     color: "#2DD4BF",   bg: "#0D2E2B" },
-    potential:  { label: "Potential",  color: T.warn,      bg: "#3D2E0D" },
+    verified:   { label: "Verified",   color: T.accent,    bg: "rgba(34,197,94,0.14)" },
+    likely:     { label: "Likely",     color: "#0D9488",   bg: "rgba(45,212,191,0.14)" },
+    potential:  { label: "Potential",  color: T.warn,      bg: "rgba(245,158,11,0.14)" },
     historical: { label: "Historical", color: T.textDim,   bg: T.panelHi },
   };
   const m = map[status] || { label: status || "—", color: T.textDim, bg: T.panelHi };
@@ -77,11 +77,11 @@ function DiscoveryStatusBadge({ status }) {
 
 function AssetTypeBadge({ assetType }) {
   const map = {
-    agent:       { label: "Agent",    color: "#B47AFF", bg: "#1E1A3D" },
-    workflow:    { label: "Workflow",  color: "#6FA8FF", bg: "#0D1F3D" },
-    application: { label: "App",      color: "#F472B6", bg: "#2D0D1E" },
-    copilot:     { label: "Copilot",  color: "#FB923C", bg: "#2D1A0A" },
-    service:     { label: "Service",  color: T.accent,  bg: "#1A3D2B" },
+    agent:       { label: "Agent",    color: "#7C3AED", bg: "rgba(139,92,246,0.14)" },
+    workflow:    { label: "Workflow",  color: "#0891B2", bg: "rgba(96,165,250,0.14)" },
+    application: { label: "App",      color: "#DB2777", bg: "rgba(244,114,182,0.14)" },
+    copilot:     { label: "Copilot",  color: "#EA580C", bg: "rgba(251,146,60,0.14)" },
+    service:     { label: "Service",  color: T.accent,  bg: "rgba(34,197,94,0.14)" },
   };
   const m = map[assetType] || { label: assetType || "agent", color: T.textDim, bg: T.panelHi };
   return (
@@ -96,7 +96,7 @@ function LifecycleBadge({ status }) {
     unassigned:       { label: "Unassigned",      color: T.yellow },
     needs_validation: { label: "Needs Validation", color: T.warn },
     managed:          { label: "Managed",          color: T.accent },
-    retired:          { label: "Retired",          color: "#555" },
+    retired:          { label: "Retired",          color: "#94A3B8" },
   };
   const m = map[status] || { label: status || "—", color: T.textDim };
   return (
@@ -122,7 +122,7 @@ function ActionBtn({ label, color, onClick }) {
 
 function ModalOverlay({ onClose, children }) {
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto", fontFamily: FONT }}>
         {children}
       </div>
@@ -177,7 +177,7 @@ function ClaimModal({ agent, onClose, onSave, onApprove, onIgnore, environments 
       </div>
 
       {err && (
-        <div style={{ background: "#FF5C7A18", border: "1px solid #FF5C7A44", borderRadius: 5, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: T.crit, fontFamily: MONO }}>
+        <div style={{ background: "#DC262618", border: "1px solid #DC262644", borderRadius: 5, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: T.crit, fontFamily: MONO }}>
           {err}
         </div>
       )}
@@ -254,7 +254,7 @@ function ClaimModal({ agent, onClose, onSave, onApprove, onIgnore, environments 
 
 function ValidateConfirmModal({ agent, onConfirm, onClose, busy }) {
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, width: "100%", maxWidth: 420, fontFamily: FONT }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <span style={{ fontSize: 20, color: T.accent }}>✓</span>
@@ -297,14 +297,14 @@ function ValidateConfirmModal({ agent, onConfirm, onClose, busy }) {
 function RejectConfirmModal({ agent, onConfirm, onClose, busy }) {
   const [reason, setReason] = useState("");
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, width: "100%", maxWidth: 420, fontFamily: FONT }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <span style={{ fontSize: 20, color: T.crit }}>✕</span>
           <div style={{ fontSize: 16, fontWeight: 600, color: T.text }}>Reject Agent</div>
         </div>
 
-        <div style={{ background: "#1A0A0F", border: `1px solid ${T.crit}33`, borderRadius: 6, padding: "12px 14px", marginBottom: 18 }}>
+        <div style={{ background: "rgba(239,68,68,0.10)", border: `1px solid ${T.crit}33`, borderRadius: 6, padding: "12px 14px", marginBottom: 18 }}>
           <div style={{ fontSize: 13, fontFamily: MONO, color: T.text, fontWeight: 500, marginBottom: 8 }}>{agent?.agent_name}</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <SourceBadge source={agent?.discovery_source} />
@@ -587,8 +587,8 @@ export default function DiscoveryCenter({ initialTab = "verified" }) {
 
       {/* Context info */}
       {tab === "likely" && (
-        <div style={{ marginBottom: 16, padding: "10px 14px", background: "#2DD4BF0D", border: "1px solid #2DD4BF33", borderRadius: 6, fontSize: 12, color: T.textDim }}>
-          <span style={{ color: "#2DD4BF" }}>●</span>&nbsp; Likely agents have multiple independent evidence sources from platform signals. Strong candidates for validation.
+        <div style={{ marginBottom: 16, padding: "10px 14px", background: "#0D94880D", border: "1px solid #0D948833", borderRadius: 6, fontSize: 12, color: T.textDim }}>
+          <span style={{ color: "#0D9488" }}>●</span>&nbsp; Likely agents have multiple independent evidence sources from platform signals. Strong candidates for validation.
         </div>
       )}
       {tab === "potential" && (
@@ -654,7 +654,7 @@ export default function DiscoveryCenter({ initialTab = "verified" }) {
                     <TD><span style={{ color: T.textDim }}>{agent.team || "—"}</span></TD>
                     <TD>
                       {agent.environment && agent.environment !== "Unknown"
-                        ? <span style={{ fontSize: 11, fontFamily: MONO, color: T.info, background: "#0D1F3D", padding: "2px 7px", borderRadius: 3 }}>{agent.environment}</span>
+                        ? <span style={{ fontSize: 11, fontFamily: MONO, color: T.info, background: "rgba(96,165,250,0.14)", padding: "2px 7px", borderRadius: 3 }}>{agent.environment}</span>
                         : <span style={{ color: T.textMute }}>—</span>}
                     </TD>
                     <TD><span style={{ color: agent.owner ? T.text : T.textMute }}>{agent.owner || "Unassigned"}</span></TD>
