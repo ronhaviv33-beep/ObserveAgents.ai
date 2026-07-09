@@ -201,11 +201,15 @@ def run():
         # ── 2b. Seed default admin user if org has no users yet ─────────────
         existing_users = db.query(User).filter(User.organization_id == platform_org.id).count()
         if existing_users == 0:
+            import secrets as _secrets
             from app.auth import hash_password as _hash
+            # Use ADMIN_SEED_PASSWORD if provided; otherwise generate a strong random
+            # password and print it once so the operator can capture it from the logs.
+            _seed_pw = os.getenv("ADMIN_SEED_PASSWORD") or _secrets.token_urlsafe(20)
             admin = User(
                 email="admin@ai-asset-mgmt.local",
                 name="Admin",
-                hashed_password=_hash("Admin123!"),
+                hashed_password=_hash(_seed_pw),
                 role="admin",
                 team="platform",
                 organization_id=platform_org.id,
@@ -213,7 +217,22 @@ def run():
             )
             db.add(admin)
             db.flush()
-            log.info("Seeded default admin user: admin@ai-asset-mgmt.local / Admin123!")
+            if os.getenv("ADMIN_SEED_PASSWORD"):
+                log.info("Seeded default admin user: admin@ai-asset-mgmt.local (password from ADMIN_SEED_PASSWORD)")
+            else:
+                print(
+                    "\n"
+                    "╔══════════════════════════════════════════════════════════════╗\n"
+                    "║           PLATFORM ADMIN — FIRST-BOOT CREDENTIALS            ║\n"
+                    "║                                                              ║\n"
+                    "║  email   : admin@ai-asset-mgmt.local                        ║\n"
+                    f"║  password: {_seed_pw:<50} ║\n"
+                    "║                                                              ║\n"
+                    "║  Change this password immediately after first login.         ║\n"
+                    "║  Set ADMIN_SEED_PASSWORD env var to control the initial pw.  ║\n"
+                    "╚══════════════════════════════════════════════════════════════╝\n",
+                    flush=True,
+                )
 
         # ── 3. Backfill existing ApiKeys → platform org ───────────────────────
         unset_keys = db.query(ApiKey).filter(ApiKey.organization_id == None).all()  # noqa: E711
