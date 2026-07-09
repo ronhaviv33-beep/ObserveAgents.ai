@@ -207,12 +207,13 @@ def _draft(acc: _AssetAcc, finding_type: str, severity: str, title: str,
     }
 
 
-def derive_runtime_security_findings(db: Session, org_id: int) -> list[dict]:
-    """Derive AI-agent runtime security finding drafts for one organization.
+def build_asset_accumulators(db: Session, org_id: int) -> tuple[dict[str, "_AssetAcc"], dict[str, dict]]:
+    """Build per-asset evidence accumulators over the org's stored spans.
 
-    Aggregates in memory first — exactly one draft per (asset, finding_type)
-    per run, with span_count/sample_span_ids evidence. The orchestrator
-    upserts drafts with category="security", source="runtime_security".
+    Shared evidence layer for runtime security intelligence and the detection
+    rules evaluator (app/detection_rules.py) so both read identical, already
+    privacy-scrubbed evidence. Returns (accumulators by asset_key, asset meta
+    by asset_key with providers/models/registry/service_name).
     """
     otel_assets = db.query(OtelAsset).filter(OtelAsset.organization_id == org_id).all()
     registry_by_id = {
@@ -278,6 +279,18 @@ def derive_runtime_security_findings(db: Session, org_id: int) -> list[dict]:
             except (json.JSONDecodeError, TypeError):
                 attrs = {}
         acc.feed_span(span.span_id, attrs)
+
+    return accs, asset_meta
+
+
+def derive_runtime_security_findings(db: Session, org_id: int) -> list[dict]:
+    """Derive AI-agent runtime security finding drafts for one organization.
+
+    Aggregates in memory first — exactly one draft per (asset, finding_type)
+    per run, with span_count/sample_span_ids evidence. The orchestrator
+    upserts drafts with category="security", source="runtime_security".
+    """
+    accs, asset_meta = build_asset_accumulators(db, org_id)
 
     drafts: list[dict] = []
     fired_by_asset: dict[str, set[str]] = {}

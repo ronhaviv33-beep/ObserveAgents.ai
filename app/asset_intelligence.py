@@ -21,6 +21,7 @@ from app.genai_semconv import (
     extract_tool_name,
     is_mcp_span,
 )
+from app.detection_rules import DETECTION_RULES_SOURCE, derive_detection_rule_findings
 from app.runtime_security_intelligence import derive_runtime_security_findings
 from app.gateway_control import (
     CONTROL_CATEGORY, CONTROL_FINDING_TYPE, CONTROL_SOURCE,
@@ -683,6 +684,21 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
             db, org_id, d["asset_id"], d["asset_key"], "security",
             d["finding_type"], d["severity"], d["title"], d["summary"],
             "runtime_security", now,
+            evidence=d["evidence"], occurrence_count=d.get("occurrence_count", 1),
+            replace_evidence=True,
+        )
+        finds_created += c
+        finds_updated += u
+
+    # AI Agent Detection Rules (R1) — built-in batch rules over the same
+    # evidence, evaluated only here (never in the OTLP ingestion path).
+    # source="detection_rules"; category varies per rule family. Runs before
+    # candidate derivation so rule findings can trigger candidates this run.
+    for d in derive_detection_rule_findings(db, org_id):
+        c, u = _upsert_finding(
+            db, org_id, d["asset_id"], d["asset_key"], d["category"],
+            d["finding_type"], d["severity"], d["title"], d["summary"],
+            DETECTION_RULES_SOURCE, now,
             evidence=d["evidence"], occurrence_count=d.get("occurrence_count", 1),
             replace_evidence=True,
         )
