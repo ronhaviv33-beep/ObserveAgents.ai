@@ -9,8 +9,9 @@ os.environ.update({
     "CREDENTIAL_ENCRYPTION_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     "DATABASE_URL": f"sqlite:///{_db_path}",
 })
-sys.path.insert(0, "/home/user/aifinops-guard")
-os.chdir("/home/user/aifinops-guard")
+_repo_root = str(__import__("pathlib").Path(__file__).resolve().parent.parent)
+sys.path.insert(0, _repo_root)
+os.chdir(_repo_root)
 
 from app.main import app, _seed_roles_for_org
 from app.database import SessionLocal
