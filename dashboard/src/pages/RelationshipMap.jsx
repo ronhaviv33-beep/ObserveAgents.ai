@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
+import { Fragment, useState, useEffect, useMemo } from 'react'
+import { Bot, Wrench, Server, Zap, Globe, Database, ClipboardList, Table2, Cloud, Cpu, Shield, HelpCircle } from 'lucide-react'
 import { fetchRelationships } from '../api.js'
 import { relationshipEvidenceLabel } from '../discoveryStatus.js'
 import { useBreakpoint } from '../hooks/useBreakpoint.js'
@@ -27,18 +28,18 @@ const FONT_SANS = "'Inter', system-ui, sans-serif"
 
 // ── Type colours & icons ──────────────────────────────────────────────────────
 const TYPE_META = {
-  agent:      { color: T.accent,   icon: '🤖', label: 'Agent' },
-  mcp_tool:   { color: T.teal,     icon: '🔧', label: 'MCP Tool' },
-  mcp_server: { color: T.purple,   icon: '🖧',  label: 'MCP Server' },
-  workflow:   { color: T.warn,     icon: '⚡', label: 'Workflow' },
-  api:        { color: T.info,     icon: '🌐', label: 'API' },
-  database:   { color: T.success,  icon: '🗄',  label: 'Database' },
-  crm:        { color: '#EA580C',  icon: '📋', label: 'CRM' },
-  spreadsheet:{ color: '#16A34A',  icon: '📊', label: 'Spreadsheet' },
-  provider:   { color: T.accent,   icon: '◈',  label: 'Provider' },
-  model:      { color: T.purple,   icon: '⊞',  label: 'Model' },
-  gateway:    { color: T.success,  icon: '⊕',  label: 'Gateway' },
-  unknown:    { color: T.textMute, icon: '?',  label: 'Unknown' },
+  agent:      { color: T.accent,   icon: '🤖', label: 'Agent',      Icon: Bot },
+  mcp_tool:   { color: T.teal,     icon: '🔧', label: 'MCP Tool',   Icon: Wrench },
+  mcp_server: { color: T.purple,   icon: '🖧',  label: 'MCP Server', Icon: Server },
+  workflow:   { color: T.warn,     icon: '⚡', label: 'Workflow',   Icon: Zap },
+  api:        { color: T.info,     icon: '🌐', label: 'API',        Icon: Globe },
+  database:   { color: T.success,  icon: '🗄',  label: 'Database',   Icon: Database },
+  crm:        { color: '#EA580C',  icon: '📋', label: 'CRM',        Icon: ClipboardList },
+  spreadsheet:{ color: '#16A34A',  icon: '📊', label: 'Spreadsheet', Icon: Table2 },
+  provider:   { color: T.accent,   icon: '◈',  label: 'Provider',   Icon: Cloud },
+  model:      { color: T.purple,   icon: '⊞',  label: 'Model',      Icon: Cpu },
+  gateway:    { color: T.success,  icon: '⊕',  label: 'Gateway',    Icon: Shield },
+  unknown:    { color: T.textMute, icon: '?',  label: 'Unknown',    Icon: HelpCircle },
 }
 
 const REL_META = {
@@ -545,67 +546,235 @@ function FlowSummaryTable({ groups, onViewFlow }) {
 }
 
 // ── Graphical runtime-flow modal ────────────────────────────────────────────────
-function FlowNode({ type, label, sub }) {
+
+// Chain rel types render as the main left-to-right path; everything else branches.
+const CHAIN_TYPES = ['routes_via', 'uses_provider', 'uses_model']
+
+const relFor = (r) =>
+  REL_META[r.relationship_type] || { color: T.textDim, label: (r.relationship_type || 'touches_system').replace(/_/g, ' ') }
+
+/** Circular icon node used by the Path and Graph views. */
+function PathNode({ type, label, sub, size = 48, strength }) {
   const m = TYPE_META[type] || TYPE_META.unknown
+  const NodeIcon = m.Icon || HelpCircle
   return (
-    <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 10,
-      background: `${m.color}12`, border: `1px solid ${m.color}55`, borderRadius: 8,
-      padding: '10px 16px', minWidth: 220,
-    }}>
-      <span style={{ fontSize: 18, color: m.color, flexShrink: 0 }}>{m.icon}</span>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 9, fontFamily: FONT_MONO, letterSpacing: '0.08em', textTransform: 'uppercase', color: m.color }}>{m.label}</div>
-        <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.text, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
-        {sub && <div style={{ fontSize: 10, fontFamily: FONT_MONO, color: T.textMute, marginTop: 1 }}>{sub}</div>}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, width: 148, flexShrink: 0 }}>
+      <div style={{
+        width: size, height: size, borderRadius: '50%', background: `${m.color}14`,
+        border: `1.5px solid ${m.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <NodeIcon size={Math.round(size * 0.42)} color={m.color} strokeWidth={1.8} />
+      </div>
+      <div style={{ textAlign: 'center', minWidth: 0, maxWidth: 148 }}>
+        <div style={{ fontSize: 8.5, fontFamily: FONT_MONO, letterSpacing: '0.1em', textTransform: 'uppercase', color: m.color }}>{m.label}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+          <span title={label} style={{ fontSize: 12.5, color: T.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+          {strength && <span title={strength.why} style={{ width: 7, height: 7, borderRadius: '50%', background: strength.color, flexShrink: 0 }} />}
+        </div>
+        {sub && <div title={sub} style={{ fontSize: 9.5, fontFamily: FONT_MONO, color: T.textMute, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</div>}
+      </div>
+    </div>
+  )
+}
+
+/** Labeled edge between two PathNodes: rel pill over a strength-colored line. */
+function PathEdge({ r }) {
+  const rel = relFor(r)
+  const ev = relationshipEvidenceLabel(r)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: '1 0 96px', minWidth: 96, padding: '2px 4px 0' }}>
+      <span style={{ padding: '1px 8px', borderRadius: 999, fontSize: 9.5, fontFamily: FONT_MONO, background: `${rel.color}14`, color: rel.color, border: `1px solid ${rel.color}33`, whiteSpace: 'nowrap' }}>{rel.label}</span>
+      <div style={{ position: 'relative', width: '100%', height: 2, background: `${ev.color}66`, borderRadius: 1 }}>
+        <span style={{ position: 'absolute', right: -1, top: -3, width: 0, height: 0, borderTop: '4px solid transparent', borderBottom: '4px solid transparent', borderLeft: `6px solid ${ev.color}99` }} />
+      </div>
+      <span title={ev.why} style={{ fontSize: 9, fontFamily: FONT_MONO, color: T.textMute, whiteSpace: 'nowrap' }}>
+        {(r.request_count || 0).toLocaleString()} req · {ev.label.toLowerCase()}
+      </span>
+    </div>
+  )
+}
+
+/** View A — Wiz-style horizontal path: agent → gateway → provider → model, extras branch below. */
+function FlowPathView({ group, ordered }) {
+  const chain = ordered.filter(r => CHAIN_TYPES.includes(r.relationship_type))
+  const branches = ordered.filter(r => !CHAIN_TYPES.includes(r.relationship_type))
+  return (
+    <div>
+      <div style={{ overflowX: 'auto', padding: '14px 4px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'safe center', margin: '0 auto', width: 'fit-content', minWidth: '100%' }}>
+          <PathNode type="agent" label={group.sourceAgent} />
+          {chain.map((r, i) => (
+            <Fragment key={r.id ?? `c${i}`}>
+              <PathEdge r={r} />
+              <PathNode type={r.target_type} label={r.target_name} sub={r.target_identifier || undefined} strength={relationshipEvidenceLabel(r)} />
+            </Fragment>
+          ))}
+          {chain.length === 0 && branches.slice(0, 3).map((r, i) => (
+            <Fragment key={r.id ?? `f${i}`}>
+              <PathEdge r={r} />
+              <PathNode type={r.target_type} label={r.target_name} sub={r.target_identifier || undefined} strength={relationshipEvidenceLabel(r)} />
+            </Fragment>
+          ))}
+        </div>
+      </div>
+      {chain.length > 0 && branches.length > 0 && (
+        <div style={{ marginTop: 16, borderTop: `1px dashed ${T.border}`, paddingTop: 14 }}>
+          <div style={{ fontSize: 9.5, fontFamily: FONT_MONO, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textMute, marginBottom: 10 }}>
+            Also touches
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {branches.map((r, i) => {
+              const m = TYPE_META[r.target_type] || TYPE_META.unknown
+              const BranchIcon = m.Icon || HelpCircle
+              const rel = relFor(r)
+              const ev = relationshipEvidenceLabel(r)
+              return (
+                <div key={r.id ?? `b${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${T.border}`, borderRadius: 10, padding: '8px 12px', background: T.panel }}>
+                  <span style={{ width: 30, height: 30, borderRadius: '50%', background: `${m.color}14`, border: `1.5px solid ${m.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <BranchIcon size={13} color={m.color} strokeWidth={1.8} />
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ padding: '1px 7px', borderRadius: 999, fontSize: 9, fontFamily: FONT_MONO, background: `${rel.color}14`, color: rel.color, border: `1px solid ${rel.color}33`, whiteSpace: 'nowrap' }}>{rel.label}</span>
+                      <span style={{ fontSize: 12, color: T.text, fontWeight: 600 }}>{r.target_name}</span>
+                      <span title={ev.why} style={{ width: 6, height: 6, borderRadius: '50%', background: ev.color, flexShrink: 0 }} />
+                    </div>
+                    <div style={{ fontSize: 9, fontFamily: FONT_MONO, color: T.textMute, marginTop: 2 }}>
+                      {m.label} · {(r.request_count || 0).toLocaleString()} req
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** View B — CrowdStrike-style fan-out: agent root left, bezier elbows to each target. */
+function FlowGraphView({ group, ordered }) {
+  const rowH = 74
+  const gapW = 190
+  const H = Math.max(ordered.length * rowH, rowH)
+  const rootY = H / 2
+  const agentMeta = TYPE_META.agent
+  return (
+    <div style={{ display: 'flex', alignItems: 'stretch', overflowX: 'auto', padding: '6px 2px' }}>
+      {/* Root agent */}
+      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: `1px solid ${agentMeta.color}40`, background: `${agentMeta.color}0A`, borderRadius: 14, padding: '14px 18px', maxWidth: 240 }}>
+          <span style={{ width: 44, height: 44, borderRadius: '50%', background: `${agentMeta.color}14`, border: `1.5px solid ${agentMeta.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Bot size={19} color={agentMeta.color} strokeWidth={1.8} />
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 8.5, fontFamily: FONT_MONO, letterSpacing: '0.1em', textTransform: 'uppercase', color: agentMeta.color }}>Agent</div>
+            <div title={group.sourceAgent} style={{ fontSize: 13, color: T.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.sourceAgent}</div>
+            <div style={{ fontSize: 9, fontFamily: FONT_MONO, color: T.textMute, marginTop: 1 }}>{ordered.length} runtime link{ordered.length !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Elbow connectors */}
+      <div style={{ position: 'relative', width: gapW, flexShrink: 0 }}>
+        <svg width={gapW} height={H} style={{ display: 'block' }}>
+          {ordered.map((r, i) => {
+            const y = i * rowH + rowH / 2
+            const ev = relationshipEvidenceLabel(r)
+            return (
+              <path key={r.id ?? i}
+                d={`M 0 ${rootY} C ${gapW * 0.45} ${rootY}, ${gapW * 0.55} ${y}, ${gapW} ${y}`}
+                fill="none" stroke={ev.color} strokeOpacity="0.55" strokeWidth="2" strokeLinecap="round" />
+            )
+          })}
+          <circle cx="2" cy={rootY} r="3.5" fill={agentMeta.color} />
+        </svg>
+        {ordered.map((r, i) => {
+          const rel = relFor(r)
+          const y = (rootY + (i * rowH + rowH / 2)) / 2
+          return (
+            <span key={r.id ?? i} style={{
+              position: 'absolute', left: '50%', top: y, transform: 'translate(-50%, -50%)',
+              padding: '1px 8px', borderRadius: 999, fontSize: 9, fontFamily: FONT_MONO,
+              background: '#FFFFFF', color: rel.color, border: `1px solid ${rel.color}40`, whiteSpace: 'nowrap',
+            }}>{rel.label}</span>
+          )
+        })}
+      </div>
+
+      {/* Targets */}
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 220 }}>
+        {ordered.map((r, i) => {
+          const m = TYPE_META[r.target_type] || TYPE_META.unknown
+          const TargetIcon = m.Icon || HelpCircle
+          const ev = relationshipEvidenceLabel(r)
+          return (
+            <div key={r.id ?? i} style={{ height: rowH, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ width: 40, height: 40, borderRadius: '50%', background: `${m.color}14`, border: `1.5px solid ${m.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <TargetIcon size={17} color={m.color} strokeWidth={1.8} />
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 8.5, fontFamily: FONT_MONO, letterSpacing: '0.1em', textTransform: 'uppercase', color: m.color }}>{m.label}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span title={r.target_name} style={{ fontSize: 13, color: T.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.target_name}</span>
+                  <span title={ev.why} style={{ width: 7, height: 7, borderRadius: '50%', background: ev.color, flexShrink: 0 }} />
+                </div>
+                <div style={{ fontSize: 9.5, fontFamily: FONT_MONO, color: T.textMute, marginTop: 1 }}>
+                  {(r.request_count || 0).toLocaleString()} req · {fmtDate(r.last_seen_at)}
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
 function FlowModal({ group, onClose }) {
+  const [flowView, setFlowView] = useState('path')
   const ordered = [...group.rows].sort((a, b) => relOrder(a.relationship_type) - relOrder(b.relationship_type))
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 1000 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderTop: `2px solid ${T.accent}`, borderRadius: '12px 12px 0 0', width: '100%', maxWidth: 760, maxHeight: '82vh', display: 'flex', flexDirection: 'column', fontFamily: FONT_SANS }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 16, boxShadow: '0 20px 50px rgba(15,23,42,0.18)', width: '100%', maxWidth: 920, maxHeight: '86vh', display: 'flex', flexDirection: 'column', fontFamily: FONT_SANS }}>
 
         {/* Header */}
-        <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${T.border}` }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-            <div style={{ flex: 1 }}>
+        <div style={{ padding: '20px 24px 14px', borderBottom: `1px solid ${T.border}` }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontSize: 16, fontWeight: 600, color: T.text }}>Runtime Flow: {group.sourceAgent}</div>
               <div style={{ fontSize: 11, color: T.textMute, fontFamily: FONT_MONO, marginTop: 4 }}>
                 Observed {fmtDate(group.lastSeenIso)} · {group.requests.toLocaleString()} requests · {group.strengthSummary} evidence
               </div>
             </div>
-            <button onClick={onClose} style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.textDim, padding: '6px 14px', borderRadius: 5, fontSize: 12, fontFamily: FONT_MONO, cursor: 'pointer' }}>✕ Close</button>
+            <div style={{ display: 'flex', gap: 0, background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 8, padding: 3 }}>
+              {[
+                { id: 'path',  label: 'Path' },
+                { id: 'graph', label: 'Graph' },
+                { id: 'table', label: 'Table' },
+              ].map(t => (
+                <button key={t.id} onClick={() => setFlowView(t.id)}
+                  style={{
+                    background: flowView === t.id ? T.panel : 'transparent',
+                    border: flowView === t.id ? `1px solid ${T.border}` : '1px solid transparent',
+                    color: flowView === t.id ? T.text : T.textDim,
+                    boxShadow: flowView === t.id ? '0 1px 2px rgba(15,23,42,0.06)' : 'none',
+                    padding: '5px 14px', borderRadius: 6, fontSize: 11, fontFamily: FONT_MONO, cursor: 'pointer',
+                  }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={onClose} style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.textDim, padding: '6px 14px', borderRadius: 8, fontSize: 12, fontFamily: FONT_MONO, cursor: 'pointer' }}>✕ Close</button>
           </div>
         </div>
 
         {/* Body */}
         <div style={{ overflowY: 'auto', flex: 1, padding: '24px' }}>
-          {/* Graph: agent root → labelled branches */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, marginBottom: 24 }}>
-            <FlowNode type="agent" label={group.sourceAgent} />
-            <div style={{ width: 1, height: 16, background: T.border }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%', maxWidth: 520 }}>
-              {ordered.map((r, i) => {
-                const rel = REL_META[r.relationship_type] || { color: T.textDim, label: (r.relationship_type || 'touches_system').replace(/_/g, ' ') }
-                return (
-                  <div key={r.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 140, flexShrink: 0 }}>
-                      <span style={{ color: T.textMute }}>↳</span>
-                      <span style={{ padding: '2px 8px', borderRadius: 3, fontSize: 10, fontFamily: FONT_MONO, background: `${rel.color}18`, color: rel.color, border: `1px solid ${rel.color}33`, whiteSpace: 'nowrap' }}>{rel.label}</span>
-                    </div>
-                    <span style={{ color: T.textMute }}>→</span>
-                    <FlowNode type={r.target_type} label={r.target_name} sub={r.target_identifier || undefined} />
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Detail table */}
+          {flowView === 'path' && <FlowPathView group={group} ordered={ordered} />}
+          {flowView === 'graph' && <FlowGraphView group={group} ordered={ordered} />}
+          {flowView === 'table' && (
           <div style={{ border: `1px solid ${T.border}`, borderRadius: 6, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -634,6 +803,7 @@ function FlowModal({ group, onClose }) {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </div>
     </div>
