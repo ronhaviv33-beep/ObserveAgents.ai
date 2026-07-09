@@ -16,11 +16,12 @@ os.environ.update({
     "CREDENTIAL_ENCRYPTION_KEY":  "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     "DATABASE_URL":               f"sqlite:///{_db_path}",
 })
-sys.path.insert(0, "/home/user/aifinops-guard")
-os.chdir("/home/user/aifinops-guard")
+_repo_root = str(__import__("pathlib").Path(__file__).resolve().parent.parent)
+sys.path.insert(0, _repo_root)
+os.chdir(_repo_root)
 
 from app.main import app, _seed_roles_for_org
-import app.main as app_main          # for patching _TENANCY_HARDENED
+import app.auth as app_auth          # for patching _tenancy_hardened_cache
 from app.database import SessionLocal
 from app.models import Organization, User, Telemetry
 from app.auth import hash_password, create_token
@@ -84,8 +85,9 @@ BH = {"Authorization": f"Bearer {beta_token}"}
 # ── W-1: 503 gate ─────────────────────────────────────────────────────────────
 print("\n=== W-1: 503 gate (not-hardened path) ===")
 
-# Patch the module-level flag to simulate un-hardened schema
-app_main._TENANCY_HARDENED = False
+# Patch the gate cache (app/auth.require_tenancy_hardened) to simulate
+# an un-hardened schema.
+app_auth._tenancy_hardened_cache = False
 
 for path, label in [
     ("/telemetry",         "/telemetry"),
@@ -98,7 +100,7 @@ for path, label in [
           f"got {r.status_code}: {r.text[:60]}")
 
 # Restore flag — now simulate hardened
-app_main._TENANCY_HARDENED = True
+app_auth._tenancy_hardened_cache = True
 
 print("\n=== W-1: endpoints pass-through when hardened ===")
 for path, label in [
@@ -135,11 +137,11 @@ if r.status_code == 200:
           str(alerts))
 
 # Confirm 503 gate still works after flag restore (sanity — re-patch to False)
-app_main._TENANCY_HARDENED = False
+app_auth._tenancy_hardened_cache = False
 r = client.get("/security/alerts", headers=AH)
 check("503 gate fires again after re-patching to not-hardened", r.status_code == 503,
       f"got {r.status_code}")
-app_main._TENANCY_HARDENED = True  # leave clean
+app_auth._tenancy_hardened_cache = True  # leave clean
 
 print()
 passed = sum(results)
