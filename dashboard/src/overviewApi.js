@@ -111,6 +111,10 @@ const FIX_FINDINGS = [
   { id: -2, category: "performance", finding_type: "slow_llm_call", severity: "medium",
     title: "Slow LLM Call Detected", status: "open", asset_key: "demo-1",
     occurrence_count: 6, last_seen: new Date().toISOString() },
+  { id: -3, category: "security", finding_type: "rule_mcp_tool_access_threshold", severity: "medium",
+    title: "MCP Tool Access Above Threshold", status: "open", asset_key: "demo-2",
+    source: "detection_rules", occurrence_count: 12, last_seen: new Date().toISOString(),
+    summary: "demo-research-agent called MCP tools 12 times in the current evidence window (threshold: 5)." },
 ];
 
 const FIX_BUDGETS = [
@@ -166,6 +170,15 @@ export const getOpenFindings = () =>
     const res = await fetchIntelligenceFindings({ status: "open" });
     return Array.isArray(res) ? res : [];
   }, FIX_FINDINGS);
+
+/** Detection rule matches — findings with source=detection_rules, any status
+ *  (Rules & Alerts shows dismissed/resolved matches as history).
+ *  @returns {Promise<{data: Finding[], demo: boolean}>} */
+export const getRuleMatches = () =>
+  withFallback(async () => {
+    const res = await fetchIntelligenceFindings({});
+    return (Array.isArray(res) ? res : []).filter((f) => f.source === "detection_rules");
+  }, FIX_FINDINGS.filter((f) => f.source === "detection_rules"));
 
 /** Gateway control candidates — category=control findings, any status.
  *  @returns {Promise<{data: Finding[], demo: boolean}>} */

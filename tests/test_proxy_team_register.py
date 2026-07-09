@@ -22,8 +22,9 @@ os.environ.update({
     "CREDENTIAL_ENCRYPTION_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     "DATABASE_URL":              f"sqlite:///{_db_path}",
 })
-sys.path.insert(0, "/home/user/aifinops-guard")
-os.chdir("/home/user/aifinops-guard")
+_repo_root = str(__import__("pathlib").Path(__file__).resolve().parent.parent)
+sys.path.insert(0, _repo_root)
+os.chdir(_repo_root)
 
 from app.main import app, _seed_roles_for_org
 from app.database import SessionLocal
@@ -94,8 +95,8 @@ check("'analytics' not yet in Acme teams before proxy call",
       "analytics" not in teams_before, str(teams_before))
 
 mock_client = MagicMock()
-with patch("app.main.get_client_for_org", return_value=mock_client), \
-     patch("app.main.proxy_chat_complete", new=AsyncMock(return_value=FAKE_RESP)):
+with patch("app.routes.proxy.get_client_for_org", return_value=mock_client), \
+     patch("app.routes.proxy.proxy_chat_complete", new=AsyncMock(return_value=FAKE_RESP)):
     r = client.post(
         "/v1/chat/completions",
         headers={**AH, "X-Guard-Team": "analytics", "X-Guard-Agent": "test-bot"},
@@ -125,8 +126,8 @@ teams_before2 = get_teams()
 check("'data-science' not yet in Acme teams before /v1/messages call",
       "data-science" not in teams_before2, str(teams_before2))
 
-with patch("app.main.get_client_for_org", return_value=mock_client), \
-     patch("app.main.proxy_chat_complete", new=AsyncMock(return_value=FAKE_MSG_RESP)):
+with patch("app.routes.proxy.get_client_for_org", return_value=mock_client), \
+     patch("app.routes.proxy.proxy_chat_complete", new=AsyncMock(return_value=FAKE_MSG_RESP)):
     r = client.post(
         "/v1/messages",
         headers={**AH, "X-Guard-Team": "data-science", "X-Guard-Agent": "claude-bot"},
@@ -144,11 +145,13 @@ teams_after2 = get_teams()
 check("'data-science' registered in Acme teams after /v1/messages call",
       "data-science" in teams_after2, str(teams_after2))
 
-print("\n=== proxy path: X-Guard-Team header overrides key's team ===")
-# The key has team="keyteam"; the request sends X-Guard-Team: "header-team"
-# The registered team should be "header-team" (header wins), not "keyteam"
-with patch("app.main.get_client_for_org", return_value=mock_client), \
-     patch("app.main.proxy_chat_complete", new=AsyncMock(return_value=FAKE_RESP)):
+print("\n=== proxy path: X-Guard-Team header is ignored for API-key callers ===")
+# The key has team="keyteam"; the request sends X-Guard-Team: "header-team".
+# API keys are low-trust callers (identity_resolver caller_trust="low"):
+# X-Agent-*/X-Guard-* headers are ignored so callers cannot spoof team
+# attribution — the key's registered team wins.
+with patch("app.routes.proxy.get_client_for_org", return_value=mock_client), \
+     patch("app.routes.proxy.proxy_chat_complete", new=AsyncMock(return_value=FAKE_RESP)):
     r = client.post(
         "/v1/chat/completions",
         headers={"Authorization": f"Bearer {full_key}",
@@ -159,8 +162,10 @@ check("proxy call with API key + X-Guard-Team header → 200", r.status_code == 
       f"got {r.status_code}: {r.text[:120]}")
 
 all_teams = get_teams()
-check("'header-team' registered (header wins over key team)",
-      "header-team" in all_teams, str(all_teams))
+check("'header-team' NOT registered (low-trust header ignored)",
+      "header-team" not in all_teams, str(all_teams))
+check("key's team 'keyteam' registered (key team wins)",
+      "keyteam" in all_teams, str(all_teams))
 
 print()
 passed = sum(results)

@@ -33,6 +33,9 @@ import GovernanceCenter from "./pages/GovernanceCenter.jsx";
 // ui2 (redesign step 3): V2 replaces pages/SecurityIntelligence.jsx, which
 // stays in the tree for rollback — see docs/ui_redesign_plan.md.
 import SecurityIntelligenceV2 from "./pages/SecurityIntelligenceV2.jsx";
+// Detection Rules R6 (docs/ai_agent_detection_rules_alerts_design.md):
+// read-only rule templates + recent rule matches.
+import RulesAlertsV2 from "./pages/RulesAlertsV2.jsx";
 import EcosystemDiscovery from "./pages/EcosystemDiscovery.jsx";
 import RelationshipMap from "./pages/RelationshipMap.jsx";
 // ui2 (redesign step 6): V2 replaces pages/RuntimeTimeline.jsx, which stays
@@ -332,6 +335,7 @@ const PAGES = [
   { id:"governance",     label:"Governance Readiness" },
   { id:"cost",           label:"Cost Signals" },
   { id:"security_intel", label:"Security Intelligence" },
+  { id:"rules_alerts",   label:"Rules & Alerts" },
   { id:"ecosystem",        label:"Ecosystem Discovery" },
   { id:"relationship_map", label:"Runtime Dependency Map" },
   { id:"runtime",          label:"Runtime" },
@@ -382,6 +386,7 @@ const NAV_GROUPS_COMBINED = [
       { id: "runtime",          label: "Runtime" },
       { id: "intelligence",     label: "Asset Intelligence" },
       { id: "security_intel",   label: "Security Intelligence" },
+      { id: "rules_alerts",     label: "Rules & Alerts" },
       { id: "relationship_map", label: "Dependency Map" },
       { id: "agent_inventory",  label: "Agents" },
       { id: "cost",             label: "Cost Signals" },
@@ -435,6 +440,7 @@ const NAV_GROUPS_OBSERVABILITY = [
       { id: "runtime",          label: "Runtime" },
       { id: "intelligence",     label: "Asset Intelligence" },
       { id: "security_intel",   label: "Security Intelligence" },
+      { id: "rules_alerts",     label: "Rules & Alerts" },
       { id: "guardrails",       label: "Guardrails" },
       { id: "relationship_map", label: "Dependency Map" },
     ],
@@ -820,6 +826,7 @@ export default function App() {
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
       case "governance":     return <GovernanceCenter />;
       case "security_intel": return <SecurityIntelligenceV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
+      case "rules_alerts":   return <RulesAlertsV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
       case "ecosystem":        return <EcosystemDiscovery />;
       case "relationship_map": return <RelationshipMap />;
       case "runtime":          return <RuntimeTimelineV2 onNavigate={navigate} focusService={rtFocusService} onFocusConsumed={() => setRtFocusService(null)} />;
