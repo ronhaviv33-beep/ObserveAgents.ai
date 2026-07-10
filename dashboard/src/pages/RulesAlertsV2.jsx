@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { Shield, Wrench, UserCheck, CircleDollarSign } from "lucide-react";
 import { C, FONT, RADIUS, microLabel, riskColor } from "../ui2/tokens.js";
 import PageHeader from "../ui2/PageHeader.jsx";
 import Section from "../ui2/Section.jsx";
@@ -76,6 +77,17 @@ const RULE_TEMPLATES = [
 
 const STATUS_TONE = { open: C.riskMedium, acknowledged: C.teal, resolved: C.accent, dismissed: C.textMute };
 
+// Rule category → icon + color for the template list.
+const CATEGORY_META = {
+  security:   { icon: Shield,           color: C.accent },
+  operations: { icon: Wrench,           color: C.teal },
+  governance: { icon: UserCheck,        color: C.purple },
+  cost:       { icon: CircleDollarSign, color: C.riskMedium },
+};
+
+/** Compact "medium → high" style chip text from the catalog's severity phrase. */
+const sevShort = (severity) => severity.replace(" in production", "").replace(" if production or high count", "");
+
 const relTime = (iso) => {
   if (!iso) return "—";
   const d = new Date(iso.endsWith("Z") || iso.includes("+") ? iso : iso + "Z");
@@ -86,24 +98,47 @@ const relTime = (iso) => {
   return `${Math.floor(m / 1440)}d ago`;
 };
 
-function TemplateCard({ t }) {
+function RuleListRow({ t, open, onToggle, last }) {
+  const cat = CATEGORY_META[t.category] || CATEGORY_META.security;
+  const CatIcon = cat.icon;
   return (
-    <div style={{ flex: "1 1 300px", minWidth: 280, background: C.surface,
-      border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "14px 16px",
-      opacity: t.implemented ? 1 : 0.6 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 7 }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: C.text }}>{t.title}</span>
+    <div style={{ borderBottom: last ? "none" : `1px solid ${C.border}` }}>
+      <div onClick={onToggle} role="button" aria-expanded={open}
+        style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 16px",
+          cursor: "pointer", background: open ? C.surfaceRaised : "transparent",
+          opacity: t.implemented ? 1 : 0.65 }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = C.surfaceHover; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = open ? C.surfaceRaised : "transparent"; }}>
+        <span style={{ color: C.textMute, fontFamily: FONT.mono, fontSize: 10, width: 10, flexShrink: 0 }}>{open ? "▾" : "▸"}</span>
+        <span style={{ width: 24, height: 24, borderRadius: 8, background: `${cat.color}14`,
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <CatIcon size={13} color={cat.color} strokeWidth={2} />
+        </span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{t.title}</span>
         <StatusPill tone={t.implemented ? C.accent : C.textMute}>
           {t.implemented ? "built-in" : "planned"}
         </StatusPill>
-        <span style={{ marginLeft: "auto", fontSize: 10, fontFamily: FONT.mono, color: C.textMute }}>{t.category}</span>
+        <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <span style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t.category}</span>
+          <span style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textDim, background: C.surfaceRaised, borderRadius: 999, padding: "2px 9px", whiteSpace: "nowrap" }}>
+            {sevShort(t.severity)}
+          </span>
+        </span>
       </div>
-      <div style={{ fontSize: 11.5, color: C.textDim, lineHeight: 1.55, marginBottom: 8 }}>{t.trigger}</div>
-      <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, lineHeight: 1.7 }}>
-        severity {t.severity}
-        <br />gateway: {t.gateway}
-      </div>
-      <div style={{ fontSize: 10.5, color: C.textMute, marginTop: 7, lineHeight: 1.5 }}>{t.action}</div>
+      {open && (
+        <div style={{ padding: "2px 16px 14px 60px", background: C.surfaceRaised }}>
+          <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: 6, columnGap: 12, maxWidth: 720 }}>
+            <span style={{ fontSize: 9.5, fontFamily: FONT.mono, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.08em", paddingTop: 2 }}>Trigger</span>
+            <span style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>{t.trigger}</span>
+            <span style={{ fontSize: 9.5, fontFamily: FONT.mono, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.08em", paddingTop: 2 }}>Severity</span>
+            <span style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>{t.severity}</span>
+            <span style={{ fontSize: 9.5, fontFamily: FONT.mono, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.08em", paddingTop: 2 }}>Gateway</span>
+            <span style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>{t.gateway}</span>
+            <span style={{ fontSize: 9.5, fontFamily: FONT.mono, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.08em", paddingTop: 2 }}>Action</span>
+            <span style={{ fontSize: 12, color: C.text, lineHeight: 1.6 }}>{t.action}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -153,6 +188,13 @@ export default function RulesAlertsV2({ onNavigate }) {
   const [running, setRunning] = useState(false);
   const [runResult, setRunResult] = useState(null);
   const [error, setError] = useState(null);
+  const [openRules, setOpenRules] = useState(() => new Set());
+
+  const toggleRule = (type) => setOpenRules((prev) => {
+    const next = new Set(prev);
+    if (next.has(type)) next.delete(type); else next.add(type);
+    return next;
+  });
 
   const load = useCallback(async () => {
     const [m, a, c] = await Promise.all([getRuleMatches(), getAssetSummary(), getControlCandidates()]);
@@ -189,6 +231,8 @@ export default function RulesAlertsV2({ onNavigate }) {
   const highOpen = openRows.filter((f) => SEV_RANK[f.severity] >= 4).length;
   const agentsAffected = new Set(openRows.map((f) => f.asset_key)).size;
   const builtIn = RULE_TEMPLATES.filter((t) => t.implemented).length;
+  // Implemented rules first; the planned roadmap stays visible below them.
+  const orderedTemplates = [...RULE_TEMPLATES].sort((a, b) => (b.implemented ? 1 : 0) - (a.implemented ? 1 : 0));
 
   if (matches === null || assets === null || candidates === null) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 280, color: C.textMute, fontFamily: FONT.mono, fontSize: 13 }}>
@@ -234,11 +278,27 @@ export default function RulesAlertsV2({ onNavigate }) {
       </div>
 
       <Section label="Built-in rule templates"
-        right={<span style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute }}>
+        right={
+          <span style={{ display: "flex", gap: 12 }}>
+            <button onClick={() => setOpenRules(new Set(RULE_TEMPLATES.map((t) => t.type)))}
+              style={{ background: "transparent", border: "none", color: C.textDim, fontSize: 11, fontFamily: FONT.mono, cursor: "pointer", textDecoration: "underline", padding: 0 }}>
+              expand all
+            </button>
+            <button onClick={() => setOpenRules(new Set())}
+              style={{ background: "transparent", border: "none", color: C.textDim, fontSize: 11, fontFamily: FONT.mono, cursor: "pointer", textDecoration: "underline", padding: 0 }}>
+              collapse all
+            </button>
+          </span>
+        }>
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md,
+          boxShadow: "0 1px 2px rgba(15,23,42,0.04)", overflow: "hidden" }}>
+          {orderedTemplates.map((t, i) => (
+            <RuleListRow key={t.type} t={t} open={openRules.has(t.type)}
+              onToggle={() => toggleRule(t.type)} last={i === orderedTemplates.length - 1} />
+          ))}
+        </div>
+        <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, marginTop: 8 }}>
           Read-only defaults — configurable rules arrive with the rule builder.
-        </span>}>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {RULE_TEMPLATES.map((t) => <TemplateCard key={t.type} t={t} />)}
         </div>
       </Section>
 
