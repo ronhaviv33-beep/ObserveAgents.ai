@@ -99,9 +99,10 @@ services:
   # ── Public demo (demo.observeagents.ai) ─────────────────────────────────────
   # Separate service + separate disk/DB. No login, synthetic data, read-only.
   # This is the ONLY place DEMO_MODE=true is set.
-  # VITE_PRODUCT_SURFACE is intentionally unset here: the demo ships the blended
-  # "combined" showcase surface so visitors can walk both products. Combined is
-  # demo/transition-only — production targets always set an explicit surface.
+  # Ships the SAME product surface as the production app (observability) so the
+  # demo's navigation matches app.observeagents.ai exactly. Demo-only behavior
+  # (no-login, synthetic data, read-only, the DemoDashboard landing) is runtime,
+  # gated by DEMO_MODE — independent of the build-time surface.
   - type: web
     name: ai-asset-demo
     runtime: python
@@ -112,6 +113,9 @@ services:
       mountPath: /data
       sizeGB: 1
     envVars:
+      # ── Product surface (build-time) — match the production app's nav ───────
+      - key: VITE_PRODUCT_SURFACE
+        value: observability
       # ── Environment separation ──────────────────────────────────────────────
       - key: APP_ENV
         value: demo
