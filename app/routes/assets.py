@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth import get_current_user, resolve_team_scope, is_deny_sentinel
+from app.auth import get_current_user, resolve_team_scope, is_deny_sentinel, require_admin
 from app import assets as asset_lib
 from app.models import Telemetry
 from app.org_config import get_org_config
@@ -206,7 +206,7 @@ async def list_unassigned_assets(
 async def claim_asset(
     agent_name: str,
     body: dict,
-    user=Depends(get_current_user),
+    user=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -216,7 +216,6 @@ async def claim_asset(
     import hashlib as _hashlib
     from datetime import datetime, timezone
     from app.models import AssetRegistry
-    from app.auth import require_admin as _require_admin
 
     org_id, team_scope = _org_and_scope(user, db)
     if is_deny_sentinel(team_scope):
@@ -266,7 +265,7 @@ async def claim_asset(
 async def update_asset_registry(
     agent_name: str,
     body: dict,
-    user=Depends(get_current_user),
+    user=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """Update any governance field on a managed asset (owner, environment, criticality, etc.)."""

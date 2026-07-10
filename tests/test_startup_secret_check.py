@@ -56,8 +56,8 @@ os.environ.update({
     "JWT_SECRET":    "testsecret-sc",
     "DATABASE_URL":  f"sqlite:///{_db_path}",
 })
-sys.path.insert(0, "/home/user/ai-asset-management")
-os.chdir("/home/user/ai-asset-management")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Stash and clear key to test "missing"
 _orig = os.environ.pop("CREDENTIAL_ENCRYPTION_KEY", None)
