@@ -19,6 +19,7 @@ ObserveAgents is the **runtime visibility and control layer for AI agents**: it 
 | O7 | Observe MCP server | Read-only MCP tools (`list_ai_systems`, `get_findings`, `get_trace`, `get_cost_signals`) so customers' agents can query their AI inventory |
 | O8 | **Observe Advisor MVP** | From *what happened* to *what this agent needs to learn next* — see below |
 | O9 | **Gateway Control Center / Observe-to-Control** | A one-click workspace that turns observed runtime risk into Gateway control recommendations for specific AI agents. One production app: Observe workspace (source of truth) + Gateway Control Center (action workspace) — no env-var switch, no redeploy, no enforcement without explicit approval. *Observe first. Control only what matters.* Design: [gateway_control_center_architecture.md](gateway_control_center_architecture.md) |
+| Future | **Agentic Payments / x402 Observability** *(exploratory)* | Future support for observing payment-enabled AI-agent behavior — HTTP 402 challenges, paid external resources, payment failures, payment spikes, and payment-related detection rules — as runtime evidence, risk findings, and control recommendations. ObserveAgents observes; it does not process or verify payments. Design: [agentic_payments_x402_observability_plan.md](agentic_payments_x402_observability_plan.md) |
 
 **Shipped:** **AI Agent Runtime Security Intelligence MVP** — agent-specific, environment-aware security findings derived from runtime evidence (database/API reach, MCP in production, broad tool surface, unknown providers, missing ownership, repeated tool errors, human-review combinations). Observe-only, derivation-only, no new ingestion. See [ai_agent_runtime_security_intelligence.md](ai_agent_runtime_security_intelligence.md). O3's in-flight content verdicts (prompt injection / PII / toxicity) remain ahead as the next security layer.
 
@@ -46,6 +47,18 @@ Examples:
 > Rules observe and alert. Gateway can optionally enforce later.
 
 Canonical design with rule templates, evaluation model, dedup/anti-spam rules, future data model, and R0–R8 sequence: [ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md) (supersedes [ai_agent_detection_rules_plan.md](ai_agent_detection_rules_plan.md)).
+
+---
+
+## Future / exploratory — Agentic Payments / x402 Observability
+
+**Status: future / exploratory.** Positioned *below* the current detection-rules and webhook-notification work — not a near-term commitment.
+
+As AI agents begin to pay for resources, APIs, datasets, and MCP tools programmatically (via HTTP 402 payment challenges — e.g. Cloudflare's Monetization Gateway), a new category of runtime behavior appears: *which agents pay, what for, how often, and whether that's risky.* ObserveAgents would treat payment activity as **runtime evidence** — surfacing paid-resource summaries in Asset Intelligence, a Payment & Monetization Risk bucket in Security Intelligence, payment-threshold Detection Rules, and Gateway Control recommendations for payment-enabled agents.
+
+**ObserveAgents observes; it does not process or verify payments** and does not replace Cloudflare, Stripe, wallets, gateways, or billing systems. Enforcement (spend limits, vendor allowlists) would happen only if traffic is explicitly routed through Gateway and controls are explicitly configured.
+
+Full plan — telemetry model, findings, detection rules, product surfaces, privacy boundaries, non-goals, and the P0–P8 sequence: [agentic_payments_x402_observability_plan.md](agentic_payments_x402_observability_plan.md).
 
 ---
 
