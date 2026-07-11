@@ -31,6 +31,10 @@ DEFAULTS: dict = {
     # not used in risk scoring or surfaced as primary UI signals. Enable per-org for
     # customers that want sensitive-content runtime safety signals.
     "pii_detection_enabled": False,
+    # Customer-defined OTel attribute aliases {custom_key: canonical_key},
+    # validated against app/otel_attribute_mapping.ALLOWED_TARGETS and applied
+    # as a pre-extraction pass during OTLP ingestion.
+    "otel_attribute_mapping": {},
 }
 
 

@@ -471,6 +471,16 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict], api_key_id: int
     provenance_events, otel_assets_upserted.
     """
     from app.models import OtelSpan, ProvenanceEvent, AssetRegistry
+    from app.otel_attribute_mapping import (
+        apply_mapping_to_batch,
+        load_org_attribute_mapping,
+    )
+
+    # Org-defined custom→canonical attribute aliases, fetched ONCE per ingest
+    # request and applied in place before identity resolution / extraction /
+    # classification. Native canonical keys are never overwritten.
+    org_mapping = load_org_attribute_mapping(db, org_id)
+    span_mapped_keys = apply_mapping_to_batch(spans, org_mapping)
 
     assets_seen: set[str] = set()
     relationships_upserted = 0
@@ -516,7 +526,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict], api_key_id: int
         if current is None or _IDENTITY_TIER_RANK[tier] > _IDENTITY_TIER_RANK[current[2]]:
             _trace_identity[trace_id] = (ident, disp, tier)
 
-    for span in spans:
+    for span_idx, span in enumerate(spans):
         attrs = span.get("attributes") or {}
         resource_attrs = span.get("resource_attributes") or {}
         span_id = span.get("span_id") or ""
@@ -542,7 +552,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict], api_key_id: int
         cls = classify_span(
             attrs, resource_attrs,
             identity_tier=identity_tier,
-            mapped_keys=frozenset(),
+            mapped_keys=span_mapped_keys[span_idx],
         )
         _agent_class_counts[agent_name][cls.counts_key] += 1
         if cls.candidate_keys:
