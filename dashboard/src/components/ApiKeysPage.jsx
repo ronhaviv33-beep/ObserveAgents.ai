@@ -66,7 +66,7 @@ export default function ApiKeysPage({ demoMode = false }) {
       <Card title="New API Key">
         <form onSubmit={handleCreate} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
           {[
-            { label: "Name *", key: "name", placeholder: "e.g. customer-support-prod" },
+            { label: "Name *", key: "name", placeholder: "e.g. prod-otel-collector" },
             { label: "Team",   key: "team", placeholder: "e.g. Customer Success" },
           ].map(({ label, key, placeholder }) => (
             <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -82,7 +82,7 @@ export default function ApiKeysPage({ demoMode = false }) {
           </button>
         </form>
         <div style={{ fontSize: 11, color: T.textMute, fontFamily: FONT_MONO, marginTop: 10 }}>
-          Create one API key per service, workflow or AI application — e.g. customer-support-prod, sales-assistant-prod, engineering-copilot, platform-agent.
+          One key per Collector — usually a single key for your whole organization. Agent names come automatically from <strong style={{ color: T.textDim }}>service.name</strong> in your traces, so you don't need a key per agent. Add more keys only for extra Collectors, separate environments (staging/prod), or per-app Gateway routing.
         </div>
         {err && <div style={{ color: T.crit, fontFamily: FONT_MONO, fontSize: 12, marginTop: 10 }}>{err}</div>}
       </Card>
