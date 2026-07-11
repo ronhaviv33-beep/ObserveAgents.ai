@@ -679,6 +679,11 @@ class OtelSpan(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    # Which ingestion credential (Collector key) produced this span. Best-effort
+    # attribution — nullable (dashboard/JWT ingestion and pre-migration rows are
+    # NULL); no FK so key deletion never cascades or blocks. Added via the startup
+    # ensure_model_columns auto-migration.
+    api_key_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     trace_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     span_id: Mapped[str] = mapped_column(String(32), nullable=False)
     parent_span_id: Mapped[str | None] = mapped_column(String(32), nullable=True)

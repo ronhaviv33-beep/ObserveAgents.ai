@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey } from "../api.js";
+import { fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchApiKeyAgents } from "../api.js";
 import { gatewayBaseUrl, PUBLIC_APP_URL, PUBLIC_DEMO_URL } from "../config.js";
 import { T, FONT_MONO } from "../theme.js";
 import { Card, Pill } from "./ui.jsx";
@@ -11,6 +11,21 @@ export default function ApiKeysPage({ demoMode = false }) {
   const [saving,    setSaving]    = useState(false);
   const [err,       setErr]       = useState(null);
   const [newKey,    setNewKey]    = useState(null); // shown-once modal
+  const [expanded,  setExpanded]  = useState(null); // key id whose agents are shown
+  const [agents,    setAgents]    = useState({});   // { [id]: { loading, rows, error } }
+
+  const toggleAgents = useCallback(async (id) => {
+    if (expanded === id) { setExpanded(null); return; }
+    setExpanded(id);
+    if (agents[id]) return; // already loaded
+    setAgents(a => ({ ...a, [id]: { loading: true } }));
+    try {
+      const data = await fetchApiKeyAgents(id);
+      setAgents(a => ({ ...a, [id]: { loading: false, rows: data.agents } }));
+    } catch (e) {
+      setAgents(a => ({ ...a, [id]: { loading: false, error: e.message } }));
+    }
+  }, [expanded, agents]);
 
   const load = useCallback(async () => {
     try { setKeys(await fetchApiKeys()); }
@@ -102,8 +117,15 @@ export default function ApiKeysPage({ demoMode = false }) {
               <tr><td colSpan={7} style={{ padding: 20, textAlign: "center", color: T.textMute, fontFamily: FONT_MONO, fontSize: 12 }}>No API keys yet.</td></tr>
             )}
             {keys.map(k => (
-              <tr key={k.id} style={{ borderBottom: `1px solid ${T.border}`, opacity: k.is_active ? 1 : 0.45 }}>
-                <td style={{ padding: "12px 8px", fontSize: 12, color: T.text, fontWeight: 500 }}>{k.name}</td>
+              <React.Fragment key={k.id}>
+              <tr style={{ borderBottom: `1px solid ${T.border}`, opacity: k.is_active ? 1 : 0.45 }}>
+                <td style={{ padding: "12px 8px", fontSize: 12, color: T.text, fontWeight: 500 }}>
+                  <button onClick={() => toggleAgents(k.id)} title="Agents seen on this key"
+                    style={{ background: "transparent", border: "none", color: T.text, fontSize: 12, fontWeight: 500, fontFamily: "inherit", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: T.textMute, fontFamily: FONT_MONO, fontSize: 10 }}>{expanded === k.id ? "▾" : "▸"}</span>
+                    {k.name}
+                  </button>
+                </td>
                 <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textDim }}>{k.key_prefix}…</td>
                 <td style={{ padding: "12px 8px", fontSize: 12, color: T.textDim }}>{k.team}</td>
                 <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textMute }}>{fmtDate(k.created_at)}</td>
@@ -126,6 +148,38 @@ export default function ApiKeysPage({ demoMode = false }) {
                   </div>
                 </td>
               </tr>
+              {expanded === k.id && (
+                <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.panelHi }}>
+                  <td colSpan={7} style={{ padding: "10px 8px 14px 26px" }}>
+                    <div style={{ fontSize: 10, fontFamily: FONT_MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>
+                      Agents seen on this key
+                    </div>
+                    {(() => {
+                      const st = agents[k.id] || {};
+                      if (st.loading) return <div style={{ fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>Loading…</div>;
+                      if (st.error)   return <div style={{ fontSize: 12, color: T.crit, fontFamily: FONT_MONO }}>{st.error}</div>;
+                      const rows = st.rows || [];
+                      if (rows.length === 0) return (
+                        <div style={{ fontSize: 12, color: T.textMute }}>
+                          No traces ingested with this key yet. Agent names come from <strong style={{ color: T.textDim }}>service.name</strong> once your Collector sends traffic.
+                        </div>
+                      );
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {rows.map(a => (
+                            <div key={a.service_name} style={{ display: "flex", gap: 14, alignItems: "baseline", fontSize: 12 }}>
+                              <span style={{ color: T.text, fontFamily: FONT_MONO, minWidth: 220 }}>{a.service_name}</span>
+                              <span style={{ color: T.textDim }}>{a.span_count} spans</span>
+                              <span style={{ color: T.textMute, fontFamily: FONT_MONO, fontSize: 11 }}>last seen {fmtDate(a.last_seen)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
