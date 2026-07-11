@@ -369,9 +369,13 @@ def upsert_otel_asset(
         _log.warning("Failed to upsert OtelAsset for %s (org=%s)", service_name, org_id, exc_info=True)
 
 
-def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
+def normalize_spans(db: Session, org_id: int, spans: list[dict], api_key_id: int | None = None) -> dict:
     """
     Process a list of parsed OTLP spans for one organization.
+
+    api_key_id, when provided, is the ingestion credential (Collector key) that
+    posted these spans — stored on each OtelSpan for per-key attribution. None for
+    dashboard/JWT ingestion.
 
     Returns counts: spans_ingested, assets_created_or_updated, relationships_upserted,
     provenance_events, otel_assets_upserted.
@@ -479,6 +483,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict]) -> dict:
             if not existing_span:
                 db.add(OtelSpan(
                     organization_id=org_id,
+                    api_key_id=api_key_id,
                     trace_id=trace_id,
                     span_id=span_id,
                     parent_span_id=span.get("parent_span_id"),
