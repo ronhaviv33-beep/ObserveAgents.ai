@@ -105,6 +105,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.trace import Status, StatusCode
 
 resource = Resource.create({
     "service.name": "customer-support-agent",
@@ -139,8 +140,33 @@ with tracer.start_as_current_span("agent.workflow") as root:
         s.set_attribute("mcp.method.name", "tools/call")
         s.set_attribute("gen_ai.tool.name", "jira_search")
 
+# ── Extra operations that trigger the three built-in Detection Rules ──
+# Same production agent. After sending, click "Run rules" on Rules & Alerts
+# (rules are observe-only — they evaluate on demand, never during ingestion).
+rules_session = uuid.uuid4().hex
+with tracer.start_as_current_span("agent.workflow") as root:
+    root.set_attribute("session.id", rules_session)
+
+    # Rule 1 — MCP Tool Access Above Threshold: fires on > 5 MCP calls.
+    # Rule 2 — Repeated Tool Errors: fires on >= 3 tool/MCP spans that carry an
+    #          error.type attribute (a bare ERROR status is NOT enough).
+    for i in range(6):
+        with tracer.start_as_current_span("mcp.call") as s:
+            s.set_attribute("session.id", rules_session)
+            s.set_attribute("mcp.method.name", "tools/call")
+            s.set_attribute("gen_ai.tool.name", f"jira_search_{i}")
+            if i < 3:                                   # 3 failures -> Repeated Tool Errors
+                s.set_attribute("error.type", "tool_timeout")
+                s.set_status(Status(StatusCode.ERROR, "tool timeout"))
+
+    # Rule 3 — Unknown Provider in Production: a provider outside the known catalog.
+    with tracer.start_as_current_span("gen_ai.request") as s:
+        s.set_attribute("session.id", rules_session)
+        s.set_attribute("gen_ai.provider.name", "acme-llm")
+        s.set_attribute("gen_ai.request.model", "acme-model-v1")
+
 provider.shutdown()
-print("sent — session", session)
+print("sent — sessions", session, rules_session)
 ```
 
 **EN.** Run `python lab_agent.py` and confirm the spans print in the Collector's debug output. That's your checkpoint before pointing at the platform.
@@ -277,8 +303,12 @@ for i in range(3):
         s.set_attribute("session.id", session)
         s.set_attribute("mcp.method.name", "tools/call")
         s.set_attribute("gen_ai.tool.name", "stripe_charge")
+        s.set_attribute("error.type", "tool_timeout")   # required — the rule keys on error.type
         s.set_status(Status(StatusCode.ERROR, "tool timeout"))
 ```
+
+> **Why `error.type`?** ObserveAgents' `repeated_tool_errors` rule counts spans whose attributes carry an `error.type` (or an RPC error code) **and** a tool/MCP identity — a bare OTLP `ERROR` status alone is not counted.
+> **למה `error.type`?** החוק `repeated_tool_errors` סופר spans שה‑attributes שלהם מכילים `error.type` (או קוד שגיאת RPC) **וגם** זהות tool/MCP — סטטוס OTLP `ERROR` לבדו לא נספר.
 
 ---
 
