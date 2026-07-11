@@ -612,24 +612,27 @@ async def delete_organization(
     The internal platform organization cannot be deleted.
     Platform admin only.
     """
-    from app.models import Role
+    from app.models import Base
     org = db.query(Organization).filter(Organization.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail=f"Organization {org_id} not found.")
     if org.is_internal:
         raise HTTPException(status_code=403, detail="The internal platform organization cannot be deleted.")
 
-    # Delete all data belonging to this org (order matters for FK constraints)
-    db.query(Telemetry).filter(Telemetry.organization_id == org_id).delete(synchronize_session=False)
-    db.query(AgentRelationship).filter(AgentRelationship.organization_id == org_id).delete(synchronize_session=False)
-    db.query(AssetRegistry).filter(AssetRegistry.organization_id == org_id).delete(synchronize_session=False)
-    db.query(BudgetRule).filter(BudgetRule.organization_id == org_id).delete(synchronize_session=False)
-    db.query(PolicyRule).filter(PolicyRule.organization_id == org_id).delete(synchronize_session=False)
-    db.query(GuardMode).filter(GuardMode.organization_id == org_id).delete(synchronize_session=False)
-    db.query(Team).filter(Team.organization_id == org_id).delete(synchronize_session=False)
-    db.query(User).filter(User.organization_id == org_id).delete(synchronize_session=False)
-    db.query(Role).filter(Role.organization_id == org_id).delete(synchronize_session=False)
+    org_name = org.name
+
+    # Delete every row belonging to this org across ALL org-scoped tables — runtime
+    # telemetry (otel_spans/otel_assets/findings/…), credentials, API keys, billing,
+    # etc. — not just the governance subset. Iterating metadata in reverse-dependency
+    # order keeps deletes FK-safe and automatically covers tables added later, so an
+    # org delete can never silently orphan a tenant's data.
+    deleted: dict[str, int] = {}
+    for table in reversed(Base.metadata.sorted_tables):
+        if "organization_id" in table.c:
+            res = db.execute(table.delete().where(table.c.organization_id == org_id))
+            if res.rowcount:
+                deleted[table.name] = res.rowcount
     db.delete(org)
     db.commit()
 
-    return {"deleted": True, "org_id": org_id, "org_name": org.name}
+    return {"deleted": True, "org_id": org_id, "org_name": org_name, "rows_deleted": deleted}
