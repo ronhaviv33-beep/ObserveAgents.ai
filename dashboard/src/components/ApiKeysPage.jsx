@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey } from "../api.js";
-import { gatewayBaseUrl } from "../config.js";
+import { gatewayBaseUrl, isDemoMode, PUBLIC_APP_URL, PUBLIC_DEMO_URL } from "../config.js";
 import { T, FONT_MONO } from "../theme.js";
 import { Card, Pill } from "./ui.jsx";
 
@@ -55,15 +55,15 @@ export default function ApiKeysPage() {
 
       {/* ── Page header ── */}
       <div>
-        <div style={{ fontSize: 20, fontWeight: 500, color: T.text, letterSpacing: "-0.01em" }}>Gateway API Keys</div>
+        <div style={{ fontSize: 20, fontWeight: 500, color: T.text, letterSpacing: "-0.01em" }}>API Keys</div>
         <div style={{ fontSize: 12, color: T.textDim, marginTop: 4 }}>
-          Use these keys <strong style={{ color: T.text }}>inside your AI applications</strong> to route traffic through the gateway.
-          Do not use your OpenAI key when routing through the gateway. Each key is shown once — copy it immediately.
+          Use this key to <strong style={{ color: T.text }}>send OpenTelemetry traces</strong> to ObserveAgents — it's your Bearer token for OTLP ingestion.
+          The same key can optionally route traffic through the Gateway. Each key is shown once — copy it immediately.
         </div>
       </div>
 
       {/* ── Create key ── */}
-      <Card title="New Gateway API Key">
+      <Card title="New API Key">
         <form onSubmit={handleCreate} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
           {[
             { label: "Name *", key: "name", placeholder: "e.g. customer-support-prod" },
@@ -82,7 +82,7 @@ export default function ApiKeysPage() {
           </button>
         </form>
         <div style={{ fontSize: 11, color: T.textMute, fontFamily: FONT_MONO, marginTop: 10 }}>
-          Create one Gateway API Key per service, workflow or AI application — e.g. customer-support-prod, sales-assistant-prod, engineering-copilot, platform-agent.
+          Create one API key per service, workflow or AI application — e.g. customer-support-prod, sales-assistant-prod, engineering-copilot, platform-agent.
         </div>
         {err && <div style={{ color: T.crit, fontFamily: FONT_MONO, fontSize: 12, marginTop: 10 }}>{err}</div>}
       </Card>
@@ -133,8 +133,16 @@ export default function ApiKeysPage() {
 
       {/* ── Show-once modal + first-request onboarding ── */}
       {newKey && (() => {
-        const gatewayUrl = gatewayBaseUrl();
-        const snippet = `from openai import OpenAI
+        const demoMode = isDemoMode();
+        const observeUrl = demoMode ? PUBLIC_DEMO_URL : PUBLIC_APP_URL;
+        const gatewayUrl = gatewayBaseUrl(demoMode);
+        const otelSnippet = `# Point your OpenTelemetry exporter at ObserveAgents
+OTEL_EXPORTER_OTLP_ENDPOINT=${observeUrl}/otel
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer ${newKey}
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_SERVICE_NAME=my-agent
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production`;
+        const gatewaySnippet = `from openai import OpenAI
 
 client = OpenAI(
     api_key="${newKey}",
@@ -146,11 +154,11 @@ response = client.chat.completions.create(
     messages=[{"role": "user", "content": "Hello"}]
 )`;
         const outcomes = [
-          "Agent discovered",
-          "Cost tracking enabled",
-          "Dependency mapping enabled",
-          "Governance enabled",
-          "Ownership suggestions enabled",
+          "Agent discovered from runtime evidence",
+          "Runtime timeline populated",
+          "Capabilities & dependencies mapped",
+          "Security findings derived",
+          "Owner & control suggestions surfaced",
         ];
         return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24, overflowY: "auto" }}>
@@ -169,16 +177,17 @@ response = client.chat.completions.create(
               </button>
             </div>
 
-            {/* Next step: send your first AI request */}
+            {/* Next step: send your first OpenTelemetry trace (primary path) */}
             <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 16 }}>
-              <div style={{ fontSize: 9, fontFamily: FONT_MONO, color: T.textMute, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 4 }}>Next Step</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>Send your first AI request.</div>
+              <div style={{ fontSize: 9, fontFamily: FONT_MONO, color: T.textMute, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 4 }}>Next Step · OpenTelemetry</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>Send your first trace.</div>
               <div style={{ fontSize: 12, color: T.textDim, marginBottom: 12 }}>
-                Use this Gateway API Key inside your AI application — replace your OpenAI endpoint with the gateway endpoint.
+                Point your existing OpenTelemetry exporter at ObserveAgents — no proprietary SDK — using this key as the Bearer token.
+                Then open <strong style={{ color: T.text }}>Runtime</strong> and watch your first trace appear.
               </div>
               <div style={{ position: "relative" }}>
-                <pre style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "14px 16px", fontFamily: FONT_MONO, fontSize: 11.5, color: T.text, margin: 0, overflowX: "auto", lineHeight: 1.6 }}>{snippet}</pre>
-                <button onClick={() => navigator.clipboard.writeText(snippet).catch(() => {})}
+                <pre style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "14px 16px", fontFamily: FONT_MONO, fontSize: 11.5, color: T.text, margin: 0, overflowX: "auto", lineHeight: 1.6 }}>{otelSnippet}</pre>
+                <button onClick={() => navigator.clipboard.writeText(otelSnippet).catch(() => {})}
                   style={{ position: "absolute", top: 8, right: 8, background: `${T.accent}20`, border: `1px solid ${T.accent}55`, color: T.accent, padding: "3px 10px", borderRadius: 4, fontSize: 10, fontFamily: FONT_MONO, cursor: "pointer" }}>
                   Copy
                 </button>
@@ -193,15 +202,31 @@ response = client.chat.completions.create(
               <div style={{ marginTop: 12, fontSize: 11, fontFamily: FONT_MONO, color: T.textMute }}>Estimated setup time: 30 seconds</div>
             </div>
 
+            {/* Optional path: route through the Gateway */}
+            <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 16 }}>
+              <div style={{ fontSize: 9, fontFamily: FONT_MONO, color: T.textMute, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 4 }}>Optional · Gateway</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 4 }}>Prefer not to instrument? Route through the Gateway.</div>
+              <div style={{ fontSize: 12, color: T.textDim, marginBottom: 12 }}>
+                Change one line — your OpenAI <code style={{ fontFamily: FONT_MONO, fontSize: 11, color: T.accent }}>base_url</code> — to send traffic through the Gateway with the same key. Observe-only until you configure control.
+              </div>
+              <div style={{ position: "relative" }}>
+                <pre style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "14px 16px", fontFamily: FONT_MONO, fontSize: 11.5, color: T.text, margin: 0, overflowX: "auto", lineHeight: 1.6 }}>{gatewaySnippet}</pre>
+                <button onClick={() => navigator.clipboard.writeText(gatewaySnippet).catch(() => {})}
+                  style={{ position: "absolute", top: 8, right: 8, background: `${T.accent}20`, border: `1px solid ${T.accent}55`, color: T.accent, padding: "3px 10px", borderRadius: 4, fontSize: 10, fontFamily: FONT_MONO, cursor: "pointer" }}>
+                  Copy
+                </button>
+              </div>
+            </div>
+
             {/* Key vs credential clarity */}
             <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>Gateway API Key</div>
-                <div style={{ fontSize: 12, color: T.textDim }}>Used by your applications to route traffic through the gateway.</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>Your API Key</div>
+                <div style={{ fontSize: 12, color: T.textDim }}>Sends OpenTelemetry traces to ObserveAgents, and optionally routes traffic through the Gateway.</div>
               </div>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>Provider Credentials</div>
-                <div style={{ fontSize: 12, color: T.textDim }}>Stored securely by ObserveAgents. Never place OpenAI keys in customer code.</div>
+                <div style={{ fontSize: 12, color: T.textDim }}>Only needed for the Gateway path. Stored securely by ObserveAgents — never place provider keys in your app.</div>
               </div>
             </div>
 
