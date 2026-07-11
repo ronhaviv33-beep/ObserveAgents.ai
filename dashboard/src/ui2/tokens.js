@@ -64,10 +64,10 @@ export const riskColor = (level) => ({
 
 /** Small-caps label style used for section/card headers. */
 export const microLabel = {
-  fontSize: 11,
+  fontSize: 11.5,
   fontFamily: FONT.ui,
   fontWeight: 600,
   color: C.textMute,
-  letterSpacing: "0.06em",
+  letterSpacing: "0.04em",
   textTransform: "uppercase",
 };
