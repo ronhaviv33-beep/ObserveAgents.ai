@@ -29,8 +29,10 @@ const FONT_SANS = "'Inter', system-ui, sans-serif"
 // ── Type colours & icons ──────────────────────────────────────────────────────
 const TYPE_META = {
   agent:      { color: T.accent,   icon: '🤖', label: 'Agent',      Icon: Bot },
+  tool:       { color: T.teal,     icon: '🔧', label: 'Tool',       Icon: Wrench },
   mcp_tool:   { color: T.teal,     icon: '🔧', label: 'MCP Tool',   Icon: Wrench },
   mcp_server: { color: T.purple,   icon: '🖧',  label: 'MCP Server', Icon: Server },
+  mcp_resource:{ color: T.purple,  icon: '📎', label: 'MCP Resource', Icon: Server },
   workflow:   { color: T.warn,     icon: '⚡', label: 'Workflow',   Icon: Zap },
   api:        { color: T.info,     icon: '🌐', label: 'API',        Icon: Globe },
   database:   { color: T.success,  icon: '🗄',  label: 'Database',   Icon: Database },
@@ -60,6 +62,7 @@ const TARGET_TYPE_OPTIONS = [
   { value: 'provider',  label: 'Provider' },
   { value: 'model',     label: 'Model' },
   { value: 'gateway',   label: 'Gateway' },
+  { value: 'tool',      label: 'Tool' },
   { value: 'mcp_tool',  label: 'MCP Tool' },
   { value: 'mcp_server',label: 'MCP Server' },
   { value: 'workflow',  label: 'Workflow' },

@@ -415,15 +415,8 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
             finds_created += c
             finds_updated += u
 
-        if reg and reg.owner is None and reg.claimed_by is None:
-            c, u = _upsert_finding(
-                db, org_id, asset_id, asset_key, "operations", "unmanaged_runtime", "medium",
-                "Unmanaged AI System",
-                "This AI system has no assigned owner and has not been claimed in the asset registry.",
-                "otel_trace", now,
-            )
-            finds_created += c
-            finds_updated += u
+        # (removed) unmanaged_runtime — ownership is optional; a missing owner is
+        # no longer surfaced as a finding.
 
         # inventory
         if reg and reg.discovery_status == "potential":

@@ -258,13 +258,6 @@ export async function getAttention() {
     }
   });
 
-  // Governance: distinct observed assets whose open findings say they lack an owner.
-  const agentsNeedingOwner = new Set(
-    findings.data
-      .filter((f) => f.finding_type === "agent_missing_owner" || f.finding_type === "unmanaged_runtime")
-      .map((f) => f.asset_key)
-  ).size;
-
   return {
     highOpenFindings,
     budgetsBlocked,
@@ -272,7 +265,6 @@ export async function getAttention() {
     errorTraces: errorTracesList.length,
     systemsTotal: assetList.length,
     systemsManaged: agents.data.managed,
-    agentsNeedingOwner,
     worstOffender,
     demo: findings.demo || budgets.demo || traces.demo || assets.demo,
   };

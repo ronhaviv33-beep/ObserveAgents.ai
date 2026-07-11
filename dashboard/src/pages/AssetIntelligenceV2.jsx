@@ -20,7 +20,6 @@ import { getAssetSummary, getControlCandidates } from "../overviewApi.js";
  */
 
 const SEV_RANK = { critical: 5, high: 4, medium: 3, low: 2, info: 1 };
-const OWNER_TYPES = ["agent_missing_owner", "unmanaged_runtime"];
 const CATEGORY_ORDER = ["security", "operations", "dependency", "inventory", "performance"];
 const CATEGORY_LABEL = {
   security: "Security", operations: "Operations / runtime", dependency: "Dependencies",
@@ -49,13 +48,11 @@ const evidenceLine = (ev) => {
   if (Array.isArray(ev.details) && ev.details.length) parts.push(ev.details.slice(0, 3).join(" · "));
   return parts.length ? parts.join(" · ") : null;
 };
-const needsOwner = (a) => openFinds(a).some((f) => OWNER_TYPES.includes(f.finding_type));
 const hasSecurityRisk = (a) => openFinds(a).some((f) => f.category === "security" && SEV_RANK[f.severity] >= 3);
 const traceDiscovered = (a) => (a.status || []).includes("runtime_observed");
 
 const FILTERS = [
   { id: "all",        label: "All",                test: () => true },
-  { id: "owner",      label: "Needs owner",        test: (a) => needsOwner(a) },
   { id: "findings",   label: "With findings",      test: (a) => (a.open_findings_count || 0) > 0 },
   { id: "security",   label: "Security risk",      test: (a) => hasSecurityRisk(a) },
   { id: "candidates", label: "Gateway candidates", test: (a, cand) => cand.has(a.asset_key) },
@@ -88,7 +85,6 @@ function AssetRow({ a, selected, isCandidate, onSelect }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: C.text, fontFamily: FONT.mono }}>{a.asset_name}</span>
         {isCandidate && <StatusPill tone={C.riskMedium}>gateway candidate</StatusPill>}
-        {needsOwner(a) && <StatusPill tone={C.riskMedium}>needs owner</StatusPill>}
       </div>
       <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, lineHeight: 1.6 }}>
         {a.environment || "unknown"} · {traceDiscovered(a) ? "trace discovered" : "gateway"} · {relTime(a.last_seen)}
@@ -140,7 +136,6 @@ export default function AssetIntelligenceV2({ onNavigate }) {
     return rows.sort((a, b) =>
       (candidateKeys.has(b.asset_key) - candidateKeys.has(a.asset_key))
       || ((b.high_findings_count || 0) - (a.high_findings_count || 0))
-      || (needsOwner(b) - needsOwner(a))
       || (new Date(b.last_seen || 0) - new Date(a.last_seen || 0)));
   }, [assets, filter, candidateKeys]);
 
@@ -184,7 +179,7 @@ export default function AssetIntelligenceV2({ onNavigate }) {
           Trace-discovered inventory. Evidence-backed findings. Observe-only until control is explicitly configured.
         </div>
         <div style={{ fontSize: 11.5, color: C.textMute, marginTop: 6 }}>
-          Runtime evidence turns AI activity into assets, ownership gaps, capabilities, dependencies, and findings.
+          Runtime evidence turns AI activity into assets, capabilities, dependencies, and findings.
         </div>
         {runResult && <div style={{ fontSize: 11, fontFamily: FONT.mono, color: C.accent, marginTop: 8 }}>Intelligence run complete — {runResult}</div>}
         {error && <div style={{ fontSize: 11, fontFamily: FONT.mono, color: C.riskHigh, marginTop: 8 }}>{error}</div>}
@@ -240,7 +235,7 @@ export default function AssetIntelligenceV2({ onNavigate }) {
                 </div>
                 <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, marginTop: 8, lineHeight: 1.7 }}>
                   key {selected.asset_key.slice(0, 20)}… · service {selected.service_name || "—"} ·
-                  owner {needsOwner(selected) ? <span style={{ color: C.riskMedium }}>unassigned</span> : "assigned"} ·
+                  owner {selected.owner || "—"} ·
                   first seen {firstSeen ? relTime(firstSeen) : "—"} · last seen {relTime(selected.last_seen)}
                 </div>
               </div>

@@ -224,6 +224,27 @@ def backfill_discovery_source() -> None:
             pass  # table may not exist yet on first boot — create_all handles it
 
 
+def cleanup_owner_findings() -> None:
+    """
+    Data cleanup: ownership is now optional metadata, so a missing owner is no
+    longer surfaced as a finding. Remove any existing owner-gap findings — they
+    are derived rows (never user data) and are no longer re-created. Idempotent:
+    a no-op once cleared.
+    """
+    from sqlalchemy import text as _text
+    from app.database import engine
+
+    with engine.connect() as conn:
+        try:
+            conn.execute(_text(
+                "DELETE FROM asset_findings "
+                "WHERE finding_type IN ('agent_missing_owner', 'unmanaged_runtime')"
+            ))
+            conn.commit()
+        except Exception:
+            pass  # table may not exist yet on first boot — create_all handles it
+
+
 def seed_pricing_registry() -> None:
     """Seed ModelPricing table from built-in COST_PER_1M on first boot, then start
     the background sync thread. Both are idempotent."""
