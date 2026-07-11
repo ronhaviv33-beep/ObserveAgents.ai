@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user
+from app.auth import get_current_user, require_admin
 from app.database import get_db
 from app.models import AssetCapability, AssetFinding, AssetRegistry, OtelAsset, OtelSpan, ProvenanceEvent
 from app.org_config import get_org_config
@@ -131,6 +131,19 @@ async def run_intelligence(
     org_id = current_user.organization_id
     result = derive_asset_intelligence(db, org_id)
     return result
+
+
+@router.post("/intelligence/reclassify")
+async def reclassify_telemetry(
+    current_user=Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Re-run telemetry classification + gen_ai extraction over the org's
+    stored spans, applying the current attribute mapping (admin only,
+    synchronous — same posture as /intelligence/run). Idempotent: a second
+    run reports zero changes. Stored raw attributes are never modified."""
+    from app.otel_reprocess import reclassify_org_spans
+    return reclassify_org_spans(db, current_user.organization_id)
 
 
 # Remediation hints per missing-signal code (see app/telemetry_classification.py).

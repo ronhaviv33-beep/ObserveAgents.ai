@@ -156,6 +156,60 @@ def _resolve_identity(
     return fallback, fallback, "inferred", "fallback"
 
 
+def resolve_trace_identities(spans: list[dict]) -> dict[str, tuple[str, str, str]]:
+    """Pass 0: best (identity, display, tier) per trace_id.
+
+    SemConv agent traces usually declare gen_ai.agent.* only on the root
+    invoke_agent span; child spans must inherit that identity instead of
+    fragmenting into a second service.name-based asset. Service-tier identity
+    is recorded too, so a fallback span whose trace siblings carry
+    service.name inherits that instead of a hash. declared > service.
+
+    Shared by ingestion (normalize_spans) and retroactive reprocessing
+    (app/otel_reprocess.py) so the tier-rank tie-breaking never drifts.
+    Spans use the parsed shape: attributes / resource_attributes / trace_id.
+    """
+    trace_identity: dict[str, tuple[str, str, str]] = {}
+    for span in spans:
+        attrs = span.get("attributes") or {}
+        resource_attrs = span.get("resource_attributes") or {}
+        trace_id = span.get("trace_id") or ""
+        if not trace_id:
+            continue
+        current = trace_identity.get(trace_id)
+        if current and current[2] == "declared":
+            continue
+        ident, disp, _ident_type, tier = _resolve_identity(attrs, resource_attrs, trace_id)
+        if tier == "fallback":
+            continue
+        if current is None or _IDENTITY_TIER_RANK[tier] > _IDENTITY_TIER_RANK[current[2]]:
+            trace_identity[trace_id] = (ident, disp, tier)
+    return trace_identity
+
+
+def resolve_span_identity(
+    attrs: dict,
+    resource_attrs: dict,
+    trace_id: str,
+    trace_identity: dict[str, tuple[str, str, str]],
+) -> tuple[str, str, str, str]:
+    """Per-span identity with trace-level inheritance applied.
+
+    Returns (agent_name, display_name, identity_type, identity_tier) —
+    the span's own resolution upgraded to the trace's best identity when
+    that ranks higher. Shared by ingestion and reprocessing.
+    """
+    agent_name, display_name, identity_type, identity_tier = _resolve_identity(
+        attrs, resource_attrs, trace_id
+    )
+    inherited = trace_identity.get(trace_id)
+    if inherited and _IDENTITY_TIER_RANK[inherited[2]] > _IDENTITY_TIER_RANK[identity_tier]:
+        agent_name, display_name, identity_tier = inherited
+        if identity_tier == "declared":
+            identity_type = "declared"
+    return agent_name, display_name, identity_type, identity_tier
+
+
 def _extract_model(attrs: dict) -> str | None:
     return extract_model_tiered(attrs)[0]
 
@@ -505,26 +559,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict], api_key_id: int
     _agent_candidate_keys: dict[str, set[str]]     = defaultdict(set)
 
     # ── Pass 0: best identity per trace ───────────────────────────────────────
-    # SemConv agent traces usually declare gen_ai.agent.* only on the root
-    # invoke_agent span; child spans must inherit that identity instead of
-    # fragmenting into a second service.name-based asset. Service-tier identity
-    # is recorded too, so a fallback span whose trace siblings carry
-    # service.name inherits that instead of a hash. declared > service.
-    _trace_identity: dict[str, tuple[str, str, str]] = {}
-    for span in spans:
-        attrs = span.get("attributes") or {}
-        resource_attrs = span.get("resource_attributes") or {}
-        trace_id = span.get("trace_id") or ""
-        if not trace_id:
-            continue
-        current = _trace_identity.get(trace_id)
-        if current and current[2] == "declared":
-            continue
-        ident, disp, _ident_type, tier = _resolve_identity(attrs, resource_attrs, trace_id)
-        if tier == "fallback":
-            continue
-        if current is None or _IDENTITY_TIER_RANK[tier] > _IDENTITY_TIER_RANK[current[2]]:
-            _trace_identity[trace_id] = (ident, disp, tier)
+    _trace_identity = resolve_trace_identities(spans)
 
     for span_idx, span in enumerate(spans):
         attrs = span.get("attributes") or {}
@@ -537,14 +572,9 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict], api_key_id: int
             continue
 
         # ── Identity ──────────────────────────────────────────────────────────
-        agent_name, display_name, identity_type, identity_tier = _resolve_identity(
-            attrs, resource_attrs, trace_id
+        agent_name, display_name, identity_type, identity_tier = resolve_span_identity(
+            attrs, resource_attrs, trace_id, _trace_identity
         )
-        inherited = _trace_identity.get(trace_id)
-        if inherited and _IDENTITY_TIER_RANK[inherited[2]] > _IDENTITY_TIER_RANK[identity_tier]:
-            agent_name, display_name, identity_tier = inherited
-            if identity_tier == "declared":
-                identity_type = "declared"
         service_name = resource_attrs.get("service.name") or attrs.get("service.name") or display_name
         environment = extract_environment_tiered(resource_attrs, attrs)[0]
 
