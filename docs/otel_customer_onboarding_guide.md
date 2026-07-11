@@ -163,15 +163,19 @@ receivers:
     protocols:
       http:
         endpoint: 0.0.0.0:4318
+
 processors:
   batch: {}
+
 exporters:
   debug:
     verbosity: normal
+
   otlphttp/observeagents:
-    endpoint: https://app.observeagents.ai/otel     # exporter appends /v1/traces
+    endpoint: https://app.observeagents.ai/otel
     headers:
-      authorization: "Bearer gk-YOUR-KEY-HERE"
+      authorization: "Bearer YOUR_API_KEY_HERE"
+
 service:
   pipelines:
     traces:
@@ -179,6 +183,9 @@ service:
       processors: [batch]
       exporters: [debug, otlphttp/observeagents]
 ```
+
+> The endpoint stays `…/otel` — the `otlphttp` exporter appends `/v1/traces` itself. `YOUR_API_KEY_HERE` is the `gk-…` key from Phase 0.
+> הכתובת נשארת `…/otel` — ה‑exporter מוסיף `/v1/traces` בעצמו. `YOUR_API_KEY_HERE` הוא מפתח ה‑`gk-…` משלב 0.
 
 Restart the Collector, run `python lab_agent.py` again. A successful ingest returns **HTTP 202** to the Collector.
 *HE:* הפעילו מחדש את ה‑Collector, הריצו שוב `python lab_agent.py`. קליטה מוצלחת מחזירה ל‑Collector **HTTP 202**.
