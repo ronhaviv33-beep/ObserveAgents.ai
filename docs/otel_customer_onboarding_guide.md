@@ -269,7 +269,7 @@ provider.add_span_processor(BatchSpanProcessor(
 > When posting **directly from the SDK**, give the **full** path `…/otel/v1/traces`. The `/v1/traces` suffix is only auto-appended by the **Collector's** `otlphttp` exporter (Phase 3), not by the raw SDK exporter.
 > בשליחה **ישירה מה‑SDK**, ציינו את הנתיב ה**מלא** `…/otel/v1/traces`. הסיומת `/v1/traces` מתווספת אוטומטית רק ע"י ה‑exporter של ה‑**Collector** (שלב 3), לא ע"י ה‑SDK.
 
-The Collector then becomes the **enterprise-hardening step** — central routing, filtering, and fan-out to Datadog/Grafana alongside ObserveAgents.
+The Collector then becomes the **production-hardening step** — central routing, filtering, and fan-out to Datadog/Grafana alongside ObserveAgents.
 *HE:* ה‑Collector הופך אז ל**שלב ההקשחה הארגוני** — ניתוב מרכזי, סינון, ופיזור ל‑Datadog/Grafana במקביל ל‑ObserveAgents.
 
 ---

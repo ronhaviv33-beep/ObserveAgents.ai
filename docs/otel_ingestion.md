@@ -26,7 +26,7 @@ with zero counts on both encodings. Privacy behavior is identical for JSON and
 protobuf — both feed the same scrub pipeline. Protobuf span links are ignored.
 
 Positioning: **direct protobuf is for fast developer onboarding** (point an SDK
-straight at Observe); the **Collector remains the recommended enterprise path**
+straight at Observe); the **Collector remains the recommended production path**
 for routing, processing, retries, and multi-destination export.
 
 ---
@@ -160,7 +160,7 @@ Observe follows the [OpenTelemetry GenAI Semantic Conventions](https://github.co
 
 Three things to know up front:
 
-- **Observe accepts OTLP/HTTP JSON and OTLP/HTTP protobuf** at the same endpoint — SDK exporters that emit protobuf (Python, OpenLLMetry, …) can point directly at Observe; the Collector path still works and is recommended for enterprise routing.
+- **Observe accepts OTLP/HTTP JSON and OTLP/HTTP protobuf** at the same endpoint — SDK exporters that emit protobuf (Python, OpenLLMetry, …) can point directly at Observe; the Collector path still works and is recommended for production routing.
 - **`gen_ai.provider.name` is the preferred provider attribute.** `gen_ai.system` (deprecated upstream) is still fully supported for backward compatibility.
 - **Raw prompt/response/tool content is scrubbed at ingestion and should not be sent intentionally** — see the privacy guarantee below.
 
@@ -348,7 +348,7 @@ argument at init. Traces only: metrics/logs export must stay pointed elsewhere
 until Observe's metrics ingestion ships.
 
 Use direct protobuf for fast onboarding; use the Collector below when you want
-enterprise routing, batching/retries, processing, or multi-destination export.
+production routing, batching/retries, processing, or multi-destination export.
 
 ### Environment variables (any OTel SDK)
 
