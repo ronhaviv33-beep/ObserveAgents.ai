@@ -251,6 +251,12 @@ export async function fetchApiKeys() {
   return r.json()
 }
 
+export async function fetchApiKeyAgents(id) {
+  const r = await authFetch(`${BASE}/api-keys/${id}/agents`)
+  if (!r || !r.ok) throw new Error('Failed to fetch agents for this key')
+  return r.json()
+}
+
 export async function createApiKey(data) {
   const r = await authFetch(`${BASE}/api-keys`, {
     method: 'POST',

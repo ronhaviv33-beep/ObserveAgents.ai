@@ -86,6 +86,17 @@ def _get_org_id(caller) -> int | None:
     return None
 
 
+def _get_api_key_id(caller) -> int | None:
+    """The ingestion credential id, when the caller authenticated with a gk- key.
+
+    Dashboard/JWT callers (User objects) return None — only Collector-style API
+    keys attribute their spans.
+    """
+    if isinstance(caller, dict):
+        return caller.get("api_key_id")
+    return None
+
+
 @router.post("/otel/v1/traces", status_code=202)
 async def ingest_traces(
     request: Request,
@@ -179,7 +190,7 @@ async def ingest_traces(
             "content_redacted": True,
         }
 
-    result = normalize_spans(db, org_id, spans)
+    result = normalize_spans(db, org_id, spans, api_key_id=_get_api_key_id(caller))
 
     return {
         "accepted": True,

@@ -311,6 +311,7 @@ async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor
         key_prefix=key_prefix,
         key_hash=key_hash,
         team=req.team,
+        purpose=req.purpose,
         organization_id=actor.organization_id,
         created_by_id=actor.id,
     )
@@ -324,7 +325,7 @@ async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor
     )
     return ApiKeyCreated(
         id=record.id, name=record.name, key_prefix=record.key_prefix,
-        team=record.team, created_by_id=record.created_by_id,
+        team=record.team, purpose=record.purpose, created_by_id=record.created_by_id,
         created_at=record.created_at, last_used_at=record.last_used_at,
         is_active=record.is_active, key=full_key,
     )
@@ -334,6 +335,56 @@ async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor
 async def list_api_keys(db: Session = Depends(get_db), actor=Depends(require_page_access("apikeys"))):
     from app.models import ApiKey
     return db.query(ApiKey).filter(ApiKey.organization_id == actor.organization_id).order_by(ApiKey.created_at.desc()).all()
+
+
+@router.get("/api-keys/{key_id}/agents")
+async def list_api_key_agents(
+    key_id: int,
+    db: Session = Depends(get_db),
+    actor=Depends(require_page_access("apikeys")),
+):
+    """Agents (service.name) whose traces were ingested with this key.
+
+    Read-only attribution derived from OtelSpan.api_key_id — shows what actually
+    flows through a Collector credential, without conflating the key's label with
+    an agent name. Worst-first by most-recently-seen.
+    """
+    from sqlalchemy import func
+    from app.models import ApiKey, OtelSpan
+
+    key = db.query(ApiKey).filter(
+        ApiKey.id == key_id, ApiKey.organization_id == actor.organization_id
+    ).first()
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    rows = (
+        db.query(
+            OtelSpan.service_name,
+            func.count(OtelSpan.id),
+            func.max(OtelSpan.start_time),
+        )
+        .filter(
+            OtelSpan.organization_id == actor.organization_id,
+            OtelSpan.api_key_id == key_id,
+            OtelSpan.service_name.isnot(None),
+        )
+        .group_by(OtelSpan.service_name)
+        .order_by(func.max(OtelSpan.start_time).desc().nullslast())
+        .limit(100)
+        .all()
+    )
+    return {
+        "key_id": key_id,
+        "agents": [
+            {
+                "service_name": r[0],
+                "span_count": r[1],
+                "last_seen": r[2].isoformat() if r[2] else None,
+            }
+            for r in rows
+        ],
+    }
 
 
 @router.patch("/api-keys/{key_id}", response_model=ApiKeyOut)
