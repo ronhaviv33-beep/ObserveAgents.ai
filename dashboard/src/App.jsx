@@ -82,7 +82,7 @@ import { UserContext, useUser, RolesContext, useRoles, ROLES, canSeePage, userCa
 // in the tree for rollback — see docs/ui_redesign_plan.md.
 import PlatformGuideV2 from "./pages/PlatformGuideV2.jsx";
 import SimpleIntegrationsPage from "./pages/Setup.jsx";
-import SettingsPage, { GUARD_MODE_META } from "./pages/Settings.jsx";
+import SettingsPage from "./pages/Settings.jsx";
 import { useBreakpoint } from "./hooks/useBreakpoint.js";
 
 
@@ -715,15 +715,11 @@ export default function App() {
     }
   }, [demoMode, setDemoModeState, refresh]);
 
-  // Platform guard mode badge (best-effort — silent if unauthenticated)
-  const [platformMode,       setPlatformMode]       = useState(null);
-  const [pricingLastUpdated, setPricingLastUpdated] = useState(null);
+  // Platform health signals (best-effort — silent if unauthenticated)
   const [secretWarnings,     setSecretWarnings]     = useState([]);
   useEffect(() => {
     if (!user) return;
     fetchHealth().then(h => {
-      setPlatformMode(h?.platform_mode);
-      setPricingLastUpdated(h?.pricing_last_updated || null);
       setSecretWarnings(h?.secret_warnings || []);
     }).catch(() => {});
   }, [user]);
@@ -881,11 +877,9 @@ export default function App() {
   })).filter((g) => g.items.length > 0);
 
   const topbarItems = [
-    ...(platformMode ? [{ label: (GUARD_MODE_META[platformMode]?.label || platformMode).toLowerCase(), color: GUARD_MODE_META[platformMode]?.color, title: GUARD_MODE_META[platformMode]?.desc, dot: true }] : []),
     { label: filters.team === "all" ? "all teams" : allTeams.find((t) => t.id === filters.team)?.name },
     { label: `last ${filters.range}d` },
     ...(isDemoMode() ? [{ label: "demo", color: "#D97706", dot: true }] : []),
-    ...(pricingLastUpdated ? [{ label: `pricing as of ${pricingLastUpdated}`, title: "Date pricing table was last audited against provider rates" }] : []),
   ];
 
   const shellUser = user && {
