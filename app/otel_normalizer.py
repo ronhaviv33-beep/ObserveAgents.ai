@@ -29,6 +29,7 @@ from collections import defaultdict
 from sqlalchemy.orm import Session
 
 from app.otel_privacy import scrub_attributes, REDACTED_KEYS
+from app.telemetry_classification import classify_span
 from app.relationship_resolver import ResolvedRelationship
 from app.relationships import upsert_relationship
 from app.genai_semconv import (
@@ -86,16 +87,54 @@ _OPERATION_EVENT = {
 _OPERATION_EVENT.update({op: "memory_op" for op in MEMORY_OPERATIONS})
 
 
-def _resolve_identity(attrs: dict, resource_attrs: dict, span_id: str) -> tuple[str, str, str]:
+# Resource attributes that vary per pod / instance / SDK build. Excluded from
+# the stable fallback-identity hash so unidentified telemetry from the same
+# source converges to ONE asset instead of fragmenting per replica.
+_VOLATILE_RESOURCE_KEYS = frozenset({
+    "service.instance.id", "k8s.pod.name", "k8s.pod.uid", "k8s.replicaset.name",
+    "container.id", "process.pid", "process.runtime.description",
+    "host.name", "host.id", "host.ip",
+    "telemetry.sdk.name", "telemetry.sdk.version", "telemetry.sdk.language",
+    "telemetry.distro.name", "telemetry.distro.version",
+})
+
+# Identity tiers (see app/telemetry_classification.py): declared > service > fallback.
+_IDENTITY_TIER_RANK = {"declared": 2, "service": 1, "fallback": 0}
+
+
+def _stable_fallback_identity(resource_attrs: dict, trace_id: str) -> str:
+    """Stable identity for spans with no agent/service signal at all.
+
+    Hash of the non-volatile resource attributes when any exist (converges
+    across traces, pods, and restarts from the same source); else scoped to
+    the trace so one trace is at most one asset — never one asset per span.
     """
-    Return (identity, display_name, identity_type).
+    stable = {
+        k: v for k, v in resource_attrs.items()
+        if k not in _VOLATILE_RESOURCE_KEYS and not isinstance(v, (list, dict))
+    }
+    if stable:
+        digest = hashlib.sha256(
+            json.dumps(stable, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        ).hexdigest()[:12]
+        return f"observed-ai-system:{digest}"
+    return f"observed-ai-system:trace-{trace_id[:8]}"
+
+
+def _resolve_identity(
+    attrs: dict, resource_attrs: dict, trace_id: str
+) -> tuple[str, str, str, str]:
+    """
+    Return (identity, display_name, identity_type, identity_tier).
 
     identity is the stable grouping key (feeds asset_key / agent_id_raw):
       gen_ai.agent.id → gen_ai.agent.name → agent.name / ai.agent.name →
-      service.name → observed-ai-system:<hash>
+      service.name → observed-ai-system:<stable hash>
     display_name is the human-readable alias (gen_ai.agent.name when present,
     else the identity itself) — so a UUID agent id still shows a real name.
     identity_type: "declared" for explicit agent attributes, "inferred" otherwise.
+    identity_tier: "declared" / "service" / "fallback" — feeds telemetry
+    classification; "fallback" marks the asset for admin review.
     """
     agent = extract_agent_meta(attrs, resource_attrs)
     legacy_name = None
@@ -107,14 +146,14 @@ def _resolve_identity(attrs: dict, resource_attrs: dict, span_id: str) -> tuple[
 
     display = agent["name"] or legacy_name
     if agent["id"]:
-        return agent["id"], display or agent["id"], "declared"
+        return agent["id"], display or agent["id"], "declared", "declared"
     if display:
-        return display, display, "declared"
+        return display, display, "declared", "declared"
     svc = resource_attrs.get("service.name") or attrs.get("service.name")
     if svc:
-        return str(svc), str(svc), "inferred"
-    fallback = f"observed-ai-system:{span_id[:8]}"
-    return fallback, fallback, "inferred"
+        return str(svc), str(svc), "inferred", "service"
+    fallback = _stable_fallback_identity(resource_attrs, trace_id)
+    return fallback, fallback, "inferred", "fallback"
 
 
 def _extract_model(attrs: dict) -> str | None:
@@ -204,12 +243,16 @@ def _upsert_asset(
     resource_attrs: dict,
     display_name: str | None = None,
     agent_meta: dict | None = None,
+    identity_tier: str = "declared",
 ) -> int | None:
     """
     Idempotent upsert of an AssetRegistry row for an OTel-observed agent.
 
     agent_name is the stable identity (gen_ai.agent.id when declared) and
     feeds asset_key/agent_id_raw; display_name is the human-readable alias.
+    identity_tier "fallback" (no agent/service signal) marks the row for
+    admin review via evidence.needs_admin_review — picked up by the existing
+    derive_discovery_status pipeline — and gets a low confidence score.
     Returns the AssetRegistry.id, or None if upsert fails.
     """
     from app.asset_discovery import _known_assets, _infer_asset_type
@@ -239,6 +282,14 @@ def _upsert_asset(
         evidence["gen_ai.agent.version"] = agent_meta.get("version")
     evidence = {k: v for k, v in evidence.items() if v is not None}
 
+    # An anonymous hash identity is not attribution evidence: flag for review
+    # and score below the discovery-status attribution threshold (75).
+    confidence = 75.0
+    if identity_tier == "fallback":
+        evidence["needs_admin_review"] = True
+        evidence["identity_confidence"] = "low"
+        confidence = 30.0
+
     try:
         existing = db.query(AssetRegistry).filter(
             AssetRegistry.organization_id == org_id,
@@ -259,7 +310,7 @@ def _upsert_asset(
                 discovery_source="otel_trace",
                 discovery_reason="Agent observed via OpenTelemetry trace ingestion",
                 evidence=json.dumps(evidence),
-                confidence_score=75.0,
+                confidence_score=confidence,
                 asset_type=_infer_asset_type(agent_name, ""),
             )
             db.add(row)
@@ -300,14 +351,22 @@ def upsert_otel_asset(
     new_dependencies: set[str],
     trace_ids: set[str],
     span_dts: list[datetime],
+    class_counts: dict[str, int] | None = None,
+    candidate_keys: set[str] | None = None,
 ) -> None:
     """
     Upsert one OtelAsset row for a (org, service_name, environment) identity.
 
     Lookup uses application-level dedup (not a DB unique constraint) because
     environment is nullable and SQLite treats NULL != NULL in unique indexes.
+
+    class_counts / candidate_keys carry this batch's telemetry-classification
+    rollup (app/telemetry_classification.py) — merged monotonically into the
+    cumulative counters, which derive classification_status and the real
+    confidence_score.
     """
     from app.models import OtelAsset
+    from app.telemetry_classification import merge_classification_counts
 
     if not service_name or not span_dts:
         return
@@ -331,6 +390,15 @@ def upsert_otel_asset(
             q = q.filter(OtelAsset.environment == environment)
         existing = q.first()
 
+        counts_json = None
+        class_status = None
+        class_confidence = None
+        if class_counts:
+            counts_json, class_status, class_confidence = merge_classification_counts(
+                existing.classification_counts_json if existing else None,
+                class_counts,
+            )
+
         if not existing:
             db.add(OtelAsset(
                 organization_id=org_id,
@@ -349,7 +417,12 @@ def upsert_otel_asset(
                 last_seen=latest,
                 trace_count=len(trace_ids),
                 span_count=len(span_dts),
-                confidence_score=75.0,
+                confidence_score=class_confidence if class_counts else None,
+                classification_status=class_status,
+                classification_counts_json=counts_json,
+                candidate_attr_keys_json=(
+                    json.dumps(sorted(candidate_keys)[:40]) if candidate_keys else None
+                ),
                 created_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc),
             ))
@@ -370,6 +443,14 @@ def upsert_otel_asset(
                 existing.resource_attributes_json = json.dumps(cur)
             if existing.ai_asset_id is None and ai_asset_id is not None:
                 existing.ai_asset_id = ai_asset_id
+            if class_counts:
+                existing.classification_counts_json = counts_json
+                existing.classification_status = class_status
+                existing.confidence_score = class_confidence
+            if candidate_keys:
+                merged_keys = set(json.loads(existing.candidate_attr_keys_json or "[]"))
+                merged_keys |= candidate_keys
+                existing.candidate_attr_keys_json = json.dumps(sorted(merged_keys)[:40])
             existing.updated_at = datetime.now(timezone.utc)
 
         db.commit()
@@ -408,21 +489,32 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict], api_key_id: int
     _agent_deps:       dict[str, set[str]]         = defaultdict(set)
     _agent_trace_ids:  dict[str, set[str]]         = defaultdict(set)
     _agent_span_dts:   dict[str, list[datetime]]   = defaultdict(list)
+    _agent_class_counts: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"full": 0, "partial": 0, "unclassified": 0}
+    )
+    _agent_candidate_keys: dict[str, set[str]]     = defaultdict(set)
 
-    # ── Pass 0: declared agent identity per trace ─────────────────────────────
+    # ── Pass 0: best identity per trace ───────────────────────────────────────
     # SemConv agent traces usually declare gen_ai.agent.* only on the root
     # invoke_agent span; child spans must inherit that identity instead of
-    # fragmenting into a second service.name-based asset.
-    _trace_identity: dict[str, tuple[str, str]] = {}
+    # fragmenting into a second service.name-based asset. Service-tier identity
+    # is recorded too, so a fallback span whose trace siblings carry
+    # service.name inherits that instead of a hash. declared > service.
+    _trace_identity: dict[str, tuple[str, str, str]] = {}
     for span in spans:
         attrs = span.get("attributes") or {}
         resource_attrs = span.get("resource_attributes") or {}
         trace_id = span.get("trace_id") or ""
-        if not trace_id or trace_id in _trace_identity:
+        if not trace_id:
             continue
-        ident, disp, ident_type = _resolve_identity(attrs, resource_attrs, span.get("span_id") or "")
-        if ident_type == "declared":
-            _trace_identity[trace_id] = (ident, disp)
+        current = _trace_identity.get(trace_id)
+        if current and current[2] == "declared":
+            continue
+        ident, disp, _ident_type, tier = _resolve_identity(attrs, resource_attrs, trace_id)
+        if tier == "fallback":
+            continue
+        if current is None or _IDENTITY_TIER_RANK[tier] > _IDENTITY_TIER_RANK[current[2]]:
+            _trace_identity[trace_id] = (ident, disp, tier)
 
     for span in spans:
         attrs = span.get("attributes") or {}
@@ -435,12 +527,26 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict], api_key_id: int
             continue
 
         # ── Identity ──────────────────────────────────────────────────────────
-        agent_name, display_name, identity_type = _resolve_identity(attrs, resource_attrs, span_id)
-        if identity_type == "inferred" and trace_id in _trace_identity:
-            agent_name, display_name = _trace_identity[trace_id]
-            identity_type = "declared"
+        agent_name, display_name, identity_type, identity_tier = _resolve_identity(
+            attrs, resource_attrs, trace_id
+        )
+        inherited = _trace_identity.get(trace_id)
+        if inherited and _IDENTITY_TIER_RANK[inherited[2]] > _IDENTITY_TIER_RANK[identity_tier]:
+            agent_name, display_name, identity_tier = inherited
+            if identity_tier == "declared":
+                identity_type = "declared"
         service_name = resource_attrs.get("service.name") or attrs.get("service.name") or display_name
         environment = extract_environment_tiered(resource_attrs, attrs)[0]
+
+        # ── Telemetry classification ──────────────────────────────────────────
+        cls = classify_span(
+            attrs, resource_attrs,
+            identity_tier=identity_tier,
+            mapped_keys=frozenset(),
+        )
+        _agent_class_counts[agent_name][cls.counts_key] += 1
+        if cls.candidate_keys:
+            _agent_candidate_keys[agent_name].update(cls.candidate_keys)
 
         # ── Asset discovery ───────────────────────────────────────────────────
         if agent_name not in assets_seen:
@@ -448,6 +554,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict], api_key_id: int
                 db, org_id, agent_name, resource_attrs,
                 display_name=display_name,
                 agent_meta=extract_agent_meta(attrs, resource_attrs),
+                identity_tier=identity_tier,
             )
             assets_seen.add(agent_name)
             _agent_asset_ids[agent_name] = asset_id
@@ -516,6 +623,10 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict], api_key_id: int
                     gen_ai_finish_reasons_json=genai["finish_reasons_json"],
                     gen_ai_request_stream=genai["request_stream"],
                     gen_ai_time_to_first_chunk_ms=genai["time_to_first_chunk_ms"],
+                    classification_status=cls.status,
+                    classification_confidence=cls.confidence,
+                    # NULL (not []) when complete — clean spans stay byte-identical.
+                    classification_missing=json.dumps(cls.missing) if cls.missing else None,
                 ))
                 db.commit()
                 spans_ingested += 1
@@ -767,6 +878,8 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict], api_key_id: int
             new_dependencies=_agent_deps[agent_name],
             trace_ids=_agent_trace_ids[agent_name],
             span_dts=_agent_span_dts[agent_name],
+            class_counts=_agent_class_counts.get(agent_name),
+            candidate_keys=_agent_candidate_keys.get(agent_name),
         )
         otel_assets_upserted += 1
 

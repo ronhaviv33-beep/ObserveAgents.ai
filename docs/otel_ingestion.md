@@ -148,9 +148,9 @@ The ingestion pipeline derives identity in priority order:
 1. `gen_ai.agent.id` → **declared** identity (stable grouping key; `gen_ai.agent.name` is used as the display name)
 2. `gen_ai.agent.name`, `agent.name`, or `ai.agent.name` span/resource attribute → **declared** identity
 3. `service.name` resource attribute → **inferred** identity
-4. Fallback: `observed-ai-system:<span_id_prefix>` → **inferred**
+4. Fallback: `observed-ai-system:<hash of the non-volatile resource attributes>` → **inferred**, flagged for admin review. When the span has no resource attributes at all, the fallback is scoped to the trace (`observed-ai-system:trace-<trace_id_prefix>`) — unidentified telemetry from the same source converges to one asset instead of fragmenting per span, pod, or restart.
 
-Declared agents receive higher confidence scores. `gen_ai.agent.description` and `gen_ai.agent.version` are recorded as asset evidence. All OTel-discovered assets start with `discovery_status="potential"` and `discovery_source="otel_trace"`. They can be promoted to `verified` by claiming them in the Assets UI.
+Declared agents receive higher confidence scores; fallback identities are marked `needs_admin_review` and surface in the discovery review queue. `gen_ai.agent.description` and `gen_ai.agent.version` are recorded as asset evidence. All OTel-discovered assets start with `discovery_status="potential"` and `discovery_source="otel_trace"`. They can be promoted to `verified` by claiming them in the Assets UI.
 
 ---
 
