@@ -1,15 +1,29 @@
 """
 Ensure the default admin user exists and reset its password.
 
-Local:  python reset_admin.py
-Render: run via the Shell tab on the ai-asset-backend (or ai-asset-app) service.
+The new password must be supplied explicitly — this script no longer ships a
+hardcoded default so it cannot silently set a well-known password on a live
+deployment.
+
+Local:  ADMIN_RESET_PASSWORD='<strong-pw>' python reset_admin.py
+        (or)  python reset_admin.py '<strong-pw>'
+Render: run via the Shell tab on the ai-asset-backend (or ai-asset-app) service,
+        passing the password the same way.
 """
 import os
 import sys
 from passlib.context import CryptContext
 
 EMAIL = "admin@ai-asset-mgmt.local"
-NEW_PASSWORD = "Admin123!"
+
+NEW_PASSWORD = os.environ.get("ADMIN_RESET_PASSWORD") or (sys.argv[1] if len(sys.argv) > 1 else "")
+if not NEW_PASSWORD:
+    print(
+        "ERROR: no password supplied.\n"
+        "  Usage: ADMIN_RESET_PASSWORD='<strong-pw>' python reset_admin.py\n"
+        "     or: python reset_admin.py '<strong-pw>'",
+    )
+    sys.exit(1)
 
 # Match the same DB-path resolution as app/database.py
 _db_url = os.environ.get("DATABASE_URL", "")
@@ -38,7 +52,7 @@ try:
     conn.commit()
 
     if cur.rowcount:
-        print(f"Password reset.  Login with:  {EMAIL}  /  {NEW_PASSWORD}")
+        print(f"Password reset.  Login with:  {EMAIL}  /  (the password you supplied)")
     else:
         # User doesn't exist — look up the platform org and insert
         cur.execute("SELECT id FROM organizations WHERE is_internal=1 LIMIT 1")
@@ -53,7 +67,7 @@ try:
             (EMAIL, "Admin", hashed, org_id),
         )
         conn.commit()
-        print(f"Admin user created.  Login with:  {EMAIL}  /  {NEW_PASSWORD}")
+        print(f"Admin user created.  Login with:  {EMAIL}  /  (the password you supplied)")
 
     conn.close()
 except FileNotFoundError:

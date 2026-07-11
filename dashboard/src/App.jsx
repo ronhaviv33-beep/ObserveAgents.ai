@@ -427,10 +427,8 @@ const NAV_GROUPS_OBSERVABILITY = [
     label: null,
     items: [
       { id: "dashboard", label: "Dashboard" },
-      // demoOnly: in live mode #dashboard renders OverviewV2 itself.
-      { id: "overview_hub", label: "Overview", demoOnly: true },
-      // demoOnly: rendered only when the backend reports demo_mode (isDemoMode())
-      { id: "surfaces_demo", label: "Gateway vs OTEL", demoOnly: true },
+      // Overview + "Gateway vs OTEL" are intentionally omitted so the demo nav is
+      // byte-identical to production (both pages stay routable via #hash).
       { id: "welcome",   label: "Platform Guide" },
     ],
   },

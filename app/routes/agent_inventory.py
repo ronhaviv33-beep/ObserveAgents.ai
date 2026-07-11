@@ -179,7 +179,7 @@ async def get_agent(
 async def claim_agent(
     agent_id: str,
     body: dict,
-    user=Depends(get_current_user),
+    user=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -228,7 +228,7 @@ async def claim_agent(
 async def approve_suggestions(
     agent_id: str,
     body: dict | None = None,
-    user=Depends(get_current_user),
+    user=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -291,7 +291,7 @@ async def approve_suggestions(
 async def ignore_agent(
     agent_id: str,
     body: dict | None = None,
-    user=Depends(get_current_user),
+    user=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -337,7 +337,7 @@ async def ignore_agent(
 async def validate_agent(
     agent_id: str,
     body: dict,
-    user=Depends(get_current_user),
+    user=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -402,7 +402,7 @@ async def validate_agent(
 async def reject_agent(
     agent_id: str,
     body: dict,
-    user=Depends(get_current_user),
+    user=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """

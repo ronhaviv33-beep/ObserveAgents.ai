@@ -9,6 +9,10 @@ from app.database import get_db
 from app.auth import get_current_user, require_admin, is_deny_sentinel, resolve_team_scope
 from app import pricing_registry as pr
 
+import logging
+
+log = logging.getLogger(__name__)
+
 router = APIRouter(tags=["pricing_registry"])
 
 
@@ -98,8 +102,9 @@ async def override_pricing(
             cache_write_cost = body.get("cache_write_cost"),
             reason           = body.get("reason", ""),
         )
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        log.warning("pricing override failed for org=%s model=%s", org_id, body.get("model"), exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to apply pricing override. Check the field values and try again.")
 
     return {
         "status":           "override_applied",

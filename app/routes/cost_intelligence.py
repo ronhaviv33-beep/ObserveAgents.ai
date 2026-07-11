@@ -6,10 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.auth import get_current_user, resolve_team_scope, is_deny_sentinel
+from app.auth import get_current_user, resolve_team_scope, is_deny_sentinel, require_admin
 from app import cost_intelligence as ci
 from app.pricing import registry as pricing_registry
 from app.org_config import get_org_config
+
+import logging
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["cost_intelligence"])
 
@@ -71,7 +75,7 @@ async def get_cost_intelligence(
 async def import_billing(
     provider: str,
     body: dict,
-    user=Depends(get_current_user),
+    user=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -96,8 +100,9 @@ async def import_billing(
 
     try:
         result = ci.import_provider_billing(db, org_id, provider, body, imported_by=_caller_email(user))
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        log.warning("billing import failed for org=%s provider=%s", org_id, provider, exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to import billing record. Check the field values and try again.")
 
     return result
 
@@ -135,7 +140,7 @@ async def get_billing_period(
 async def update_billing_period(
     period_id: int,
     body: dict,
-    user=Depends(get_current_user),
+    user=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """Update an existing billing record and re-run reconciliation."""
@@ -147,8 +152,9 @@ async def update_billing_period(
         result = ci.update_provider_billing(db, org_id, period_id, body)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        log.warning("billing update failed for org=%s period=%s", org_id, period_id, exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to update billing record. Check the field values and try again.")
 
     return result
 

@@ -19,8 +19,8 @@ _db_path = f"/tmp/test_relationships_{uuid.uuid4().hex[:8]}.db"
 os.environ.setdefault("JWT_SECRET",                "testsecret-relationships")
 os.environ.setdefault("CREDENTIAL_ENCRYPTION_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
 os.environ["DATABASE_URL"] = f"sqlite:///{_db_path}"
-sys.path.insert(0, "/home/user/ai-asset-management")
-os.chdir("/home/user/ai-asset-management")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 from unittest.mock import patch, AsyncMock

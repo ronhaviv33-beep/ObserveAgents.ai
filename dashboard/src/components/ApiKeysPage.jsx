@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey } from "../api.js";
-import { gatewayBaseUrl, isDemoMode, PUBLIC_APP_URL, PUBLIC_DEMO_URL } from "../config.js";
+import { gatewayBaseUrl, PUBLIC_APP_URL, PUBLIC_DEMO_URL } from "../config.js";
 import { T, FONT_MONO } from "../theme.js";
 import { Card, Pill } from "./ui.jsx";
 
-export default function ApiKeysPage() {
+export default function ApiKeysPage({ demoMode = false }) {
   const [keys,      setKeys]      = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [form,      setForm]      = useState({ name: "", team: "" });
@@ -133,7 +133,8 @@ export default function ApiKeysPage() {
 
       {/* ── Show-once modal + first-request onboarding ── */}
       {newKey && (() => {
-        const demoMode = isDemoMode();
+        // demoMode comes from props (main's fix so the demo build never
+        // shows the production gateway/observe host); both snippets honor it.
         const observeUrl = demoMode ? PUBLIC_DEMO_URL : PUBLIC_APP_URL;
         const gatewayUrl = gatewayBaseUrl(demoMode);
         const otelSnippet = `# Point your OpenTelemetry exporter at ObserveAgents
