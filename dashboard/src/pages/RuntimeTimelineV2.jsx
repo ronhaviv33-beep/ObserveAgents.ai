@@ -200,8 +200,15 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
   const [sortKey, setSortKey] = useState("start_time");
   const [sortDir, setSortDir] = useState("desc");
   const [openSessions, setOpenSessions] = useState(() => new Set());
+  // Agents are expanded by default — this set holds the ones the user collapsed.
+  const [collapsedAgents, setCollapsedAgents] = useState(() => new Set());
 
   const toggleSession = (key) => setOpenSessions((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+  const toggleAgent = (key) => setCollapsedAgents((prev) => {
     const next = new Set(prev);
     if (next.has(key)) next.delete(key); else next.add(key);
     return next;
@@ -254,14 +261,30 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
     });
   }, [filtered, sortKey, sortDir]);
 
-  // One group per session; groups keep the position of their first trace.
-  const groups = useMemo(() => {
+  // One group per session (within a set of traces); keeps first-trace order.
+  const sessionGroupsOf = (traces) => {
     const out = [];
     const idx = new Map();
-    rows.forEach((t) => {
+    traces.forEach((t) => {
       const key = t.session_id || `solo:${t.trace_id}`;
       if (!idx.has(key)) {
         const g = { key, session_id: t.session_id, traces: [] };
+        idx.set(key, g);
+        out.push(g);
+      }
+      idx.get(key).traces.push(t);
+    });
+    return out;
+  };
+
+  // Top tier: one group per agent (service.name), keeping first-trace order.
+  const agentGroups = useMemo(() => {
+    const out = [];
+    const idx = new Map();
+    rows.forEach((t) => {
+      const key = t.service_name || "—";
+      if (!idx.has(key)) {
+        const g = { service: key, traces: [] };
         idx.set(key, g);
         out.push(g);
       }
@@ -275,6 +298,7 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
     const durations = filtered.map((t) => t.duration_ms).filter((d) => d != null);
     return {
       traces: filtered.length,
+      agents: new Set(filtered.map((t) => t.service_name).filter(Boolean)).size,
       sessions: new Set(filtered.map((t) => t.session_id).filter(Boolean)).size,
       spans: filtered.reduce((s, t) => s + (t.span_count || 0), 0),
       avgMs: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null,
@@ -295,7 +319,7 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
       <div>
         <PageHeader
           title="Runtime"
-          purpose="What your AI agents actually executed — traces grouped by session, each expandable into an execution waterfall.">
+          purpose="What your AI agents actually executed — grouped by agent, then session, each trace expandable into an execution waterfall.">
           <button onClick={load}
             style={{ background: "transparent", color: C.textDim, border: `1px solid ${C.border}`,
               padding: "6px 14px", borderRadius: RADIUS.sm, fontSize: 11, fontFamily: FONT.mono, cursor: "pointer" }}>
@@ -309,6 +333,7 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <MetricCard label="Traces" value={stats.traces} />
+        <MetricCard label="Agents" value={stats.agents} />
         <MetricCard label="Sessions" value={stats.sessions} />
         <MetricCard label="Runtime steps" value={stats.spans} />
         <MetricCard label="Avg duration" value={fmtMs(stats.avgMs)} />
@@ -368,7 +393,48 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
                 {/* the rail */}
                 <div style={{ position: "absolute", left: 14, top: 12, bottom: 12, width: 2, background: C.border, borderRadius: 1 }} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {groups.map((g) => {
+                  {agentGroups.map((ag) => {
+                    const agentOpen = !collapsedAgents.has(ag.service);
+                    const sessGroups = sessionGroupsOf(ag.traces);
+                    const agSteps = ag.traces.reduce((s, t) => s + (t.span_count || 0), 0);
+                    const agErrors = ag.traces.reduce((s, t) => s + (t.error_count || 0), 0);
+                    const agMs = ag.traces.reduce((s, t) => s + (t.duration_ms || 0), 0);
+                    const agStarts = ag.traces.map((t) => t.start_time).filter(Boolean).sort();
+                    const agSessions = new Set(ag.traces.map((t) => t.session_id).filter(Boolean)).size;
+                    return (
+                      <Fragment key={`agent:${ag.service}`}>
+                        {/* Agent header — one row per agent (service.name) */}
+                        <div style={{ display: "flex", alignItems: "flex-start" }}>
+                          <div style={{ width: 30, flexShrink: 0, display: "flex", justifyContent: "center", paddingTop: 15 }}>
+                            <RailDot color={agErrors > 0 ? C.riskHigh : C.accent} />
+                          </div>
+                          <div onClick={() => toggleAgent(ag.service)}
+                            style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                              padding: "9px 12px", borderRadius: RADIUS.md, cursor: "pointer",
+                              background: agentOpen ? C.surfaceRaised : "transparent" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = C.surfaceHover; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = agentOpen ? C.surfaceRaised : "transparent"; }}>
+                            <div style={{ flex: 1, minWidth: 160 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                <span style={{ color: C.textMute, fontFamily: FONT.mono, fontSize: 10 }}>{agentOpen ? "▾" : "▸"}</span>
+                                <span style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>{ag.service}</span>
+                                <span style={{ fontFamily: FONT.mono, fontSize: 10, color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 999, padding: "1px 7px", whiteSpace: "nowrap" }}>
+                                  {ag.traces.length} trace{ag.traces.length > 1 ? "s" : ""}
+                                </span>
+                              </div>
+                              <div style={{ fontFamily: FONT.mono, fontSize: 10, color: C.textMute, marginTop: 3, marginLeft: 18 }}>
+                                {agSessions > 0 ? `${agSessions} session${agSessions > 1 ? "s" : ""} · ` : ""}{fmtWhen(agStarts[0])} → {fmtWhen(agStarts[agStarts.length - 1])}
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                              <span style={chip}>{agSteps} steps</span>
+                              {agErrors > 0 && <StatusPill tone={C.riskHigh}>{agErrors} error{agErrors > 1 ? "s" : ""}</StatusPill>}
+                              <span style={{ ...chip, fontSize: 11.5, color: C.text, fontWeight: 600 }}>{fmtMs(agMs)}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {/* This agent's session groups + traces */}
+                        {agentOpen && sessGroups.map((g) => {
                     const grouped = g.session_id && g.traces.length > 1;
                     const isOpen = grouped && openSessions.has(g.key);
                     const totalMs = g.traces.reduce((s, t) => s + (t.duration_ms || 0), 0);
@@ -439,6 +505,9 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
                             </div>
                           </div>
                         ))}
+                      </Fragment>
+                    );
+                  })}
                       </Fragment>
                     );
                   })}
