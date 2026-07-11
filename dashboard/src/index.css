@@ -1,27 +1,30 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..700;1,14..32,400..600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* ObserveAgents light SaaS theme. Mirrors src/theme.js and
    src/ui2/tokens.js; keep the three in sync. */
 :root {
-  --bg: #F8FAFC;
+  --bg: #F7F8FA;
   --surface: #FFFFFF;
-  --surface-soft: #F1F5F9;
-  --border: #E2E8F0;
+  --surface-soft: #F4F6F9;
+  --border: #E9EDF2;
 
-  --text-primary: #0F172A;
-  --text-secondary: #475569;
-  --text-muted: #64748B;
+  --text-primary: #0B1220;
+  --text-secondary: #4A5568;
+  --text-muted: #7A889B;
 
   --brand: #2563EB;
-  --brand-soft: #DBEAFE;
+  --brand-soft: #EFF4FF;
   --brand-dark: #1D4ED8;
 
-  --accent-purple: #7C3AED;
-  --accent-cyan: #0891B2;
+  --accent-indigo: #4F46E5;
+  --accent-cyan: #0E7490;
 
-  --success: #16A34A;
-  --warning: #D97706;
+  --success: #15925A;
+  --warning: #C2740A;
   --danger: #DC2626;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
   color-scheme: light;
 }
@@ -32,12 +35,16 @@ html {
 
 body {
   margin: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text-primary);
   overflow-x: hidden;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
@@ -47,7 +54,7 @@ body {
 }
 
 ::selection {
-  background: rgba(37, 99, 235, 0.18);
+  background: rgba(37, 99, 235, 0.16);
 }
 
 /* Visible keyboard focus everywhere: buttons, inputs, links, table rows,
@@ -55,20 +62,25 @@ body {
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: 4px;
 }
 
 /* Tables: light header band, visible row borders, soft hover.
    Rows that set an inline background (zebra striping, selected states)
    keep their own colors — inline styles win over these defaults. */
 thead th {
-  background: var(--bg);
+  background: var(--surface-soft);
 }
 
 tbody tr {
-  transition: background-color 0.12s ease;
+  transition: background-color 0.14s ease;
 }
 
 tbody tr:hover {
-  background-color: var(--bg);
+  background-color: var(--surface-soft);
+}
+
+/* Numeric-heavy cells keep tabular figures for clean column alignment. */
+h1, h2, h3, h4, h5 {
+  letter-spacing: -0.02em;
 }
