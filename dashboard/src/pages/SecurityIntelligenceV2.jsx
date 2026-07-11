@@ -107,7 +107,7 @@ function BucketCard({ bucket, rows, active, onSelect }) {
   );
 }
 
-function FindingRow({ f, assetName, isCandidate, onNavigate }) {
+function FindingRow({ f, assetName, isCandidate, onNavigate, hideAsset }) {
   const sevColor = riskColor(f.severity);
   const SevIcon = SEV_ICON[f.severity] || Info;
   return (
@@ -128,7 +128,7 @@ function FindingRow({ f, assetName, isCandidate, onNavigate }) {
           <span style={{ marginLeft: "auto", fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute }}>{relTime(f.last_seen)}</span>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-          {assetName && (
+          {assetName && !hideAsset && (
             <button onClick={() => onNavigate?.("intelligence")}
               style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.text,
                 fontSize: 10, fontFamily: FONT.mono, padding: "2px 9px", borderRadius: 999, cursor: "pointer" }}>
@@ -151,12 +151,39 @@ function FindingRow({ f, assetName, isCandidate, onNavigate }) {
   );
 }
 
+/** Compact selectable agent card for the master list (mirrors AssetIntelligence's AssetRow). */
+function AgentSecurityRow({ a, selected, onSelect }) {
+  return (
+    <div onClick={onSelect}
+      style={{
+        background: selected ? C.surfaceRaised : C.surface,
+        border: `1px solid ${selected ? C.borderStrong : C.border}`,
+        borderLeft: `3px solid ${riskColor(a.worst)}`,
+        borderRadius: RADIUS.md, padding: "12px 14px", cursor: "pointer",
+      }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.text, fontFamily: FONT.mono }}>{a.name}</span>
+        <RiskBadge level={a.worst} />
+        {a.isCandidate && <StatusPill tone={C.riskMedium}>gateway candidate</StatusPill>}
+      </div>
+      <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, lineHeight: 1.6 }}>
+        {a.findings.length} finding{a.findings.length !== 1 ? "s" : ""}
+        {a.counts.critical > 0 && <> · {a.counts.critical} critical</>}
+        {a.counts.high > 0 && <> · {a.counts.high} high</>}
+        {a.counts.medium > 0 && <> · {a.counts.medium} medium</>}
+        {" · "}{relTime(a.lastSeen)}
+      </div>
+    </div>
+  );
+}
+
 export default function SecurityIntelligenceV2({ onNavigate }) {
   const bp = useBreakpoint();
   const [assets, setAssets] = useState(null);
   const [findings, setFindings] = useState(null);
   const [candidates, setCandidates] = useState(null);
   const [bucketFilter, setBucketFilter] = useState(null);
+  const [selectedKey, setSelectedKey] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -193,6 +220,30 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
       (SEV_RANK[b.severity] || 0) - (SEV_RANK[a.severity] || 0)
       || new Date(b.last_seen || 0) - new Date(a.last_seen || 0));
   }, [bucketFilter, bucketRows, securityFindings]);
+
+  // One card per agent: listRows is already worst-first, so grouping by
+  // first appearance keeps both the agent order and each agent's findings
+  // sorted worst-first.
+  const agents = useMemo(() => {
+    const byKey = new Map();
+    for (const f of listRows) {
+      const key = f.asset_key || "unknown";
+      if (!byKey.has(key)) {
+        byKey.set(key, {
+          key, name: nameByKey[key] || key, findings: [],
+          worst: f.severity, counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+          lastSeen: f.last_seen, isCandidate: candidateKeys.has(key),
+        });
+      }
+      const a = byKey.get(key);
+      a.findings.push(f);
+      if (f.severity in a.counts) a.counts[f.severity] += 1;
+      if (new Date(f.last_seen || 0) > new Date(a.lastSeen || 0)) a.lastSeen = f.last_seen;
+    }
+    return [...byKey.values()];
+  }, [listRows, nameByKey, candidateKeys]);
+
+  const selectedAgent = agents.find((a) => a.key === selectedKey) ?? agents[0];
 
   const agentsWithSecurity = new Set(securityFindings.map((f) => f.asset_key)).size;
   const highRisk = securityFindings.filter((f) => SEV_RANK[f.severity] >= 4).length;
@@ -258,11 +309,11 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
       </Section>
 
       <Section
-        label={activeBucket ? `Findings — ${activeBucket.label}` : "Security findings (worst first)"}
+        label={activeBucket ? `Agents — ${activeBucket.label} (${agents.length})` : `Agents with findings (${agents.length})`}
         right={<span style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute }}>
           Only agents with sufficient runtime risk signals are recommended for Gateway Control.
         </span>}>
-        {listRows.length === 0 ? (
+        {agents.length === 0 ? (
           <EmptyState icon="⛨"
             text={<span><strong style={{ color: C.text }}>No runtime security findings yet.</strong>{" "}
               When AI-agent runtime evidence shows risky tool usage, unknown providers, sensitive dependencies,
@@ -270,11 +321,62 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
             actionLabel={surfaceAllowsPage("runtime") ? "Open Runtime" : undefined}
             onAction={() => onNavigate?.("runtime")} />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {listRows.map((f) => (
-              <FindingRow key={f.id} f={f} assetName={nameByKey[f.asset_key]}
-                isCandidate={candidateKeys.has(f.asset_key)} onNavigate={onNavigate} />
-            ))}
+          <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "minmax(300px, 5fr) 7fr", gap: 16, alignItems: "start" }}>
+
+            {/* Master: one card per agent, worst first */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 620, overflowY: "auto" }}>
+              {agents.map((a) => (
+                <AgentSecurityRow key={a.key} a={a}
+                  selected={selectedAgent?.key === a.key}
+                  onSelect={() => setSelectedKey(a.key)} />
+              ))}
+            </div>
+
+            {/* Detail: the selected agent's security posture + findings */}
+            {selectedAgent && (
+              <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md,
+                boxShadow: "0 1px 2px rgba(15,23,42,0.04)", padding: "20px 22px",
+                display: "flex", flexDirection: "column", gap: 18 }}>
+
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 17, fontWeight: 700, color: C.text, fontFamily: FONT.mono }}>{selectedAgent.name}</span>
+                    <RiskBadge level={selectedAgent.worst} />
+                    {selectedAgent.isCandidate && <StatusPill tone={C.riskMedium}>gateway candidate</StatusPill>}
+                    <button onClick={() => onNavigate?.("intelligence")}
+                      style={{ marginLeft: "auto", background: "transparent", border: "none", color: C.accentDark,
+                        fontSize: 10.5, fontFamily: FONT.mono, cursor: "pointer", padding: 0, whiteSpace: "nowrap" }}>
+                      Open in Asset Intelligence →
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, marginTop: 8, lineHeight: 1.7 }}>
+                    key {String(selectedAgent.key).slice(0, 20)}… · {selectedAgent.findings.length} open finding{selectedAgent.findings.length !== 1 ? "s" : ""} · last seen {relTime(selectedAgent.lastSeen)}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+                    {["critical", "high", "medium", "low", "info"].filter((s) => selectedAgent.counts[s] > 0).map((s) => (
+                      <StatusPill key={s} tone={riskColor(s)}>{selectedAgent.counts[s]} {s}</StatusPill>
+                    ))}
+                  </div>
+                </div>
+
+                <Section label="Findings (worst first)">
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {selectedAgent.findings.map((f) => (
+                      <FindingRow key={f.id} f={f} hideAsset isCandidate={false} onNavigate={onNavigate} />
+                    ))}
+                  </div>
+                </Section>
+
+                {selectedAgent.isCandidate && surfaceAllowsPage("gateway_control_center") && (
+                  <button onClick={() => onNavigate?.("gateway_control_center", { gccFocus: selectedAgent.key })}
+                    style={{ alignSelf: "flex-start", background: "transparent", color: C.riskMedium,
+                      border: `1px solid ${C.riskMedium}44`, borderRadius: RADIUS.sm, padding: "6px 14px",
+                      fontSize: 11, fontFamily: FONT.mono, cursor: "pointer" }}>
+                    Review in Gateway Control Center →
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </Section>
