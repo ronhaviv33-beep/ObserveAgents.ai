@@ -196,9 +196,7 @@ export default function GovernanceCenter() {
   const [claimTarget, setClaimTarget] = useState(null);
   const [toastMsg, setToastMsg] = useState("");
   const [appSort, setAppSort]   = useState({ key: "first_seen_at", dir: "desc" });
-  const [unaSort, setUnaSort]   = useState({ key: "first_seen_at", dir: "desc" });
   const toggleApp = (key) => setAppSort(s => s.key===key ? {key, dir: s.dir==="asc"?"desc":"asc"} : {key, dir:"desc"});
-  const toggleUna = (key) => setUnaSort(s => s.key===key ? {key, dir: s.dir==="asc"?"desc":"asc"} : {key, dir:"desc"});
 
   const toast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(""), 3000); };
 
@@ -245,7 +243,6 @@ export default function GovernanceCenter() {
 
   const tabs = [
     { id: "approvals", label: `Review Queue (${pendingApprovals.length})` },
-    { id: "ownership", label: `Ownership Review (${total - withOwner} need owner)` },
     { id: "policy",    label: "Policy Coverage" },
   ];
 
@@ -283,10 +280,9 @@ export default function GovernanceCenter() {
 
         /* ── Approvals ─────────────────────────────────────────────────────── */
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16, marginBottom: 24 }}>
             {[
               { label: "Needs Validation",    count: needsValidation.length, color: T.warn,   desc: "Discovered agents to confirm" },
-              { label: "Agents Needing Owner", count: unassigned.length,     color: T.yellow, desc: "Discovered agents without an owner yet" },
             ].map(({ label, count, color, desc }) => (
               <div key={label} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "20px 24px" }}>
                 <div style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>{label}</div>
@@ -338,69 +334,6 @@ export default function GovernanceCenter() {
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-      ) : tab === "ownership" ? (
-
-        /* ── Ownership ─────────────────────────────────────────────────────── */
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : bp.isTablet ? "repeat(2, 1fr)" : "repeat(3, 1fr)", gap: 12 }}>
-            {[
-              { label: "Owned",         count: withOwner,         color: T.accent },
-              { label: "Needs Owner",   count: total - withOwner, color: T.yellow },
-              { label: "Total Agents",  count: total,             color: T.info },
-            ].map(({ label, count, color }) => (
-              <div key={label} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "18px 20px" }}>
-                <div style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>{label}</div>
-                <div style={{ fontSize: 30, fontWeight: 700, color, letterSpacing: "-0.03em" }}>{count}</div>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "20px 24px" }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 16 }}>Ownership Review</div>
-            <div style={{ marginBottom: 10, background: T.panelHi, borderRadius: 2, height: 8 }}>
-              <div style={{ width: `${total > 0 ? (withOwner / total) * 100 : 0}%`, background: T.accent, height: 8, borderRadius: 2 }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: MONO, color: T.textMute, marginTop: 6 }}>
-              <span><span style={{ color: T.accent }}>{withOwner}</span> owned</span>
-              <span><span style={{ color: T.yellow }}>{total - withOwner}</span> awaiting ownership review</span>
-            </div>
-          </div>
-
-          {unassigned.length > 0 && (
-            <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-              <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}`, fontSize: 14, fontWeight: 600, color: T.text }}>
-                Agents Needing Owner ({unassigned.length})
-              </div>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
-                <thead>
-                  <tr>
-                    <STH sortKey="agent_name" sort={unaSort} onSort={toggleUna}>Agent</STH>
-                    <STH sortKey="team" sort={unaSort} onSort={toggleUna}>Team</STH>
-                    <STH sortKey="environment" sort={unaSort} onSort={toggleUna}>Environment</STH>
-                    <STH sortKey="first_seen_at" sort={unaSort} onSort={toggleUna}>First Seen</STH>
-                    <STH>Review</STH>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortItems(unassigned, unaSort.key, unaSort.dir).map(agent => (
-                    <tr key={agent.agent_id || agent.id}>
-                      <TD><span style={{ fontFamily: MONO, color: T.yellow }}>{agent.agent_name || agent.agent_id_raw}</span></TD>
-                      <TD><span style={{ color: T.textDim }}>{agent.team || "—"}</span></TD>
-                      <TD><span style={{ color: T.textDim, fontSize: 12, fontFamily: MONO }}>{agent.environment || "—"}</span></TD>
-                      <TD><span style={{ fontFamily: MONO, color: T.textDim, fontSize: 12 }}>{relativeTime(agent.first_seen_at || agent.created_at)}</span></TD>
-                      <TD>
-                        <button onClick={() => setClaimTarget(agent)} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.textDim, padding: "4px 12px", borderRadius: 4, fontSize: 11, fontFamily: MONO, cursor: "pointer" }}>
-                          Review
-                        </button>
-                      </TD>
-                    </tr>
-                  ))}
                 </tbody>
               </table>
             </div>

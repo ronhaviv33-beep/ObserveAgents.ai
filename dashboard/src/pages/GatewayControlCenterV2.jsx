@@ -54,7 +54,6 @@ const FALLBACK_CONTROLS = {
   agent_has_database_access:         [{ control: "human review / route through gateway", kind: "routing" }],
   agent_uses_unmanaged_external_api: [{ control: "human review / route through gateway", kind: "routing" }],
   agent_has_broad_tool_surface:      [{ control: "tool-scope policy", kind: "hard" }],
-  agent_missing_owner:               [{ control: "assign owner/team", kind: "soft" }],
   human_review_recommended:          [{ control: "human review requirement", kind: "soft" }],
 };
 
@@ -112,7 +111,7 @@ function CandidateCard({ cand, asset, isAdmin, expanded, onToggle, onAction }) {
         <div style={{ minWidth: 170, flex: "1 1 170px" }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: C.text, fontFamily: FONT.mono }}>{name}</div>
           <div style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textMute, marginTop: 3 }}>
-            {cand.asset_key.slice(0, 16)}… · {owner || "no owner"}
+            {cand.asset_key.slice(0, 16)}…{owner ? ` · ${owner}` : ""}
           </div>
         </div>
         <RiskBadge level={cand.severity} />
@@ -252,7 +251,6 @@ export default function GatewayControlCenterV2({ isAdmin = false, focusAssetKey 
   const triggersOf = (c) => c.evidence?.trigger_finding_types || [];
   const openAll = useMemo(() => all.filter((c) => c.status === "open"), [all]);
   const highCount = openAll.filter((c) => c.severity === "high").length;
-  const missingOwner = openAll.filter((c) => triggersOf(c).includes("agent_missing_owner")).length;
   const humanReview = openAll.filter((c) => triggersOf(c).includes("human_review_recommended")).length;
 
   if (error) return <div style={{ color: C.riskHigh, fontFamily: FONT.mono, fontSize: 13, padding: 24 }}>{error}</div>;
@@ -285,8 +283,6 @@ export default function GatewayControlCenterV2({ isAdmin = false, focusAssetKey 
           sub="recommended for review" tone={openAll.length > 0 ? C.riskMedium : C.accent} />
         <MetricCard label="High risk candidates" value={highCount}
           sub="high-severity evidence" tone={highCount > 0 ? C.riskHigh : C.accent} />
-        <MetricCard label="Missing owner" value={missingOwner}
-          sub="ownership gap in triggers" tone={missingOwner > 0 ? C.riskMedium : C.accent} />
         <MetricCard label="Human review recommended" value={humanReview}
           sub="risk combination needs a person" tone={humanReview > 0 ? C.riskMedium : C.accent} />
       </div>

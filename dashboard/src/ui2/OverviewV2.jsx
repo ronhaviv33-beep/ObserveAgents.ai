@@ -189,10 +189,6 @@ export default function OverviewV2({ onNavigate }) {
           sub={`${openFindings.length} open findings`}
           tone={agentsWithFindings > 0 ? C.riskMedium : C.accent}
           onClick={surfaceAllowsPage("intelligence") ? () => nav("intelligence") : undefined} />
-        <MetricCard label="Agents needing owner" value={att.agentsNeedingOwner ?? 0}
-          sub="assign ownership before production expansion"
-          tone={(att.agentsNeedingOwner ?? 0) > 0 ? C.riskMedium : C.accent}
-          onClick={surfaceAllowsPage("intelligence") ? () => nav("intelligence") : undefined} />
         <MetricCard label="Gateway control candidates" value={openCandidates.length}
           sub="recommended for review — nothing applied automatically"
           tone={openCandidates.length > 0 ? C.riskHigh : C.accent}
@@ -207,11 +203,6 @@ export default function OverviewV2({ onNavigate }) {
             <EvidenceCard key="worst" level="high" title={att.worstOffender.asset_name}
               reason={`${att.worstOffender.highFindings} high-severity open finding${att.worstOffender.highFindings !== 1 ? "s" : ""} · ${att.worstOffender.errorTraces} error trace${att.worstOffender.errorTraces !== 1 ? "s" : ""} — the agent that most needs attention today.`}
               actionLabel="Investigate →" onAction={() => nav("intelligence")} />);
-          if ((att.agentsNeedingOwner ?? 0) > 0) cards.push(
-            <EvidenceCard key="owner" level="medium" title="Agent needs owner"
-              reason={`${att.agentsNeedingOwner} observed AI asset${att.agentsNeedingOwner !== 1 ? "s" : ""} without assigned ownership should be reviewed before production expansion.`}
-              pills={["agent_missing_owner"]}
-              actionLabel="Assign owner →" onAction={() => nav("intelligence")} />);
           if (unknownProvider.length > 0) cards.push(
             <EvidenceCard key="provider" level="high" title="Unknown provider in production"
               reason={`${distinctAssets(unknownProvider)} agent${distinctAssets(unknownProvider) !== 1 ? "s" : ""} using a model provider outside the known catalog.`}

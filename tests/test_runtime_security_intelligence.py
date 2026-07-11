@@ -193,7 +193,8 @@ def test_unknown_provider_creates_finding():
         db.close()
 
 
-def test_missing_owner_creates_finding():
+def test_missing_owner_is_not_flagged():
+    """Ownership is optional metadata — a missing owner must NOT produce a finding."""
     _ad._known_assets.clear()
     db = SessionLocal()
     try:
@@ -203,10 +204,7 @@ def test_missing_owner_creates_finding():
             attrs={"gen_ai.provider.name": "openai", "gen_ai.request.model": "gpt-4o"},
             resource_attrs={"service.name": "orphan-agent"})).status_code == 202
         assert _run(token).status_code == 200
-        rows = _rs_findings(db, org.id, "agent_missing_owner")
-        assert len(rows) == 1
-        ev = json.loads(rows[0].evidence_json)
-        assert "owner" in ev["missing_fields"]
+        assert _rs_findings(db, org.id, "agent_missing_owner") == []
     finally:
         db.close()
 

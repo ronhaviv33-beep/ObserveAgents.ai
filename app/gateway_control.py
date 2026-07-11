@@ -62,8 +62,6 @@ _CONTROL_MAP: dict[str, list[tuple[str, str]]] = {
                                           ("human review requirement", "soft")],
     "shell_enabled":                     [("human review requirement", "soft"),
                                           ("route through gateway", "routing")],
-    "agent_missing_owner":               [("owner assignment", "soft")],
-    "unmanaged_runtime":                 [("owner assignment", "soft")],
     "human_review_recommended":          [("human review requirement", "soft")],
     # Detection rule findings (app/detection_rules.py, source="detection_rules")
     "rule_mcp_tool_access_threshold":    [("mcp/tool usage policy", "hard"),

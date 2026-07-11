@@ -22,7 +22,7 @@ Design contract:
 Finding catalog (see docs/ai_agent_runtime_security_intelligence.md):
   agent_has_database_access · agent_uses_unmanaged_external_api ·
   agent_uses_mcp_tool_in_production · agent_has_broad_tool_surface ·
-  agent_uses_unknown_model_provider · agent_missing_owner ·
+  agent_uses_unknown_model_provider ·
   repeated_tool_errors · human_review_recommended
 (production_agent_without_guardrails is documented as planned — the schema has
 no per-asset guardrail marker yet, so it is not derived.)
@@ -374,23 +374,8 @@ def derive_runtime_security_findings(db: Session, org_id: int) -> list[dict]:
                  "sample_span_ids": acc.model_span_ids},
             ))
 
-        # 6. agent_missing_owner
-        reg = meta.get("registry")
-        missing = []
-        if reg is None or (reg.owner is None and reg.claimed_by is None):
-            missing.append("owner")
-        if reg is None or not reg.team:
-            missing.append("team")
-        if missing:
-            add(_draft(
-                acc, "agent_missing_owner",
-                "high" if prod else "medium",
-                "Agent Missing Owner",
-                "This AI agent has no assigned owner/team. Assign ownership before "
-                "expanding production use.",
-                {"asset_key": acc.asset_key, "service_name": acc.service_name,
-                 "missing_fields": missing},
-            ))
+        # 6. (removed) agent_missing_owner — ownership is optional metadata; the
+        #    platform no longer flags a missing owner as a finding.
 
         # 8. repeated_tool_errors
         if acc.error_count >= REPEATED_ERROR_THRESHOLD:
