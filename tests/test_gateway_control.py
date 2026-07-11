@@ -107,6 +107,14 @@ def test_high_risk_agent_becomes_candidate():
         ev = json.loads(row.evidence_json)
         assert ev["trigger_count"] >= 2
         assert "agent_uses_mcp_tool_in_production" in ev["trigger_finding_types"]
+        # Triggers are grouped by producing source for the "why this agent is
+        # here" split. Every trigger is covered exactly once across the groups.
+        by_source = ev["trigger_findings_by_source"]
+        assert isinstance(by_source, dict) and by_source
+        assert "agent_uses_mcp_tool_in_production" in by_source.get("runtime_security", [])
+        grouped = [t for fts in by_source.values() for t in fts]
+        assert len(grouped) == len(set(grouped))                 # no type in two groups
+        assert set(grouped) == set(ev["trigger_finding_types"])  # grouping drops nothing
         assert ev["environment"] == "production"
         controls = {c["control"]: c["kind"] for c in ev["recommended_controls"]}
         assert controls.get("mcp/tool usage policy") == "hard"

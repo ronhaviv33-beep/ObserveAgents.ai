@@ -108,6 +108,16 @@ def derive_gateway_control_candidates(db: Session, org_id: int) -> list[dict]:
     for asset_key, rows in by_asset.items():
         asset_id = next((r.asset_id for r in rows if r.asset_id is not None), None)
         types = sorted({r.finding_type for r in rows})
+
+        # Group the trigger finding types by their producing module so the UI
+        # can show "why this agent is here" split by evidence source rather than
+        # one mixed list. Grouping on the stored `source` is unambiguous — e.g.
+        # asset-intel's `database_access` and security-intel's
+        # `agent_has_database_access` land in the right buckets.
+        by_source: dict[str, set[str]] = {}
+        for r in rows:
+            by_source.setdefault(r.source or "otel_trace", set()).add(r.finding_type)
+        trigger_findings_by_source = {src: sorted(fts) for src, fts in by_source.items()}
         severities = {(r.severity or "").lower() for r in rows}
         severity = "high" if severities & set(_HIGH_SEVERITIES) else "medium"
 
@@ -155,6 +165,7 @@ def derive_gateway_control_candidates(db: Session, org_id: int) -> list[dict]:
                 "trigger_count": len(rows),
                 "trigger_finding_ids": sorted(r.id for r in rows),
                 "trigger_finding_types": types,
+                "trigger_findings_by_source": trigger_findings_by_source,
                 "recommended_controls": controls,
             },
             "occurrence_count": len(rows),
