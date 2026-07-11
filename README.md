@@ -40,7 +40,7 @@ OTel / OTLP  →  Runtime  →  Asset Intelligence  →  Security Intelligence
 
 One production app, two connected workspaces, built on the **ui2 design system** (evidence-first, risk-first, dark console — see [docs/ui_redesign_plan.md](docs/ui_redesign_plan.md)):
 
-### Observe workspace — the source of truth
+### Observe workspace — runtime evidence into understanding
 
 | Page | What it answers |
 |---|---|
@@ -68,7 +68,7 @@ The design principles behind every screen: **evidence-first** (a number without 
 
 **Your starting point:** create an API key in the dashboard (**API Keys** → New — it starts with `gk-`), then pick the fastest path. Every path ends the same way: **open Runtime and watch your first trace appear.**
 
-**Direct protobuf is the fastest developer quick start; a Collector remains the recommended enterprise deployment** for routing, processing, and multi-backend export.
+**Direct protobuf is the fastest developer quick start; a Collector remains the recommended production deployment** for routing, processing, and multi-backend export.
 
 ### Path A — Instant proof (nothing to install)
 
@@ -83,7 +83,7 @@ Open **Runtime** → `my-first-agent` is there, with an execution timeline. That
 
 ### Path B — Already using OpenTelemetry
 
-Point your existing exporter at Observe (OTLP/HTTP **JSON or protobuf** — protobuf SDKs can post directly; the Collector remains the recommended enterprise path — [details](docs/otel_ingestion.md)):
+Point your existing exporter at Observe (OTLP/HTTP **JSON or protobuf** — protobuf SDKs can post directly; the Collector remains the recommended production path — [details](docs/otel_ingestion.md)):
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=https://<your-observeagents-url>/otel
@@ -104,7 +104,7 @@ from traceloop.sdk import Traceloop
 Traceloop.init()   # OTLP/HTTP protobuf → straight to Observe
 ```
 
-Point its exporter directly at Observe (`OTEL_EXPORTER_OTLP_ENDPOINT=https://<observe>/otel` + your `gk-` key — [details](docs/otel_ingestion.md#direct-otlp-protobuf-quick-start)), or through your Collector for enterprise routing. Two lines of code, full GenAI traces — with the open standard, not a vendor SDK.
+Point its exporter directly at Observe (`OTEL_EXPORTER_OTLP_ENDPOINT=https://<observe>/otel` + your `gk-` key — [details](docs/otel_ingestion.md#direct-otlp-protobuf-quick-start)), or through your Collector for production routing. Two lines of code, full GenAI traces — with the open standard, not a vendor SDK.
 
 ---
 
@@ -165,7 +165,7 @@ Full details: [docs/otel_ingestion.md](docs/otel_ingestion.md#privacy-guarantee)
    otel_spans · otel_assets · telemetry · provenance_events
            │
            ▼
-   asset_registry   (canonical AI inventory — single source of truth)
+   asset_registry   (agent inventory, ownership, lifecycle, and context)
            │
            ▼
    derive_asset_intelligence()
@@ -197,7 +197,7 @@ One backend, one database. The intelligence layer is **derivation-only and idemp
 - **Detection Rules & Alerts** — built-in threshold rules over the same evidence (`source=detection_rules`): MCP tool-access threshold, repeated tool errors, unknown provider in production; evaluated during the intelligence run (never at ingestion), surfaced in Security Intelligence and the **Rules & Alerts** page, with a **webhook notification** path (admin-managed channels, Fernet-encrypted URLs, 60-minute per-finding cooldown, fail-safe delivery) — observe-only, nothing is enforced ([design](docs/ai_agent_detection_rules_alerts_design.md))
 - **Gateway Control Center** — control candidates derived on every intelligence run from open high-severity evidence or human-review recommendations; evidence-backed suggested controls; admin-only actions with sticky dismissal ([architecture](docs/gateway_control_center_architecture.md))
 - **Advisory Guardrails** — observe-only: detect, explain, recommend; nothing is blocked
-- **Governance** — claim assets, assign owner/team; `agent_missing_owner` findings drive the "Agent needs owner" attention card
+- **Ownership** — claim assets, assign owner/team; `agent_missing_owner` findings drive the "Agent needs owner" attention card
 
 ### Gateway
 
@@ -226,7 +226,7 @@ Visible pages also depend on the built product surface (`VITE_PRODUCT_SURFACE`) 
 | Runtime, Asset Intelligence, Security Intelligence, Rules & Alerts | Everyone |
 | Gateway Control Center (view for everyone; dismiss/reopen admin-only) | Everyone |
 | Discovery Center, Agents, Dependency Map | Everyone |
-| Cost Intelligence, Budgets (read-only for viewer/analyst), Pricing Registry, Guardrails | Everyone |
+| Cost Signals, Budgets (read-only for viewer/analyst), Pricing Registry, Guardrails | Everyone |
 | Gateway vs OTEL explainer | Demo environment only |
 | Governance Readiness, Security, Users, API Keys, Settings | Admin only |
 | Setup (Integrations), Chat | Admin + Analyst |

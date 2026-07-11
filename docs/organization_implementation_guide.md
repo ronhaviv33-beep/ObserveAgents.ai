@@ -48,7 +48,7 @@ Pick **one** AI service to start with. Two paths — use whichever matches your 
 
 ### Path A — You already use OpenTelemetry
 
-If your AI service already emits OTel traces, you point your existing pipeline at Observe. **The endpoint accepts both OTLP/HTTP JSON and OTLP/HTTP protobuf**, so most SDKs can post directly; the Collector remains the recommended enterprise path. What that means per stack:
+If your AI service already emits OTel traces, you point your existing pipeline at Observe. **The endpoint accepts both OTLP/HTTP JSON and OTLP/HTTP protobuf**, so most SDKs can post directly; the Collector remains the recommended production path. What that means per stack:
 
 **Via an OpenTelemetry Collector (recommended — works for every language):**
 
@@ -79,7 +79,7 @@ const exporter = new OTLPTraceExporter({
 });
 ```
 
-**Python and other languages whose OTLP/HTTP exporters send protobuf:** point them directly at Observe (`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`), or route through the Collector above for enterprise routing and processing.
+**Python and other languages whose OTLP/HTTP exporters send protobuf:** point them directly at Observe (`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`), or route through the Collector above for production routing and processing.
 
 ### Path B — No OTel, but you call OpenAI/Anthropic-compatible APIs
 
