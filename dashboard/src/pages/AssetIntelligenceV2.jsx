@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { C, FONT, RADIUS, microLabel } from "../ui2/tokens.js";
 import PageHeader from "../ui2/PageHeader.jsx";
 import Section from "../ui2/Section.jsx";
-import MetricCard from "../ui2/MetricCard.jsx";
 import RiskBadge from "../ui2/RiskBadge.jsx";
 import StatusPill from "../ui2/StatusPill.jsx";
 import EmptyState from "../ui2/EmptyState.jsx";
@@ -189,19 +188,6 @@ export default function AssetIntelligenceV2({ onNavigate }) {
         </div>
         {runResult && <div style={{ fontSize: 11, fontFamily: FONT.mono, color: C.accent, marginTop: 8 }}>Intelligence run complete — {runResult}</div>}
         {error && <div style={{ fontSize: 11, fontFamily: FONT.mono, color: C.riskHigh, marginTop: 8 }}>{error}</div>}
-      </div>
-
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <MetricCard label="AI assets discovered" value={allAssets.length} tone={C.text} />
-        <MetricCard label="Trace discovered" value={allAssets.filter(traceDiscovered).length}
-          sub="observed via OTel runtime evidence" tone={C.text} />
-        <MetricCard label="Need owner" value={allAssets.filter(needsOwner).length}
-          tone={allAssets.filter(needsOwner).length > 0 ? C.riskMedium : C.accent} />
-        <MetricCard label="With open findings" value={allAssets.filter((a) => (a.open_findings_count || 0) > 0).length}
-          tone={C.riskMedium} />
-        <MetricCard label="Gateway control candidates" value={candidateKeys.size}
-          tone={candidateKeys.size > 0 ? C.riskHigh : C.accent}
-          onClick={surfaceAllowsPage("gateway_control_center") ? () => onNavigate?.("gateway_control_center") : undefined} />
       </div>
 
       {allAssets.length === 0 ? (
