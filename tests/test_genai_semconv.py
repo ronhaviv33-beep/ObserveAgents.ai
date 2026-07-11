@@ -650,3 +650,133 @@ def test_scalar_fields_never_read_content_keys():
     })
     assert all(v is None for v in fields.values())
     assert "secret" not in json.dumps({k: v for k, v in fields.items() if v is not None})
+
+
+# ── 11. Tiered fallback extraction (real-world telemetry variants) ────────────
+
+from app.genai_semconv import (
+    TIER_FALLBACK,
+    TIER_STANDARD,
+    extract_environment_tiered,
+    extract_mcp_method_tiered,
+    extract_model_tiered,
+    extract_provider_tiered,
+    extract_tool_name_tiered,
+    extract_usage_tiered,
+    has_genai_signal,
+    is_mcp_span,
+)
+
+
+def test_model_tiered_standard_and_fallbacks():
+    assert extract_model_tiered({"gen_ai.request.model": "m"}) == ("m", TIER_STANDARD)
+    assert extract_model_tiered({"gen_ai.response.model": "m"}) == ("m", TIER_STANDARD)
+    for key in ("gen_ai.model", "llm.model", "llm.model_name", "model.name"):
+        assert extract_model_tiered({key: "m"}) == ("m", TIER_FALLBACK), key
+    # standard beats fallback when both present
+    assert extract_model_tiered(
+        {"llm.model": "fb", "gen_ai.request.model": "std"}) == ("std", TIER_STANDARD)
+    assert extract_model_tiered({}) == (None, None)
+
+
+def test_bare_model_and_provider_keys_not_extracted():
+    """Bare collision-prone keys are org-mapping-only, never global fallbacks."""
+    assert extract_model_tiered({"model": "gpt-4"}) == (None, None)
+    assert extract_provider_tiered({"provider": "openai"}) == (None, None)
+    assert extract_provider_tiered({"vendor": "openai"}) == (None, None)
+    assert extract_tool_name_tiered({"tool": "search"}) == (None, None)
+
+
+def test_provider_tiered_fallbacks():
+    assert extract_provider_tiered({"gen_ai.provider.name": "p"}) == ("p", TIER_STANDARD)
+    assert extract_provider_tiered({"gen_ai.system": "p"}) == ("p", TIER_STANDARD)
+    for key in ("llm.provider", "llm.vendor"):
+        assert extract_provider_tiered({key: "p"}) == ("p", TIER_FALLBACK), key
+
+
+def test_tool_tiered_fallbacks():
+    for key in ("gen_ai.tool.name", "tool.name", "mcp.tool.name", "mcp.tool"):
+        assert extract_tool_name_tiered({key: "t"}) == ("t", TIER_STANDARD), key
+    for key in ("tool_name", "function.name", "function_name"):
+        assert extract_tool_name_tiered({key: "t"}) == ("t", TIER_FALLBACK), key
+
+
+def test_environment_tiered_resource_before_span_and_fallbacks():
+    assert extract_environment_tiered(
+        {"deployment.environment": "prod"}, {}) == ("prod", TIER_STANDARD)
+    assert extract_environment_tiered(
+        {"deployment.environment.name": "prod"}, {}) == ("prod", TIER_STANDARD)
+    # span-level standard key still wins over resource-level fallback key
+    assert extract_environment_tiered(
+        {"env": "staging"}, {"deployment.environment": "prod"}) == ("prod", TIER_STANDARD)
+    for key in ("environment", "env", "service.environment"):
+        assert extract_environment_tiered({key: "qa"}, {}) == ("qa", TIER_FALLBACK), key
+    assert extract_environment_tiered({}, {}) == (None, None)
+
+
+def test_mcp_method_tiered_closed_value_set():
+    assert extract_mcp_method_tiered(
+        {"mcp.method.name": "tools/call"}) == ("tools/call", TIER_STANDARD)
+    # generic rpc.method / method keys count only on exact MCP method values
+    assert extract_mcp_method_tiered(
+        {"rpc.method": "tools/call"}) == ("tools/call", TIER_FALLBACK)
+    assert extract_mcp_method_tiered(
+        {"method": "resources/read"}) == ("resources/read", TIER_FALLBACK)
+    # non-MCP method values are rejected — no substring / prefix matching
+    assert extract_mcp_method_tiered({"rpc.method": "GET"}) == (None, None)
+    assert extract_mcp_method_tiered({"rpc.method": "com.acme.Svc/Call"}) == (None, None)
+    assert extract_mcp_method_tiered({"method": "tools/call/extra"}) == (None, None)
+
+
+def test_is_mcp_span_via_method_value_fallback():
+    assert is_mcp_span({"rpc.method": "tools/call"}) is True
+    assert is_mcp_span({"method": "prompts/get"}) is True
+    assert is_mcp_span({"rpc.method": "GET"}) is False
+
+
+def test_usage_tiered_llm_variants_and_zero_preserved():
+    usage, tier = extract_usage_tiered(
+        {"llm.usage.prompt_tokens": 0, "llm.usage.completion_tokens": 12})
+    assert usage["input_tokens"] == 0        # zero must survive fallback path
+    assert usage["output_tokens"] == 12
+    assert tier == TIER_FALLBACK
+    usage, tier = extract_usage_tiered(
+        {"llm.token_count.prompt": 3, "llm.token_count.completion": 4})
+    assert (usage["input_tokens"], usage["output_tokens"]) == (3, 4)
+    assert tier == TIER_FALLBACK
+
+
+def test_usage_bare_keys_gated_on_genai_context():
+    # bare counters WITHOUT any GenAI signal → ignored (non-LLM domains use them too)
+    usage, tier = extract_usage_tiered({"input_tokens": 9, "output_tokens": 5})
+    assert usage["input_tokens"] is None and usage["output_tokens"] is None
+    assert tier is None
+    # same counters WITH a non-bare GenAI signal → honored at fallback tier
+    usage, tier = extract_usage_tiered(
+        {"llm.model": "m", "input_tokens": 9, "output_tokens": 5})
+    assert (usage["input_tokens"], usage["output_tokens"]) == (9, 5)
+    assert tier == TIER_FALLBACK
+    # standard keys keep standard tier even when bare keys coexist
+    usage, tier = extract_usage_tiered(
+        {"gen_ai.usage.input_tokens": 1, "prompt_tokens": 99})
+    assert usage["input_tokens"] == 1
+    assert tier == TIER_STANDARD
+
+
+def test_has_genai_signal_tiers():
+    assert has_genai_signal({"gen_ai.request.model": "m"}) == (True, TIER_STANDARD)
+    assert has_genai_signal({"llm.model": "m"}) == (True, TIER_FALLBACK)
+    assert has_genai_signal({"model.name": "m"}) == (True, TIER_FALLBACK)
+    assert has_genai_signal({"http.url": "https://x"}) == (False, None)
+    # bare token keys are NOT signals by themselves
+    assert has_genai_signal({"input_tokens": 5}) == (False, None)
+
+
+def test_scalar_fields_fallback_model_populates_request_model():
+    fields = extract_genai_scalar_fields({"llm.model": "acme-1"})
+    assert fields["request_model"] == "acme-1"
+    assert fields["response_model"] is None
+    # gen_ai.response.model must never leak into request_model via fallback
+    fields = extract_genai_scalar_fields({"gen_ai.response.model": "resp-m"})
+    assert fields["request_model"] is None
+    assert fields["response_model"] == "resp-m"

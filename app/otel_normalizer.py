@@ -34,7 +34,10 @@ from app.relationships import upsert_relationship
 from app.genai_semconv import (
     MEMORY_OPERATIONS,
     extract_agent_meta,
+    extract_environment_tiered,
     extract_genai_scalar_fields,
+    extract_mcp_method_tiered,
+    extract_model_tiered,
     extract_operation,
     extract_provider,
     extract_response_meta,
@@ -44,7 +47,10 @@ from app.genai_semconv import (
 
 _log = logging.getLogger("ai_asset_mgmt.otel")
 
-# OTel GenAI attribute keys that indicate a span involves GenAI activity
+# OTel GenAI attribute keys that indicate a span involves GenAI activity.
+# Includes the ecosystem fallback variants (llm.* / model.name) recognised by
+# app/genai_semconv.py — kept in lockstep so fallback-key spans reach the
+# GenAI relationship branch, not just the standard-key ones.
 _GENAI_INDICATORS = frozenset({
     "gen_ai.system",
     "gen_ai.provider.name",
@@ -55,6 +61,17 @@ _GENAI_INDICATORS = frozenset({
     "gen_ai.usage.output_tokens",
     "gen_ai.agent.name",
     "gen_ai.agent.id",
+    # fallback tier (see genai_semconv extraction tiers)
+    "gen_ai.model",
+    "llm.model",
+    "llm.model_name",
+    "model.name",
+    "llm.provider",
+    "llm.vendor",
+    "llm.usage.prompt_tokens",
+    "llm.usage.completion_tokens",
+    "llm.token_count.prompt",
+    "llm.token_count.completion",
 })
 
 # gen_ai.operation.name → provenance event type (execute_tool goes through
@@ -101,11 +118,7 @@ def _resolve_identity(attrs: dict, resource_attrs: dict, span_id: str) -> tuple[
 
 
 def _extract_model(attrs: dict) -> str | None:
-    return (
-        attrs.get("gen_ai.request.model")
-        or attrs.get("gen_ai.response.model")
-        or None
-    )
+    return extract_model_tiered(attrs)[0]
 
 
 def _extract_tool_name(attrs: dict) -> str | None:
@@ -141,7 +154,7 @@ def _is_genai_span(attrs: dict) -> bool:
 def _is_tool_span(attrs: dict, span_name: str) -> bool:
     return bool(
         _extract_tool_name(attrs)
-        or attrs.get("mcp.method.name")
+        or extract_mcp_method_tiered(attrs)[0]
         or extract_operation(attrs) == "execute_tool"
         or "execute_tool" in (span_name or "").lower()
     )
@@ -205,11 +218,7 @@ def _upsert_asset(
     asset_key = _make_asset_key(org_id, agent_name)
     display_name = display_name or agent_name
 
-    environment = (
-        resource_attrs.get("deployment.environment")
-        or resource_attrs.get("deployment.environment.name")
-        or None
-    )
+    environment = extract_environment_tiered(resource_attrs)[0]
     owner = (
         resource_attrs.get("service.owner")
         or resource_attrs.get("team")
@@ -431,11 +440,7 @@ def normalize_spans(db: Session, org_id: int, spans: list[dict], api_key_id: int
             agent_name, display_name = _trace_identity[trace_id]
             identity_type = "declared"
         service_name = resource_attrs.get("service.name") or attrs.get("service.name") or display_name
-        environment = (
-            resource_attrs.get("deployment.environment")
-            or resource_attrs.get("deployment.environment.name")
-            or None
-        )
+        environment = extract_environment_tiered(resource_attrs, attrs)[0]
 
         # ── Asset discovery ───────────────────────────────────────────────────
         if agent_name not in assets_seen:

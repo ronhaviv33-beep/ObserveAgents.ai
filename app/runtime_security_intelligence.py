@@ -36,7 +36,12 @@ from urllib.parse import urlsplit
 from sqlalchemy.orm import Session
 
 from app.models import AssetRegistry, OtelAsset, OtelSpan
-from app.genai_semconv import extract_error_type, extract_tool_name, is_mcp_span
+from app.genai_semconv import (
+    extract_error_type,
+    extract_mcp_method_tiered,
+    extract_tool_name,
+    is_mcp_span,
+)
 
 _log = logging.getLogger("ai_asset_mgmt.runtime_security")
 
@@ -156,7 +161,7 @@ class _AssetAcc:
                 self._sample(self.api_span_ids, span_id)
 
         # MCP usage
-        mcp_method = attrs.get("mcp.method.name")
+        mcp_method = extract_mcp_method_tiered(attrs)[0]
         if mcp_method or is_mcp_span(attrs):
             if mcp_method:
                 self.mcp_methods.add(str(mcp_method))
