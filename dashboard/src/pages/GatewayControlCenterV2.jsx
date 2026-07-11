@@ -37,6 +37,14 @@ const KIND_META = {
   hard:    { label: "requires Gateway routing",  tone: "riskHigh" },
 };
 
+// "Why this agent is here", split by the evidence source that produced each
+// finding (keys match app/gateway_control.py's trigger_findings_by_source).
+const TRIGGER_GROUPS = [
+  { key: "detection_rules", label: "Detection Rules" },
+  { key: "runtime_security", label: "Security Intelligence" },
+  { key: "otel_trace",       label: "Asset Intelligence" },
+];
+
 // Fallback only for candidates whose evidence lacks server-mapped controls —
 // mirrors app/gateway_control.py's mapping at coarse granularity.
 const FALLBACK_CONTROLS = {
@@ -123,10 +131,42 @@ function CandidateCard({ cand, asset, isAdmin, expanded, onToggle, onAction }) {
           display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 22 }}>
           <div>
             <div style={{ ...microLabel, marginBottom: 8 }}>Why this agent is here</div>
-            <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.65, marginBottom: 10 }}>{ev.reason || cand.summary}</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {(ev.trigger_finding_types || []).map((t) => <StatusPill key={t} tone={C.riskMedium}>{t}</StatusPill>)}
-            </div>
+            <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.65, marginBottom: 12 }}>{ev.reason || cand.summary}</div>
+            {(() => {
+              const bySource = ev.trigger_findings_by_source;
+              // Grouped view (new candidates). Preserve group order; append any
+              // unrecognized source so nothing is silently dropped.
+              if (bySource && Object.keys(bySource).length) {
+                const known = TRIGGER_GROUPS.map((g) => g.key);
+                const extra = Object.keys(bySource)
+                  .filter((k) => !known.includes(k))
+                  .map((k) => ({ key: k, label: "Asset Intelligence" }));
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {[...TRIGGER_GROUPS, ...extra].map((g) => {
+                      const items = bySource[g.key] || [];
+                      if (!items.length) return null;
+                      return (
+                        <div key={g.key}>
+                          <div style={{ fontSize: 10, fontFamily: FONT.mono, letterSpacing: "0.08em", textTransform: "uppercase", color: C.textMute, marginBottom: 6 }}>
+                            {g.label}
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {items.map((t) => <StatusPill key={t} tone={C.riskMedium}>{t}</StatusPill>)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              }
+              // Fallback: flat list for candidates generated before the split.
+              return (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {(ev.trigger_finding_types || []).map((t) => <StatusPill key={t} tone={C.riskMedium}>{t}</StatusPill>)}
+                </div>
+              );
+            })()}
           </div>
           <div>
             <div style={{ ...microLabel, marginBottom: 8 }}>Suggested controls</div>
