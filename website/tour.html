@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ObserveAgents | Product Tour</title>
+  <meta name="description" content="A guided tour of ObserveAgents — connect OpenTelemetry, discover your AI agents, find risky behavior, and review what needs control. Observe first. Control only what matters.">
+  <link rel="canonical" href="https://www.observeagents.ai/tour.html">
+  <meta property="og:title" content="ObserveAgents — Product Tour">
+  <meta property="og:description" content="See what your AI agents are actually doing: runtime evidence → agent inventory → security findings → control recommendations.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    :root {
+      --ink:      #07111F;
+      --ink-2:    #24334A;
+      --body:     #41516A;
+      --bg:       #F7FBFF;
+      --bg-2:     #FFFFFF;
+      --card:     #FFFFFF;
+      --line:     #DCE8F7;
+      --line-2:   #CDDDF0;
+      --brand:    #0F7CFF;
+      --brand-2:  #00B894;
+      --brand-ink:#075FD0;
+      --amber:    #FFC72C;
+      --high:     #EA580C;
+      --shadow:   0 30px 70px rgba(20, 42, 74, .12);
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+      --mono: ui-monospace, "JetBrains Mono", "SF Mono", "IBM Plex Mono", Menlo, monospace;
+      --maxw: 1160px;
+      color-scheme: light;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; font-family: var(--sans); color: var(--body); line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      background:
+        radial-gradient(circle at 6vw 4vh, rgba(15,124,255,.13), transparent 460px),
+        radial-gradient(circle at 94vw 1vh, rgba(0,184,148,.13), transparent 440px),
+        var(--bg);
+    }
+    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 clamp(1rem, 4vw, 2.5rem); }
+
+    header {
+      position: sticky; top: 0; z-index: 30;
+      backdrop-filter: blur(16px);
+      background: color-mix(in srgb, var(--bg-2) 82%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+    }
+    .bar { display: flex; align-items: center; gap: 1rem; padding: .8rem 0; }
+    .brand { display: flex; align-items: center; gap: .55rem; font-weight: 800; letter-spacing: -.03em; color: var(--ink); font-size: 1.05rem; text-decoration: none; }
+    .glyph { width: 26px; height: 26px; border-radius: 8px; flex: none; background: linear-gradient(135deg, var(--brand), var(--brand-2)); display: grid; place-items: center; box-shadow: 0 6px 16px rgba(15,124,255,.34); }
+    .glyph::after { content:""; width: 9px; height: 9px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.35); }
+    .bar .spacer { flex: 1; }
+    a.ghost { font-size: .85rem; font-weight: 700; color: var(--ink-2); text-decoration: none; border: 1px solid var(--line-2); padding: .5rem .9rem; border-radius: 10px; }
+    a.cta {
+      font-size: .85rem; font-weight: 700; color: #fff; text-decoration: none;
+      padding: .55rem 1.05rem; border-radius: 10px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      box-shadow: 0 12px 26px rgba(15,124,255,.28);
+      display: inline-flex; align-items: center; gap: .4rem;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    a.cta:hover { transform: translateY(-1px); box-shadow: 0 16px 34px rgba(15,124,255,.36); }
+
+    .hero { text-align: center; padding: clamp(2.6rem, 6vw, 4.4rem) 0 1.2rem; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1.1rem;
+      padding: .42rem .8rem; border-radius: 999px; font-size: .8rem; font-weight: 700;
+      color: var(--brand-ink); background: color-mix(in srgb, var(--brand) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
+    }
+    .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-2) 30%, transparent); }
+    h1 { color: var(--ink); font-weight: 850; letter-spacing: -.035em; text-wrap: balance; font-size: clamp(2.1rem, 5.2vw, 3.5rem); line-height: 1.05; margin: 0 auto .9rem; max-width: 17ch; }
+    h1 .grad { background: linear-gradient(120deg, var(--brand), var(--brand-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .sub { font-size: clamp(1.02rem, 2.1vw, 1.2rem); max-width: 62ch; margin: 0 auto 1.5rem; color: var(--body); text-wrap: balance; }
+    .hero-cta { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; }
+    .trust { display: flex; gap: .5rem 1.3rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; font-family: var(--mono); font-size: .74rem; letter-spacing: .02em; color: var(--body); opacity: .82; }
+    .trust span { display: inline-flex; align-items: center; gap: .4rem; }
+    .trust span::before { content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--brand-2); }
+
+    .stage { padding: 1rem 0 clamp(3rem, 7vw, 5rem); }
+    .rail { display: flex; gap: .4rem; max-width: 1000px; margin: 0 auto 1.3rem; flex-wrap: wrap; justify-content: center; }
+    .step {
+      position: relative; flex: 1 1 160px; min-width: 148px; text-align: left; cursor: pointer;
+      border: 1px solid var(--line); background: var(--card); border-radius: 13px; padding: .68rem .82rem;
+      font: inherit; color: var(--body); overflow: hidden;
+      transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+      display: flex; flex-direction: column; gap: .1rem;
+    }
+    .step:hover { transform: translateY(-2px); }
+    .step .n { font-family: var(--mono); font-size: .66rem; letter-spacing: .1em; color: var(--brand-ink); font-weight: 700; }
+    .step .t { color: var(--ink); font-weight: 750; font-size: .94rem; letter-spacing: -.01em; }
+    .step[aria-selected="true"] { border-color: transparent; box-shadow: var(--shadow), inset 0 0 0 1.5px var(--brand); }
+    .step .fill { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: linear-gradient(90deg, var(--brand), var(--brand-2)); transform-origin: left; transform: scaleX(0); opacity: 0; }
+    .step[aria-selected="true"] .fill { opacity: 1; }
+    .step[aria-selected="true"].run .fill { animation: grow var(--dur, 6000ms) linear forwards; }
+    @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+    .frame {
+      max-width: 1000px; margin: 0 auto; border-radius: 16px; overflow: hidden;
+      border: 1px solid var(--line-2); background: var(--card); box-shadow: var(--shadow);
+    }
+    .frame .chrome { display: flex; align-items: center; gap: .5rem; padding: .6rem .85rem; border-bottom: 1px solid var(--line); background: #eef4fb; }
+    .frame .chrome i { width: 11px; height: 11px; border-radius: 50%; }
+    .frame .chrome .r1 { background: #ff5f57; } .frame .chrome .r2 { background: #febc2e; } .frame .chrome .r3 { background: #28c840; }
+    .frame .chrome .addr { margin-left: .5rem; flex: 1; font-family: var(--mono); font-size: .72rem; color: var(--body); background: #fff; border: 1px solid var(--line); border-radius: 7px; padding: .22rem .65rem; }
+    .frame .chrome .addr .p { color: var(--brand-ink); }
+    .shots { position: relative; aspect-ratio: 1440 / 900; background: var(--bg); }
+    .shots img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top left; opacity: 0; visibility: hidden; transition: opacity .5s ease; }
+    .shots img[data-on="1"] { opacity: 1; visibility: visible; }
+
+    .caption { text-align: center; margin: 1.3rem auto 0; max-width: 62ch; min-height: 3.2em; }
+    .caption .ck { font-family: var(--mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-ink); font-weight: 700; }
+    .caption .cx { color: var(--ink-2); font-size: 1.02rem; text-wrap: balance; }
+    .controls { display: flex; align-items: center; justify-content: center; gap: .7rem; margin-top: 1rem; }
+    .controls button { font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; border: 1px solid var(--line-2); background: var(--card); color: var(--ink-2); border-radius: 9px; padding: .42rem .82rem; }
+    .controls button:hover { border-color: var(--brand); color: var(--brand-ink); }
+
+    .close { text-align: center; padding: clamp(2.6rem, 6vw, 4.2rem) 0; border-top: 1px solid var(--line); }
+    .close h2 { color: var(--ink); font-size: clamp(1.5rem, 3.4vw, 2.15rem); letter-spacing: -.03em; margin: 0 0 .5rem; text-wrap: balance; }
+    .close .line { font-family: var(--mono); color: var(--brand-ink); font-size: .92rem; margin-bottom: 1.4rem; }
+    footer { text-align: center; padding: 1.6rem 0 2.4rem; font-size: .8rem; color: var(--body); }
+
+    :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+      .shots img { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap bar">
+      <a class="brand" href="/"><span class="glyph"></span>ObserveAgents</a>
+      <span class="spacer"></span>
+      <a class="ghost" href="/">← Back to site</a>
+      <a class="cta" href="https://demo.observeagents.ai" id="demoTop">Try the live demo →</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="wrap hero">
+      <span class="eyebrow"><span class="dot"></span> OpenTelemetry-native · observe-first</span>
+      <h1>See what your AI agents are <span class="grad">actually doing</span></h1>
+      <p class="sub">Connect OpenTelemetry — no proprietary SDK — and ObserveAgents turns runtime evidence into an agent inventory, security findings, and control recommendations. Here's the whole product in five screens, from real runtime data.</p>
+      <div class="hero-cta">
+        <a class="cta" href="https://demo.observeagents.ai" id="demoHero">Try the live demo →</a>
+        <button class="ghost" type="button" id="watchBtn" style="cursor:pointer;background:transparent;font:inherit;">Start the tour ↓</button>
+      </div>
+      <div class="trust">
+        <span>Claude Code</span><span>OpenAI</span><span>MCP</span><span>LangChain</span><span>OpenLLMetry</span>
+      </div>
+    </section>
+
+    <section class="wrap stage" id="stage">
+      <div class="rail" role="tablist" aria-label="Product tour">
+        <button class="step" role="tab" data-i="0" aria-selected="true"><span class="n">01 · RUNTIME</span><span class="t">What executed</span><span class="fill"></span></button>
+        <button class="step" role="tab" data-i="1" aria-selected="false"><span class="n">02 · INVENTORY</span><span class="t">Every agent</span><span class="fill"></span></button>
+        <button class="step" role="tab" data-i="2" aria-selected="false"><span class="n">03 · SECURITY</span><span class="t">Where it's risky</span><span class="fill"></span></button>
+        <button class="step" role="tab" data-i="3" aria-selected="false"><span class="n">04 · RULES</span><span class="t">Alerts that matter</span><span class="fill"></span></button>
+        <button class="step" role="tab" data-i="4" aria-selected="false"><span class="n">05 · CONTROL</span><span class="t">Only what matters</span><span class="fill"></span></button>
+      </div>
+
+      <div class="frame" id="frame">
+        <div class="chrome">
+          <i class="r1"></i><i class="r2"></i><i class="r3"></i>
+          <span class="addr">app.observeagents.ai<span class="p" id="addrPath">/#runtime</span></span>
+        </div>
+        <div class="shots" id="shots">
+          <img data-on="1" data-i="0" src="/tour/runtime.png"  alt="Runtime — AI agent execution traces grouped by session" width="1440" height="900" fetchpriority="high">
+          <img data-i="1" src="/tour/assets.png"   alt="Asset Intelligence — AI agents discovered from runtime evidence" width="1440" height="900" loading="lazy">
+          <img data-i="2" src="/tour/security.png" alt="Security Intelligence — runtime security findings" width="1440" height="900" loading="lazy">
+          <img data-i="3" src="/tour/rules.png"    alt="Rules & Alerts — detection rules and webhook notifications" width="1440" height="900" loading="lazy">
+          <img data-i="4" src="/tour/control.png"  alt="Gateway Control Center — agents recommended for control" width="1440" height="900" loading="lazy">
+        </div>
+      </div>
+
+      <div class="caption" id="caption" aria-live="polite"></div>
+      <div class="controls">
+        <button type="button" id="prevBtn">‹ Back</button>
+        <button type="button" id="playBtn">Pause ⏸</button>
+        <button type="button" id="nextBtn">Next ›</button>
+      </div>
+    </section>
+
+    <section class="close">
+      <div class="wrap">
+        <h2>Observe first. Control only what matters.</h2>
+        <div class="line">Connect OpenTelemetry → see your agents → find the risk → control when you're ready.</div>
+        <a class="cta" href="https://demo.observeagents.ai" id="demoBottom">Explore the live demo →</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>ObserveAgents — the runtime visibility and control layer for AI agents.</footer>
+
+  <script>
+  (function () {
+    var steps = Array.prototype.slice.call(document.querySelectorAll('.step'));
+    var imgs = Array.prototype.slice.call(document.querySelectorAll('.shots img'));
+    var caption = document.getElementById('caption');
+    var addrPath = document.getElementById('addrPath');
+    var playBtn = document.getElementById('playBtn');
+    var DUR = 6000;
+
+    var META = [
+      ['/#runtime', 'RUNTIME', 'Traces grouped by agent session, each expandable into an execution waterfall — structural metadata only, prompts and responses are never stored.'],
+      ['/#intelligence', 'ASSET INTELLIGENCE', 'Every agent discovered from runtime evidence: its models, tools, dependencies, environment and owner — an inventory you never had to maintain.'],
+      ['/#security_intel', 'SECURITY INTELLIGENCE', 'Risky behavior surfaces as evidence-backed findings — unknown providers, database reach, broad tool surface, missing owners — grouped into investigation buckets.'],
+      ['/#rules_alerts', 'RULES & ALERTS', 'Built-in detection rules turn the same evidence into thresholds and alerts, delivered by webhook — observe-only, throttled, metadata only.'],
+      ['/#gateway_control_center', 'GATEWAY CONTROL CENTER', 'High-risk agents land here with suggested controls. Observe can recommend; the Gateway enforces only when you explicitly configure it.']
+    ];
+
+    var i = 0, playing = true, timer = null;
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function render(n) {
+      i = (n + steps.length) % steps.length;
+      steps.forEach(function (s, k) {
+        var on = k === i;
+        s.setAttribute('aria-selected', on ? 'true' : 'false');
+        s.classList.remove('run');
+        if (on && playing && !reduce) { void s.offsetWidth; s.style.setProperty('--dur', DUR + 'ms'); s.classList.add('run'); }
+      });
+      imgs.forEach(function (im) { im.setAttribute('data-on', +im.getAttribute('data-i') === i ? '1' : '0'); });
+      addrPath.textContent = META[i][0];
+      caption.innerHTML = '<div class="ck">' + META[i][1] + '</div><div class="cx">' + META[i][2] + '</div>';
+    }
+    function schedule() { clearTimeout(timer); if (!playing || reduce) return; timer = setTimeout(function () { render(i + 1); schedule(); }, DUR); }
+    function setPlaying(p) { playing = p; playBtn.textContent = p ? 'Pause ⏸' : 'Play ▶'; if (p) { render(i); schedule(); } else { clearTimeout(timer); steps.forEach(function (s) { s.classList.remove('run'); }); } }
+
+    steps.forEach(function (s) { s.addEventListener('click', function () { render(+s.getAttribute('data-i')); schedule(); }); });
+    document.getElementById('nextBtn').addEventListener('click', function () { render(i + 1); schedule(); });
+    document.getElementById('prevBtn').addEventListener('click', function () { render(i - 1); schedule(); });
+    playBtn.addEventListener('click', function () { setPlaying(!playing); });
+    document.getElementById('watchBtn').addEventListener('click', function () {
+      document.getElementById('stage').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+      render(0); if (playing) schedule();
+    });
+
+    var frame = document.getElementById('frame');
+    frame.addEventListener('mouseenter', function () { if (playing) clearTimeout(timer); });
+    frame.addEventListener('mouseleave', function () { if (playing) schedule(); });
+
+    render(0);
+    if (reduce) { playing = false; playBtn.textContent = 'Play ▶'; } else { schedule(); }
+  })();
+  </script>
+</body>
+</html>

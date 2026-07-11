@@ -29,7 +29,7 @@ OTel / OTLP  →  Runtime  →  Asset Intelligence  →  Security Intelligence
 2. **Runtime** shows what actually executed: sessions, traces, execution waterfalls.
 3. **Asset Intelligence** turns evidence into inventory: assets, ownership, capabilities, dependencies, findings.
 4. **Security Intelligence** explains which agents are risky and why — from runtime behavior, not scanners.
-5. **Detection Rules** (in design) turn the same evidence into configurable thresholds and alerts.
+5. **Detection Rules** turn the same evidence into threshold-based alerts (built-in rules today: MCP tool-access threshold, repeated tool errors, unknown provider in production), surfaced on the **Rules & Alerts** page and deliverable to a webhook — evaluated only during the intelligence run, never at ingestion.
 6. **Gateway Control Center** recommends the control path for the agents that need one — observe-only until control is explicitly configured.
 
 **The core rule: Observability discovers and recommends. Gateway controls only when explicitly configured.** Nothing is ever blocked, rerouted, or enforced automatically.
@@ -47,7 +47,8 @@ One production app, two connected workspaces, built on the **ui2 design system**
 | **Overview** | Is my AI estate healthy? Four primary metrics (assets discovered, agents with findings, agents needing owner, control candidates), an evidence-backed Zone of Attention that only shows live conditions, per-agent runtime activity, and a Gateway Control preview — with a visible 30-second refresh countdown |
 | **Runtime** | What actually executed — traces grouped one row per agent session, expandable into a per-step execution waterfall; filter to one agent with a server-side refetch |
 | **Asset Intelligence** | Every AI asset in master/detail: identity, runtime evidence, capabilities, dependencies, findings grouped by category, and its Gateway Control status — with worst-first sorting and evidence-backed filters (needs owner, security risk, gateway candidates, trace discovered) |
-| **Security Intelligence** | Which agents are risky and why — six investigation buckets (MCP/tool risk, database & API access, unknown providers, missing ownership, repeated tool errors, human review) over a worst-first findings list |
+| **Security Intelligence** | Which agents are risky and why — seven investigation buckets (MCP/tool risk, database & API access, unknown providers, missing ownership, repeated tool errors, human review, and detection rule matches) over a worst-first findings list |
+| **Rules & Alerts** | The detection-rule catalog (built-in rules + planned templates) and a recent-matches feed, with a webhook notification path — observe-only, no rule blocks anything |
 | **Platform Guide** | The onboarding story: how data gets in, what you can see, what to do next |
 
 ### Gateway Control workspace — the action surface
@@ -170,12 +171,14 @@ Full details: [docs/otel_ingestion.md](docs/otel_ingestion.md#privacy-guarantee)
    derive_asset_intelligence()
    asset_capabilities · asset_findings
    ├─ runtime security intelligence  (source=runtime_security)
+   ├─ detection rules                (source=detection_rules)
+   │     └─ webhook notifications  (post-commit, cooldown-throttled)
    └─ gateway control candidates     (category=control)
            │
            ▼
         ui2 dashboard — one app, two workspaces
    Observe:  Overview · Runtime · Asset Intelligence ·
-             Security Intelligence · Platform Guide
+             Security Intelligence · Rules & Alerts · Platform Guide
    Gateway Control:  Control Center · Providers · Budgets · Pricing
 ```
 
@@ -191,6 +194,7 @@ One backend, one database. The intelligence layer is **derivation-only and idemp
 - **Runtime execution timelines** — session-grouped traces, per-step waterfalls, step classification (llm / tool / mcp_tool / database / external_api / step)
 - **Asset Intelligence** — derived capabilities (provider, model, mcp, database, shell, …) and findings across security / performance / operations / dependency / inventory; finding lifecycle open → dismissed/resolved → reopen; full catalog in [docs/asset_intelligence.md](docs/asset_intelligence.md)
 - **AI Agent Runtime Security Intelligence** — agent-specific, environment-aware security findings (`source=runtime_security`): database/API reach, MCP in production, broad tool surface, unknown providers, missing ownership, repeated tool errors, human-review combinations ([docs](docs/ai_agent_runtime_security_intelligence.md))
+- **Detection Rules & Alerts** — built-in threshold rules over the same evidence (`source=detection_rules`): MCP tool-access threshold, repeated tool errors, unknown provider in production; evaluated during the intelligence run (never at ingestion), surfaced in Security Intelligence and the **Rules & Alerts** page, with a **webhook notification** path (admin-managed channels, Fernet-encrypted URLs, 60-minute per-finding cooldown, fail-safe delivery) — observe-only, nothing is enforced ([design](docs/ai_agent_detection_rules_alerts_design.md))
 - **Gateway Control Center** — control candidates derived on every intelligence run from open high-severity evidence or human-review recommendations; evidence-backed suggested controls; admin-only actions with sticky dismissal ([architecture](docs/gateway_control_center_architecture.md))
 - **Advisory Guardrails** — observe-only: detect, explain, recommend; nothing is blocked
 - **Governance** — claim assets, assign owner/team; `agent_missing_owner` findings drive the "Agent needs owner" attention card
@@ -219,12 +223,12 @@ Visible pages also depend on the built product surface (`VITE_PRODUCT_SURFACE`) 
 | Page | Who can see it |
 |---|---|
 | Dashboard, Overview, Platform Guide | Everyone |
-| Runtime, Asset Intelligence, Security Intelligence | Everyone |
+| Runtime, Asset Intelligence, Security Intelligence, Rules & Alerts | Everyone |
 | Gateway Control Center (view for everyone; dismiss/reopen admin-only) | Everyone |
 | Discovery Center, Agents, Dependency Map | Everyone |
 | Cost Intelligence, Budgets (read-only for viewer/analyst), Pricing Registry, Guardrails | Everyone |
 | Gateway vs OTEL explainer | Demo environment only |
-| Governance Readiness, Security & Audit, Users, API Keys, Settings | Admin only |
+| Governance Readiness, Security, Users, API Keys, Settings | Admin only |
 | Setup (Integrations), Chat | Admin + Analyst |
 
 ---
@@ -300,6 +304,10 @@ GET  /intelligence/capabilities           # Derived capabilities (filterable)
 POST /intelligence/findings/{id}/dismiss  # Dismiss (control findings: admin-only)
 POST /intelligence/findings/{id}/resolve  # Resolve
 POST /intelligence/findings/{id}/reopen   # Return to open
+GET  /notifications/channels              # Webhook notification channels (admin; URL never returned)
+POST /notifications/channels              # Create a webhook channel { type, name, url, min_severity }
+PATCH  /notifications/channels/{id}       # Enable/disable, rename, change min_severity (admin)
+DELETE /notifications/channels/{id}       # Remove a channel (admin)
 GET  /security/alerts                     # Live detection signals
 GET  /agents · /agents/summary            # Agent inventory + discovery stats
 GET  /relationships · /relationships/graph# Runtime dependency map
@@ -350,7 +358,8 @@ Anthropic SDKs work the same way against `/v1/messages` (`base_url="http://local
 | `provenance_events` | One semantic event per span (llm_call / tool_call / db_call / external_api_call) |
 | `asset_registry` | Canonical AI inventory — lifecycle, owner, criticality |
 | `asset_capabilities` | Derived capability surface per AI system |
-| `asset_findings` | Derived findings — security / performance / operations / dependency / inventory / **control** (Gateway candidates), with `occurrence_count` dedup |
+| `asset_findings` | Derived findings — security / performance / operations / dependency / inventory / **control** (Gateway candidates) / detection-rule matches (`source=detection_rules`), with `occurrence_count` dedup |
+| `notification_channels` / `notification_deliveries` | Webhook notification targets (Fernet-encrypted URL) + per-attempt delivery log (doubles as the cooldown ledger) |
 | `agent_relationships` | Runtime dependency map |
 | `telemetry` | Immutable proxied-call records — tokens, cost, latency, findings |
 | `guard_modes` / `policy_rules` / `budget_rules` | Per-team governance mode, model allow/blocklists, budget thresholds |
@@ -435,8 +444,10 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 | ✅ | Product surface separation — per-surface builds (`VITE_PRODUCT_SURFACE`) with explicit deploy targets |
 | ✅ | Postgres-ready storage — `DATABASE_URL` switch, validated end-to-end on PG 16 |
 | ✅ | Demo seed data — five-system synthetic demo through the real ingestion pipeline |
-| 🔜 | AI Agent Detection Rules & Alerts — configurable runtime rules + Slack/webhook notifications ([design](docs/ai_agent_detection_rules_plan.md)) |
-| 🔜 | Rules & Alerts page (ui2-native, lands with Detection Rules) |
+| ✅ | AI Agent Detection Rules (R1) — built-in threshold rules over runtime evidence (`source=detection_rules`), evaluated during the intelligence run ([design](docs/ai_agent_detection_rules_alerts_design.md)) |
+| ✅ | Rules & Alerts page (ui2-native) + detection-rule matches bucket in Security Intelligence |
+| ✅ | Webhook notifications (R5) — admin-managed channels, encrypted URLs, per-finding cooldown, fail-safe post-intelligence delivery |
+| 🔜 | Detection Rules R7+ — configurable rule builder, Slack channels, alert snooze/acknowledge |
 | 🔜 | Gateway Control Center GCR5+ — policy drafts, explicit approval workflow, enforcement for routed agents only |
 | 🔜 | Ecosystem Discovery — GitHub / Jira / Slack / n8n / MCP evidence sources |
 | 🔜 | OTel Demo Readiness — demo company, telemetry coverage matrix, ingestion health, collector examples |
@@ -454,7 +465,7 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 | [docs/asset_intelligence.md](docs/asset_intelligence.md) | Full capability + finding catalog |
 | [docs/ai_agent_runtime_security_intelligence.md](docs/ai_agent_runtime_security_intelligence.md) | Runtime security finding types and evidence rules |
 | [docs/gateway_control_center_architecture.md](docs/gateway_control_center_architecture.md) | Observe-to-Control architecture and candidate model |
-| [docs/ai_agent_detection_rules_plan.md](docs/ai_agent_detection_rules_plan.md) | Detection Rules & Alerts design |
+| [docs/ai_agent_detection_rules_alerts_design.md](docs/ai_agent_detection_rules_alerts_design.md) | Detection Rules & Alerts design — rule templates, evaluation model, webhook notifications, R0–R8 sequence |
 | [docs/ui_redesign_plan.md](docs/ui_redesign_plan.md) | ui2 design system and page migration plan |
 | [docs/ui_contract.md](docs/ui_contract.md) | The UI ↔ API contract with real response samples |
 | [docs/roadmap.md](docs/roadmap.md) | Phased forward roadmap (O-phases, Observe Advisor) |
