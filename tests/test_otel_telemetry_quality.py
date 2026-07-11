@@ -73,14 +73,16 @@ def _otlp_attr_value(v):
     return {"stringValue": str(v)}
 
 
-def _span(trace_id, span_id, name, attrs=None, parent_span_id=None):
+def _span(trace_id, span_id, name, attrs=None, parent_span_id=None, start_nano=None):
+    if start_nano is None:
+        start_nano = 1_700_000_000_000_000_000
     span = {
         "traceId": trace_id,
         "spanId": span_id,
         "name": name,
         "kind": 3,
-        "startTimeUnixNano": 1_700_000_000_000_000_000,
-        "endTimeUnixNano": 1_700_000_001_000_000_000,
+        "startTimeUnixNano": start_nano,
+        "endTimeUnixNano": start_nano + 1_000_000_000,
         "status": {},
         "attributes": [
             {"key": k, "value": _otlp_attr_value(v)} for k, v in (attrs or {}).items()
@@ -89,6 +91,11 @@ def _span(trace_id, span_id, name, attrs=None, parent_span_id=None):
     if parent_span_id:
         span["parentSpanId"] = parent_span_id
     return span
+
+
+def _now_nano():
+    import time
+    return int(time.time() * 1e9)
 
 
 def _payload(spans, resource_attrs=None):
@@ -371,5 +378,93 @@ def test_custom_model_key_stored_and_candidate_recorded():
             OtelAsset.service_name == "acme-agent",
         ).one()
         assert "mycompany.llm.model" in json.loads(oa.candidate_attr_keys_json or "[]")
+    finally:
+        db.close()
+
+
+# ── 7. GET /intelligence/telemetry-quality report ─────────────────────────────
+
+def test_telemetry_quality_report_endpoint():
+    db = SessionLocal()
+    try:
+        org, _, token = _make_org_and_token(db)
+        now = _now_nano()  # report window is time-bounded — use fresh spans
+        # Clean production GenAI span.
+        assert _post(token, _payload(
+            [_span(_tid(), _sid(), "chat", {
+                "gen_ai.provider.name": "anthropic",
+                "gen_ai.request.model": "claude-sonnet-5",
+            }, start_nano=now)],
+            resource_attrs={"service.name": "clean-agent",
+                            "deployment.environment": "production"},
+        )).status_code == 202
+        # GenAI span missing environment + carrying a custom model key.
+        assert _post(token, _payload(
+            [_span(_tid(), _sid(), "chat", {
+                "gen_ai.operation.name": "chat",
+                "mycompany.llm.model": "acme-v1",
+            }, start_nano=now)],
+            resource_attrs={"service.name": "degraded-agent"},
+        )).status_code == 202
+        # Fully unidentified span.
+        assert _post(token, _payload(
+            [_span(_tid(), _sid(), "GET /x", {"http.url": "https://x.example.com"},
+                   start_nano=now)],
+            resource_attrs={"cloud.region": "eu-west-1"},
+        )).status_code == 202
+
+        resp = _client.get(
+            "/intelligence/telemetry-quality",
+            headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["window_days"] == 30
+        assert body["attribute_mapping_configured"] is False
+
+        by_name = {s["service_name"]: s for s in body["services"]}
+
+        clean = by_name["clean-agent"]
+        assert clean["classification_status"] == "fully_classified"
+        assert clean["span_counts"]["fully_classified"] == 1
+        assert clean["missing"] == {}
+        assert clean["remediation"] == []
+
+        degraded = by_name["degraded-agent"]
+        assert degraded["classification_status"] == "partially_classified"
+        assert degraded["missing"]["environment"] == 1
+        assert degraded["missing"]["genai_model"] == 1
+        assert "mycompany.llm.model" in degraded["candidate_attribute_keys"]
+        issues = {r["issue"] for r in degraded["remediation"]}
+        assert "missing_environment" in issues
+        assert "genai_missing_model" in issues
+
+        # The unidentified source shows up in the review list.
+        assert len(body["unidentified_assets"]) == 1
+        assert body["unidentified_assets"][0]["agent_id_raw"].startswith("observed-ai-system:")
+    finally:
+        db.close()
+
+
+def test_telemetry_quality_report_requires_auth():
+    resp = _client.get("/intelligence/telemetry-quality")
+    assert resp.status_code in (401, 403)
+
+
+def test_telemetry_quality_report_org_isolation():
+    db = SessionLocal()
+    try:
+        _, _, token_a = _make_org_and_token(db, "isoA")
+        _, _, token_b = _make_org_and_token(db, "isoB")
+        assert _post(token_a, _payload(
+            [_span(_tid(), _sid(), "chat", {"gen_ai.request.model": "m"},
+                   start_nano=_now_nano())],
+            resource_attrs={"service.name": "org-a-agent"},
+        )).status_code == 202
+
+        resp = _client.get("/intelligence/telemetry-quality",
+                           headers={"Authorization": f"Bearer {token_b}"})
+        assert resp.status_code == 200
+        names = [s["service_name"] for s in resp.json()["services"]]
+        assert "org-a-agent" not in names
     finally:
         db.close()

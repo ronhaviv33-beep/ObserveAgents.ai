@@ -1244,3 +1244,162 @@ def test_asset_summary_runtime_usage_null_scalars():
         assert usage["avg_time_to_first_chunk_ms"] is None
     finally:
         db.close()
+
+
+# ── Telemetry quality: env-merge fix, quality finding, low-confidence degrade ─
+
+def test_mixed_env_mcp_finding_fires_regardless_of_row_order():
+    """A service seen both with and without deployment.environment has two
+    OtelAsset rows; the span-derived mcp_tool_access finding must fire when
+    ANY row is production, independent of row insertion order."""
+    db = SessionLocal()
+    try:
+        # Order A: production row created first, env-less row second.
+        org_a, _, token_a = _make_org_and_token(db)
+        t1, t2 = uuid.uuid4().hex, uuid.uuid4().hex
+        r = _post_traces(token_a, _make_span(
+            t1, uuid.uuid4().hex[:16], "mcp call",
+            attrs={"mcp.method.name": "tools/call", "gen_ai.tool.name": "t1"},
+            resource_attrs={"service.name": "mixed-agent",
+                            "deployment.environment": "production"}))
+        assert r.status_code == 202
+        r = _post_traces(token_a, _make_span(
+            t2, uuid.uuid4().hex[:16], "mcp call",
+            attrs={"mcp.method.name": "tools/call", "gen_ai.tool.name": "t2"},
+            resource_attrs={"service.name": "mixed-agent"}))
+        assert r.status_code == 202
+        assert _run_intelligence(token_a).status_code == 200
+        rows = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org_a.id,
+            AssetFinding.finding_type == "mcp_tool_access",
+        ).all()
+        assert len(rows) == 1, "production-row-first order must fire mcp_tool_access"
+
+        # Order B: env-less row first, production row second.
+        org_b, _, token_b = _make_org_and_token(db)
+        t3, t4 = uuid.uuid4().hex, uuid.uuid4().hex
+        r = _post_traces(token_b, _make_span(
+            t3, uuid.uuid4().hex[:16], "mcp call",
+            attrs={"mcp.method.name": "tools/call", "gen_ai.tool.name": "t3"},
+            resource_attrs={"service.name": "mixed-agent"}))
+        assert r.status_code == 202
+        r = _post_traces(token_b, _make_span(
+            t4, uuid.uuid4().hex[:16], "mcp call",
+            attrs={"mcp.method.name": "tools/call", "gen_ai.tool.name": "t4"},
+            resource_attrs={"service.name": "mixed-agent",
+                            "deployment.environment": "production"}))
+        assert r.status_code == 202
+        assert _run_intelligence(token_b).status_code == 200
+        rows = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org_b.id,
+            AssetFinding.finding_type == "mcp_tool_access",
+        ).all()
+        assert len(rows) == 1, "env-less-row-first order must also fire mcp_tool_access"
+    finally:
+        db.close()
+
+
+def test_telemetry_quality_incomplete_finding_for_missing_env():
+    db = SessionLocal()
+    try:
+        org, _, token = _make_org_and_token(db)
+        r = _post_traces(token, _make_span(
+            uuid.uuid4().hex, uuid.uuid4().hex[:16], "chat",
+            attrs={"gen_ai.provider.name": "anthropic",
+                   "gen_ai.request.model": "claude-sonnet-5"},
+            resource_attrs={"service.name": "no-env-agent"}))
+        assert r.status_code == 202
+        assert _run_intelligence(token).status_code == 200
+
+        row = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org.id,
+            AssetFinding.finding_type == "telemetry_quality_incomplete",
+        ).one()
+        assert row.severity == "info"
+        assert row.source == "telemetry_quality"
+        evidence = json.loads(row.evidence_json)
+        assert "deployment.environment" in evidence["missing_attributes"]
+        assert "deployment.environment" in evidence["how_to_fix"]
+        assert evidence["mapping_endpoint"] == "/settings/otel-attribute-mapping"
+    finally:
+        db.close()
+
+
+def test_no_quality_finding_for_clean_telemetry():
+    db = SessionLocal()
+    try:
+        org, _, token = _make_org_and_token(db)
+        r = _post_traces(token, _make_span(
+            uuid.uuid4().hex, uuid.uuid4().hex[:16], "chat",
+            attrs={"gen_ai.provider.name": "anthropic",
+                   "gen_ai.request.model": "claude-sonnet-5"},
+            resource_attrs={"service.name": "clean-agent",
+                            "deployment.environment": "production"}))
+        assert r.status_code == 202
+        assert _run_intelligence(token).status_code == 200
+        rows = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org.id,
+            AssetFinding.finding_type == "telemetry_quality_incomplete",
+        ).all()
+        assert rows == []
+    finally:
+        db.close()
+
+
+def test_low_confidence_asset_findings_degraded_not_suppressed():
+    """A fallback-identity (unclassified) asset with production DB access:
+    the runtime-security finding still exists, but severity is capped at
+    medium with the original severity preserved in evidence."""
+    db = SessionLocal()
+    try:
+        org, _, token = _make_org_and_token(db)
+        # No service.name / agent identity — but env + DB access are visible.
+        r = _post_traces(token, _make_span(
+            uuid.uuid4().hex, uuid.uuid4().hex[:16], "db query",
+            attrs={"db.system": "postgresql"},
+            resource_attrs={"deployment.environment": "production",
+                            "cloud.region": "us-east-1"}))
+        assert r.status_code == 202
+        assert _run_intelligence(token).status_code == 200
+
+        row = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org.id,
+            AssetFinding.finding_type == "agent_has_database_access",
+        ).one()
+        assert row.severity == "medium"  # was high (production), capped
+        evidence = json.loads(row.evidence_json)
+        assert evidence["original_severity"] == "high"
+        assert evidence["identity_confidence"] == "low"
+        assert "telemetry-quality" in evidence["confidence_note"]
+
+        # The unclassified asset also carries the low quality finding.
+        quality = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org.id,
+            AssetFinding.finding_type == "telemetry_quality_incomplete",
+        ).one()
+        assert quality.severity == "low"
+        assert "service.name" in json.loads(quality.evidence_json)["missing_attributes"]
+    finally:
+        db.close()
+
+
+def test_classified_asset_findings_not_degraded():
+    db = SessionLocal()
+    try:
+        org, _, token = _make_org_and_token(db)
+        r = _post_traces(token, _make_span(
+            uuid.uuid4().hex, uuid.uuid4().hex[:16], "db query",
+            attrs={"db.system": "postgresql"},
+            resource_attrs={"service.name": "named-agent",
+                            "deployment.environment": "production"}))
+        assert r.status_code == 202
+        assert _run_intelligence(token).status_code == 200
+        row = db.query(AssetFinding).filter(
+            AssetFinding.organization_id == org.id,
+            AssetFinding.finding_type == "agent_has_database_access",
+        ).one()
+        assert row.severity == "high"  # untouched
+        evidence = json.loads(row.evidence_json)
+        assert "original_severity" not in evidence
+    finally:
+        db.close()
