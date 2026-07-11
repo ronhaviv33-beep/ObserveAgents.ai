@@ -154,8 +154,8 @@ print("sent — session", session)
 ## Phase 3 — Point the Collector at ObserveAgents
 ## שלב 3 — הפניית ה‑Collector ל‑ObserveAgents
 
-**EN.** Add the `otlphttp` exporter on the **traces** pipeline. Keep `debug` too, so you still see local output.
-**HE.** הוסיפו את ה‑exporter מסוג `otlphttp` ל‑pipeline של **traces**. השאירו גם `debug` כדי לראות פלט מקומי.
+**EN.** Add the `otlp_http` exporter on the **traces** pipeline. Keep `debug` too, so you still see local output. Use an explicit `traces_endpoint` with the full path — no path-append guessing.
+**HE.** הוסיפו את ה‑exporter מסוג `otlp_http` ל‑pipeline של **traces**. השאירו גם `debug` לפלט מקומי. השתמשו ב‑`traces_endpoint` עם הנתיב המלא — בלי ניחושי הוספת‑נתיב.
 
 ```yaml
 receivers:
@@ -171,21 +171,26 @@ exporters:
   debug:
     verbosity: normal
 
-  otlphttp/observeagents:
-    endpoint: https://app.observeagents.ai/otel
+  otlp_http/observeagents:
+    traces_endpoint: https://app.observeagents.ai/otel/v1/traces
     headers:
       authorization: "Bearer YOUR_API_KEY_HERE"
+    # gzip (the exporter default) is supported. If your platform build predates
+    # gzip ingestion support, set: compression: none
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, otlphttp/observeagents]
+      exporters: [debug, otlp_http/observeagents]
 ```
 
-> The endpoint stays `…/otel` — the `otlphttp` exporter appends `/v1/traces` itself. `YOUR_API_KEY_HERE` is the `gk-…` key from Phase 0.
-> הכתובת נשארת `…/otel` — ה‑exporter מוסיף `/v1/traces` בעצמו. `YOUR_API_KEY_HERE` הוא מפתח ה‑`gk-…` משלב 0.
+> **`otlp_http` vs `otlphttp`:** Collector **v0.156+** renamed the exporter to `otlp_http` (the old `otlphttp` alias still works but logs a deprecation warning). On older Collectors use `otlphttp`.
+> **`otlp_http` מול `otlphttp`:** גרסת Collector **v0.156+** שינתה את שם ה‑exporter ל‑`otlp_http` (הכינוי הישן `otlphttp` עדיין עובד אך מדפיס אזהרת deprecation). ב‑Collector ישן יותר השתמשו ב‑`otlphttp`.
+
+> **Compression:** the Collector exporter **gzip‑compresses by default**, and ObserveAgents accepts `Content-Encoding: gzip`. `YOUR_API_KEY_HERE` is the `gk-…` key from Phase 0.
+> **דחיסה:** ה‑exporter של ה‑Collector **דוחס ב‑gzip כברירת מחדל**, ו‑ObserveAgents מקבל `Content-Encoding: gzip`. `YOUR_API_KEY_HERE` הוא מפתח ה‑`gk-…` משלב 0.
 
 Restart the Collector, run `python lab_agent.py` again. A successful ingest returns **HTTP 202** to the Collector.
 *HE:* הפעילו מחדש את ה‑Collector, הריצו שוב `python lab_agent.py`. קליטה מוצלחת מחזירה ל‑Collector **HTTP 202**.
@@ -250,8 +255,10 @@ The Collector then becomes the **enterprise-hardening step** — central routing
 | **202 Accepted** | Ingested OK / נקלט בהצלחה | Nothing — check Runtime. |
 | **401** | Bad/missing key, or key has no org / מפתח שגוי־חסר, או ללא org | Use a valid `gk-` key from the dashboard. |
 | **400** | Malformed body, or non-trace payload / גוף פגום או payload שאינו trace | Send OTLP **traces** only; metrics/logs are rejected here. |
-| **415** | Wrong `Content-Type` / סוג תוכן שגוי | Send `application/json` or `application/x-protobuf`. |
-| No agent in Runtime | Spans exported to the wrong URL / נשלח לכתובת שגויה | Collector → `…/otel`; direct SDK → `…/otel/v1/traces`. |
+| **415** `Content-Type` | Wrong media type / סוג תוכן שגוי | Send `application/json` or `application/x-protobuf`. |
+| **415** `Content-Encoding` | Unsupported compression / דחיסה לא נתמכת | Use `gzip` or no compression. |
+| Collector: `Exporting failed … HTTP Status Code 400` | Gzipped body the platform couldn't read / גוף gzip שהפלטפורמה לא פענחה | Update to a build with gzip support, or set `compression: none` on the exporter. |
+| No agent in Runtime | Spans exported to the wrong URL / נשלח לכתובת שגויה | Use `traces_endpoint: …/otel/v1/traces` (full path). |
 
 ---
 

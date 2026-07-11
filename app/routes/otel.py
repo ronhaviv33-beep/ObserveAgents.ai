@@ -7,6 +7,8 @@ Content-Type:
     treated as JSON for backward compatibility)
   - application/x-protobuf / application/protobuf /
     application/vnd.google.protobuf (OTLP ExportTraceServiceRequest)
+Content-Encoding: gzip is supported for both encodings (Collector exporters
+compress by default); other encodings are rejected with 415.
 Traces only — metrics/logs payloads are rejected with a clear message.
 
 Privacy guarantee: raw gen_ai.input.messages, gen_ai.output.messages,
@@ -16,7 +18,9 @@ Identical for both encodings — protobuf feeds the same scrub pipeline.
 """
 from __future__ import annotations
 
+import json
 import logging
+import zlib
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -35,6 +39,42 @@ _PROTOBUF_CONTENT_TYPES = frozenset({
     "application/protobuf",
     "application/vnd.google.protobuf",
 })
+
+# Zip-bomb guard: cap on the decompressed size of a gzip request body.
+_MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024  # 64 MB
+
+
+def _decompressed_body(raw: bytes, content_encoding: str) -> bytes:
+    """Return the request payload bytes, gunzipping if the client declared it.
+
+    OpenTelemetry Collector exporters compress with gzip BY DEFAULT, and
+    Starlette does not transparently decompress request bodies, so this is
+    required for out-of-the-box Collector compatibility. Per the OTLP/HTTP
+    spec, an unsupported Content-Encoding is rejected with 415.
+    """
+    if content_encoding in ("", "identity"):
+        return raw
+    if content_encoding == "gzip":
+        # 16 + MAX_WBITS = expect a gzip (not zlib) header.
+        decompressor = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        try:
+            payload = decompressor.decompress(raw, _MAX_DECOMPRESSED_BYTES)
+        except zlib.error:
+            # Never echo the body — a decode failure message is enough.
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid gzip-compressed request body (Content-Encoding: gzip was declared but the body could not be decompressed)",
+            )
+        if decompressor.unconsumed_tail:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Decompressed payload exceeds the {_MAX_DECOMPRESSED_BYTES // (1024 * 1024)} MB limit",
+            )
+        return payload
+    raise HTTPException(
+        status_code=415,
+        detail=f"Unsupported Content-Encoding '{content_encoding}'. Use gzip or no compression.",
+    )
 
 
 def _get_org_id(caller) -> int | None:
@@ -72,16 +112,29 @@ async def ingest_traces(
     # Media type without parameters (e.g. "application/json; charset=utf-8").
     # Missing content-type is treated as JSON for backward compatibility.
     content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    content_encoding = request.headers.get("content-encoding", "").strip().lower()
 
     if content_type in _PROTOBUF_CONTENT_TYPES:
-        raw = await request.body()
+        raw = _decompressed_body(await request.body(), content_encoding)
         if not raw:
             raise HTTPException(status_code=400, detail="Empty request body")
         try:
             spans, resource_span_count = parse_otlp_protobuf(raw)
         except Exception:
-            # Never echo the raw body — a decode failure message is enough.
-            raise HTTPException(status_code=400, detail="Invalid OTLP protobuf body")
+            # Never echo the raw body — size + declared encoding are enough to
+            # diagnose the two common causes (compressed body without the
+            # header, or a non-OTLP payload).
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid OTLP protobuf body ({len(raw)} bytes, "
+                    f"content-encoding: {content_encoding or 'none'}). "
+                    "Expected an ExportTraceServiceRequest. If exporting from an "
+                    "OpenTelemetry Collector, use the otlp_http exporter with "
+                    "encoding: proto; compressed bodies must declare "
+                    "Content-Encoding: gzip."
+                ),
+            )
         if resource_span_count == 0:
             raise HTTPException(
                 status_code=400,
@@ -92,8 +145,9 @@ async def ingest_traces(
                 ),
             )
     elif content_type in ("application/json", ""):
+        raw = _decompressed_body(await request.body(), content_encoding)
         try:
-            body = await request.json()
+            body = json.loads(raw)
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid JSON body")
         try:
