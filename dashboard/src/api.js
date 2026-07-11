@@ -715,6 +715,39 @@ export async function runIntelligence() {
   return r.json()
 }
 
+export async function fetchTelemetryQuality(days = 30) {
+  const r = await authFetch(`${BASE}/intelligence/telemetry-quality?days=${days}`)
+  if (!r || !r.ok) throw await apiError(r, 'Failed to fetch telemetry quality report')
+  return r.json()
+}
+
+export async function reclassifyTelemetry() {
+  const r = await authFetch(`${BASE}/intelligence/reclassify`, { method: 'POST' })
+  if (!r || !r.ok) throw await apiError(r, 'Failed to reclassify telemetry')
+  return r.json()
+}
+
+export async function fetchOtelAttributeMapping() {
+  const r = await authFetch(`${BASE}/settings/otel-attribute-mapping`)
+  if (!r || !r.ok) throw await apiError(r, 'Failed to fetch attribute mapping')
+  return r.json()
+}
+
+export async function updateOtelAttributeMapping(mapping, reprocess = true) {
+  const r = await authFetch(`${BASE}/settings/otel-attribute-mapping`, {
+    method: 'PUT',
+    body: JSON.stringify({ mapping, reprocess }),
+  })
+  if (!r || !r.ok) {
+    // 400 carries per-entry errors: {detail:{error:{type, errors:[...]}}}
+    const payload = await r?.json().catch(() => ({}))
+    const entries = payload?.detail?.error?.errors
+    if (Array.isArray(entries) && entries.length) throw new Error(entries.join('; '))
+    throw new Error(parseApiError(payload, 'Failed to save attribute mapping'))
+  }
+  return r.json()
+}
+
 export async function dismissFinding(id) {
   const r = await authFetch(`${BASE}/intelligence/findings/${id}/dismiss`, { method: 'POST' })
   if (!r || !r.ok) throw new Error('Failed to dismiss finding')

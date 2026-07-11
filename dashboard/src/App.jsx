@@ -83,6 +83,7 @@ import { UserContext, useUser, RolesContext, useRoles, ROLES, canSeePage, userCa
 import PlatformGuideV2 from "./pages/PlatformGuideV2.jsx";
 import SimpleIntegrationsPage from "./pages/Setup.jsx";
 import SettingsPage from "./pages/Settings.jsx";
+import TelemetryQualityV2 from "./pages/TelemetryQualityV2.jsx";
 import { useBreakpoint } from "./hooks/useBreakpoint.js";
 
 
@@ -340,6 +341,7 @@ const PAGES = [
   { id:"relationship_map", label:"Runtime Dependency Map" },
   { id:"runtime",          label:"Runtime" },
   { id:"intelligence",     label:"Asset Intelligence" },
+  { id:"telemetry_quality", label:"Telemetry Quality" },
   { id:"gateway_control_center", label:"Gateway Control Center" },
   { id:"guardrails",       label:"Guardrails" },
   { id:"budgets",          label:"Budgets" },
@@ -385,6 +387,7 @@ const NAV_GROUPS_COMBINED = [
     items: [
       { id: "runtime",          label: "Runtime" },
       { id: "intelligence",     label: "Asset Intelligence" },
+      { id: "telemetry_quality", label: "Telemetry Quality" },
       { id: "security_intel",   label: "Security Intelligence" },
       { id: "rules_alerts",     label: "Rules & Alerts" },
       { id: "relationship_map", label: "Dependency Map" },
@@ -437,6 +440,7 @@ const NAV_GROUPS_OBSERVABILITY = [
     items: [
       { id: "runtime",          label: "Runtime" },
       { id: "intelligence",     label: "Asset Intelligence" },
+      { id: "telemetry_quality", label: "Telemetry Quality" },
       { id: "security_intel",   label: "Security Intelligence" },
       { id: "rules_alerts",     label: "Rules & Alerts" },
       { id: "guardrails",       label: "Guardrails" },
@@ -825,6 +829,9 @@ export default function App() {
       case "relationship_map": return <RelationshipMap />;
       case "runtime":          return <RuntimeTimelineV2 onNavigate={navigate} focusService={rtFocusService} onFocusConsumed={() => setRtFocusService(null)} />;
       case "intelligence":     return <AssetIntelligenceV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
+      case "telemetry_quality":
+        return <TelemetryQualityV2 isAdmin={user?.role === "admin" || user?.is_platform_admin}
+                                   onNavigate={navigate} />;
       case "gateway_control_center":
         return <GatewayControlCenterV2 isAdmin={user?.role === "admin" || user?.is_platform_admin}
                                        focusAssetKey={gccFocusKey} onClearFocus={() => setGccFocusKey(null)}
