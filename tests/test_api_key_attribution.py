@@ -131,9 +131,33 @@ def test_agents_endpoint_404_for_foreign_key():
     assert r.status_code == 404
 
 
+def test_create_key_defaults_to_otel_purpose():
+    r = _client.post("/api-keys", json={"name": "default-purpose-key", "team": "t"}, headers=ADMIN_H)
+    assert r.status_code == 201, r.text
+    assert r.json()["purpose"] == "otel"
+
+
+def test_create_gateway_key_records_purpose_and_lists_it():
+    r = _client.post("/api-keys", json={"name": "gw-key", "team": "t", "purpose": "gateway"}, headers=ADMIN_H)
+    assert r.status_code == 201, r.text
+    assert r.json()["purpose"] == "gateway"
+    # It shows up in the list with its purpose so the UI can split the two tables.
+    listed = _client.get("/api-keys", headers=ADMIN_H).json()
+    gw = next(k for k in listed if k["name"] == "gw-key")
+    assert gw["purpose"] == "gateway"
+
+
+def test_create_key_rejects_unknown_purpose():
+    r = _client.post("/api-keys", json={"name": "bad", "team": "t", "purpose": "nonsense"}, headers=ADMIN_H)
+    assert r.status_code == 422
+
+
 if __name__ == "__main__":
     test_ingested_span_records_the_api_key_id()
     test_jwt_ingestion_leaves_api_key_id_null()
     test_agents_endpoint_lists_services_seen_on_the_key()
     test_agents_endpoint_404_for_foreign_key()
+    test_create_key_defaults_to_otel_purpose()
+    test_create_gateway_key_records_purpose_and_lists_it()
+    test_create_key_rejects_unknown_purpose()
     print("test_api_key_attribution: OK")

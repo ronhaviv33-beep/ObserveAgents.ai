@@ -311,6 +311,7 @@ async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor
         key_prefix=key_prefix,
         key_hash=key_hash,
         team=req.team,
+        purpose=req.purpose,
         organization_id=actor.organization_id,
         created_by_id=actor.id,
     )
@@ -324,7 +325,7 @@ async def create_api_key(req: ApiKeyCreate, db: Session = Depends(get_db), actor
     )
     return ApiKeyCreated(
         id=record.id, name=record.name, key_prefix=record.key_prefix,
-        team=record.team, created_by_id=record.created_by_id,
+        team=record.team, purpose=record.purpose, created_by_id=record.created_by_id,
         created_at=record.created_at, last_used_at=record.last_used_at,
         is_active=record.is_active, key=full_key,
     )

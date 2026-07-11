@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from pydantic import BaseModel, Field
 
 
@@ -208,6 +209,8 @@ class UserOut(BaseModel):
 class ApiKeyCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
     team: str = Field(default="unknown", max_length=128)
+    # "otel" (Collector/OTLP ingestion — the default) or "gateway" (per-app routing).
+    purpose: Literal["otel", "gateway"] = "otel"
 
 
 class ApiKeyOut(BaseModel):
@@ -215,6 +218,7 @@ class ApiKeyOut(BaseModel):
     name: str
     key_prefix: str
     team: str
+    purpose: str | None = None
     created_by_id: int | None
     created_at: datetime
     last_used_at: datetime | None

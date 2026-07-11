@@ -339,6 +339,10 @@ class ApiKey(Base):
     key_prefix: Mapped[str] = mapped_column(String(16))                   # first 12 chars — display only
     key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # SHA-256
     team: Mapped[str] = mapped_column(String(128), default="unknown")     # sub-label within org
+    # What the key is for: "otel" = Collector/OTLP ingestion credential (usually one
+    # per org), "gateway" = per-app Gateway routing key. Nullable — keys created
+    # before this column exists are treated as "otel" (the common case) in the UI.
+    purpose: Mapped[str | None] = mapped_column(String(32), nullable=True)
     # organization_id: nullable during backfill migration; enforced non-null after.
     # get_proxy_caller treats null as a hard 401 — no fallback to any default org.
     organization_id: Mapped[int | None] = mapped_column(

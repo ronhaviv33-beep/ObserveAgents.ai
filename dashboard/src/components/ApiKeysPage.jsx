@@ -7,7 +7,7 @@ import { Card, Pill } from "./ui.jsx";
 export default function ApiKeysPage({ demoMode = false }) {
   const [keys,      setKeys]      = useState([]);
   const [loading,   setLoading]   = useState(true);
-  const [form,      setForm]      = useState({ name: "", team: "" });
+  const [form,      setForm]      = useState({ name: "", team: "", purpose: "otel" });
   const [saving,    setSaving]    = useState(false);
   const [err,       setErr]       = useState(null);
   const [newKey,    setNewKey]    = useState(null); // shown-once modal
@@ -40,9 +40,9 @@ export default function ApiKeysPage({ demoMode = false }) {
     if (!form.name.trim()) { setErr("Name is required."); return; }
     setSaving(true); setErr(null);
     try {
-      const created = await createApiKey({ name: form.name.trim(), team: form.team.trim() || "unknown" });
+      const created = await createApiKey({ name: form.name.trim(), team: form.team.trim() || "unknown", purpose: form.purpose });
       setNewKey(created.key);
-      setForm({ name: "", team: "" });
+      setForm({ name: "", team: "", purpose: form.purpose });
       await load();
     } catch (e) { setErr(e.message); }
     finally { setSaving(false); }
@@ -65,6 +65,97 @@ export default function ApiKeysPage({ demoMode = false }) {
 
   if (loading) return <div style={{ color: T.textDim, fontFamily: FONT_MONO, padding: 24 }}>Loading…</div>;
 
+  const otelKeys    = keys.filter(k => (k.purpose || "otel") !== "gateway");
+  const gatewayKeys = keys.filter(k => k.purpose === "gateway");
+
+  // Plain render helper (not a component) — one keys table, optionally with the
+  // per-key "agents seen" expander (only meaningful for OTLP ingestion keys).
+  const renderKeysCard = (title, list, { showAgents, emptyMsg }) => (
+    <Card title={`${title} · ${list.length}`}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ borderBottom: `1px solid ${T.border}` }}>
+            {["Name", "Prefix", "Team", "Created", "Last Used", "Status", ""].map(h => (
+              <th key={h} style={{ padding: "10px 8px", textAlign: "left", fontSize: 10, fontFamily: FONT_MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMute }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {list.length === 0 && (
+            <tr><td colSpan={7} style={{ padding: 20, textAlign: "center", color: T.textMute, fontFamily: FONT_MONO, fontSize: 12 }}>{emptyMsg}</td></tr>
+          )}
+          {list.map(k => (
+            <React.Fragment key={k.id}>
+            <tr style={{ borderBottom: `1px solid ${T.border}`, opacity: k.is_active ? 1 : 0.45 }}>
+              <td style={{ padding: "12px 8px", fontSize: 12, color: T.text, fontWeight: 500 }}>
+                {showAgents ? (
+                  <button onClick={() => toggleAgents(k.id)} title="Agents seen on this key"
+                    style={{ background: "transparent", border: "none", color: T.text, fontSize: 12, fontWeight: 500, fontFamily: "inherit", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: T.textMute, fontFamily: FONT_MONO, fontSize: 10 }}>{expanded === k.id ? "▾" : "▸"}</span>
+                    {k.name}
+                  </button>
+                ) : k.name}
+              </td>
+              <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textDim }}>{k.key_prefix}…</td>
+              <td style={{ padding: "12px 8px", fontSize: 12, color: T.textDim }}>{k.team}</td>
+              <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textMute }}>{fmtDate(k.created_at)}</td>
+              <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textMute }}>{fmtDate(k.last_used_at)}</td>
+              <td style={{ padding: "12px 8px" }}>
+                {k.is_active ? <Pill color={T.accent}>active</Pill> : <Pill color={T.textMute}>revoked</Pill>}
+              </td>
+              <td style={{ padding: "10px 8px" }}>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {k.is_active && (
+                    <button onClick={() => handleRevoke(k.id)}
+                      style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.warn, padding: "4px 10px", borderRadius: 3, fontSize: 11, fontFamily: FONT_MONO, cursor: "pointer" }}>
+                      Revoke
+                    </button>
+                  )}
+                  <button onClick={() => handleDelete(k.id)}
+                    style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.crit, padding: "4px 10px", borderRadius: 3, fontSize: 11, fontFamily: FONT_MONO, cursor: "pointer" }}>
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {showAgents && expanded === k.id && (
+              <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.panelHi }}>
+                <td colSpan={7} style={{ padding: "10px 8px 14px 26px" }}>
+                  <div style={{ fontSize: 10, fontFamily: FONT_MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>
+                    Agents seen on this key
+                  </div>
+                  {(() => {
+                    const st = agents[k.id] || {};
+                    if (st.loading) return <div style={{ fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>Loading…</div>;
+                    if (st.error)   return <div style={{ fontSize: 12, color: T.crit, fontFamily: FONT_MONO }}>{st.error}</div>;
+                    const rows = st.rows || [];
+                    if (rows.length === 0) return (
+                      <div style={{ fontSize: 12, color: T.textMute }}>
+                        No agents attributed to this key yet — attribution begins with new traffic. Agent names come from <strong style={{ color: T.textDim }}>service.name</strong> once your Collector sends traces.
+                      </div>
+                    );
+                    return (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {rows.map(a => (
+                          <div key={a.service_name} style={{ display: "flex", gap: 14, alignItems: "baseline", fontSize: 12 }}>
+                            <span style={{ color: T.text, fontFamily: FONT_MONO, minWidth: 220 }}>{a.service_name}</span>
+                            <span style={{ color: T.textDim }}>{a.span_count} spans</span>
+                            <span style={{ color: T.textMute, fontFamily: FONT_MONO, fontSize: 11 }}>last seen {fmtDate(a.last_seen)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </td>
+              </tr>
+            )}
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
@@ -80,8 +171,16 @@ export default function ApiKeysPage({ demoMode = false }) {
       {/* ── Create key ── */}
       <Card title="New API Key">
         <form onSubmit={handleCreate} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label style={{ fontSize: 9, fontFamily: FONT_MONO, letterSpacing: "0.12em", textTransform: "uppercase", color: T.textMute }}>Purpose *</label>
+            <select value={form.purpose} onChange={e => setForm({ ...form, purpose: e.target.value })}
+              style={{ ...inputStyle, width: 220, cursor: "pointer" }}>
+              <option value="otel">OTLP ingestion (Collector)</option>
+              <option value="gateway">Gateway routing (per app)</option>
+            </select>
+          </div>
           {[
-            { label: "Name *", key: "name", placeholder: "e.g. prod-otel-collector" },
+            { label: "Name *", key: "name", placeholder: form.purpose === "gateway" ? "e.g. customer-support-prod" : "e.g. prod-otel-collector" },
             { label: "Team",   key: "team", placeholder: "e.g. Customer Success" },
           ].map(({ label, key, placeholder }) => (
             <div key={key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -97,93 +196,24 @@ export default function ApiKeysPage({ demoMode = false }) {
           </button>
         </form>
         <div style={{ fontSize: 11, color: T.textMute, fontFamily: FONT_MONO, marginTop: 10 }}>
-          One key per Collector — usually a single key for your whole organization. Agent names come automatically from <strong style={{ color: T.textDim }}>service.name</strong> in your traces, so you don't need a key per agent. Add more keys only for extra Collectors, separate environments (staging/prod), or per-app Gateway routing.
+          {form.purpose === "gateway"
+            ? <>Gateway routing keys are <strong style={{ color: T.textDim }}>per app / workflow</strong> — each app routes its LLM traffic through the Gateway with its own key (e.g. customer-support-prod, sales-assistant-prod).</>
+            : <>One key per Collector — usually a single key for your whole organization. Agent names come automatically from <strong style={{ color: T.textDim }}>service.name</strong> in your traces, so you don't need a key per agent. Add more only for extra Collectors or separate environments (staging/prod).</>}
         </div>
         {err && <div style={{ color: T.crit, fontFamily: FONT_MONO, fontSize: 12, marginTop: 10 }}>{err}</div>}
       </Card>
 
-      {/* ── Keys table ── */}
-      <Card title={`Keys · ${keys.length}`}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ borderBottom: `1px solid ${T.border}` }}>
-              {["Name", "Prefix", "Team", "Created", "Last Used", "Status", ""].map(h => (
-                <th key={h} style={{ padding: "10px 8px", textAlign: "left", fontSize: 10, fontFamily: FONT_MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMute }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {keys.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: 20, textAlign: "center", color: T.textMute, fontFamily: FONT_MONO, fontSize: 12 }}>No API keys yet.</td></tr>
-            )}
-            {keys.map(k => (
-              <React.Fragment key={k.id}>
-              <tr style={{ borderBottom: `1px solid ${T.border}`, opacity: k.is_active ? 1 : 0.45 }}>
-                <td style={{ padding: "12px 8px", fontSize: 12, color: T.text, fontWeight: 500 }}>
-                  <button onClick={() => toggleAgents(k.id)} title="Agents seen on this key"
-                    style={{ background: "transparent", border: "none", color: T.text, fontSize: 12, fontWeight: 500, fontFamily: "inherit", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ color: T.textMute, fontFamily: FONT_MONO, fontSize: 10 }}>{expanded === k.id ? "▾" : "▸"}</span>
-                    {k.name}
-                  </button>
-                </td>
-                <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textDim }}>{k.key_prefix}…</td>
-                <td style={{ padding: "12px 8px", fontSize: 12, color: T.textDim }}>{k.team}</td>
-                <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textMute }}>{fmtDate(k.created_at)}</td>
-                <td style={{ padding: "12px 8px", fontFamily: FONT_MONO, fontSize: 11, color: T.textMute }}>{fmtDate(k.last_used_at)}</td>
-                <td style={{ padding: "12px 8px" }}>
-                  {k.is_active ? <Pill color={T.accent}>active</Pill> : <Pill color={T.textMute}>revoked</Pill>}
-                </td>
-                <td style={{ padding: "10px 8px" }}>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {k.is_active && (
-                      <button onClick={() => handleRevoke(k.id)}
-                        style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.warn, padding: "4px 10px", borderRadius: 3, fontSize: 11, fontFamily: FONT_MONO, cursor: "pointer" }}>
-                        Revoke
-                      </button>
-                    )}
-                    <button onClick={() => handleDelete(k.id)}
-                      style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.crit, padding: "4px 10px", borderRadius: 3, fontSize: 11, fontFamily: FONT_MONO, cursor: "pointer" }}>
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              {expanded === k.id && (
-                <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.panelHi }}>
-                  <td colSpan={7} style={{ padding: "10px 8px 14px 26px" }}>
-                    <div style={{ fontSize: 10, fontFamily: FONT_MONO, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMute, marginBottom: 8 }}>
-                      Agents seen on this key
-                    </div>
-                    {(() => {
-                      const st = agents[k.id] || {};
-                      if (st.loading) return <div style={{ fontSize: 12, color: T.textDim, fontFamily: FONT_MONO }}>Loading…</div>;
-                      if (st.error)   return <div style={{ fontSize: 12, color: T.crit, fontFamily: FONT_MONO }}>{st.error}</div>;
-                      const rows = st.rows || [];
-                      if (rows.length === 0) return (
-                        <div style={{ fontSize: 12, color: T.textMute }}>
-                          No traces ingested with this key yet. Agent names come from <strong style={{ color: T.textDim }}>service.name</strong> once your Collector sends traffic.
-                        </div>
-                      );
-                      return (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          {rows.map(a => (
-                            <div key={a.service_name} style={{ display: "flex", gap: 14, alignItems: "baseline", fontSize: 12 }}>
-                              <span style={{ color: T.text, fontFamily: FONT_MONO, minWidth: 220 }}>{a.service_name}</span>
-                              <span style={{ color: T.textDim }}>{a.span_count} spans</span>
-                              <span style={{ color: T.textMute, fontFamily: FONT_MONO, fontSize: 11 }}>last seen {fmtDate(a.last_seen)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </td>
-                </tr>
-              )}
-              </React.Fragment>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+      {/* ── OTLP ingestion keys (Collector) ── */}
+      {renderKeysCard("OTLP Ingestion Keys", otelKeys, {
+        showAgents: true,
+        emptyMsg: "No ingestion keys yet.",
+      })}
+
+      {/* ── Gateway routing keys (per app) ── */}
+      {renderKeysCard("Gateway Routing Keys", gatewayKeys, {
+        showAgents: false,
+        emptyMsg: "No Gateway routing keys. Create one per app only if you route LLM traffic through the Gateway.",
+      })}
 
       {/* ── Show-once modal + first-request onboarding ── */}
       {newKey && (() => {
