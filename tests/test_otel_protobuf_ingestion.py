@@ -497,3 +497,112 @@ def test_pb_genai_scalar_columns_extracted():
 
     finally:
         db.close()
+
+
+# ── Content-Encoding: gzip (Collector default compression) ───────────────────
+# The OpenTelemetry Collector's otlp_http exporter gzip-compresses by default,
+# and Starlette does not transparently decompress request bodies — these cases
+# lock in the endpoint-level gzip support.
+
+import gzip as _gzip
+
+
+def _post_gz(token: str, raw: bytes, content_type: str, encoding: str = "gzip"):
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": content_type,
+        "Content-Encoding": encoding,
+    }
+    return _client.post("/otel/v1/traces", content=raw, headers=headers)
+
+
+def test_gzip_protobuf_ingests():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    org, _, token = _make_org_and_token(db)
+    try:
+        trace_id, span_id = _tid(), _sid()
+        raw = _pb_request(
+            [{"trace_id": trace_id, "span_id": span_id, "name": "chat claude",
+              "attrs": {"gen_ai.operation.name": "chat",
+                        "gen_ai.provider.name": "anthropic",
+                        "gen_ai.request.model": "claude-sonnet-5"}}],
+            resource_attrs={"service.name": "gzip-agent"},
+        )
+        r = _post_gz(token, _gzip.compress(raw), "application/x-protobuf")
+        assert r.status_code == 202, r.text
+        assert r.json()["spans"] == 1
+
+        row = db.query(OtelSpan).filter(
+            OtelSpan.organization_id == org.id,
+            OtelSpan.trace_id == trace_id,
+        ).first()
+        assert row is not None
+        assert row.gen_ai_request_model == "claude-sonnet-5"
+    finally:
+        db.close()
+
+
+def test_gzip_json_ingests():
+    _ad._known_assets.clear()
+    db = SessionLocal()
+    org, _, token = _make_org_and_token(db)
+    db.close()
+
+    trace_id = _tid()
+    body = json.dumps({
+        "resourceSpans": [{
+            "resource": {"attributes": [
+                {"key": "service.name", "value": {"stringValue": "gzip-json-agent"}},
+            ]},
+            "scopeSpans": [{"spans": [{
+                "traceId": trace_id, "spanId": _sid(), "name": "chat gpt-4o", "kind": 3,
+                "startTimeUnixNano": "1700000000000000000",
+                "endTimeUnixNano": "1700000001000000000",
+                "status": {},
+                "attributes": [
+                    {"key": "gen_ai.operation.name", "value": {"stringValue": "chat"}},
+                ],
+            }]}],
+        }],
+    }).encode()
+    r = _post_gz(token, _gzip.compress(body), "application/json")
+    assert r.status_code == 202, r.text
+    assert r.json()["spans"] == 1
+
+
+def test_gzip_header_with_non_gzip_body_returns_400():
+    db = SessionLocal()
+    _, _, token = _make_org_and_token(db)
+    db.close()
+    secret_marker = b"do-not-echo-this-body"
+    r = _post_gz(token, b"\x00\x01" + secret_marker, "application/x-protobuf")
+    assert r.status_code == 400
+    detail = r.json()["detail"]
+    assert "gzip" in detail.lower()
+    assert "do-not-echo-this-body" not in r.text  # body content never leaks
+
+
+def test_unsupported_content_encoding_returns_415():
+    db = SessionLocal()
+    _, _, token = _make_org_and_token(db)
+    db.close()
+    raw = _pb_request([{"trace_id": _tid(), "span_id": _sid(), "name": "x"}])
+    r = _post_gz(token, raw, "application/x-protobuf", encoding="br")
+    assert r.status_code == 415
+    assert "br" in r.json()["detail"]
+
+
+def test_gzip_body_without_header_gets_diagnostic_400():
+    """Compressed body with a MISSING Content-Encoding header is the classic
+    misconfiguration — the error must point at the header, not just say
+    'invalid protobuf'."""
+    db = SessionLocal()
+    _, _, token = _make_org_and_token(db)
+    db.close()
+    raw = _pb_request([{"trace_id": _tid(), "span_id": _sid(), "name": "x"}])
+    r = _post_pb(token, _gzip.compress(raw))   # no Content-Encoding header
+    assert r.status_code == 400
+    detail = r.json()["detail"]
+    assert "content-encoding" in detail.lower()
+    assert "bytes" in detail
