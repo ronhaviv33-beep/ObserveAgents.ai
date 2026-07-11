@@ -2,12 +2,12 @@ import React, { useState } from "react";
 import { T, FONT_UI, FONT_MONO } from "../theme.js";
 
 export const Card = ({ children, style, title, subtitle, right }) => (
-  <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:16, padding:24, boxShadow:"0 1px 2px rgba(15,23,42,0.04)", ...style }}>
+  <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:16, padding:24, boxShadow:T.shadow, ...style }}>
     {(title||right) && (
-      <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:14 }}>
+      <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:16 }}>
         <div>
-          {title    && <div style={{ fontSize:13, color:T.text, fontFamily:FONT_UI, fontWeight:600, letterSpacing:"-0.01em" }}>{title}</div>}
-          {subtitle && <div style={{ fontSize:13, color:T.textMute, marginTop:4 }}>{subtitle}</div>}
+          {title    && <div style={{ fontSize:14, color:T.text, fontFamily:FONT_UI, fontWeight:600, letterSpacing:"-0.01em" }}>{title}</div>}
+          {subtitle && <div style={{ fontSize:13, color:T.textMute, marginTop:4, lineHeight:1.5 }}>{subtitle}</div>}
         </div>
         {right}
       </div>
@@ -17,17 +17,25 @@ export const Card = ({ children, style, title, subtitle, right }) => (
 );
 
 export const Stat = ({ label, value, delta, suffix, accent }) => (
-  <Card>
-    <div style={{ fontSize:11, letterSpacing:"0.06em", textTransform:"uppercase", color:T.textMute, fontFamily:FONT_UI, fontWeight:600 }}>{label}</div>
-    <div style={{ fontSize:28, fontFamily:FONT_MONO, fontWeight:500, color:accent||T.text, marginTop:10, letterSpacing:"-0.02em", lineHeight:1 }}>
-      {value}{suffix && <span style={{ fontSize:13, color:T.textDim, marginLeft:4, fontWeight:400 }}>{suffix}</span>}
+  <Card style={{ padding:22 }}>
+    <div style={{ fontSize:12.5, color:T.textDim, fontFamily:FONT_UI, fontWeight:500, letterSpacing:0 }}>{label}</div>
+    <div style={{ fontSize:32, fontFamily:FONT_UI, fontWeight:650, color:accent||T.text, marginTop:12, letterSpacing:"-0.03em", lineHeight:1, fontVariantNumeric:"tabular-nums" }}>
+      {value}{suffix && <span style={{ fontSize:14, color:T.textMute, marginLeft:5, fontWeight:500 }}>{suffix}</span>}
     </div>
-    {delta && <div style={{ fontSize:12, marginTop:8, fontFamily:FONT_MONO, color:delta.startsWith("+")?T.crit:T.accent }}>{delta} vs yesterday</div>}
+    {delta && (
+      <div style={{ fontSize:12.5, marginTop:10, fontWeight:500, display:"inline-flex", alignItems:"center", gap:5, color:delta.startsWith("+")?T.crit:T.ok }}>
+        <span style={{ fontVariantNumeric:"tabular-nums" }}>{delta}</span>
+        <span style={{ color:T.textMute, fontWeight:400 }}>vs yesterday</span>
+      </div>
+    )}
   </Card>
 );
 
 export const Pill = ({ children, color }) => (
-  <span style={{ display:"inline-flex", alignItems:"center", padding:"2px 8px", borderRadius:6, fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.08em", textTransform:"uppercase", background:`${color}24`, color, border:`1px solid ${color}40` }}>{children}</span>
+  <span style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"3px 9px", borderRadius:999, fontSize:11.5, fontFamily:FONT_UI, fontWeight:600, letterSpacing:0, textTransform:"none", background:`${color}14`, color, border:`1px solid ${color}2E` }}>
+    <span style={{ width:6, height:6, borderRadius:999, background:color, flexShrink:0 }} />
+    {children}
+  </span>
 );
 
 export const sevColor = (s) => s==="critical"?T.crit:s==="warning"?T.warn:T.info;
@@ -55,13 +63,13 @@ export function useSortable(defaultKey, defaultDir = "desc") {
 
 export const SortableTh = ({ label, sortKey, active, dir, onToggle, style: extraStyle = {} }) => (
   <th onClick={() => onToggle(sortKey)}
-    style={{ textAlign:"left", padding:"10px 8px", fontFamily:FONT_MONO, fontSize:10, letterSpacing:"0.1em",
-      textTransform:"uppercase", color: active ? T.text : T.textDim, fontWeight:500,
+    style={{ textAlign:"left", padding:"11px 12px", fontFamily:FONT_UI, fontSize:11.5, letterSpacing:"0.04em",
+      textTransform:"uppercase", color: active ? T.text : T.textMute, fontWeight:600,
       background:T.panelHi, borderBottom:`1px solid ${T.border}`,
       cursor:"pointer", userSelect:"none", whiteSpace:"nowrap", ...extraStyle }}
     title={`Sort by ${label}`}>
     {label}
-    <span style={{ marginLeft:4, opacity: active ? 1 : 0.3, fontSize:9 }}>
+    <span style={{ marginLeft:5, opacity: active ? 1 : 0.35, fontSize:9 }}>
       {active ? (dir === "asc" ? "▲" : "▼") : "⇅"}
     </span>
   </th>
@@ -76,26 +84,27 @@ export function useSearch(rows, getSearchString) {
 }
 
 export const SearchBox = ({ query, onChange, placeholder = "Search…", count, total }) => (
-  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-    <div style={{ position:"relative", flex:1, maxWidth:320 }}>
-      <span style={{ position:"absolute", left:9, top:"50%", transform:"translateY(-50%)", color:T.textMute, fontSize:12, pointerEvents:"none" }}>⌕</span>
+  <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
+    <div style={{ position:"relative", flex:1, maxWidth:360 }}>
+      <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", color:T.textMute, fontSize:14, pointerEvents:"none" }}>⌕</span>
       <input
         value={query}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        style={{ width:"100%", boxSizing:"border-box", background:T.panelHi, color:T.text, border:`1px solid ${query ? T.accent+"88" : T.border}`,
-          padding:"6px 10px 6px 28px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO }}
+        style={{ width:"100%", boxSizing:"border-box", background:T.panel, color:T.text, border:`1px solid ${query ? T.accent : T.border}`,
+          boxShadow: query ? "0 0 0 3px rgba(37,99,235,0.12)" : T.shadow,
+          padding:"9px 12px 9px 34px", borderRadius:10, fontSize:13.5, fontFamily:FONT_UI, outline:"none", transition:"border-color .15s ease, box-shadow .15s ease" }}
       />
       {query && (
         <button onClick={() => onChange("")}
-          style={{ position:"absolute", right:6, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:T.textMute, cursor:"pointer", fontSize:14, lineHeight:1, padding:0 }}>
+          style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:T.textMute, cursor:"pointer", fontSize:16, lineHeight:1, padding:0 }}>
           ×
         </button>
       )}
     </div>
     {query && (
-      <span style={{ fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>
-        {count} / {total}
+      <span style={{ fontFamily:FONT_UI, fontSize:12.5, color:T.textMute, fontVariantNumeric:"tabular-nums" }}>
+        {count} of {total}
       </span>
     )}
   </div>
