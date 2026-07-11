@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd dashboard && npm install && VITE_PRODUCT_SURFACE=observability npm run build",
+  "functions": {
+    "app/main.py": {
+      "includeFiles": "dashboard/dist/**"
+    }
+  }
+}
