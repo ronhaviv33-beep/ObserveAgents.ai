@@ -23,7 +23,7 @@ from app.genai_semconv import (
 )
 from app.detection_rules import DETECTION_RULES_SOURCE, derive_detection_rule_findings
 from app.notifications import deliver_detection_rule_notifications
-from app.runtime_security_intelligence import derive_runtime_security_findings
+from app.runtime_security_intelligence import _is_production, derive_runtime_security_findings
 from app.gateway_control import (
     CONTROL_CATEGORY, CONTROL_FINDING_TYPE, CONTROL_SOURCE,
     derive_gateway_control_candidates,
@@ -33,6 +33,32 @@ _log = logging.getLogger("ai_asset_mgmt.intelligence")
 
 # A single LLM call at or above this many input+output tokens is flagged.
 HIGH_TOKEN_USAGE_THRESHOLD = 100_000
+
+# Distinct source for telemetry-quality findings so they dedup separately and
+# are filterable apart from security/operations evidence findings.
+TELEMETRY_QUALITY_SOURCE = "telemetry_quality"
+
+
+def _degrade_low_confidence_draft(draft: dict, unclassified_keys: set[str]) -> dict:
+    """Cap the urgency of findings on assets whose identity is unattributed.
+
+    The observed activity (DB access, MCP calls, ...) is real regardless of
+    who owns the agent, so low-confidence findings are degraded — never
+    suppressed. But an anonymous hash identity can't be actioned by an owner,
+    and its production flag comes from the same broken telemetry, so
+    high/critical severity is unearned: cap at medium and note it in evidence.
+    """
+    if draft["asset_key"] in unclassified_keys:
+        if draft["severity"] in ("high", "critical"):
+            draft["evidence"]["original_severity"] = draft["severity"]
+            draft["severity"] = "medium"
+        draft["evidence"]["identity_confidence"] = "low"
+        draft["evidence"]["confidence_note"] = (
+            "Asset identity is inferred from unattributed telemetry (no "
+            "service.name or gen_ai.agent.* attributes). Verify instrumentation "
+            "before acting; see /intelligence/telemetry-quality."
+        )
+    return draft
 
 
 def _make_asset_key(org_id: int, name: str) -> str:
@@ -279,6 +305,8 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
     svc_to_key: dict[str, str] = {}
     svc_to_asset_id: dict[str, int | None] = {}
     svc_to_env: dict[str, str | None] = {}
+    # Assets whose identity is a fallback hash — their findings get degraded.
+    unclassified_asset_keys: set[str] = set()
 
     for oa in otel_assets:
         reg = registry_by_id.get(oa.ai_asset_id) if oa.ai_asset_id else None
@@ -289,7 +317,16 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
 
         svc_to_key[oa.service_name] = asset_key
         svc_to_asset_id[oa.service_name] = asset_id
-        svc_to_env[oa.service_name] = oa.environment
+        # A service can have several OtelAsset rows (one per observed
+        # environment). Production wins regardless of row order — same rule
+        # as the runtime-security accumulator merge.
+        prev_env = svc_to_env.get(oa.service_name)
+        if oa.service_name not in svc_to_env or (
+            not _is_production(prev_env) and _is_production(oa.environment)
+        ):
+            svc_to_env[oa.service_name] = oa.environment
+        if oa.classification_status == "unclassified":
+            unclassified_asset_keys.add(asset_key)
 
         for name in json.loads(oa.providers_json or "[]"):
             c, u = _upsert_capability(db, org_id, asset_id, asset_key, "provider", name, "otel_trace", now)
@@ -438,6 +475,68 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
             )
             finds_created += c
             finds_updated += u
+
+        # telemetry quality — one conservative finding per materially degraded
+        # asset. Legacy rows with NULL classification are skipped (unscored).
+        # Evidence is a fix-list, not a nag: what's missing and how to add it.
+        if oa.classification_status is not None:
+            try:
+                cls_counts = json.loads(oa.classification_counts_json or "{}")
+            except (json.JSONDecodeError, TypeError):
+                cls_counts = {}
+            cls_total = sum(int(v or 0) for v in cls_counts.values())
+            non_full = int(cls_counts.get("partial", 0) or 0) + int(cls_counts.get("unclassified", 0) or 0)
+            degraded: tuple[str, str] | None = None  # (severity, reason)
+            if oa.classification_status == "unclassified":
+                degraded = ("low",
+                            "Telemetry does not identify this system — no service.name "
+                            "or gen_ai.agent.* attributes were sent.")
+            elif oa.environment is None and json.loads(oa.models_json or "[]"):
+                degraded = ("info",
+                            "GenAI activity is reported without a deployment.environment "
+                            "resource attribute, so environment-aware findings cannot "
+                            "assess production impact.")
+            elif cls_total and non_full * 2 >= cls_total:
+                degraded = ("info",
+                            "Half or more of the observed spans are missing attributes "
+                            "the intelligence layer expects.")
+            if degraded:
+                q_severity, q_reason = degraded
+                missing_attrs: list[str] = []
+                how_to_fix: dict[str, str] = {}
+                if oa.classification_status == "unclassified":
+                    missing_attrs.append("service.name")
+                    how_to_fix["service.name"] = (
+                        "Set the service.name resource attribute in the OTel SDK or Collector")
+                if oa.environment is None:
+                    missing_attrs.append("deployment.environment")
+                    how_to_fix["deployment.environment"] = (
+                        "Set the deployment.environment resource attribute "
+                        "(production/staging/development)")
+                try:
+                    cand_keys = json.loads(oa.candidate_attr_keys_json or "[]")
+                except (json.JSONDecodeError, TypeError):
+                    cand_keys = []
+                c, u = _upsert_finding(
+                    db, org_id, asset_id, asset_key,
+                    "operations", "telemetry_quality_incomplete", q_severity,
+                    "Incomplete Telemetry",
+                    "This system's telemetry is missing attributes the intelligence "
+                    "layer needs — findings for it may understate or misjudge risk.",
+                    TELEMETRY_QUALITY_SOURCE, now,
+                    evidence={
+                        "classification_status": oa.classification_status,
+                        "span_counts": cls_counts,
+                        "reason": q_reason,
+                        "missing_attributes": missing_attrs,
+                        "how_to_fix": how_to_fix,
+                        "candidate_attribute_keys": cand_keys[:10],
+                        "mapping_endpoint": "/settings/otel-attribute-mapping",
+                    },
+                    replace_evidence=True,
+                )
+                finds_created += c
+                finds_updated += u
 
     # span-based performance and operations findings — accumulated in memory
     # first so each dedup key becomes exactly one row per run, carrying an
@@ -674,6 +773,7 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
     # derived by the pure module; upserted here so dedup/occurrence machinery
     # stays in one place. category="security", source="runtime_security".
     for d in derive_runtime_security_findings(db, org_id):
+        d = _degrade_low_confidence_draft(d, unclassified_asset_keys)
         c, u = _upsert_finding(
             db, org_id, d["asset_id"], d["asset_key"], "security",
             d["finding_type"], d["severity"], d["title"], d["summary"],
@@ -689,6 +789,7 @@ def derive_asset_intelligence(db: Session, org_id: int) -> dict:
     # source="detection_rules"; category varies per rule family. Runs before
     # candidate derivation so rule findings can trigger candidates this run.
     for d in derive_detection_rule_findings(db, org_id):
+        d = _degrade_low_confidence_draft(d, unclassified_asset_keys)
         c, u = _upsert_finding(
             db, org_id, d["asset_id"], d["asset_key"], d["category"],
             d["finding_type"], d["severity"], d["title"], d["summary"],

@@ -4,8 +4,8 @@ import { C, FONT } from "./tokens.js";
 export default function StatusPill({ children, tone = C.textDim }) {
   return (
     <span style={{
-      display: "inline-flex", alignItems: "center", background: `${tone}14`, color: tone, border: `1px solid ${tone}2E`,
-      fontSize: 11.5, fontWeight: 600, fontFamily: FONT.ui, padding: "3px 10px", borderRadius: 999, whiteSpace: "nowrap",
+      display: "inline-block", background: `${tone}24`, color: tone, border: `1px solid ${tone}40`,
+      fontSize: 10, fontFamily: FONT.mono, padding: "2px 9px", borderRadius: 999, whiteSpace: "nowrap",
     }}>{children}</span>
   );
 }

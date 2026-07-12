@@ -245,6 +245,58 @@ def cleanup_owner_findings() -> None:
             pass  # table may not exist yet on first boot — create_all handles it
 
 
+def backfill_span_classification() -> None:
+    """
+    Classify pre-migration OTel spans (classification_status IS NULL).
+
+    Idempotent — WHERE-guarded on NULL rows only. Does NOT re-extract gen_ai
+    scalars (those were always populated at ingest) and merges asset
+    classification counters additively (legacy spans were never counted).
+    Capped at BACKFILL_SPAN_CAP spans per boot; a remainder is logged and
+    finishes on the next boot or via POST /intelligence/reclassify.
+    """
+    from app.database import SessionLocal
+    from app.models import OtelSpan as _OtelSpan
+    from app.otel_reprocess import BACKFILL_SPAN_CAP, reclassify_org_spans
+
+    db = SessionLocal()
+    try:
+        org_ids = [
+            o[0] for o in (
+                db.query(_OtelSpan.organization_id)
+                .filter(_OtelSpan.classification_status.is_(None))
+                .distinct()
+                .all()
+            )
+        ]
+        if not org_ids:
+            return
+        remaining = BACKFILL_SPAN_CAP
+        for org_id in org_ids:
+            if remaining <= 0:
+                _log.warning(
+                    "Span-classification backfill capped at %d spans this boot; "
+                    "remaining orgs finish on the next boot or via "
+                    "POST /intelligence/reclassify", BACKFILL_SPAN_CAP,
+                )
+                break
+            result = reclassify_org_spans(
+                db, org_id, only_null=True, skip_scalars=True, span_cap=remaining,
+            )
+            remaining -= result["spans_seen"]
+            if result["spans_seen"]:
+                _log.info(
+                    "Span-classification backfill: org=%s spans=%d assets=%d%s",
+                    org_id, result["spans_seen"], result["assets_rebuilt"],
+                    " (capped)" if result["capped"] else "",
+                )
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
 def seed_pricing_registry() -> None:
     """Seed ModelPricing table from built-in COST_PER_1M on first boot, then start
     the background sync thread. Both are idempotent."""

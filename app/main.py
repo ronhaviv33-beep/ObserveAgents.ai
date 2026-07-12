@@ -109,6 +109,12 @@ except Exception as _e:
     _logging.getLogger("ai_asset_mgmt").warning("owner-findings cleanup non-fatal: %s", _e)
 
 try:
+    _startup.backfill_span_classification()
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("ai_asset_mgmt").warning("span-classification backfill non-fatal: %s", _e)
+
+try:
     _startup.seed_pricing_registry()
 except Exception as _e:
     import logging as _logging

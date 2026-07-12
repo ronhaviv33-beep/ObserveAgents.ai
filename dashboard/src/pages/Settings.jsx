@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { T, FONT_UI, FONT_MONO } from "../theme.js";
 import { isObservability, isGateway } from "../productSurface.js";
-import { useRoles } from "../auth.jsx";
+import { useRoles, useUser } from "../auth.jsx";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import {
   fetchGuardModes, setGuardMode, fetchHealth,
   fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential,
   fetchRoles, createRole, updateRole, deleteRole,
   fetchKeyStatuses, fetchOrgConfig, updateOrgConfig, updateKey,
+  fetchOtelAttributeMapping, updateOtelAttributeMapping,
   authFetch, BASE,
 } from "../api.js";
 
@@ -27,6 +28,115 @@ const Card = ({ children, style, title, subtitle }) => (
 const Pill = ({ children, color }) => (
   <span style={{ display:"inline-flex", alignItems:"center", padding:"2px 8px", borderRadius:3, fontSize:10, fontFamily:FONT_MONO, letterSpacing:"0.08em", textTransform:"uppercase", background:`${color}18`, color, border:`1px solid ${color}33` }}>{children}</span>
 );
+
+// ── OTel Attribute Mapping ─────────────────────────────────────────────────────
+function OtelAttributeMappingSection() {
+  const user = useUser();
+  const isAdmin = user?.role === "admin" || user?.is_platform_admin;
+  const [rows,       setRows]       = useState([]);   // [{key, target}]
+  const [targets,    setTargets]    = useState([]);
+  const [maxEntries, setMaxEntries] = useState(50);
+  const [loading,    setLoading]    = useState(true);
+  const [saving,     setSaving]     = useState(false);
+  const [saved,      setSaved]      = useState(null);
+  const [err,        setErr]        = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await fetchOtelAttributeMapping();
+      setTargets(data.allowed_targets || []);
+      setMaxEntries(data.max_entries || 50);
+      let mapped = Object.entries(data.mapping || {}).map(([key, target]) => ({ key, target }));
+      // Prefill hint set by the Telemetry Quality page ("Map this key").
+      try {
+        const prefill = sessionStorage.getItem("otel_mapping_prefill");
+        if (prefill) {
+          sessionStorage.removeItem("otel_mapping_prefill");
+          if (!mapped.some(r => r.key === prefill)) mapped = [...mapped, { key: prefill, target: "" }];
+        }
+      } catch { /* sessionStorage unavailable */ }
+      setRows(mapped);
+    } catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
+  }, []);
+  useEffect(() => { (async () => { await load(); })(); }, [load]);
+
+  const setRow = (i, patch) => setRows(prev => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const addRow = () => setRows(prev => [...prev, { key: "", target: "" }]);
+  const removeRow = (i) => setRows(prev => prev.filter((_, j) => j !== i));
+
+  const save = async () => {
+    setSaving(true); setErr(null); setSaved(null);
+    try {
+      const mapping = {};
+      for (const r of rows) {
+        if (r.key.trim() && r.target) mapping[r.key.trim()] = r.target;
+      }
+      const res = await updateOtelAttributeMapping(mapping);
+      const rep = res.reprocess;
+      setSaved(rep
+        ? `Saved — ${rep.spans_reclassified} spans reclassified, ${rep.spans_rescored} re-extracted`
+        : "Saved");
+      setRows(Object.entries(res.mapping || {}).map(([key, target]) => ({ key, target })));
+    } catch (e) { setErr(e.message); }
+    finally { setSaving(false); }
+  };
+
+  if (loading) return null;
+
+  return (
+    <Card title="OTel Attribute Mapping"
+      subtitle="Map custom telemetry attribute keys to the canonical OpenTelemetry GenAI attributes the intelligence layer reads. Applies to new telemetry immediately; saving also re-classifies stored spans.">
+      {err && <div style={{ color:T.crit, fontFamily:FONT_MONO, fontSize:12, marginBottom:12, whiteSpace:"pre-wrap" }}>{err}</div>}
+      {rows.length === 0 && (
+        <div style={{ fontSize:12, color:T.textMute, fontFamily:FONT_MONO, marginBottom:12 }}>
+          No mappings configured. Example: <span style={{ color:T.textDim }}>mycompany.llm.model → gen_ai.request.model</span>
+        </div>
+      )}
+      <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:12 }}>
+        {rows.map((r, i) => (
+          <div key={i} style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+            <input value={r.key} onChange={e => setRow(i, { key: e.target.value })}
+              placeholder="custom.attribute.key" disabled={!isAdmin} maxLength={128}
+              style={{ background:T.panelHi, border:`1px solid ${T.border}`, color:T.text, padding:"7px 10px",
+                borderRadius:4, fontSize:12, fontFamily:FONT_MONO, width:240, opacity:isAdmin?1:0.7 }} />
+            <span style={{ color:T.textMute, fontFamily:FONT_MONO }}>→</span>
+            <select value={r.target} onChange={e => setRow(i, { target: e.target.value })} disabled={!isAdmin}
+              style={{ background:T.panelHi, border:`1px solid ${T.border}`, color:r.target?T.text:T.textMute,
+                padding:"7px 10px", borderRadius:4, fontSize:12, fontFamily:FONT_MONO, minWidth:220, opacity:isAdmin?1:0.7 }}>
+              <option value="">canonical attribute…</option>
+              {targets.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            {isAdmin && (
+              <button onClick={() => removeRow(i)}
+                style={{ background:"transparent", border:"none", color:T.crit, cursor:"pointer", fontSize:15, lineHeight:1, padding:"0 4px" }}>×</button>
+            )}
+          </div>
+        ))}
+      </div>
+      {isAdmin ? (
+        <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+          <button onClick={addRow} disabled={rows.length >= maxEntries}
+            style={{ background:`${T.info}15`, border:`1px solid ${T.info}44`, color:T.info, padding:"7px 14px",
+              borderRadius:4, fontSize:12, fontFamily:FONT_MONO, cursor:"pointer", opacity:rows.length >= maxEntries ? 0.5 : 1 }}>
+            + Add mapping
+          </button>
+          <button onClick={save} disabled={saving}
+            style={{ background:T.accent, color:T.bg, border:"none", padding:"7px 16px", borderRadius:4,
+              fontSize:12, fontFamily:FONT_MONO, fontWeight:600, cursor:"pointer", opacity:saving?0.6:1 }}>
+            {saving ? "Saving…" : "Save mapping"}
+          </button>
+          <span style={{ fontFamily:FONT_MONO, fontSize:11, color:T.textMute }}>{rows.length}/{maxEntries}</span>
+          {saved && <span style={{ fontFamily:FONT_MONO, fontSize:11, color:T.accent }}>✓ {saved}</span>}
+        </div>
+      ) : (
+        <div style={{ fontSize:11, color:T.textMute, fontFamily:FONT_MONO }}>
+          Read-only — an admin can edit the mapping.
+        </div>
+      )}
+    </Card>
+  );
+}
 
 // ── Guard Modes ───────────────────────────────────────────────────────────────
 export const GUARD_MODE_META = {
@@ -342,7 +452,7 @@ export function ProviderCredentialsSection() {
 }
 
 // ── Role Management ───────────────────────────────────────────────────────────
-const ALL_PAGES = ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations","onboarding","agent_inventory","discovery","governance","relationship_map","security_intel","ecosystem","pricing","welcome"];
+const ALL_PAGES = ["home","chat","overview","cost","agents","models","workflows","alerts","budgets","security","users","apikeys","settings","integrations","onboarding","agent_inventory","discovery","governance","relationship_map","security_intel","ecosystem","pricing","welcome","telemetry_quality"];
 const ALL_CAPS  = ["view_all_sessions"];
 
 function RolesManagementSection() {
@@ -778,6 +888,8 @@ export default function SettingsPage() {
         </table>
         </div>
       </Card>
+
+      <OtelAttributeMappingSection />
 
       <Card title="Environments" subtitle="Shown in the Environment dropdown when claiming or validating agents">
         <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:14 }}>

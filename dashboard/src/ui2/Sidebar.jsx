@@ -13,17 +13,15 @@ function NavItem({ item, active, onClick }) {
     <button onClick={onClick}
       style={{
         background: active ? C.accentSoft : "transparent", border: "none",
-        color: active ? C.accentDark : C.textDim, textAlign: "left", padding: "9px 12px",
-        fontSize: 13.5, fontWeight: active ? 600 : 500,
-        borderRadius: RADIUS.md, cursor: "pointer", fontFamily: FONT.ui, letterSpacing: "-0.006em",
-        display: "flex", alignItems: "center", gap: 10, width: "100%", minHeight: 40,
-        transition: "background-color 0.12s ease, color 0.12s ease",
-      }}
-      onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = C.surfaceHover; e.currentTarget.style.color = C.text; } }}
-      onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.textDim; } }}>
+        color: active ? C.accentDark : C.textDim, textAlign: "left", padding: "8px 12px",
+        fontSize: 13, fontWeight: active ? 600 : 400,
+        borderRadius: RADIUS.sm, cursor: "pointer", fontFamily: FONT.ui,
+        display: "flex", alignItems: "center", gap: 10, width: "100%", minHeight: 44,
+        transition: "all 0.1s",
+      }}>
       {item.label}
       {item.badge != null && item.badge > 0 && (
-        <span style={{ marginLeft: "auto", background: C.riskHigh, color: "#FFFFFF", fontSize: 10.5, fontFamily: FONT.ui, padding: "1px 7px", borderRadius: 999, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+        <span style={{ marginLeft: "auto", background: C.riskHigh, color: "#FFFFFF", fontSize: 10, fontFamily: FONT.mono, padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>
           {item.badge}
         </span>
       )}
@@ -49,10 +47,10 @@ export default function Sidebar({
     }>
       {/* Brand */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isDesktop ? 30 : 20, padding: "0 6px" }}>
-        <div style={{ width: 28, height: 28, background: C.accent, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT.ui, fontWeight: 700, fontSize: 14, color: C.accentInk, boxShadow: "0 1px 3px rgba(37,99,235,0.35)" }}>◆</div>
+        <div style={{ width: 22, height: 22, background: C.accent, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT.mono, fontWeight: 600, fontSize: 12, color: C.accentInk }}>◆</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 650, letterSpacing: "-0.02em", color: C.text }}>{brand.name}</div>
-          <div style={{ fontSize: 10.5, color: C.textMute, fontFamily: FONT.ui, fontWeight: 500, letterSpacing: "0.01em", marginTop: 1 }}>{brand.subtitle}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em", color: C.text }}>{brand.name}</div>
+          <div style={{ fontSize: 9, color: C.textMute, fontFamily: FONT.mono, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 1 }}>{brand.subtitle}</div>
         </div>
         {!isDesktop && (
           <button onClick={onClose} aria-label="Close navigation"
@@ -67,7 +65,7 @@ export default function Sidebar({
         {groups.map((group, gi) => (
           <div key={gi} style={{ marginBottom: group.label ? 6 : 8 }}>
             {group.label && (
-              <div style={{ ...microLabel, fontSize: 11, letterSpacing: "0.05em", padding: "12px 12px 6px", fontWeight: 600, color: C.textMute }}>
+              <div style={{ ...microLabel, fontSize: 8, letterSpacing: "0.18em", padding: "10px 10px 5px", fontWeight: 500 }}>
                 {group.label}
               </div>
             )}

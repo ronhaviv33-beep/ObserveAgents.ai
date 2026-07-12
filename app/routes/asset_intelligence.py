@@ -10,9 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user
+from app.auth import get_current_user, require_admin
 from app.database import get_db
-from app.models import AssetCapability, AssetFinding, AssetRegistry, OtelAsset, ProvenanceEvent
+from app.models import AssetCapability, AssetFinding, AssetRegistry, OtelAsset, OtelSpan, ProvenanceEvent
 from app.org_config import get_org_config
 from app.asset_intelligence import derive_asset_intelligence
 
@@ -131,6 +131,173 @@ async def run_intelligence(
     org_id = current_user.organization_id
     result = derive_asset_intelligence(db, org_id)
     return result
+
+
+@router.post("/intelligence/reclassify")
+async def reclassify_telemetry(
+    current_user=Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Re-run telemetry classification + gen_ai extraction over the org's
+    stored spans, applying the current attribute mapping (admin only,
+    synchronous — same posture as /intelligence/run). Idempotent: a second
+    run reports zero changes. Stored raw attributes are never modified."""
+    from app.otel_reprocess import reclassify_org_spans
+    return reclassify_org_spans(db, current_user.organization_id)
+
+
+# Remediation hints per missing-signal code (see app/telemetry_classification.py).
+_MISSING_REMEDIATION = {
+    "identity": {
+        "issue": "missing_identity",
+        "add_attributes": ["service.name", "gen_ai.agent.name"],
+    },
+    "environment": {
+        "issue": "missing_environment",
+        "add_attributes": ["deployment.environment"],
+    },
+    "genai_model": {
+        "issue": "genai_missing_model",
+        "add_attributes": ["gen_ai.request.model"],
+        "or_map_via": "PUT /settings/otel-attribute-mapping",
+    },
+    "genai_provider": {
+        "issue": "genai_missing_provider",
+        "add_attributes": ["gen_ai.provider.name"],
+        "or_map_via": "PUT /settings/otel-attribute-mapping",
+    },
+    "tool_name": {
+        "issue": "tool_missing_name",
+        "add_attributes": ["gen_ai.tool.name"],
+        "or_map_via": "PUT /settings/otel-attribute-mapping",
+    },
+    "mcp_server": {
+        "issue": "mcp_missing_server",
+        "add_attributes": ["mcp.server.name"],
+        "or_map_via": "PUT /settings/otel-attribute-mapping",
+    },
+}
+
+
+@router.get("/intelligence/telemetry-quality")
+async def telemetry_quality(
+    days: int = Query(30, ge=1, le=365),
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Telemetry-quality report: how well each service's spans classify, which
+    signals are missing, custom attribute keys that may deserve a mapping, and
+    unidentified (fallback-identity) assets that need review. Review surface,
+    not hot path — spans with NULL classification (pre-migration) are reported
+    in the 'unscored' bucket."""
+    org_id = current_user.organization_id
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    # 1. Per-service span counts by classification status (one grouped query).
+    status_rows = (
+        db.query(
+            OtelSpan.service_name,
+            OtelSpan.classification_status,
+            func.count(OtelSpan.id),
+        )
+        .filter(OtelSpan.organization_id == org_id, OtelSpan.start_time >= since)
+        .group_by(OtelSpan.service_name, OtelSpan.classification_status)
+        .all()
+    )
+    per_service: dict[str, dict] = {}
+
+    def _svc(name: str) -> dict:
+        return per_service.setdefault(name or "—", {
+            "span_counts": {
+                "total": 0, "fully_classified": 0, "partially_classified": 0,
+                "unclassified": 0, "unscored": 0,
+            },
+            "missing": defaultdict(int),
+        })
+
+    for service_name, status, count in status_rows:
+        entry = _svc(service_name)
+        entry["span_counts"]["total"] += count
+        bucket = status if status in (
+            "fully_classified", "partially_classified", "unclassified") else "unscored"
+        entry["span_counts"][bucket] += count
+
+    # 2. Missing-signal tallies (only spans that recorded something missing).
+    missing_rows = (
+        db.query(OtelSpan.service_name, OtelSpan.classification_missing)
+        .filter(
+            OtelSpan.organization_id == org_id,
+            OtelSpan.start_time >= since,
+            OtelSpan.classification_missing.isnot(None),
+        )
+        .all()
+    )
+    for service_name, missing_json in missing_rows:
+        entry = _svc(service_name)
+        try:
+            for code in json.loads(missing_json):
+                entry["missing"][str(code)] += 1
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+    # 3. Asset-level rollups (status, score, candidate keys, environment).
+    otel_assets = (
+        db.query(OtelAsset).filter(OtelAsset.organization_id == org_id).all()
+    )
+    asset_by_service: dict[str, OtelAsset] = {}
+    for oa in otel_assets:
+        asset_by_service.setdefault(oa.service_name, oa)
+
+    services = []
+    for service_name, entry in sorted(per_service.items()):
+        oa = asset_by_service.get(service_name)
+        candidate_keys = _json_list(oa.candidate_attr_keys_json if oa else None)
+        remediation = []
+        for code in sorted(entry["missing"], key=lambda c: -entry["missing"][c]):
+            hint = _MISSING_REMEDIATION.get(code)
+            if hint:
+                remediation.append(dict(hint))
+        services.append({
+            "service_name": service_name,
+            "environment": oa.environment if oa else None,
+            "classification_status": oa.classification_status if oa else None,
+            "confidence_score": oa.confidence_score if oa else None,
+            "span_counts": entry["span_counts"],
+            "missing": dict(entry["missing"]),
+            "candidate_attribute_keys": candidate_keys,
+            "remediation": remediation,
+        })
+
+    # 4. Unidentified (fallback-identity) assets pending review.
+    unidentified = (
+        db.query(AssetRegistry)
+        .filter(
+            AssetRegistry.organization_id == org_id,
+            AssetRegistry.agent_id_raw.like("observed-ai-system:%"),
+        )
+        .order_by(AssetRegistry.updated_at.desc())
+        .limit(50)
+        .all()
+    )
+
+    from app.otel_attribute_mapping import ORG_CONFIG_KEY
+    mapping = get_org_config(db, org_id, ORG_CONFIG_KEY)
+
+    return {
+        "window_days": days,
+        "services": services,
+        "unidentified_assets": [
+            {
+                "agent_name": r.agent_name or r.agent_id_raw,
+                "agent_id_raw": r.agent_id_raw,
+                "asset_key": r.asset_key,
+                "first_seen": r.first_seen_at.isoformat() if r.first_seen_at else None,
+                "last_seen": r.updated_at.isoformat() if r.updated_at else None,
+            }
+            for r in unidentified
+        ],
+        "attribute_mapping_configured": bool(mapping),
+    }
 
 
 @router.get("/intelligence/assets")

@@ -274,6 +274,35 @@ The Collector then becomes the **production-hardening step** — central routing
 
 ---
 
+## Telemetry Quality — when customer telemetry isn't perfect
+## איכות טלמטריה — כשהטלמטריה של הלקוח לא מושלמת
+
+**EN.** OpenTelemetry is the **pipeline**. The GenAI semantic conventions are the **meaning**. ObserveAgents is the **intelligence layer** that turns that meaning into AI inventory, dependencies, capabilities, and findings — Discovery, Runtime, Dependency, Capability, Performance, Operational, and Security Intelligence. Real customer telemetry is rarely as clean as this lab's, so every ingested span is classified: **fully classified** (everything the intelligence layer expects arrived), **partially classified** (some signals missing), or **unclassified** (no service identity at all). Nothing is dropped — raw spans are always stored — but the platform tells you exactly what's missing instead of silently guessing.
+
+**HE.** OpenTelemetry הוא **הצינור**. ה־GenAI semantic conventions הן **המשמעות**. ObserveAgents היא **שכבת האינטליגנציה** שהופכת את המשמעות ל־inventory, תלויות, יכולות וממצאים. טלמטריה אמיתית של לקוח כמעט אף פעם לא נקייה כמו במעבדה הזו, ולכן כל span מסווג: **fully classified**, **partially classified**, או **unclassified** (בלי זהות service בכלל). שום דבר לא נזרק — ה־spans תמיד נשמרים — אבל הפלטפורמה אומרת בדיוק מה חסר במקום לנחש בשקט.
+
+### The three customer states / שלושת מצבי הלקוח
+
+| State / מצב | What happens / מה קורה | Action / פעולה |
+|---|---|---|
+| **Full SemConv** — standard `gen_ai.*`, `service.name`, `deployment.environment` | Everything is automatic; services show **fully classified** / הכל אוטומטי | None. This is the best-supported path. |
+| **Partial auto-instrumentation** — only HTTP/DB/latency signals | **Partially classified**; the Telemetry Quality page lists the exact missing attributes / העמוד מציג בדיוק אילו attributes חסרים | Add the listed SemConv attributes at the source (usually 1–2 resource attributes). |
+| **Custom attributes** — `mycompany.llm.model`, `tool_used`, … | Stored but invisible to intelligence until mapped; surfaced as **candidate keys** / מפתחות מועמדים | Map them in **Settings → OTel Attribute Mapping** — ~2 minutes, no code change. |
+
+### Reading the Telemetry Quality page / קריאת העמוד
+
+**EN.** **Observe → Telemetry Quality** shows, per service: the classification status and quality score (0–100), a span-status breakdown, which signals are missing and on how many spans (with the exact attribute to add), custom keys detected (click one to map it), and an **Unidentified sources** table for telemetry arriving without any `service.name`. *Unscored* means spans ingested before the classification upgrade — they are backfilled automatically at startup.
+
+**HE.** **Observe → Telemetry Quality** מציג לכל service: סטטוס סיווג וציון איכות (0–100), פילוח spans, אילו סיגנלים חסרים ובכמה spans (עם ה־attribute המדויק להוספה), מפתחות custom שזוהו (לחיצה ממפה אותם), וטבלת **Unidentified sources** לטלמטריה שמגיעה בלי `service.name`. *Unscored* = spans שנקלטו לפני שדרוג הסיווג — הם מסווגים אוטומטית ב־startup.
+
+### Attribute mapping / מיפוי attributes
+
+**EN.** In **Settings → OTel Attribute Mapping**, an admin maps up to 50 custom keys to canonical attributes (e.g. `mycompany.llm.model → gen_ai.request.model`). A canonical key emitted natively is **never overwritten** by a mapping. Saving applies to new telemetry immediately **and re-classifies stored spans** so history reflects the mapping too; admins can also trigger this any time with the **Reclassify** button on the Telemetry Quality page.
+
+**HE.** ב־**Settings → OTel Attribute Mapping** אדמין ממפה עד 50 מפתחות custom ל־attributes קנוניים (למשל `mycompany.llm.model → gen_ai.request.model`). מפתח קנוני שנשלח באופן טבעי **לעולם לא נדרס** ע"י מיפוי. שמירה חלה על טלמטריה חדשה מיידית **וגם מסווגת מחדש spans שכבר נשמרו**; אפשר גם להפעיל זאת בכל רגע עם כפתור **Reclassify** בעמוד.
+
+---
+
 ## Troubleshooting / פתרון תקלות
 
 | Response | Meaning / משמעות | Fix / תיקון |
@@ -285,6 +314,8 @@ The Collector then becomes the **production-hardening step** — central routing
 | **415** `Content-Encoding` | Unsupported compression / דחיסה לא נתמכת | Use `gzip` or no compression. |
 | Collector: `Exporting failed … HTTP Status Code 400` | Gzipped body the platform couldn't read / גוף gzip שהפלטפורמה לא פענחה | Update to a build with gzip support, or set `compression: none` on the exporter. |
 | No agent in Runtime | Spans exported to the wrong URL / נשלח לכתובת שגויה | Use `traces_endpoint: …/otel/v1/traces` (full path). |
+| Service shows **unclassified** | No `service.name` / `gen_ai.agent.*` on the spans / אין זהות | Set the `service.name` resource attribute; the Telemetry Quality page lists the source under Unidentified. |
+| Model missing on **old** spans after adding a mapping | Mapping saved with `reprocess: false` / נשמר בלי reprocess | Click **Reclassify** on the Telemetry Quality page (admin), or re-save the mapping. |
 
 ---
 

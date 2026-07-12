@@ -717,6 +717,14 @@ class OtelSpan(Base):
     gen_ai_finish_reasons_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of finish reasons
     gen_ai_request_stream: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     gen_ai_time_to_first_chunk_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Telemetry classification (app/telemetry_classification.py), computed at
+    # ingest: fully_classified | partially_classified | unclassified, with
+    # high/medium/low confidence and a JSON array of missing-signal codes
+    # (NULL — not [] — when nothing is missing). Nullable = pre-migration rows
+    # are "unscored"; added via the startup ensure_model_columns auto-migration.
+    classification_status: Mapped[str | None] = mapped_column(String(24), nullable=True, index=True)
+    classification_confidence: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    classification_missing: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -802,7 +810,17 @@ class OtelAsset(Base):
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     trace_count: Mapped[int] = mapped_column(Integer, default=0)
     span_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Real telemetry-quality score (0-100) derived from the cumulative span
+    # classification counters below — no longer a hardcoded constant. NULL on
+    # pre-migration rows ("unscored").
     confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Rollup of span classification (app/telemetry_classification.py):
+    # worst-informed status across observed spans + cumulative counters
+    # {"full": n, "partial": n, "unclassified": n} + custom-looking attribute
+    # key names (max 40) that may deserve an org attribute mapping.
+    classification_status: Mapped[str | None] = mapped_column(String(24), nullable=True, index=True)
+    classification_counts_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    candidate_attr_keys_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

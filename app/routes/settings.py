@@ -384,11 +384,53 @@ def get_org_config_endpoint(user=Depends(get_current_user), db: Session = Depend
 def set_org_config_endpoint(key: str, body: dict = Body(...), user=Depends(require_admin), db: Session = Depends(get_db)):
     """Set a single org config value (admin only). Body: {\"value\": ...}"""
     from app.models import Organization
+    from app.otel_attribute_mapping import ORG_CONFIG_KEY, validate_attribute_mapping
     org = db.query(Organization).filter(Organization.id == user.organization_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organisation not found")
+    if key == ORG_CONFIG_KEY:
+        errors = validate_attribute_mapping(body.get("value"))
+        if errors:
+            raise HTTPException(status_code=400, detail={
+                "error": {"type": "invalid_attribute_mapping", "errors": errors}})
     _set_org_config(db, org.id, key, body.get("value"))
     return {"key": key, "value": body.get("value")}
+
+
+@router.get("/settings/otel-attribute-mapping", tags=["Auth — Users"])
+def get_otel_attribute_mapping(user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """The org's custom→canonical OTel attribute mapping, plus the allowlist
+    of canonical targets (for the future mapping UI's dropdown)."""
+    from app.otel_attribute_mapping import ALLOWED_TARGETS, MAX_ENTRIES, ORG_CONFIG_KEY
+    mapping = _get_org_config(db, user.organization_id, ORG_CONFIG_KEY)
+    return {
+        "mapping": mapping if isinstance(mapping, dict) else {},
+        "allowed_targets": sorted(ALLOWED_TARGETS),
+        "max_entries": MAX_ENTRIES,
+    }
+
+
+@router.put("/settings/otel-attribute-mapping", tags=["Auth — Users"])
+def set_otel_attribute_mapping(body: dict = Body(...), user=Depends(require_admin), db: Session = Depends(get_db)):
+    """Replace the org's OTel attribute mapping (admin only).
+    Body: {"mapping": {"mycompany.llm.model": "gen_ai.request.model", ...},
+           "reprocess": true}
+    Applies to new OTLP ingestion immediately AND (unless reprocess=false)
+    synchronously re-classifies the org's stored spans so history reflects
+    the new mapping — idempotent and chunk-committed, so a timeout mid-run
+    is safely resumable via POST /intelligence/reclassify."""
+    from app.otel_attribute_mapping import ORG_CONFIG_KEY, validate_attribute_mapping
+    mapping = body.get("mapping")
+    errors = validate_attribute_mapping(mapping)
+    if errors:
+        raise HTTPException(status_code=400, detail={
+            "error": {"type": "invalid_attribute_mapping", "errors": errors}})
+    _set_org_config(db, user.organization_id, ORG_CONFIG_KEY, mapping)
+    result: dict = {"mapping": mapping}
+    if body.get("reprocess", True):
+        from app.otel_reprocess import reclassify_org_spans
+        result["reprocess"] = reclassify_org_spans(db, user.organization_id)
+    return result
 
 
 @router.get("/settings/demo-mode", tags=["Auth — Users"])
