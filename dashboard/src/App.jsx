@@ -26,8 +26,8 @@ import ExecutiveDashboard from "./pages/ExecutiveDashboard.jsx";
 // in the tree for rollback — see docs/ui_redesign_plan.md.
 import OverviewV2 from "./ui2/OverviewV2.jsx";
 import SurfacesDemo from "./pages/SurfacesDemo.jsx";
-// ui2 (demo): V2 replaces pages/DemoDashboard.jsx, which stays for rollback.
-import DemoDashboardV2 from "./pages/DemoDashboardV2.jsx";
+// Demo and production share the OverviewV2 landing; the curated demo dashboard
+// (pages/DemoDashboardV2.jsx) stays in the tree, unrouted, for rollback.
 import DiscoveryCenter from "./pages/DiscoveryCenter.jsx";
 import GovernanceCenter from "./pages/GovernanceCenter.jsx";
 // ui2 (redesign step 3): V2 replaces pages/SecurityIntelligence.jsx, which
@@ -797,7 +797,7 @@ export default function App() {
     // Pages outside this product surface fall back to the dashboard
     // (belt-and-braces — nav and history guards already prevent this state).
     if (!surfaceAllowsPage(page)) {
-      return isDemoMode() ? <DemoDashboardV2 onNavigate={navigate} /> : <OverviewV2 onNavigate={overviewNav} />;
+      return <OverviewV2 onNavigate={overviewNav} />;
     }
     // exec_dashboard is the direct-hash rollback route for the pre-ui2
     // landing; it inherits the dashboard page permission.
@@ -812,9 +812,10 @@ export default function App() {
     }
     switch (page) {
       // ── New primary pages ───────────────────────────────────────────────
-      // Live landing is the observe-first OverviewV2; the pre-ui2 executive
+      // Demo and production share the same landing (OverviewV2 renders demo
+      // fixtures when live endpoints are unavailable); the pre-ui2 executive
       // dashboard stays reachable at #exec_dashboard for rollback.
-      case "dashboard":      return isDemoMode() ? <DemoDashboardV2 onNavigate={navigate} /> : <OverviewV2 onNavigate={overviewNav} />;
+      case "dashboard":      return <OverviewV2 onNavigate={overviewNav} />;
       case "overview_hub":   return <OverviewV2 onNavigate={overviewNav} />;
       // Demo-only teaching page: on customer builds the hash falls back to the dashboard.
       case "surfaces_demo":  return isDemoMode() ? <SurfacesDemo onNavigate={navigate} />
