@@ -396,6 +396,9 @@ app.include_router(relationships_routes.router)
 from app.routes import otel as otel_routes  # noqa: E402
 app.include_router(otel_routes.router)
 
+from app.routes import runtime_events as runtime_events_routes  # noqa: E402
+app.include_router(runtime_events_routes.router)
+
 from app.routes import asset_intelligence as asset_intelligence_routes  # noqa: E402
 app.include_router(asset_intelligence_routes.router)
 
