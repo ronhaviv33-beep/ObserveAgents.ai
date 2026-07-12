@@ -187,10 +187,12 @@
     }
 
     .trust-strip span {
-      padding: 0.38rem 0.7rem;
-      border: 1px solid rgba(126, 151, 185, 0.18);
+      padding: 0.42rem 0.85rem;
+      border: 1px solid rgba(15, 124, 255, 0.14);
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.82);
+      background: rgba(255, 255, 255, 0.9);
+      color: #354761;
+      font-weight: 600;
       box-shadow: 0 8px 20px rgba(20, 42, 74, 0.045);
     }
 
@@ -239,12 +241,6 @@
       background: #00b894;
     }
 
-    .ui-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0.85rem;
-    }
-
     .metric,
     .trace-card,
     .risk-card,
@@ -255,9 +251,10 @@
     .hero-note {
       border: 1px solid rgba(126, 151, 185, 0.18);
       background: rgba(255, 255, 255, 0.92);
-      border-radius: 18px;
-      padding: 1.1rem;
-      box-shadow: 0 18px 44px rgba(23, 55, 100, 0.08);
+      border-radius: 20px;
+      padding: 1.35rem;
+      line-height: 1.55;
+      box-shadow: 0 16px 40px rgba(23, 55, 100, 0.07);
     }
 
     .metric strong,
@@ -315,33 +312,6 @@
       color: #c43636;
     }
 
-    .bar {
-      height: 0.7rem;
-      border-radius: 999px;
-      background: rgba(126, 151, 185, 0.16);
-      overflow: hidden;
-      margin: 0.8rem 0;
-    }
-
-    .bar span {
-      display: block;
-      height: 0.7rem;
-      border-radius: inherit;
-      background: linear-gradient(90deg, #0f7cff, #00b894);
-    }
-
-    .bar-one span {
-      width: 170px;
-    }
-
-    .bar-two span {
-      width: 120px;
-    }
-
-    .bar-three span {
-      width: 210px;
-    }
-
     .hero-notes {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -366,13 +336,13 @@
     }
 
     section.block {
-      padding-top: clamp(4rem, 8vw, 7rem);
+      padding-top: clamp(4.5rem, 9vw, 8rem);
       padding-bottom: 1rem;
     }
 
     .section-heading {
       max-width: 780px;
-      margin-bottom: 2rem;
+      margin-bottom: 2.4rem;
     }
 
     .section-heading h2 {
@@ -399,27 +369,55 @@
 
     .risk-list {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1rem;
-      margin-top: 1.4rem;
+      grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+      gap: 1.15rem;
+      margin-top: 1.6rem;
     }
 
     .feature-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.15rem;
     }
 
     .feature-icon {
-      width: 2.35rem;
-      height: 2.35rem;
+      width: 2.6rem;
+      height: 2.6rem;
       display: grid;
       place-items: center;
       border-radius: 14px;
-      background: linear-gradient(135deg, rgba(15, 124, 255, 0.12), rgba(0, 184, 148, 0.14));
-      margin-bottom: 0.9rem;
+      background: rgba(15, 124, 255, 0.09);
+      margin-bottom: 1rem;
       color: #075fd0;
-      font-weight: 900;
+    }
+
+    .risk-icon {
+      width: 2.4rem;
+      height: 2.4rem;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: rgba(255, 107, 107, 0.1);
+      color: #c43636;
+      margin-bottom: 0.85rem;
+    }
+
+    .panel-shot {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 18px;
+      border: 1px solid rgba(126, 151, 185, 0.22);
+    }
+
+    .mini-shot {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(126, 151, 185, 0.2);
+      margin: 0.6rem 0 0.9rem;
+      box-shadow: 0 14px 34px rgba(23, 55, 100, 0.12);
     }
 
     .usecase-grid {
@@ -520,8 +518,11 @@
     }
 
     footer.container {
-      padding-top: 2rem;
-      padding-bottom: 3rem;
+      text-align: center;
+      padding-top: 2.6rem;
+      padding-bottom: 3.2rem;
+      margin-top: 2rem;
+      border-top: 1px solid rgba(126, 151, 185, 0.18);
       color: #64748b;
     }
 
@@ -581,7 +582,7 @@
 <body>
   <nav class="container-fluid">
     <ul>
-      <li><strong>ObserveAgents</strong></li>
+      <li><strong style="display:inline-flex;align-items:center;gap:0.5rem"><img src="/favicon.svg" alt="" width="22" height="22"> ObserveAgents</strong></li>
     </ul>
     <ul>
       <li><a href="#features">Features</a></li>
@@ -627,51 +628,9 @@
             <span>Live agent operations</span>
           </div>
 
-          <div class="ui-grid">
-            <div class="metric">
-              <span>AI assets discovered</span>
-              <strong>248</strong>
-              <span>Trace-discovered inventory</span>
-            </div>
-
-            <div class="metric">
-              <span>Control candidates</span>
-              <strong>12</strong>
-              <span>4 high risk — review recommended</span>
-            </div>
-
-            <div class="risk-card">
-              <span>Risk trend</span>
-              <div class="bar bar-one"><span></span></div>
-              <div class="bar bar-two"><span></span></div>
-              <div class="bar bar-three"><span></span></div>
-            </div>
-
-            <div class="timeline-card">
-              <span>Reliability</span>
-              <strong>High</strong>
-              <span>Agent task completion</span>
-            </div>
-
-            <div class="trace-card">
-              <span>Runtime evidence</span>
-              <div class="trace-line">
-                <b>Agent</b>
-                <span>procurement-copilot · production · trace discovered</span>
-                <em class="badge">normal</em>
-              </div>
-              <div class="trace-line">
-                <b>Finding</b>
-                <span>MCP tools invoked in production — database access observed</span>
-                <em class="badge warn">review</em>
-              </div>
-              <div class="trace-line">
-                <b>Recommendation</b>
-                <span>Gateway control recommended — explicit approval required</span>
-                <em class="badge risk">candidate</em>
-              </div>
-            </div>
-          </div>
+          <img class="panel-shot" src="/hero-dashboard.png"
+            alt="ObserveAgents dashboard — runtime activity, findings by severity, latency distribution, and gateway control candidates"
+            width="1440" height="940">
         </aside>
 
         <div class="hero-notes">
@@ -699,21 +658,25 @@
 
         <div class="risk-list">
           <article class="risk-box">
+            <div class="risk-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></div>
             <h3>Black-box actions</h3>
             <p>Know which agent acted, what it touched, and which downstream system changed.</p>
           </article>
 
           <article class="risk-box">
+            <div class="risk-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
             <h3>Unknown failures</h3>
             <p>Spot failed tasks, retries, degraded outcomes, and reliability patterns before they spread.</p>
           </article>
 
           <article class="risk-box">
+            <div class="risk-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></div>
             <h3>Security exposure</h3>
             <p>Detect unusual access, risky tool calls, data movement, and policy exceptions.</p>
           </article>
 
           <article class="risk-box">
+            <div class="risk-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
             <h3>Ownership gaps</h3>
             <p>Know who owns every agent, with auditable context for decisions, reviews, and controls.</p>
           </article>
@@ -729,31 +692,31 @@
 
       <div class="feature-grid">
         <article class="feature-card">
-          <div class="feature-icon">01</div>
+          <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
           <h3>Runtime Evidence</h3>
           <p>OpenTelemetry-native execution timelines — sessions, per-step waterfalls, tool and MCP calls, errors, and latency. Prompts and responses are never stored.</p>
         </article>
 
         <article class="feature-card">
-          <div class="feature-icon">02</div>
+          <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg></div>
           <h3>AI Asset Intelligence</h3>
           <p>Every AI system discovered from traces — ownership, capabilities, dependencies, and findings, with the agents that need attention sorted first.</p>
         </article>
 
         <article class="feature-card">
-          <div class="feature-icon">03</div>
+          <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></div>
           <h3>AI Agent Security Intelligence</h3>
           <p>Agent-specific runtime security findings — MCP tools in production, database and API reach, unknown providers, missing ownership, repeated failures.</p>
         </article>
 
         <article class="feature-card">
-          <div class="feature-icon">04</div>
+          <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></div>
           <h3>Overview</h3>
           <p>Your agents at a glance — assets discovered, agents with findings, ownership gaps, and control candidates, each backed by the evidence behind it.</p>
         </article>
 
         <article class="feature-card">
-          <div class="feature-icon">05</div>
+          <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="m12 8 4 4-4 4"/></svg></div>
           <h3>Gateway Control Center</h3>
           <p>Risky agents become review candidates with suggested controls. Observe can recommend — the Gateway enforces only when explicitly configured.</p>
         </article>
@@ -807,9 +770,8 @@
 
       <div class="mini-dashboard" aria-label="Demo preview metrics">
         <span>Demo environment</span>
-        <div class="bar bar-three"><span></span></div>
+        <img class="mini-shot" src="/hero-dashboard.png" alt="ObserveAgents demo dashboard preview">
         <p><strong>Runtime evidence mapped</strong> across critical agent workflows</p>
-        <div class="bar bar-one"><span></span></div>
         <p><strong>Fewer unresolved failures</strong> across monitored workflows</p>
       </div>
     </section>
