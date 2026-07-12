@@ -4,7 +4,7 @@
 
 > ObserveAgents helps teams see, understand, and control their AI agents from runtime evidence.
 
-**See what your AI agents are actually doing.** Connect OpenTelemetry, discover your agents, inspect runtime behavior, detect risky patterns, and review what needs control — before it becomes a production problem.
+**See what your AI agents are actually doing.** Connect OpenTelemetry or send normalized runtime events, discover your agents, inspect runtime behavior, detect risky patterns, and review what needs control — before it becomes a production problem. OpenTelemetry is one input path, not the whole product.
 
 > **Observe first. Control only what matters.**
 
@@ -21,11 +21,11 @@
 The whole product is one evidence chain, and the UI is organized around it:
 
 ```
-OTel / OTLP  →  Runtime  →  Asset Intelligence  →  Security Intelligence
-                                   →  Detection Rules  →  Gateway Control Center
+OTel / OTLP · Runtime Events  →  Runtime  →  Asset Intelligence  →  Security Intelligence
+                                                    →  Detection Rules  →  Gateway Control Center
 ```
 
-1. **AI systems send OpenTelemetry traces** — your existing OTel stack, no proprietary SDK.
+1. **AI systems send evidence** — OpenTelemetry traces from your existing OTel stack, or normalized GenAI runtime events via `POST /runtime-events`. Both converge on the same pipeline; no source gets its own findings engine.
 2. **Runtime** shows what actually executed: sessions, traces, execution waterfalls.
 3. **Asset Intelligence** turns evidence into inventory: assets, ownership, capabilities, dependencies, findings.
 4. **Security Intelligence** explains which agents are risky and why — from runtime behavior, not scanners.
@@ -191,6 +191,7 @@ One backend, one database. The intelligence layer is **derivation-only and idemp
 ### Observability
 
 - **OTLP/HTTP ingestion (JSON + protobuf)** — `POST /otel/v1/traces`; GenAI semantic conventions (`gen_ai.*`, `tool.*`, `mcp.*`, `db.*`, `url.*`) understood natively; agents discovered from `service.name`/`agent.name`, no manual registration
+- **Runtime Events ingestion** — `POST /runtime-events`: normalized GenAI runtime events (`llm_call` / `tool_call` / `mcp_tool` / `db_call` / `external_api_call`) from any source, validated against an allow-list schema and privacy-scrubbed at the boundary, then converted into the same span pipeline — one intelligence engine, no separate findings pipeline. A thin Python SDK wrapper over this endpoint is planned ([plan](docs/python_sdk_wrapper_plan.md))
 - **Runtime execution timelines** — session-grouped traces, per-step waterfalls, step classification (llm / tool / mcp_tool / database / external_api / step)
 - **Asset Intelligence** — derived capabilities (provider, model, mcp, database, shell, …) and findings across security / performance / operations / dependency / inventory; finding lifecycle open → dismissed/resolved → reopen; full catalog in [docs/asset_intelligence.md](docs/asset_intelligence.md)
 - **AI Agent Runtime Security Intelligence** — agent-specific, environment-aware security findings (`source=runtime_security`): database/API reach, MCP in production, broad tool surface, unknown providers, missing ownership, repeated tool errors, human-review combinations ([docs](docs/ai_agent_runtime_security_intelligence.md))
@@ -295,6 +296,7 @@ Seeds the **Acme AI Operations** demo org with five realistic AI systems through
 ```http
 POST /auth/login                          # { email, password } → { access_token, user }
 POST /otel/v1/traces                      # OTLP/HTTP span ingestion, JSON + protobuf
+POST /runtime-events                      # Normalized GenAI runtime events (any source) → same pipeline
 GET  /runtime/traces                      # Recent executions (?service_name= for one agent)
 GET  /runtime/traces/{trace_id}           # Full span tree for the execution waterfall
 POST /intelligence/run                    # Re-derive capabilities + findings (idempotent)
@@ -447,6 +449,8 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 | ✅ | AI Agent Detection Rules (R1) — built-in threshold rules over runtime evidence (`source=detection_rules`), evaluated during the intelligence run ([design](docs/ai_agent_detection_rules_alerts_design.md)) |
 | ✅ | Rules & Alerts page (ui2-native) + detection-rule matches bucket in Security Intelligence |
 | ✅ | Webhook notifications (R5) — admin-managed channels, encrypted URLs, per-finding cooldown, fail-safe post-intelligence delivery |
+| ✅ | Runtime Events ingestion seam (Collector R1/R2) — `POST /runtime-events`, allow-list schema + privacy scrub, span-like adapter into the existing intelligence engine |
+| 🔜 | Python SDK wrapper (Collector R3) — thin `ObserveOpenAI`-style client emitting runtime events, plan approved ([plan](docs/python_sdk_wrapper_plan.md)) |
 | 🔜 | Detection Rules R7+ — configurable rule builder, Slack channels, alert snooze/acknowledge |
 | 🔜 | Gateway Control Center GCR5+ — policy drafts, explicit approval workflow, enforcement for routed agents only |
 | 🔜 | Ecosystem Discovery — GitHub / Jira / Slack / n8n / MCP evidence sources |
@@ -462,6 +466,7 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | System architecture, startup chain, deployment |
 | [docs/otel_ingestion.md](docs/otel_ingestion.md) | OTLP format, GenAI attributes, privacy guarantee, Collector guidance |
+| [docs/python_sdk_wrapper_plan.md](docs/python_sdk_wrapper_plan.md) | Python SDK wrapper plan (Collector R3) — low-friction adapter over `POST /runtime-events` |
 | [docs/asset_intelligence.md](docs/asset_intelligence.md) | Full capability + finding catalog |
 | [docs/ai_agent_runtime_security_intelligence.md](docs/ai_agent_runtime_security_intelligence.md) | Runtime security finding types and evidence rules |
 | [docs/gateway_control_center_architecture.md](docs/gateway_control_center_architecture.md) | Observe-to-Control architecture and candidate model |
