@@ -47,7 +47,7 @@ separately and are deliberately not part of this product track.
 
 ### Next
 
-**4. Python SDK Quickstart**
+**4. Python SDK Quickstart** — ✅ shipped: [python_sdk_quickstart.md](python_sdk_quickstart.md)
 
 > **Goal: a user can connect a simple OpenAI-based agent in 5 minutes.**
 
