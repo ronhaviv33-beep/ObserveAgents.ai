@@ -1,10 +1,17 @@
-# Python SDK Quickstart — connect an OpenAI-based agent in 5 minutes
+# Python SDK Quickstart — connect your AI agent in 5 minutes
 
 *Customer-facing guide. You install one small SDK package — that's it. You never clone,
 install, or run any ObserveAgents platform code: as soon as the SDK wraps your client,
 your agents' runtime metadata starts flowing to your ObserveAgents workspace.*
 
 > **Observe first. Control only what matters.**
+
+**Not just OpenAI.** ObserveAgents observes agents built on **any AI provider with an API
+connection** — OpenAI, **Claude (Anthropic)**, Google, or your own model endpoints. The
+fastest path today is the drop-in `ObserveOpenAI` wrapper for OpenAI-based agents
+(Steps 1–5); Claude and every other provider connect through the same runtime-events API
+with a few lines of code (see [Claude & other providers](#claude--other-providers--any-ai-system-with-an-api)),
+or through standard OpenTelemetry.
 
 **What you get in 5 minutes:** your agent appears in your ObserveAgents inventory with its
 model calls, latency, errors, and token usage — no OTel Collector, no span
@@ -141,9 +148,77 @@ forbidden fields are rejected, and free-form metadata is scrubbed server-side.
 | `ValueError` at construction | One of the three required settings is missing (OpenAI key, ObserveAgents key, agent name) — this raises immediately, before any LLM call |
 | Agent appears but no findings | Findings derive during the intelligence run — they appear shortly after evidence lands, not instantly |
 
+## Claude & other providers — any AI system with an API
+
+The `ObserveOpenAI` wrapper is the one-liner path for OpenAI-based agents, but the
+platform itself is **provider-agnostic**: every agent is observed through the same
+runtime-events API, whatever model it calls. Until the native Anthropic/LiteLLM wrappers
+ship, connecting a **Claude** agent (or any other provider) takes a few lines around your
+existing call — same privacy rules, metadata only:
+
+```python
+import json, time, urllib.request, uuid
+import anthropic
+
+OBSERVEAGENTS_URL = "https://api.observeagents.ai"   # or your self-hosted collector
+OBSERVEAGENTS_API_KEY = "gk-..."
+
+def send_runtime_event(provider, model, duration_ms, status,
+                       input_tokens=None, output_tokens=None, error_type=None):
+    event = {
+        "source": "sdk", "event_type": "llm_call",
+        "agent_name": "research-agent", "environment": "production",
+        "provider": provider, "model": model,
+        "duration_ms": round(duration_ms, 1), "status": status,
+        "trace_id": uuid.uuid4().hex, "span_id": uuid.uuid4().hex[:16],
+    }
+    for k, v in (("input_tokens", input_tokens), ("output_tokens", output_tokens),
+                 ("error_type", error_type)):
+        if v is not None:
+            event[k] = v
+    req = urllib.request.Request(
+        f"{OBSERVEAGENTS_URL}/runtime-events",
+        data=json.dumps({"events": [event]}).encode(),
+        method="POST",
+        headers={"Content-Type": "application/json",
+                 "Authorization": f"Bearer {OBSERVEAGENTS_API_KEY}"},
+    )
+    try:
+        urllib.request.urlopen(req, timeout=2).read()   # fail-open: never break the app
+    except Exception:
+        pass
+
+client = anthropic.Anthropic()
+started = time.monotonic()
+try:
+    msg = client.messages.create(
+        model="claude-sonnet-5", max_tokens=512,
+        messages=[{"role": "user", "content": "Hello"}],
+    )
+    send_runtime_event("anthropic", "claude-sonnet-5",
+                       (time.monotonic() - started) * 1000, "ok",
+                       input_tokens=msg.usage.input_tokens,
+                       output_tokens=msg.usage.output_tokens)
+except Exception as exc:
+    send_runtime_event("anthropic", "claude-sonnet-5",
+                       (time.monotonic() - started) * 1000, "error",
+                       error_type=type(exc).__name__)
+    raise
+```
+
+The same pattern works for **Google, Mistral, local models, or any internal AI service**
+— set `provider` and `model` accordingly, and never put prompts, responses, or credentials
+in the event. Your Claude agent then appears in Runtime, Asset Intelligence, and Security
+Intelligence exactly like an OpenAI one — same inventory, same findings, same engine.
+
+Already emitting **OpenTelemetry**? Point your existing OTLP exporter at ObserveAgents
+instead — no SDK needed at all; the platform consumes standard GenAI trace conventions
+from any instrumented system.
+
 ## What's next
 
-`session_id` per conversation gives you workflow grouping today. Anthropic/LiteLLM/
-LangChain wrappers, tool-call events, async, and batching are on the roadmap — the SDK
+`session_id` per conversation gives you workflow grouping today. Native
+**Anthropic (Claude)**, LiteLLM, and LangChain wrappers — the same one-liner experience as
+`ObserveOpenAI` — plus tool-call events, async, and batching are on the roadmap; the SDK
 stays a thin evidence adapter either way: it feeds the ObserveAgents intelligence engine
 and never creates a pipeline of its own.

@@ -52,3 +52,10 @@ and never appears in any event.
 If ObserveAgents is unreachable, your LLM calls are unaffected — event delivery is
 best-effort with a ~2s budget and never raises into your call path. If the OpenAI call
 fails, your original exception is re-raised unchanged.
+
+## Not just OpenAI
+
+The platform observes agents on **any AI provider with an API** — Claude (Anthropic),
+Google, local models, internal services. `ObserveOpenAI` is the first drop-in wrapper;
+other providers connect today with a few lines against the same runtime-events API
+(see the Python SDK Quickstart), and native Anthropic/LiteLLM wrappers are on the roadmap.
