@@ -39,7 +39,7 @@ def test_unknown_model_conservative(caplog):
     assert conservative_prompt > floor_prompt, (
         f"Conservative fallback ({conservative_prompt}) must be > floor ({floor_prompt})"
     )
-    with caplog.at_level(logging.WARNING, logger="aifinops.pricing"):
+    with caplog.at_level(logging.WARNING, logger="ai_asset_mgmt.pricing"):
         cost, estimated = calculate_cost("gpt-99-ultra", 1_000_000, 0)
     assert estimated, "Unknown model must be flagged as estimated"
     assert cost == round(_DEFAULT_PRICING["prompt"], 8)

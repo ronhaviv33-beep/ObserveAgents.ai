@@ -126,7 +126,9 @@ def test_upstream_error_row_has_correct_model_and_agent():
     """The blocked row must record the model and agent that made the call."""
     agent = "model-check-agent"
     model = "o3-pro-unknown"
-    hdrs = {**_proxy_hdrs, "X-Guard-Agent": agent}
+    # JWT auth (high trust): the identity resolver only honors X-Guard-Agent for
+    # high-trust callers; API-key callers resolve to the key's own name.
+    hdrs = {**_admin_hdrs, "X-Guard-Agent": agent}
 
     with patch("app.routes.proxy.get_client_for_org", return_value=MagicMock()), \
          patch("app.routes.proxy.proxy_chat_complete",

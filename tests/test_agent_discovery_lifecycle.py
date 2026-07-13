@@ -101,8 +101,11 @@ for _u in [_admin_a, _admin_b]:
 # ── Auth headers (must be created while session is open) ──────────────────────
 ADMIN_A_H = {"Authorization": f"Bearer {create_token(_admin_a)}"}
 ADMIN_B_H = {"Authorization": f"Bearer {create_token(_admin_b)}"}
-KEY_A_H   = {"Authorization": f"Bearer {_raw_a}"}
-KEY_B_H   = {"Authorization": f"Bearer {_raw_b}"}
+# Proxy calls authenticate with the org admins' JWTs (high trust): the identity
+# resolver only honors X-Guard-Agent headers for high-trust callers — API-key
+# callers are low-trust and resolve identity from the key, not from headers.
+KEY_A_H   = dict(ADMIN_A_H)
+KEY_B_H   = dict(ADMIN_B_H)
 
 _db.close()
 
@@ -119,8 +122,8 @@ def _proxy(agent: str, team: str = "developer", model: str = "gpt-4o-mini",
                      "finish_reason": "stop"}],
         "usage": {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30},
     }
-    with patch("app.main.get_client_for_org", return_value=MagicMock()), \
-         patch("app.main.proxy_chat_complete",
+    with patch("app.routes.proxy.get_client_for_org", return_value=MagicMock()), \
+         patch("app.routes.proxy.proxy_chat_complete",
                new_callable=AsyncMock, return_value=fake_resp):
         return _client.post(
             "/v1/chat/completions",

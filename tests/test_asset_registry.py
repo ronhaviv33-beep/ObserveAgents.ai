@@ -30,8 +30,9 @@ _db_path = f"/tmp/test_asset_reg_{uuid.uuid4().hex[:8]}.db"
 os.environ.setdefault("JWT_SECRET",                "testsecret-asset-registry")
 os.environ.setdefault("CREDENTIAL_ENCRYPTION_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
 os.environ["DATABASE_URL"] = f"sqlite:///{_db_path}"
-sys.path.insert(0, "/home/user/ai-asset-management")
-os.chdir("/home/user/ai-asset-management")
+_repo_root = str(__import__("pathlib").Path(__file__).resolve().parent.parent)
+sys.path.insert(0, _repo_root)
+os.chdir(_repo_root)
 
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
@@ -75,8 +76,11 @@ _api_key_row = ApiKey(
 )
 _db.add(_api_key_row); _db.commit()
 
-# Proxy headers — generic; individual tests override X-Guard-Agent
-_PROXY_BASE = {"Authorization": f"Bearer {_raw_key}"}
+# Proxy headers — generic; individual tests override X-Guard-Agent.
+# JWT auth (high trust): the identity resolver only honors X-Guard-Agent/X-Agent-*
+# headers for high-trust callers; API-key callers are low-trust and resolve from
+# the key itself, which is not the discovery path this file tests.
+_PROXY_BASE = {"Authorization": f"Bearer {create_token(_admin)}"}
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -92,8 +96,8 @@ def _fake_llm_resp(model="gpt-4o-mini"):
 def _proxy_call(agent: str, team: str = "platform", model: str = "gpt-4o-mini"):
     """Send a fake proxied LLM call and return the HTTP response."""
     hdrs = {**_PROXY_BASE, "X-Guard-Agent": agent, "X-Guard-Team": team}
-    with patch("app.main.get_client_for_org", return_value=MagicMock()), \
-         patch("app.main.proxy_chat_complete", new_callable=AsyncMock,
+    with patch("app.routes.proxy.get_client_for_org", return_value=MagicMock()), \
+         patch("app.routes.proxy.proxy_chat_complete", new_callable=AsyncMock,
                return_value=_fake_llm_resp(model)):
         return _client.post(
             "/v1/chat/completions",

@@ -8,7 +8,10 @@ load_dotenv()
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False: startup runs migrations programmatically
+    # AFTER app modules create their loggers — the fileConfig default (True)
+    # would silently disable every app logger (pricing warnings, ingestion logs).
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 config.set_main_option(
     "sqlalchemy.url",
