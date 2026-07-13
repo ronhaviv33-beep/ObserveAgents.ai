@@ -3,6 +3,7 @@ import { AbsoluteFill } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { fade } from "@remotion/transitions/fade";
 import { theme } from "./theme";
+import { Beat0Dashboard } from "./scenes/Beat0Dashboard";
 import { Beat1Stats } from "./scenes/Beat1Stats";
 import { Beat2TraceList } from "./scenes/Beat2TraceList";
 import { Beat3Waterfall } from "./scenes/Beat3Waterfall";
@@ -14,6 +15,7 @@ import { EndCard } from "./scenes/EndCard";
 const CROSSFADE = 15;
 
 export const DURATIONS = {
+  beat0: 175,
   beat1: 150,
   beat2: 145,
   beat3: 165,
@@ -24,7 +26,7 @@ export const DURATIONS = {
 };
 
 export const TOTAL_DURATION =
-  Object.values(DURATIONS).reduce((a, b) => a + b, 0) - CROSSFADE * 6;
+  Object.values(DURATIONS).reduce((a, b) => a + b, 0) - CROSSFADE * 7;
 
 export const OnboardingVideo: React.FC = () => {
   const transition = () => (
@@ -37,6 +39,10 @@ export const OnboardingVideo: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: theme.bg }}>
       <TransitionSeries>
+        <TransitionSeries.Sequence durationInFrames={DURATIONS.beat0}>
+          <Beat0Dashboard />
+        </TransitionSeries.Sequence>
+        {transition()}
         <TransitionSeries.Sequence durationInFrames={DURATIONS.beat1}>
           <Beat1Stats />
         </TransitionSeries.Sequence>
