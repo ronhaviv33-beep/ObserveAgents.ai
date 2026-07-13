@@ -1,47 +1,36 @@
 # Python SDK Quickstart — connect an OpenAI-based agent in 5 minutes
 
-*Runtime evidence track, milestone 4 (see [roadmap.md](roadmap.md)). This guide covers the
-shipped SDK MVP (`sdk/python/observeagents`, PR #114): a drop-in `ObserveOpenAI` wrapper
-that emits one safe, content-free `llm_call` runtime event per completion call.*
+*Customer-facing guide. You install one small SDK package — that's it. You never clone,
+install, or run any ObserveAgents platform code: as soon as the SDK wraps your client,
+your agents' runtime metadata starts flowing to your ObserveAgents workspace.*
 
 > **Observe first. Control only what matters.**
 
-**What you get in 5 minutes:** your agent appears in the ObserveAgents inventory with its
-model calls, latency, errors, and token usage — without deploying an OTel Collector,
-without instrumenting spans, and without any prompt or response ever leaving your process.
-
-**What the SDK never does:** it never sends prompts, messages, responses, system
-instructions, tool arguments/results, headers, or credentials to ObserveAgents (§ Privacy),
-it never blocks your app (fail-open, ~2s budget), and it never triggers enforcement —
-events are evidence for the existing intelligence engine, nothing more.
+**What you get in 5 minutes:** your agent appears in your ObserveAgents inventory with its
+model calls, latency, errors, and token usage — no OTel Collector, no span
+instrumentation, and no prompt or response ever leaving your process.
 
 ---
 
-## Step 1 — Get an ObserveAgents API key (1 min)
+## Step 1 — Get your API key (1 min)
 
-In the dashboard: **API Keys → Create**. Keys look like `gk-…`.
+Log in to your ObserveAgents workspace → **API Keys → Create**. Keys look like `gk-…`.
 
-Recommended: one key per agent or team (e.g. `support-agent-prod`) — it keeps attribution
-clean and lets you revoke one agent's key without touching others.
+Recommended: one key per agent or team (e.g. `support-agent-prod`) — attribution stays
+clean, and you can revoke one agent's key without touching others.
 
-## Step 2 — Install / local usage (1 min)
-
-The SDK is not on PyPI yet — it lives in this repo under `sdk/python/` and has **zero
-runtime dependencies** (standard library only; the `openai` package is required only
-because your agent calls OpenAI anyway):
+## Step 2 — Install the SDK (1 min)
 
 ```bash
-git clone https://github.com/ronhaviv33-beep/ObserveAgents.ai.git
-pip install openai
-export PYTHONPATH="$PWD/ObserveAgents.ai/sdk/python:$PYTHONPATH"
+pip install observeagents
 ```
 
-(Alternatively, copy the `sdk/python/observeagents/` directory into your project, or add
-`sys.path.insert(0, "<repo>/sdk/python")` at the top of your script.)
+That's the only thing you install. The SDK has **zero runtime dependencies** (standard
+library only) and works alongside the `openai` package your agent already uses.
 
 ## Step 3 — Configure (1 min)
 
-Everything can be set as a constructor argument or an environment variable
+Every setting is a constructor argument or an environment variable
 (**precedence: constructor arg → env var → default**):
 
 | Setting | Env var | Required? | Default |
@@ -49,7 +38,7 @@ Everything can be set as a constructor argument or an environment variable
 | OpenAI API key | `OPENAI_API_KEY` | ✅ | — |
 | ObserveAgents API key (`gk-…`) | `OBSERVEAGENTS_API_KEY` | ✅ | — |
 | Agent name | `OBSERVEAGENTS_AGENT_NAME` | ✅ | — |
-| ObserveAgents endpoint | `OBSERVEAGENTS_URL` | — | `https://api.observeagents.ai` |
+| ObserveAgents endpoint | `OBSERVEAGENTS_URL` | — | ObserveAgents Cloud |
 | Environment | `OBSERVEAGENTS_ENVIRONMENT` | — | `development` |
 | Team hint | `OBSERVEAGENTS_TEAM_HINT` | — | unset |
 | Owner hint | `OBSERVEAGENTS_OWNER_HINT` | — | unset |
@@ -61,23 +50,21 @@ export OBSERVEAGENTS_AGENT_NAME="support-agent"
 export OBSERVEAGENTS_ENVIRONMENT="production"
 ```
 
-`OBSERVEAGENTS_URL` may point at **ObserveAgents Cloud** or a **customer-side / self-hosted
-instance** (e.g. `http://localhost:8000` when running the backend locally) — the SDK sends
-every event to `POST {OBSERVEAGENTS_URL}/runtime-events`, and the wire format, auth, and
-privacy rules are identical in both cases.
+By default events go to **ObserveAgents Cloud** — you don't set a URL at all. Set
+`OBSERVEAGENTS_URL` only if your organization runs a self-hosted / customer-side
+ObserveAgents collector; the wire format, auth, and privacy rules are identical.
 
-## Step 4 — Minimal example (1 min)
+## Step 4 — Wrap your client (1 min)
 
 `ObserveOpenAI` is a drop-in for the OpenAI client — same call signature, same return
-value, same exceptions:
+value, same exceptions. Change one line and keep coding as before:
 
 ```python
 from observeagents import ObserveOpenAI
 
 client = ObserveOpenAI(
-    openai_api_key="sk-...",                            # or OPENAI_API_KEY
-    observeagents_api_key="gk-...",                     # or OBSERVEAGENTS_API_KEY
-    observeagents_url="https://api.observeagents.ai",   # or customer-side collector URL
+    openai_api_key="sk-...",          # or OPENAI_API_KEY
+    observeagents_api_key="gk-...",   # or OBSERVEAGENTS_API_KEY
     agent_name="support-agent",
     environment="production",
     team_hint="support",
@@ -90,39 +77,29 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-That's it. Each `create()` call goes to OpenAI unchanged, and one `llm_call` runtime event
-(metadata only — provider, model, duration, status, token counts, ids) is POSTed
-best-effort to `/runtime-events` afterwards.
-
-With env vars set, the constructor shrinks to:
+With env vars set, it shrinks to:
 
 ```python
 client = ObserveOpenAI()   # everything resolved from the environment
 ```
 
-Useful extras: `session_id="chat-123"` groups related calls; `debug=True` logs one warning
-per failed event delivery (deliveries are otherwise silent); `timeout_seconds=2.0` is the
-delivery budget.
+From this moment, every `create()` call goes to OpenAI unchanged, and one `llm_call`
+runtime event (metadata only) flows to your ObserveAgents workspace.
 
-## Step 5 — Verify (1 min)
+Useful extras: `session_id="chat-123"` groups related calls into one workflow;
+`debug=True` logs a warning when an event fails to deliver (otherwise silent).
 
-1. **Run your script.** The OpenAI call succeeds exactly as before — even if ObserveAgents
+## Step 5 — See it in your workspace (1 min)
+
+1. **Run your agent.** The OpenAI call succeeds exactly as before — even if ObserveAgents
    were unreachable (fail-open by design).
-2. **Runtime** page — a trace for `support-agent` appears within seconds; each completion
-   call is one step with its duration and status.
+2. **Runtime** — a trace for `support-agent` appears within seconds; each completion call
+   is one step with its duration and status.
 3. **Asset Intelligence** — `support-agent` appears as a discovered AI system with its
-   provider (`openai`), model, environment, and token usage evidence.
-4. **Findings** — derived on the next intelligence run (automatic, or trigger one with
-   `POST /intelligence/run`); e.g. an unknown-provider or missing-owner finding if
-   applicable. Detection rules evaluate there too — never inside ingestion.
-5. Optional wire-level check — send one event by hand and expect **202**:
-
-```bash
-curl -X POST "$OBSERVEAGENTS_URL/runtime-events" \
-  -H "Authorization: Bearer $OBSERVEAGENTS_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"events":[{"source":"sdk","agent_name":"quickstart-check","event_type":"llm_call","provider":"openai","model":"gpt-4.1-mini","duration_ms":850,"status":"ok","trace_id":"0123456789abcdef0123456789abcdef","span_id":"0123456789abcdef"}]}'
-```
+   provider, model, environment, and token-usage evidence.
+4. **Security Intelligence / Findings** — derived automatically on the next intelligence
+   run: ownership gaps, unknown providers, risky patterns. Recommendations only — nothing
+   is ever blocked or enforced from SDK events.
 
 ## Privacy — what is sent, what is never sent
 
@@ -145,9 +122,8 @@ tool results · headers · credentials (your OpenAI API key is used only to cons
 OpenAI client and never appears in any event, URL, or header sent to ObserveAgents) ·
 full URLs with query strings.
 
-Defense in depth: the server independently enforces the same boundary — unknown fields are
-rejected with `422` (`extra="forbid"`), and metadata is denylist-scrubbed. Details:
-[python_sdk_wrapper_plan.md](python_sdk_wrapper_plan.md) §7.
+The platform independently enforces the same boundary at ingestion — payloads carrying
+forbidden fields are rejected, and free-form metadata is scrubbed server-side.
 
 ## Error handling — fail-open
 
@@ -161,14 +137,13 @@ rejected with `422` (`extra="forbid"`), and metadata is denylist-scrubbed. Detai
 
 | Symptom | Check |
 |---|---|
-| Nothing appears in Runtime | Set `debug=True` and look for a delivery warning; verify `OBSERVEAGENTS_URL` (no trailing path) and that the `gk-` key belongs to the org you're looking at |
+| Nothing appears in Runtime | Set `debug=True` and look for a delivery warning; verify the `gk-` key belongs to the workspace you're looking at, and `OBSERVEAGENTS_URL` (if set) has no trailing path |
 | `ValueError` at construction | One of the three required settings is missing (OpenAI key, ObserveAgents key, agent name) — this raises immediately, before any LLM call |
-| Agent appears but no findings | Findings derive during the intelligence run — trigger `POST /intelligence/run` or wait for the next scheduled run |
-| Want to see the events themselves | `debug=True` + the curl check above; the endpoint answers `202` with ingestion counts |
+| Agent appears but no findings | Findings derive during the intelligence run — they appear shortly after evidence lands, not instantly |
 
-## What this is not
+## What's next
 
-No batching, no retries, no async, no Anthropic/LiteLLM/LangChain wrappers yet — those are
-sequenced later on the [roadmap](roadmap.md#runtime-evidence-track--status--next-milestones)
-(milestones 5–8), after the quickstart path proves adoption. The SDK is an evidence
-adapter: it feeds the existing intelligence engine and creates no new pipeline.
+`session_id` per conversation gives you workflow grouping today. Anthropic/LiteLLM/
+LangChain wrappers, tool-call events, async, and batching are on the roadmap — the SDK
+stays a thin evidence adapter either way: it feeds the ObserveAgents intelligence engine
+and never creates a pipeline of its own.
