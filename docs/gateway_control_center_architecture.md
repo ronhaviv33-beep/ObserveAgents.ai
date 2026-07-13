@@ -46,7 +46,7 @@ Everything derived from runtime evidence lives here. Responsible for:
 - Dependencies
 - Findings
 - Security Intelligence (`source=runtime_security` findings)
-- Detection Rules ([ai_agent_detection_rules_plan.md](ai_agent_detection_rules_plan.md))
+- Detection Rules ([ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md))
 - Cost Signals
 - Advisor recommendations (roadmap O8)
 

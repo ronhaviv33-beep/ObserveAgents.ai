@@ -48,7 +48,7 @@ Examples:
 
 > Rules observe and alert. Gateway can optionally enforce later.
 
-Canonical design with rule templates, evaluation model, dedup/anti-spam rules, future data model, and R0–R8 sequence: [ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md) (supersedes [ai_agent_detection_rules_plan.md](ai_agent_detection_rules_plan.md)).
+Canonical design with rule templates, evaluation model, dedup/anti-spam rules, future data model, and R0–R8 sequence: [ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md) (supersedes [ai_agent_detection_rules_plan.md](archive/legacy/ai_agent_detection_rules_plan.md)).
 
 ---
 
