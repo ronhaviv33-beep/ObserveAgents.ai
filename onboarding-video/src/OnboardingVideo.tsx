@@ -21,7 +21,7 @@ export const DURATIONS = {
   beat3: 165,
   beat4: 150,
   beat5: 130,
-  beat6: 150,
+  beat6: 175,
   end: 80,
 };
 

@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Easing,
   interpolate,
   spring,
   useCurrentFrame,
@@ -8,7 +9,42 @@ import {
 } from "remotion";
 import { theme } from "../theme";
 import { TopCaption } from "../components/TopCaption";
-import { Card, Chip, MonoLabel } from "../components/ui";
+import { Card, Chip, HighBadge, MonoLabel } from "../components/ui";
+
+// Full expanded customer-support-agent card from the Gateway Control Center:
+// header chips, "why this agent is here" evidence column, suggested controls.
+const CARD_W = 1560;
+const CARD_X = (1920 - CARD_W) / 2;
+const CARD_Y = 240;
+
+const ease = Easing.out(Easing.cubic);
+const clamp = (frame: number, from: number, to: number) =>
+  interpolate(frame, [from, to], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: ease,
+  });
+
+const HEADER_CHIPS: { text: string; color: string; bg: string }[] = [
+  { text: "production", color: theme.textSoft, bg: "#f4f2ee" },
+  { text: "9 findings", color: theme.textSoft, bg: "#f4f2ee" },
+  { text: "routing required", color: theme.purple, bg: theme.purpleSoft },
+  { text: "recommended", color: theme.orange, bg: theme.orangeFaint },
+];
+
+const DETECTION_RULES = [
+  "rule_mcp_tool_access_threshold",
+  "rule_repeated_tool_errors",
+  "rule_unknown_provider_in_production",
+];
+const SECURITY_INTEL = [
+  "agent_has_database_access",
+  "agent_uses_mcp_tool_in_production",
+  "agent_uses_unknown_model_provider",
+  "human_review_recommended",
+  "repeated_tool_errors",
+];
+const ASSET_INTEL = ["sensitive_system_access"];
 
 const CONTROLS = [
   { label: "route through gateway", chip: "routing step", tone: "purple" },
@@ -26,12 +62,42 @@ const tones: Record<string, { color: string; bg: string }> = {
   orange: { color: theme.orange, bg: theme.orangeSoft },
 };
 
-const PANEL_W = 980;
-const PANEL_X = (1920 - PANEL_W) / 2;
+const ChipGroup: React.FC<{
+  frame: number;
+  delay: number;
+  label: string;
+  chips: string[];
+}> = ({ frame, delay, label, chips }) => (
+  <div style={{ marginTop: 26, opacity: clamp(frame, delay, delay + 12) }}>
+    <MonoLabel text={label} size={15} />
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
+      {chips.map((chip, i) => (
+        <span
+          key={chip}
+          style={{ opacity: clamp(frame, delay + 4 + i * 3, delay + 12 + i * 3) }}
+        >
+          <Chip
+            text={chip}
+            size={15}
+            color={theme.orange}
+            bg={theme.orangeFaint}
+            border={theme.orangeSoft}
+          />
+        </span>
+      ))}
+    </div>
+  </div>
+);
 
 export const Beat6Controls: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+
+  const enter = spring({
+    frame: frame - 4,
+    fps,
+    config: { damping: 17, stiffness: 110 },
+  });
 
   return (
     <AbsoluteFill style={{ background: theme.bg }}>
@@ -41,83 +107,202 @@ export const Beat6Controls: React.FC = () => {
       <Card
         style={{
           position: "absolute",
-          left: PANEL_X,
-          top: 262,
-          width: PANEL_W,
-          padding: "38px 52px",
-          background: "#f7f5f1",
+          left: CARD_X,
+          top: CARD_Y,
+          width: CARD_W,
+          overflow: "hidden",
+          opacity: enter,
+          transform: `translateY(${(1 - enter) * 60}px)`,
         }}
       >
-        <MonoLabel text="SUGGESTED CONTROLS" size={20} />
-        <div style={{ marginTop: 26 }}>
-          {CONTROLS.map((control, i) => {
-            const delay = 10 + i * 7;
-            const enter = spring({
-              frame: frame - delay,
-              fps,
-              config: { damping: 18, stiffness: 150 },
-            });
-            const tone = tones[control.tone];
-            // Subtle pulse on the "available now" chips once everything landed.
-            const pulse =
-              control.tone === "blue"
-                ? 1 +
-                  0.05 *
-                    Math.max(
-                      0,
-                      Math.sin(((frame - 80) / 20) * Math.PI) *
-                        (frame > 80 && frame < 100 ? 1 : 0)
-                    )
-                : 1;
-            return (
-              <div
-                key={control.label}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  height: 64,
-                  opacity: enter,
-                  transform: `translateY(${(1 - enter) * 34}px)`,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: theme.mono,
-                    fontSize: 24,
-                    color: theme.text,
-                  }}
-                >
-                  {control.label}
-                </span>
-                <span style={{ transform: `scale(${pulse})` }}>
-                  <Chip
-                    text={control.chip}
-                    color={tone.color}
-                    bg={tone.bg}
-                    size={19}
-                  />
-                </span>
-              </div>
-            );
-          })}
-        </div>
+        {/* Card header */}
         <div
           style={{
-            fontFamily: theme.sans,
-            fontSize: 20,
-            color: theme.textSoft,
-            marginTop: 26,
-            lineHeight: 1.5,
-            opacity: interpolate(frame, [66, 84], [0, 1], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            }),
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            padding: "26px 40px",
           }}
         >
-          Recommendations only — nothing is applied automatically. Hard controls
-          work only if this agent's traffic is routed through the Gateway, after
-          explicit approval.
+          <div>
+            <div
+              style={{
+                fontFamily: theme.mono,
+                fontSize: 27,
+                fontWeight: 700,
+                color: theme.text,
+              }}
+            >
+              customer-support-agent
+            </div>
+            <div
+              style={{
+                fontFamily: theme.mono,
+                fontSize: 16,
+                color: theme.textFaint,
+                marginTop: 6,
+              }}
+            >
+              667b2eef17cb9140…
+            </div>
+          </div>
+          <div style={{ flex: 1 }} />
+          <span style={{ opacity: clamp(frame, 12, 20) }}>
+            <HighBadge size={16} />
+          </span>
+          {HEADER_CHIPS.map((chip, i) => (
+            <span
+              key={chip.text}
+              style={{ opacity: clamp(frame, 15 + i * 3, 23 + i * 3) }}
+            >
+              <Chip text={chip.text} size={16} color={chip.color} bg={chip.bg} />
+            </span>
+          ))}
+          <span
+            style={{
+              fontFamily: theme.mono,
+              fontSize: 16,
+              color: theme.textFaint,
+              opacity: clamp(frame, 27, 35),
+            }}
+          >
+            8h ago
+          </span>
+        </div>
+
+        {/* Card body — tinted, two columns */}
+        <div
+          style={{
+            background: "#f7f5f1",
+            borderTop: `1.5px solid ${theme.borderSoft}`,
+            display: "flex",
+            gap: 56,
+            padding: "30px 40px 36px",
+          }}
+        >
+          {/* Left: why this agent is here */}
+          <div style={{ width: 700 }}>
+            <div style={{ opacity: clamp(frame, 16, 30) }}>
+              <MonoLabel text="WHY THIS AGENT IS HERE" size={15} />
+              <div
+                style={{
+                  fontFamily: theme.sans,
+                  fontSize: 18.5,
+                  color: theme.textSoft,
+                  lineHeight: 1.55,
+                  marginTop: 12,
+                }}
+              >
+                <span style={{ color: theme.blue }}>Runtime evidence</span>{" "}
+                recommends reviewing this agent for Gateway control:{" "}
+                <span style={{ color: theme.orange }}>
+                  9 open high-severity findings
+                </span>{" "}
+                and human review recommended (agent_has_database_access,
+                agent_uses_mcp_tool_in_production,
+                agent_uses_unknown_model_provider, human_review_recommended,
+                repeated_tool_errors, rule_mcp_tool_access_threshold,
+                rule_repeated_tool_errors, rule_unknown_provider_in_production,
+                sensitive_system_access).
+              </div>
+            </div>
+            <ChipGroup
+              frame={frame}
+              delay={34}
+              label="DETECTION RULES"
+              chips={DETECTION_RULES}
+            />
+            <ChipGroup
+              frame={frame}
+              delay={48}
+              label="SECURITY INTELLIGENCE"
+              chips={SECURITY_INTEL}
+            />
+            <ChipGroup
+              frame={frame}
+              delay={64}
+              label="ASSET INTELLIGENCE"
+              chips={ASSET_INTEL}
+            />
+          </div>
+
+          {/* Right: suggested controls */}
+          <div style={{ flex: 1 }}>
+            <div style={{ opacity: clamp(frame, 20, 32) }}>
+              <MonoLabel text="SUGGESTED CONTROLS" size={15} />
+            </div>
+            <div style={{ marginTop: 14 }}>
+              {CONTROLS.map((control, i) => {
+                const delay = 24 + i * 6;
+                const rowIn = spring({
+                  frame: frame - delay,
+                  fps,
+                  config: { damping: 18, stiffness: 150 },
+                });
+                const tone = tones[control.tone];
+                return (
+                  <div
+                    key={control.label}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 16,
+                      height: 47,
+                      opacity: rowIn,
+                      transform: `translateY(${(1 - rowIn) * 26}px)`,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: theme.sans,
+                        fontSize: 19,
+                        color: theme.text,
+                      }}
+                    >
+                      {control.label}
+                    </span>
+                    <Chip
+                      text={control.chip}
+                      color={tone.color}
+                      bg={tone.bg}
+                      size={15}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div
+              style={{
+                fontFamily: theme.sans,
+                fontSize: 16.5,
+                color: theme.textSoft,
+                lineHeight: 1.5,
+                marginTop: 18,
+                maxWidth: 640,
+                opacity: clamp(frame, 76, 92),
+              }}
+            >
+              Recommendations only — nothing is applied automatically. Hard
+              controls work only if this agent's traffic is routed through the
+              Gateway, after explicit approval.
+            </div>
+            <div
+              style={{
+                display: "inline-block",
+                marginTop: 20,
+                fontFamily: theme.mono,
+                fontSize: 17,
+                color: theme.orange,
+                background: theme.card,
+                border: `1.5px solid ${theme.orangeSoft}`,
+                borderRadius: 8,
+                padding: "10px 22px",
+                opacity: clamp(frame, 86, 100),
+              }}
+            >
+              Dismiss recommendation
+            </div>
+          </div>
         </div>
       </Card>
     </AbsoluteFill>
