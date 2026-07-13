@@ -191,4 +191,4 @@ At that point you can answer, with evidence, the questions this started with: wh
 
 ## 10. For technical teams
 
-If you are responsible for implementation, use the **[technical implementation guide](organization_implementation_guide.md)** ([עברית](organization_implementation_guide_he.md)) for the exact OpenTelemetry, gateway, access key, and instrumentation instructions. This document intentionally leaves those details out.
+If you are responsible for implementation, start with the **[onboarding self-lab guide](otel_customer_onboarding_guide.md)** (bilingual), then use the **[technical implementation guide](organization_implementation_guide.md)** for the exact OpenTelemetry, gateway, access key, and instrumentation instructions. This document intentionally leaves those details out.

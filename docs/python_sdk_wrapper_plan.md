@@ -1,9 +1,10 @@
 # Python SDK Wrapper — Plan (Collector R3)
 
-*Plan document only. Nothing here is implemented: no SDK package, no code, no backend
-changes, no auth changes, no UI, no migrations, no tests. This designs the R3 phase of the
-GenAI Runtime Collector roadmap (`docs/genai_runtime_collector_roadmap.md`): a thin Python
-SDK wrapper that emits normalized GenAI runtime events over the R1 API — plain events over
+*Status: **implemented** — the SDK MVP shipped as `sdk/python/observeagents/` (PR #114);
+see [python_sdk_mvp_implementation_plan.md](python_sdk_mvp_implementation_plan.md) for the
+scoped implementation record. This document designed the R3 phase of the collector
+direction on the [roadmap](roadmap.md) (O2 — ingestion depth): a thin Python SDK wrapper
+that emits normalized GenAI runtime events over the R1 API — plain events over
 `POST /runtime-events`, no proprietary transport.*
 
 > **Observe first. Control only what matters.**

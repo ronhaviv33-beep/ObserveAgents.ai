@@ -2,7 +2,11 @@
 
 A practical, step-by-step guide for rolling out ObserveAgents in your organization — from first login to a fully observed AI estate.
 
-> גרסה בעברית: [organization_implementation_guide_he.md](organization_implementation_guide_he.md)
+> **Start here for onboarding:** the current onboarding entry path is
+> [otel_customer_onboarding_guide.md](otel_customer_onboarding_guide.md) (bilingual self-lab);
+> this guide remains the deep rollout reference.
+>
+> גרסה בעברית (בארכיון, לא מתוחזקת): [organization_implementation_guide_he.md](archive/onboarding/organization_implementation_guide_he.md)
 
 **Who this is for:** platform engineers, security engineers, and engineering leads implementing Observe for their organization.
 
