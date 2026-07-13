@@ -1,6 +1,6 @@
 # AI Agent Detection Rules & Alerts Design
 
-*Design document only — nothing in this file is implemented. No code, no migrations, no new endpoints, no Slack integration, no webhook delivery, no behavior change. This document supersedes and expands [ai_agent_detection_rules_plan.md](ai_agent_detection_rules_plan.md) as the canonical design for roadmap phase **O4 — Monitors & notifications**.*
+*Design document only — nothing in this file is implemented. No code, no migrations, no new endpoints, no Slack integration, no webhook delivery, no behavior change. This document supersedes and expands [ai_agent_detection_rules_plan.md](archive/legacy/ai_agent_detection_rules_plan.md) as the canonical design for roadmap phase **O4 — Monitors & notifications**.*
 
 **Positioning:** this is **AI Agent Detection Rules** (also: *AI Agent Runtime Rules & Alerts*, *Detection Rules for AI Agents*). It is deliberately **not a SIEM replacement** — no log ingestion, no cross-system correlation language, no threat-intel feeds. Every rule is about an AI agent: what it runs, what it can reach, how it behaves, who owns it.
 
