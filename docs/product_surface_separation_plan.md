@@ -2,7 +2,7 @@
 
 *A concrete plan for separating ObserveAgents into two customer-facing products on one shared backend foundation.*
 
-**Status: plan only.** Nothing in this document has been implemented. It is the Phase 1 deliverable of its own migration plan (§8).
+**Status: partially implemented.** Per-surface builds are shipped (`VITE_PRODUCT_SURFACE`, `dashboard/src/productSurface.js`, per-surface deploy targets in `render.yaml` — see the README roadmap table). Later phases (surface-scoped API keys, roadmap O5) remain ahead. This document was the Phase 1 deliverable of its own migration plan (§8).
 
 ---
 

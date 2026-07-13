@@ -1,8 +1,7 @@
 # Python SDK MVP — Implementation Plan (Collector R3)
 
-*Implementation plan only. No SDK code exists yet, and this document changes nothing:
-no backend, no dashboard, no DB, no auth, no adapters, no Gateway changes. It scopes the
-smallest possible Python SDK MVP so implementation can start from an agreed boundary.
+*Status: **implemented** — the SDK shipped as `sdk/python/observeagents/` (PR #114),
+built from this plan. The document is kept as the scoping record for that MVP.
 Design rationale and product positioning live in the companion plan,
 [python_sdk_wrapper_plan.md](python_sdk_wrapper_plan.md).*
 
