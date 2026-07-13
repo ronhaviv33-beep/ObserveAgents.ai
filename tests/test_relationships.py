@@ -6,7 +6,9 @@ Covers:
   2. relationships persistence: upsert increments count; different target = new row;
      metadata never stores prompt/response
   3. API: GET /relationships (org-scoped); GET /relationships/graph (valid nodes/edges)
-  4. Proxy integration: X-Agent-Name + X-MCP-Server + X-MCP-Tool creates uses_tool relationship
+
+Proxy-side X-Agent-* header capture is covered by tests/test_proxy_team_register.py
+(part of `make verify`).
 """
 from __future__ import annotations
 
@@ -356,49 +358,3 @@ class TestRelationshipsAPI:
         data = resp.json()
         node_labels = {n["label"] for n in data["nodes"]}
         assert "other-org-agent" not in node_labels
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 4. SDK header builder tests
-# ═══════════════════════════════════════════════════════════════════════════════
-
-class TestSDKHeaders:
-    def test_build_headers_includes_mcp_server(self):
-        from ai_agent_inventory.headers import build_headers
-        h = build_headers(agent_name="bot", mcp_server="my-mcp")
-        assert h["X-Agent-Name"] == "bot"
-        assert h["X-MCP-Server"] == "my-mcp"
-
-    def test_build_headers_includes_mcp_tool(self):
-        from ai_agent_inventory.headers import build_headers
-        h = build_headers(agent_name="bot", mcp_server="srv", mcp_tool="search")
-        assert h["X-MCP-Tool"] == "search"
-        assert h["X-MCP-Server"] == "srv"
-
-    def test_build_headers_includes_workflow_fields(self):
-        from ai_agent_inventory.headers import build_headers
-        h = build_headers(
-            agent_name="orch",
-            workflow_provider="zapier",
-            workflow_name="send-email",
-        )
-        assert h["X-Workflow-Provider"] == "zapier"
-        assert h["X-Workflow-Name"] == "send-email"
-
-    def test_build_headers_includes_parent_agent(self):
-        from ai_agent_inventory.headers import build_headers
-        h = build_headers(agent_name="child", parent_agent="orchestrator")
-        assert h["X-Agent-Parent"] == "orchestrator"
-
-    def test_build_headers_omits_none_fields(self):
-        from ai_agent_inventory.headers import build_headers
-        h = build_headers(agent_name="bot")
-        assert "X-MCP-Server" not in h
-        assert "X-MCP-Tool" not in h
-        assert "X-Agent-Parent" not in h
-        assert "X-Workflow-Provider" not in h
-
-    def test_build_headers_always_sets_source(self):
-        from ai_agent_inventory.headers import build_headers
-        h = build_headers()
-        assert h["X-Agent-Source"] == "sdk-python"
