@@ -11,7 +11,7 @@ ObserveAgents is the **runtime visibility and control layer for AI agents**: it 
 | Phase | Theme | Summary |
 |---|---|---|
 | O1 | Ecosystem Discovery | GitHub / Jira / Slack / n8n / MCP evidence connectors; Active / Dormant / Runtime-only correlation with the runtime inventory |
-| O2 | Ingestion depth | OTLP **protobuf** support — ✅ shipped (direct OpenLLMetry-style onboarding, no Collector required); **Runtime Events ingestion seam** (`POST /runtime-events`, Collector R1/R2) — ✅ shipped; **Python SDK wrapper** (Collector R3) — plan approved ([python_sdk_wrapper_plan.md](python_sdk_wrapper_plan.md)); OTLP **metrics** ingestion (Claude Code / coding-agent token & cost accounting) still ahead |
+| O2 | Ingestion depth | OTLP **protobuf** support — ✅ shipped (direct OpenLLMetry-style onboarding, no Collector required); **Runtime Events ingestion seam** (`POST /runtime-events`, Collector R1/R2) — ✅ shipped; **Python SDK MVP** (Collector R3, `sdk/python/observeagents`) — ✅ shipped (PR #114); **next: Python SDK Quickstart → SDK demo agent** (see [Runtime evidence track](#runtime-evidence-track--status--next-milestones)); OTLP **metrics** ingestion (Claude Code / coding-agent token & cost accounting) still ahead |
 | O3 | Content-free security verdicts | In-flight scanning at ingestion (prompt injection, PII-in-prompt, toxicity) storing **verdicts only** — never content; Runtime "Security checks" filter |
 | O4 | Monitors & notifications | **AI Agent Detection Rules & Alerts** (see below); budget alerts via webhook (Slack / Teams) — canonical design: [ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md) |
 | O5 | Product surface deployments | Per-surface builds of the Observability and Gateway products (separation plan Phase 4); surface-scoped API keys |
@@ -23,9 +23,86 @@ ObserveAgents is the **runtime visibility and control layer for AI agents**: it 
 
 **Shipped:** **AI Agent Runtime Security Intelligence MVP** — agent-specific, environment-aware security findings derived from runtime evidence (database/API reach, MCP in production, broad tool surface, unknown providers, missing ownership, repeated tool errors, human-review combinations). Observe-only, derivation-only, no new ingestion. See [ai_agent_runtime_security_intelligence.md](ai_agent_runtime_security_intelligence.md). O3's in-flight content verdicts (prompt injection / PII / toxicity) remain ahead as the next security layer.
 
-**Shipped:** **Runtime Events ingestion seam (Collector R1/R2)** — `POST /runtime-events` accepts normalized GenAI runtime events from any source, validates them against an allow-list schema, privacy-scrubs at the boundary (no prompts/responses/tool args/credentials/full URLs), and converts them into the existing span pipeline (`normalize_spans`) — OTLP and runtime events converge on the same intelligence engine; no source gets its own findings pipeline. Evidence-ingestion only: no inline detection rules, no control candidates, no enforcement. **Next (Collector R3): Python SDK wrapper** — a thin `ObserveOpenAI`-style client emitting runtime events to a configurable endpoint (Cloud or customer-side collector); plan approved: [python_sdk_wrapper_plan.md](python_sdk_wrapper_plan.md).
+**Shipped:** **Runtime Events ingestion seam (Collector R1/R2)** — `POST /runtime-events` accepts normalized GenAI runtime events from any source, validates them against an allow-list schema, privacy-scrubs at the boundary (no prompts/responses/tool args/credentials/full URLs), and converts them into the existing span pipeline (`normalize_spans`) — OTLP and runtime events converge on the same intelligence engine; no source gets its own findings pipeline. Evidence-ingestion only: no inline detection rules, no control candidates, no enforcement.
+
+**Shipped:** **Python SDK MVP (Collector R3, PR #114)** — `sdk/python/observeagents`: a thin `ObserveOpenAI` wrapper around the OpenAI Python client emitting one safe `llm_call` runtime event per completion call to the configurable `{observeagents_url}/runtime-events` endpoint (Cloud or customer-side collector). Fail-open, content-free (no prompts/messages/responses/tool args/headers/credentials ever leave the customer's process), provider exceptions re-raised unchanged. Design: [python_sdk_wrapper_plan.md](python_sdk_wrapper_plan.md); implementation record: [python_sdk_mvp_implementation_plan.md](python_sdk_mvp_implementation_plan.md). **Next: Python SDK Quickstart** — see the [Runtime evidence track](#runtime-evidence-track--status--next-milestones).
 
 **Shipped:** **Gateway Control Center GCR2–GCR4 (O9 first slice)** — control-candidate derivation from high-risk runtime evidence (`category=control` findings), the Control Center action workspace in the same production app on both surfaces, and one-click Observe→Control navigation. No enforcement, no rerouting; GCR5+ (policy drafts, approval, enforcement for routed agents) remain ahead. See [gateway_control_center_architecture.md](gateway_control_center_architecture.md).
+
+---
+
+## Runtime evidence track — status & next milestones
+
+The multi-source ingestion direction (O2): every source is a small adapter that feeds the
+**same** runtime evidence engine. Repo cleanup and infrastructure work are tracked
+separately and are deliberately not part of this product track.
+
+### Completed
+
+| # | Milestone | Status |
+|---|---|---|
+| 1 | **Runtime Events ingestion** — `POST /runtime-events`: validated, privacy-scrubbed normalized GenAI runtime events from any source | ✅ shipped (PR #110) |
+| 2 | **Reuse of the existing intelligence engine** — span-like adapter → `normalize_spans` → assets → findings → detection rules → gateway control candidates; no new pipeline | ✅ shipped (PR #110) |
+| 3 | **Python SDK MVP** — `ObserveOpenAI` wrapper (`sdk/python/observeagents`): one safe `llm_call` event per completion call, fail-open, content-free | ✅ shipped (PR #114) |
+
+### Next
+
+**4. Python SDK Quickstart**
+
+> **Goal: a user can connect a simple OpenAI-based agent in 5 minutes.**
+
+Includes:
+
+- install / local usage (in-repo `sdk/python`, no PyPI yet)
+- environment variables (`OBSERVEAGENTS_URL`, `OBSERVEAGENTS_API_KEY`, `OBSERVEAGENTS_AGENT_NAME`, …)
+- a minimal `ObserveOpenAI` example (constructor + one `chat.completions.create` call)
+- privacy explanation — what is sent (metadata only) and what is never sent (prompts, messages, responses, tool args, headers, credentials)
+- verification steps — the event appears in Runtime, the agent appears in Asset Intelligence, findings derive on the next intelligence run
+
+### Then
+
+**5. SDK Demo / Sample Agent**
+
+> **Goal: an end-to-end demo — OpenAI call → SDK event → `/runtime-events` → evidence → intelligence.**
+
+A small runnable sample agent that exercises the full chain and shows the product lighting
+up from a single script: inventory, runtime activity, token usage, errors, and derived
+findings — with zero OTel setup.
+
+### Later
+
+**6. Gateway Telemetry Adapter**
+
+> **Goal: Gateway traffic should also feed the same runtime evidence engine.**
+
+The base_url-swap path today produces cost + inventory only; this adapter makes proxied
+traffic produce the same evidence as OTLP and SDK events — assets, findings, detection
+rules — with no change to enforcement behavior.
+
+**7. LangChain / LiteLLM Adapter**
+
+> **Goal: framework integrations after SDK adoption is proven.**
+
+Callback handlers that emit the same normalized runtime events; sequenced deliberately
+after the SDK quickstart/demo prove the adoption path.
+
+**8. MCP Runtime Events**
+
+> **Goal: visibility into MCP tools, servers, and tool-call behavior.**
+
+MCP server / tool / method usage as runtime events, lighting up the existing MCP findings
+(broad tool surface, flagged MCP server, repeated tool errors) without full instrumentation.
+
+### Track principles (hold for every milestone above)
+
+- **No new intelligence pipeline.** Every adapter emits normalized runtime events or
+  span-like evidence into the existing engine — one place derives assets, findings, rules,
+  and control candidates, forever.
+- **Observe first. Control only what matters.**
+- **Gateway enforcement remains optional and explicit.** Nothing is enforced unless traffic
+  is explicitly routed through Gateway and controls are explicitly configured.
+- **No automatic enforcement from detection or SDK events.** Detection rules and SDK
+  evidence produce findings and recommendations for humans — never actions against traffic.
 
 ---
 
