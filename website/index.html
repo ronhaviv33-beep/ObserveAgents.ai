@@ -361,6 +361,52 @@
     footer p { font-size: 13px; color: var(--ink-mute); margin-top: 10px; }
     footer .motto { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-mute); }
 
+    /* ── Scroll reveals ──────────────────────────────────────────────────
+       Elements tagged .reveal rise into place when they enter the viewport
+       (IntersectionObserver adds .on). Stagger with .d1–.d5. */
+    .reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.7s cubic-bezier(0.2, 0.65, 0.25, 1), transform 0.7s cubic-bezier(0.2, 0.65, 0.25, 1); }
+    .reveal.on { opacity: 1; transform: none; }
+    .reveal.d1 { transition-delay: 0.08s; }
+    .reveal.d2 { transition-delay: 0.16s; }
+    .reveal.d3 { transition-delay: 0.24s; }
+    .reveal.d4 { transition-delay: 0.32s; }
+    .reveal.d5 { transition-delay: 0.4s; }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
+    }
+
+    /* chain dots light up in sequence once the section scrolls in */
+    .chain-dot, .chain-step span { transition: opacity 0.5s ease, box-shadow 0.5s ease, border-color 0.5s ease; }
+    .chain.armed .chain-dot { border-color: var(--line); box-shadow: none; opacity: 0.45; }
+    .chain.armed .chain-dot i { opacity: 0; transition: opacity 0.5s ease; }
+    .chain.armed .chain-step span { opacity: 0.4; }
+    .chain.armed .chain-step.lit .chain-dot { border-color: var(--signal); box-shadow: 0 0 0 5px rgba(33, 181, 228, 0.14); opacity: 1; }
+    .chain.armed .chain-step.lit:last-child .chain-dot { border-color: var(--violet); box-shadow: 0 0 0 5px rgba(122, 90, 248, 0.14); }
+    .chain.armed .chain-step.lit .chain-dot i { opacity: 1; }
+    .chain.armed .chain-step.lit span { opacity: 1; }
+
+    /* ── Live evidence flow (Agent → MCP → Slack/DB) ───────────────────── */
+    .liveflow {
+      background: var(--card); border: 1px solid var(--line); border-radius: 24px;
+      padding: clamp(20px, 3.5vw, 40px); box-shadow: 0 10px 34px rgba(12, 27, 54, 0.06);
+      position: relative; overflow: hidden;
+    }
+    .liveflow::before {
+      content: ""; position: absolute; top: 0; left: 40px; right: 40px; height: 2px;
+      background: linear-gradient(90deg, transparent, #21B5E4 30%, #A66BFF 70%, transparent); opacity: 0.55;
+    }
+    .liveflow svg { display: block; width: 100%; height: auto; }
+    .liveflow .fpath { stroke-dasharray: 6 10; }
+    .lf-caption {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin-top: 18px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-mute);
+      flex-wrap: wrap; text-align: center;
+    }
+    .lf-caption .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #17B877; flex-shrink: 0; }
+    @media (prefers-reduced-motion: no-preference) {
+      .lf-caption .live-dot { animation: blink 2s ease-in-out infinite; }
+    }
+
     /* responsive */
     @media (max-width: 900px) {
       .nav-links { display: none; }
@@ -715,6 +761,157 @@
       </div>
     </section>
 
+    <!-- ── Live evidence flow ───────────────────────────────────────────── -->
+    <section id="live-evidence" class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Runtime evidence, live</div>
+          <h2>Every hop your agent makes<br>becomes evidence.</h2>
+          <p>An agent reaches an MCP server, the MCP server reaches Slack or your database — ObserveAgents records each hop as a span. Identifiers and timings only, never prompts or responses.</p>
+        </div>
+        <div class="liveflow">
+          <svg viewBox="0 0 1000 340" aria-label="Animated diagram: an agent calls an MCP server, which calls Slack and a database; ObserveAgents records each hop as a span">
+            <defs>
+              <linearGradient id="pk" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#21B5E4"/><stop offset="100%" stop-color="#A66BFF"/>
+              </linearGradient>
+            </defs>
+
+            <!-- connection paths -->
+            <path id="lf-p1" class="fpath" d="M228,170 C 310,170 350,170 424,170" fill="none" stroke="#C9D6EC" stroke-width="2.5"/>
+            <path id="lf-p2" class="fpath" d="M576,148 C 660,118 700,96 784,80" fill="none" stroke="#C9D6EC" stroke-width="2.5"/>
+            <path id="lf-p3" class="fpath" d="M576,192 C 660,222 700,244 784,260" fill="none" stroke="#C9D6EC" stroke-width="2.5"/>
+
+            <!-- observation lines from the watcher -->
+            <g stroke="#A66BFF" stroke-width="1.4" stroke-dasharray="3 6" fill="none">
+              <path d="M500,64 C 420,90 360,130 326,164" opacity="0.25">
+                <animate attributeName="opacity" values="0.25;0.8;0.25" dur="0.8s" begin="lf-f1.end"/>
+              </path>
+              <path d="M500,64 C 560,80 640,96 676,112" opacity="0.25">
+                <animate attributeName="opacity" values="0.25;0.8;0.25" dur="0.8s" begin="lf-f2.end"/>
+              </path>
+              <path d="M500,64 C 570,110 640,180 672,216" opacity="0.25">
+                <animate attributeName="opacity" values="0.25;0.8;0.25" dur="0.8s" begin="lf-f3.end"/>
+              </path>
+            </g>
+
+            <!-- the watcher (ObserveAgents) -->
+            <g>
+              <circle cx="500" cy="42" r="26" fill="none" stroke="#A66BFF" stroke-opacity="0.3" stroke-width="1.5">
+                <animate attributeName="r" values="24;30;24" dur="3s" repeatCount="indefinite"/>
+              </circle>
+              <rect x="486" y="28" width="28" height="28" rx="9" fill="url(#pk)"/>
+              <path d="M492 42.5 H497 L499.5 36.5 L503 48 L505.5 41 H508" stroke="#0B1730" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <text x="500" y="86" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10.5" fill="#7183A3" letter-spacing="1">OBSERVEAGENTS</text>
+            </g>
+
+            <!-- Agent node -->
+            <g>
+              <rect x="68" y="132" width="160" height="76" rx="16" fill="#F4F7FC" stroke="#DCE4F2" stroke-width="1.5">
+                <animate attributeName="stroke" values="#21B5E4;#DCE4F2" dur="1.2s" begin="lf-f1.begin"/>
+              </rect>
+              <rect x="86" y="152" width="34" height="28" rx="9" fill="#21B5E4"/>
+              <circle cx="97" cy="166" r="3" fill="#0B1730"/>
+              <circle cx="109" cy="166" r="3" fill="#0B1730"/>
+              <line x1="103" y1="152" x2="103" y2="144" stroke="#21B5E4" stroke-width="2"/>
+              <circle cx="103" cy="142" r="2.5" fill="#A66BFF"/>
+              <text x="132" y="165" font-family="'Space Grotesk', sans-serif" font-size="14" font-weight="600" fill="#0C1B36">Agent</text>
+              <text x="132" y="183" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#7183A3">support-agent</text>
+            </g>
+
+            <!-- MCP node -->
+            <g>
+              <rect x="424" y="132" width="152" height="76" rx="16" fill="#F4F7FC" stroke="#DCE4F2" stroke-width="1.5">
+                <animate attributeName="stroke" values="#7A5AF8;#DCE4F2" dur="1.2s" begin="lf-f1.end"/>
+              </rect>
+              <rect x="442" y="152" width="30" height="30" rx="8" fill="#EDE8FE" stroke="#7A5AF8" stroke-width="1.5"/>
+              <path d="M451 160 v6 M463 160 v6 M449 166 h16 v5 a8 8 0 0 1 -16 0 z" fill="none" stroke="#7A5AF8" stroke-width="1.8" stroke-linecap="round"/>
+              <text x="482" y="165" font-family="'Space Grotesk', sans-serif" font-size="14" font-weight="600" fill="#0C1B36">MCP Server</text>
+              <text x="482" y="183" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#7183A3">tools gateway</text>
+            </g>
+
+            <!-- Slack node -->
+            <g>
+              <rect x="784" y="44" width="152" height="70" rx="16" fill="#F4F7FC" stroke="#DCE4F2" stroke-width="1.5">
+                <animate attributeName="stroke" values="#21B5E4;#DCE4F2" dur="1.2s" begin="lf-f2.end"/>
+              </rect>
+              <rect x="801" y="61" width="30" height="30" rx="8" fill="#E7F6EC" stroke="#17B877" stroke-width="1.5"/>
+              <path d="M810 68 v10 M822 74 h-10 M814 64 h4 M812 84 h8" stroke="#17B877" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+              <text x="841" y="76" font-family="'Space Grotesk', sans-serif" font-size="14" font-weight="600" fill="#0C1B36">Slack</text>
+              <text x="841" y="94" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#7183A3">postMessage</text>
+            </g>
+
+            <!-- Database node -->
+            <g>
+              <rect x="784" y="226" width="152" height="70" rx="16" fill="#F4F7FC" stroke="#DCE4F2" stroke-width="1.5">
+                <animate attributeName="stroke" values="#E9A23B;#DCE4F2" dur="1.2s" begin="lf-f3.end"/>
+              </rect>
+              <g stroke="#E9A23B" stroke-width="1.8" fill="none">
+                <ellipse cx="816" cy="249" rx="13" ry="5"/>
+                <path d="M803,249 v18 a13 5 0 0 0 26 0 v-18"/>
+                <path d="M803,258 a13 5 0 0 0 26 0"/>
+              </g>
+              <text x="841" y="258" font-family="'Space Grotesk', sans-serif" font-size="14" font-weight="600" fill="#0C1B36">Database</text>
+              <text x="841" y="276" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#7183A3">read-only query</text>
+            </g>
+
+            <!-- packets -->
+            <g opacity="0">
+              <circle r="7" fill="url(#pk)"/>
+              <circle r="12" fill="none" stroke="#21B5E4" stroke-opacity="0.4" stroke-width="2"/>
+              <animateMotion id="lf-f1" dur="1.6s" begin="1s;lf-f3.end+2s" keyPoints="0;1" keyTimes="0;1" calcMode="linear">
+                <mpath href="#lf-p1"/>
+              </animateMotion>
+              <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.08;0.9;1" dur="1.6s" begin="lf-f1.begin"/>
+            </g>
+            <g opacity="0">
+              <circle r="7" fill="url(#pk)"/>
+              <circle r="12" fill="none" stroke="#7A5AF8" stroke-opacity="0.4" stroke-width="2"/>
+              <animateMotion id="lf-f2" dur="1.6s" begin="lf-f1.end+0.4s">
+                <mpath href="#lf-p2"/>
+              </animateMotion>
+              <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.08;0.9;1" dur="1.6s" begin="lf-f2.begin"/>
+            </g>
+            <g opacity="0">
+              <circle r="7" fill="url(#pk)"/>
+              <circle r="12" fill="none" stroke="#E9A23B" stroke-opacity="0.5" stroke-width="2"/>
+              <animateMotion id="lf-f3" dur="1.6s" begin="lf-f2.end+0.4s">
+                <mpath href="#lf-p3"/>
+              </animateMotion>
+              <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.08;0.9;1" dur="1.6s" begin="lf-f3.begin"/>
+            </g>
+
+            <!-- span chips recorded under each hop -->
+            <g opacity="0" font-family="'JetBrains Mono', monospace" font-size="10">
+              <rect x="252" y="196" width="150" height="24" rx="12" fill="#EFFAFE" stroke="#9BDDF2"/>
+              <circle cx="268" cy="208" r="3.5" fill="#17B877"/>
+              <text x="280" y="212" fill="#0A7CA3">mcp.connect · 62ms</text>
+              <animate attributeName="opacity" values="0;1" dur="0.35s" begin="lf-f1.end" fill="freeze"/>
+              <animate attributeName="opacity" values="1;0" dur="0.25s" begin="lf-f1.begin" fill="freeze"/>
+            </g>
+            <g opacity="0" font-family="'JetBrains Mono', monospace" font-size="10">
+              <rect x="608" y="52" width="176" height="24" rx="12" fill="#EFFAFE" stroke="#9BDDF2"/>
+              <circle cx="624" cy="64" r="3.5" fill="#17B877"/>
+              <text x="636" y="68" fill="#0A7CA3">slack.post · 210ms</text>
+              <animate attributeName="opacity" values="0;1" dur="0.35s" begin="lf-f2.end" fill="freeze"/>
+              <animate attributeName="opacity" values="1;0" dur="0.25s" begin="lf-f1.begin" fill="freeze"/>
+            </g>
+            <g opacity="0" font-family="'JetBrains Mono', monospace" font-size="10">
+              <rect x="608" y="264" width="176" height="24" rx="12" fill="#FDF6E9" stroke="#EDD3A2"/>
+              <circle cx="624" cy="276" r="3.5" fill="#E9A23B"/>
+              <text x="636" y="280" fill="#9A6A1B">db.query · 48ms</text>
+              <animate attributeName="opacity" values="0;1" dur="0.35s" begin="lf-f3.end" fill="freeze"/>
+              <animate attributeName="opacity" values="1;0" dur="0.25s" begin="lf-f1.begin" fill="freeze"/>
+            </g>
+          </svg>
+          <div class="lf-caption">
+            <span class="live-dot"></span>
+            <span>agent → mcp → slack · 3 spans recorded · one trace, end to end — this is the evidence everything else is built from</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ── Evidence chain ───────────────────────────────────────────────── -->
     <section id="features" class="block">
       <div class="container">
@@ -889,6 +1086,71 @@
   </footer>
 
   <script>
+    // ── Scroll reveals ───────────────────────────────────────────────────
+    // Tag section pieces as .reveal, stagger siblings, then let an
+    // IntersectionObserver flip them on. Reduced motion renders instantly.
+    (function () {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      var groups = ['.risk-grid', '.bento', '.usecase-grid', '.chain-steps'];
+      groups.forEach(function (sel) {
+        document.querySelectorAll(sel).forEach(function (grid) {
+          Array.prototype.forEach.call(grid.children, function (el, i) {
+            el.classList.add('reveal', 'd' + Math.min(i % 6, 5));
+          });
+        });
+      });
+      document.querySelectorAll('.section-head, .product-frame, .liveflow, .chain, .chips, .demo-band, .contact-card')
+        .forEach(function (el) { el.classList.add('reveal'); });
+
+      if (reduce || !('IntersectionObserver' in window)) {
+        document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('on'); });
+      } else {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); }
+          });
+        }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+        document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+      }
+
+      // Evidence chain: dim, then light the stations left to right.
+      var chain = document.querySelector('.chain');
+      if (chain && !reduce && 'IntersectionObserver' in window) {
+        chain.classList.add('armed');
+        var lit = false;
+        var cio = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting && !lit) {
+              lit = true;
+              var steps = chain.querySelectorAll('.chain-step');
+              steps.forEach(function (s, i) {
+                setTimeout(function () { s.classList.add('lit'); }, 250 + i * 320);
+              });
+              cio.disconnect();
+            }
+          });
+        }, { threshold: 0.4 });
+        cio.observe(chain);
+      }
+
+      // Live evidence flow: pause the SMIL loop off-screen / under reduced motion.
+      var lf = document.querySelector('.liveflow svg');
+      if (lf && lf.pauseAnimations) {
+        if (reduce) {
+          lf.pauseAnimations();
+        } else if ('IntersectionObserver' in window) {
+          lf.pauseAnimations();
+          var fio = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) lf.unpauseAnimations(); else lf.pauseAnimations();
+            });
+          }, { threshold: 0.25 });
+          fio.observe(lf);
+        }
+      }
+    })();
+
     // Static site, no backend: submitting the form opens a pre-filled email.
     document.getElementById("contact-form").addEventListener("submit", function (e) {
       e.preventDefault();
