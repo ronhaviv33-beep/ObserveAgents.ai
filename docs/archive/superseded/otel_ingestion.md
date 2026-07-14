@@ -1,3 +1,5 @@
+> **Superseded (2026-07):** merged into [otel-deployment-guide.md](../../otel-deployment-guide.md). Kept for reference.
+
 # OTel GenAI Trace Ingestion
 
 ObserveAgents.ai accepts OpenTelemetry traces via OTLP/HTTP — **JSON and protobuf**. This is an additional discovery path alongside the proxy gateway — agents that emit OTel spans are automatically catalogued, their model/tool/API dependencies are mapped, and provenance events are recorded for audit.

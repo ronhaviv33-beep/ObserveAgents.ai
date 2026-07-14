@@ -1,3 +1,5 @@
+> **Superseded (2026-07):** merged into [customer-integration-guide.md](../../customer-integration-guide.md). Kept for reference.
+
 # Getting Started with Observe
 
 *A simple rollout guide for teams that want to understand their AI systems before adding controls.*

@@ -48,7 +48,7 @@ Runtime Discovery observes AI systems as they execute — real traffic, real spa
 
 **Current implementation** (OTel path):
 
-- `POST /otel/v1/traces` accepts OTLP/HTTP JSON spans (see `docs/otel_ingestion.md`)
+- `POST /otel/v1/traces` accepts OTLP/HTTP JSON spans (see `docs/otel-deployment-guide.md`)
 - `otel_spans` stores individual span records (privacy-scrubbed — raw prompt/response/tool content is never stored)
 - `otel_assets` aggregates evidence per (org, service, environment): models, providers, tools, dependencies, first/last seen, span and trace counts
 - Each discovered service/agent is reconciled against `asset_registry` — identity is derived from `agent.name` (declared) or `service.name` (inferred), entering the inventory with `discovery_status="potential"` and `discovery_source="otel_trace"`
@@ -265,5 +265,5 @@ The following are **not** the core MVP narrative. They may exist later, but they
 
 ## Related documents
 
-- `docs/otel_ingestion.md` — OTel trace ingestion: endpoint, privacy guarantees, data architecture
+- `docs/otel-deployment-guide.md` — OTel trace ingestion: endpoint, privacy guarantees, data architecture
 - `docs/asset_intelligence.md` — capability and finding derivation, finding catalog, API reference

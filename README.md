@@ -83,7 +83,7 @@ Open **Runtime** → `my-first-agent` is there, with an execution timeline. That
 
 ### Path B — Already using OpenTelemetry
 
-Point your existing exporter at Observe (OTLP/HTTP **JSON or protobuf** — protobuf SDKs can post directly; the Collector remains the recommended production path — [details](docs/otel_ingestion.md)):
+Point your existing exporter at Observe (OTLP/HTTP **JSON or protobuf** — protobuf SDKs can post directly; the Collector remains the recommended production path — [details](docs/otel-deployment-guide.md)):
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=https://<your-observeagents-url>/otel
@@ -104,7 +104,7 @@ from traceloop.sdk import Traceloop
 Traceloop.init()   # OTLP/HTTP protobuf → straight to Observe
 ```
 
-Point its exporter directly at Observe (`OTEL_EXPORTER_OTLP_ENDPOINT=https://<observe>/otel` + your `gk-` key — [details](docs/otel_ingestion.md#direct-otlp-protobuf-quick-start)), or through your Collector for production routing. Two lines of code, full GenAI traces — with the open standard, not a vendor SDK.
+Point its exporter directly at Observe (`OTEL_EXPORTER_OTLP_ENDPOINT=https://<observe>/otel` + your `gk-` key — [details](docs/otel-deployment-guide.md#direct-otlp-protobuf-quick-start)), or through your Collector for production routing. Two lines of code, full GenAI traces — with the open standard, not a vendor SDK.
 
 ---
 
@@ -141,7 +141,7 @@ Runtime evidence is **structural metadata only**:
 - URLs are stored as scheme + host + path only — query strings, fragments, and credentials never persist.
 - Findings, security intelligence, and control recommendations carry **identifiers and counts only**: agent/tool/provider/model names, MCP methods, span counts, durations, error types.
 
-Full details: [docs/otel_ingestion.md](docs/otel_ingestion.md#privacy-guarantee) and [docs/ai_agent_runtime_security_intelligence.md](docs/ai_agent_runtime_security_intelligence.md).
+Full details: [docs/otel-deployment-guide.md](docs/otel-deployment-guide.md#privacy-guarantee) and [docs/ai_agent_runtime_security_intelligence.md](docs/ai_agent_runtime_security_intelligence.md).
 
 ---
 
@@ -462,10 +462,20 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 
 ## Documentation
 
+**Core docs**
+
 | Doc | What it covers |
 |---|---|
-| [docs/architecture.md](docs/architecture.md) | System architecture, startup chain, deployment |
-| [docs/otel_ingestion.md](docs/otel_ingestion.md) | OTLP format, GenAI attributes, privacy guarantee, Collector guidance |
+| [docs/architecture.md](docs/architecture.md) | Overall platform architecture, startup chain, deployment |
+| [docs/customer-integration-guide.md](docs/customer-integration-guide.md) | Customer-facing integration guide (stakeholder + technical rollout) |
+| [docs/otel-deployment-guide.md](docs/otel-deployment-guide.md) | Complete OpenTelemetry deployment guide — OTLP format, GenAI attributes, privacy guarantee, Collector guidance |
+| [docs/sdk-guide.md](docs/sdk-guide.md) | ObserveAgents Python SDK guide |
+| [docs/runtime-flow.md](docs/runtime-flow.md) | Runtime processing and intelligence flow |
+
+**Specialized specs**
+
+| Doc | What it covers |
+|---|---|
 | [docs/python_sdk_wrapper_plan.md](docs/python_sdk_wrapper_plan.md) | Python SDK wrapper plan (Collector R3) — low-friction adapter over `POST /runtime-events` |
 | [docs/asset_intelligence.md](docs/asset_intelligence.md) | Full capability + finding catalog |
 | [docs/ai_agent_runtime_security_intelligence.md](docs/ai_agent_runtime_security_intelligence.md) | Runtime security finding types and evidence rules |

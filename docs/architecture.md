@@ -3,14 +3,49 @@
 **The runtime visibility and control layer for AI agents.** Observe helps teams understand what AI exists, what is actively running, how it is connected, and how it evolves over time.
 
 This document describes the system as implemented today. Companion docs:
+- [runtime-flow.md](runtime-flow.md) — runtime processing and intelligence flow
+- [otel-deployment-guide.md](otel-deployment-guide.md) — complete OpenTelemetry deployment guide
+- [sdk-guide.md](sdk-guide.md) — ObserveAgents SDK guide
+- [customer-integration-guide.md](customer-integration-guide.md) — customer-facing integration guide
 - [product_discovery_model.md](product_discovery_model.md) — the Runtime + Ecosystem discovery product model
-- [otel_ingestion.md](otel_ingestion.md) — OTel trace ingestion in depth
 - [asset_intelligence.md](asset_intelligence.md) — capability/finding derivation and API
 - [demo_seed_data.md](demo_seed_data.md) — the demo dataset
 
 ---
 
 ## 1. System overview
+
+### At a glance
+
+```
+                Customer Runtime
+                       │
+                       ▼
+      OpenTelemetry SDK / ObserveAgents SDK
+                       │
+                       ▼
+                   Ingestion            app/ingestion/*.parse() → RuntimeSpan[]
+                       │
+                       ▼
+                    Runtime             normalize_spans() — single entry point
+                       │
+                       ▼
+                 Intelligence           derive_asset_intelligence()
+                       │
+                       ▼
+      Inventory · Dependencies · Capabilities · Findings
+```
+
+**Architecture principles**
+
+1. **Runtime is source-agnostic.** Its only input is `RuntimeSpan[]`; it never knows whether evidence came from OpenTelemetry, the ObserveAgents SDK, or a future source (LangGraph, OpenLLMetry, MCP, …).
+2. **`normalize_spans()` is the single entry point into Runtime.** Everything after it stays source-agnostic.
+3. **Ingestion only understands source-specific payloads** (`payload → RuntimeSpan[]`). It never generates findings, infers capabilities, writes intelligence, or makes storage decisions.
+4. **Routes own HTTP** — authentication, organization resolution, request validation, content negotiation, gzip handling, status codes, error responses. Ingestion is unaware of HTTP.
+5. **Runtime and Intelligence are the product; ingestion is infrastructure.** Most development effort belongs in Runtime and Intelligence.
+6. **Build for the next integration, not the next twenty.** No new abstractions (registries, protocols, canonical models) until a real integration requires them.
+
+### Full pipeline
 
 ```
                          EVIDENCE SOURCES

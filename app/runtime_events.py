@@ -1,7 +1,7 @@
 """
 Normalized GenAI Runtime Event — schema, privacy scrub, and span-like adapter.
 
-Part of the GenAI Runtime Collector (docs/genai_runtime_collector_roadmap.md, R1/R2).
+Part of the GenAI Runtime Collector (docs/runtime-flow.md, R1/R2).
 This is the reuse seam: any source normalizes to a `RuntimeEvent`, which
 `to_span_dict()` converts into exactly the span-dict shape
 `app/otel_normalizer.py:normalize_spans` already consumes — so events feed the SAME

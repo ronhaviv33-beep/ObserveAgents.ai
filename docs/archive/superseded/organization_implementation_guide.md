@@ -1,3 +1,5 @@
+> **Superseded (2026-07):** merged into [customer-integration-guide.md](../../customer-integration-guide.md). Kept for reference.
+
 # Organization Implementation Guide
 
 A practical, step-by-step guide for rolling out ObserveAgents in your organization — from first login to a fully observed AI estate.
@@ -6,7 +8,7 @@ A practical, step-by-step guide for rolling out ObserveAgents in your organizati
 > [otel_customer_onboarding_guide.md](otel_customer_onboarding_guide.md) (bilingual self-lab);
 > this guide remains the deep rollout reference.
 >
-> גרסה בעברית (בארכיון, לא מתוחזקת): [organization_implementation_guide_he.md](archive/onboarding/organization_implementation_guide_he.md)
+> גרסה בעברית (בארכיון, לא מתוחזקת): [organization_implementation_guide_he.md](../onboarding/organization_implementation_guide_he.md)
 
 **Who this is for:** platform engineers, security engineers, and engineering leads implementing Observe for their organization.
 
