@@ -29,9 +29,9 @@ Where the two products are mixed today, with file references.
 | Doc | State |
 |---|---|
 | `README.md` | Mostly OTel-first; presents gateway as a secondary "getting data in" path on the same product. One product identity, two ingestion stories. |
-| `docs/otel_ingestion.md` | Clean Observability doc (GenAI SemConv, Collector, privacy). |
-| `docs/organization_implementation_guide.md` (+ Hebrew) | Deliberately mixes both: "Path A OTel / Path B Gateway" as options of one product. |
-| `docs/organization_quick_start_non_technical.md` | Same two-paths-one-product framing. |
+| `docs/otel-deployment-guide.md` | Clean Observability doc (GenAI SemConv, Collector, privacy). |
+| `docs/customer-integration-guide.md` | Deliberately mixes both: "Path A OTel / Path B Gateway" as options of one product. |
+| `docs/customer-integration-guide.md` | Same two-paths-one-product framing. |
 | `docs/fake_customer_company_simulation_guide.md` | Same: Level 1 Gateway / Level 2 OTel of one product. |
 | `docs/manual_company_simulation_qa_guide.md` | QA guide covers both paths in one flow. |
 | `docs/architecture.md` | Documents one platform with both pipelines. |
@@ -104,7 +104,7 @@ Every nav group mixes the two products:
 | **API keys** | Same `gk-` keys, scoped per product later (key metadata: `surface: observability\|gateway`) | Same | Key issuance/revocation UI |
 | **Guardrails vs Policies** | Guardrails = advisory, derived from observed behavior; never blocks | Policies/Enforcement = the control dial (observe → alert → enforce) | Budget definitions (Gateway enforces; Observability may *display* budget context) |
 | **Cost** | Usage/efficiency **signals** from spans (token attrs, slow traces) — "not an invoice" | Token/cost **accounting** from proxied requests — billing-grade | Pricing Registry powering both |
-| **Docs** | otel_ingestion.md, asset_intelligence.md, runtime docs | new gateway_platform.md, provider credentials, budgets/policies docs | architecture.md, org/user/auth docs |
+| **Docs** | otel-deployment-guide.md, asset_intelligence.md, runtime docs | new gateway_platform.md, provider credentials, budgets/policies docs | architecture.md, org/user/auth docs |
 | **Copy** | "See what AI is actually running" | "Control AI traffic without instrumenting every app" | — |
 
 Explicit boundary decisions:

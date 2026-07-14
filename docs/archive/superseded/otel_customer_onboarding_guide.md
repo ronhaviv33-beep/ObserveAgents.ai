@@ -1,3 +1,5 @@
+> **Superseded (2026-07):** merged into [otel-deployment-guide.md](../../otel-deployment-guide.md). Kept for reference.
+
 <!--
 Bilingual (Hebrew + English) customer onboarding / self-lab guide for
 connecting OpenTelemetry to ObserveAgents. Code, commands and config are

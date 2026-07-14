@@ -9,7 +9,7 @@ The fake company is not only data. It is a small, real customer environment: **r
 Companion documents:
 
 - [Manual company simulation QA guide](manual_company_simulation_qa_guide.md) — the in-app, page-by-page QA walkthrough. Use it *after* this guide has data flowing.
-- [Organization implementation guide](organization_implementation_guide.md) — the customer-facing technical setup reference.
+- [Customer integration guide](customer-integration-guide.md) — the customer-facing technical setup reference.
 
 ---
 

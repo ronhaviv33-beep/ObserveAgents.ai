@@ -2,7 +2,7 @@
 
 *A step-by-step guide for manually testing Observe as if a new customer organization just onboarded.*
 
-This is an **internal QA manual for you, the tester**. It contains technical detail (curl, Python, Collector config) that intentionally does **not** appear in the customer-facing quick start. Companion docs: [technical implementation guide](organization_implementation_guide.md) · [non-technical quick start](organization_quick_start_non_technical.md).
+This is an **internal QA manual for you, the tester**. It contains technical detail (curl, Python, Collector config) that intentionally does **not** appear in the customer-facing quick start. Companion docs: [customer integration guide](customer-integration-guide.md) · [customer integration guide](customer-integration-guide.md).
 
 ---
 
@@ -163,7 +163,7 @@ The fastest hands-on proof that ingestion works. Full walkthrough in the **Detai
 
 ### A3 — Through an OpenTelemetry Collector
 
-1. Ask engineering to add Observe as an exporter on an existing Collector (config is in the [technical guide](organization_implementation_guide.md) — the exporter **must use `encoding: json`**).
+1. Ask engineering to add Observe as an exporter on an existing Collector (config is in the [customer integration guide](customer-integration-guide.md) — the exporter **must use `encoding: json`**).
 2. Trigger one request in the instrumented AI system.
 3. Open **Runtime**.
 
@@ -458,7 +458,7 @@ python support_agent.py
 
 1. As admin, confirm provider credentials are configured under **Settings → Organization AI Providers** (needed for the gateway to reach the real provider).
 2. Copy an Observe API key (e.g. `support-agent-prod`).
-3. Configure an existing client to use the gateway as base URL (exact snippets: [technical guide](organization_implementation_guide.md), "Path B").
+3. Configure an existing client to use the gateway as base URL (exact snippets: [customer integration guide](customer-integration-guide.md), "Path B").
 4. Send one test AI request.
 5. Check Runtime/Dashboard/Cost pages for activity.
 

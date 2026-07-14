@@ -1,3 +1,5 @@
+> **Superseded (2026-07):** merged into [sdk-guide.md](../../sdk-guide.md). Kept for reference.
+
 # Python SDK Quickstart — connect your AI agent in 5 minutes
 
 *Customer-facing guide. You install one small SDK package — that's it. You never clone,

@@ -2,7 +2,7 @@
 
 מדריך מעשי, שלב אחר שלב, להטמעת ObserveAgents בארגון — מהכניסה הראשונה ועד תצפית מלאה על כל מערכות ה-AI.
 
-> English version: [organization_implementation_guide.md](organization_implementation_guide.md)
+> English version: [organization_implementation_guide.md](../superseded/organization_implementation_guide.md) (superseded by [customer-integration-guide.md](../../customer-integration-guide.md))
 
 **למי המדריך מיועד:** מהנדסי פלטפורמה, מהנדסי אבטחה וראשי צוותי פיתוח שמטמיעים את Observe בארגון.
 
@@ -215,7 +215,7 @@ with tracer.start_as_current_span("handle_customer_request"):
         update_crm(...)
 ```
 
-מדריך מלא ל-attributes הנתמכים (MCP, workflows, זהות agent): [otel_ingestion.md](otel_ingestion.md).
+מדריך מלא ל-attributes הנתמכים (MCP, workflows, זהות agent): [otel_ingestion.md](../superseded/otel_ingestion.md).
 
 **הערת פרטיות — אין צורך להיזהר עם prompts:** גם אם ספריות אינסטרומנטציה מצרפות `gen_ai.input.messages` / `gen_ai.output.messages` / `tool.arguments`, Observe מנקה אותם בקליטה ושומר רק hash וגודל בבייטים. תוכן גולמי של prompt/response לעולם אינו נשמר.
 

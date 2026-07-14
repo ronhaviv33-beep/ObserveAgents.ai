@@ -3,14 +3,49 @@
 **The runtime visibility and control layer for AI agents.** Observe helps teams understand what AI exists, what is actively running, how it is connected, and how it evolves over time.
 
 This document describes the system as implemented today. Companion docs:
+- [runtime-flow.md](runtime-flow.md) — runtime processing and intelligence flow
+- [otel-deployment-guide.md](otel-deployment-guide.md) — complete OpenTelemetry deployment guide
+- [sdk-guide.md](sdk-guide.md) — ObserveAgents SDK guide
+- [customer-integration-guide.md](customer-integration-guide.md) — customer-facing integration guide
 - [product_discovery_model.md](product_discovery_model.md) — the Runtime + Ecosystem discovery product model
-- [otel_ingestion.md](otel_ingestion.md) — OTel trace ingestion in depth
 - [asset_intelligence.md](asset_intelligence.md) — capability/finding derivation and API
 - [demo_seed_data.md](demo_seed_data.md) — the demo dataset
 
 ---
 
 ## 1. System overview
+
+### At a glance
+
+```
+                Customer Runtime
+                       │
+                       ▼
+      OpenTelemetry SDK / ObserveAgents SDK
+                       │
+                       ▼
+                   Ingestion            app/ingestion/*.parse() → RuntimeSpan[]
+                       │
+                       ▼
+                    Runtime             normalize_spans() — single entry point
+                       │
+                       ▼
+                 Intelligence           derive_asset_intelligence()
+                       │
+                       ▼
+      Inventory · Dependencies · Capabilities · Findings
+```
+
+**Architecture principles**
+
+1. **Runtime is source-agnostic.** Its only input is `RuntimeSpan[]`; it never knows whether evidence came from OpenTelemetry, the ObserveAgents SDK, or a future source (LangGraph, OpenLLMetry, MCP, …).
+2. **`normalize_spans()` is the single entry point into Runtime.** Everything after it stays source-agnostic.
+3. **Ingestion only understands source-specific payloads** (`payload → RuntimeSpan[]`). It never generates findings, infers capabilities, writes intelligence, or makes storage decisions.
+4. **Routes own HTTP** — authentication, organization resolution, request validation, content negotiation, gzip handling, status codes, error responses. Ingestion is unaware of HTTP.
+5. **Runtime and Intelligence are the product; ingestion is infrastructure.** Most development effort belongs in Runtime and Intelligence.
+6. **Build for the next integration, not the next twenty.** No new abstractions (registries, protocols, canonical models) until a real integration requires them.
+
+### Full pipeline
 
 ```
                          EVIDENCE SOURCES
@@ -77,6 +112,7 @@ Startup order: `Base.metadata.create_all` → `run_alembic_migrations()` (fresh 
 | Module | Responsibility |
 |---|---|
 | `app/routes/otel.py` | `POST /otel/v1/traces` — OTLP/HTTP JSON ingestion (auth: `get_proxy_caller`, JWT or `gk-` API key) |
+| `app/ingestion/` | Ingestion layer — one module per integration, each exposing `parse(payload) -> list[RuntimeSpan]` (`otel.py`, `sdk.py`); isolates integration-specific parsing from Runtime |
 | `app/otel_parser.py` | OTLP envelope → flat span dicts (`resourceSpans → scopeSpans → spans`) |
 | `app/otel_privacy.py` | `scrub_attributes()` — the redaction layer (invariant #2) |
 | `app/otel_normalizer.py` | Per-span: identity extraction (`agent.name` → declared, `service.name` → inferred), AssetRegistry upsert (`discovery_status="potential"`, `discovery_source="otel_trace"`), relationship + provenance detection, `OtelSpan` persist (dedup on org+trace+span). Per-batch: `otel_assets` evidence upsert |
@@ -93,7 +129,9 @@ Startup order: `Base.metadata.create_all` → `run_alembic_migrations()` (fresh 
 
 ### 2.3 Ingestion pipelines
 
-**OTel path** (primary): `POST /otel/v1/traces` → `parse_otlp_json` → per span: scrub → identity → registry upsert → genai/tool/db/api/workflow detection → relationship upsert → `OtelSpan` insert (skip duplicates) → `ProvenanceEvent` → per batch: `otel_assets` upsert (models/providers/tools/dependencies arrays, trace/span counts, first/last seen). Returns 202 with a creation summary.
+Integration-specific parsing lives in the **ingestion layer** (`app/ingestion/`): each evidence source is one module exposing `parse(payload) -> list[RuntimeSpan]`, where `RuntimeSpan` (a `TypedDict` in `app/ingestion/__init__.py`) is the flat span shape `normalize_spans()` accepts. OTel (`app/ingestion/otel.py`, wrapping `app/otel_parser.py`) and the SDK (`app/ingestion/sdk.py`, wrapping `app/runtime_events.py:to_span_dict`) both return it; the Runtime pipeline downstream is source-agnostic. Adding an integration (LangGraph, MCP, …) means adding one module with one `parse` function plus a route that authenticates, parses, and calls `normalize_spans`.
+
+**OTel path** (primary): `POST /otel/v1/traces` → `app/ingestion/otel.py:parse_otlp` → per span: scrub → identity → registry upsert → genai/tool/db/api/workflow detection → relationship upsert → `OtelSpan` insert (skip duplicates) → `ProvenanceEvent` → per batch: `otel_assets` upsert (models/providers/tools/dependencies arrays, trace/span counts, first/last seen). Returns 202 with a creation summary.
 
 **Gateway path**: `/v1/chat/completions` + `/v1/messages` → bearer auth → guard-mode pipeline (policy, budget — enforce-mode only for blocks) → provider routing by model prefix with BYOK credentials → streaming relay → `telemetry` row + header-derived relationships.
 
