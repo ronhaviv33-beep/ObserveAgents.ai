@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { C, FONT, RADIUS, CARD, microLabel } from "../ui2/tokens.js";
+import { C, FONT, RADIUS, microLabel } from "../ui2/tokens.js";
 import PageHeader from "../ui2/PageHeader.jsx";
 import Section from "../ui2/Section.jsx";
 import MetricCard from "../ui2/MetricCard.jsx";
 import RiskBadge from "../ui2/RiskBadge.jsx";
 import StatusPill from "../ui2/StatusPill.jsx";
 import EmptyState from "../ui2/EmptyState.jsx";
+import Modal from "../ui2/Modal.jsx";
 import { surfaceAllowsPage } from "../productSurface.js";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import { runIntelligence } from "../api.js";
@@ -73,13 +74,14 @@ function ChipList({ label, items, tone = C.textDim, max = 10 }) {
   );
 }
 
-function AssetRow({ a, selected, isCandidate, onSelect }) {
+function AssetRow({ a, isCandidate, onSelect }) {
   const risk = a.high_findings_count > 0 ? "high" : (a.open_findings_count || 0) > 0 ? "medium" : "info";
   return (
-    <div onClick={onSelect}
+    <div onClick={onSelect} className="oa-lift" role="button" tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); } }}
       style={{
-        background: selected ? C.surfaceRaised : C.surface,
-        border: `1px solid ${selected ? C.borderStrong : C.border}`,
+        background: C.surface,
+        border: `1px solid ${C.border}`,
         borderLeft: `3px solid ${risk === "high" ? C.riskHigh : risk === "medium" ? C.riskMedium : C.border}`,
         borderRadius: RADIUS.md, padding: "12px 14px", cursor: "pointer",
       }}>
@@ -140,8 +142,9 @@ export default function AssetIntelligenceV2({ onNavigate }) {
       || (new Date(b.last_seen || 0) - new Date(a.last_seen || 0)));
   }, [assets, filter, candidateKeys]);
 
+  // Detail opens as a popup only when an asset is clicked — nothing selected by default.
   const selected = useMemo(
-    () => list.find((a) => a.asset_key === selectedKey) || list[0] || null,
+    () => list.find((a) => a.asset_key === selectedKey) || null,
     [list, selectedKey]);
 
   if (assets === null || candidates === null) return (
@@ -210,42 +213,41 @@ export default function AssetIntelligenceV2({ onNavigate }) {
           actionLabel={surfaceAllowsPage("integrations") ? "Open Setup" : undefined}
           onAction={() => onNavigate?.("integrations")} />
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "minmax(300px, 5fr) 7fr", gap: 16, alignItems: "start" }}>
+        <div>
 
-          {/* ── Asset list ──────────────────────────────────────────────── */}
-          <div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-              {FILTERS.map((f) => (
-                <button key={f.id} onClick={() => setFilter(f.id)}
-                  style={{
-                    background: filter === f.id ? C.surfaceRaised : "transparent",
-                    color: filter === f.id ? C.text : C.textDim,
-                    border: `1px solid ${filter === f.id ? C.borderStrong : C.border}`,
-                    borderRadius: 999, padding: "5px 12px", fontSize: 10.5, fontFamily: FONT.mono, cursor: "pointer",
-                  }}>
-                  {f.label}
-                </button>
-              ))}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: bp.isMobile ? "none" : 620, overflowY: "auto", paddingRight: 4 }}>
-              {list.length > 0 ? list.map((a) => (
-                <AssetRow key={a.asset_key} a={a} selected={selected?.asset_key === a.asset_key}
-                  isCandidate={candidateKeys.has(a.asset_key)}
-                  onSelect={() => setSelectedKey(a.asset_key)} />
-              )) : (
-                <div style={{ fontSize: 12, color: C.textMute, fontFamily: FONT.mono, padding: "16px 4px" }}>
-                  No assets match this filter.
-                </div>
-              )}
-            </div>
+          {/* ── Asset list — click a card to open its detail popup ──────── */}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+            {FILTERS.map((f) => (
+              <button key={f.id} onClick={() => setFilter(f.id)}
+                style={{
+                  background: filter === f.id ? C.surfaceRaised : "transparent",
+                  color: filter === f.id ? C.text : C.textDim,
+                  border: `1px solid ${filter === f.id ? C.borderStrong : C.border}`,
+                  borderRadius: 999, padding: "5px 12px", fontSize: 10.5, fontFamily: FONT.mono, cursor: "pointer",
+                }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "repeat(auto-fill, minmax(300px, 1fr))", gap: 10 }}>
+            {list.length > 0 ? list.map((a) => (
+              <AssetRow key={a.asset_key} a={a}
+                isCandidate={candidateKeys.has(a.asset_key)}
+                onSelect={() => setSelectedKey(a.asset_key)} />
+            )) : (
+              <div style={{ fontSize: 12, color: C.textMute, fontFamily: FONT.mono, padding: "16px 4px" }}>
+                No assets match this filter.
+              </div>
+            )}
           </div>
 
-          {/* ── Selected asset detail ───────────────────────────────────── */}
+          {/* ── Asset detail popup — opens on click, closes on ✕ / outside / Escape ── */}
+          <Modal open={!!selected} onClose={() => setSelectedKey(null)}>
           {selected && (
-            <div style={{ ...CARD, padding: "20px 22px", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingRight: 40 }}>
                   <span style={{ fontSize: 17, fontWeight: 700, color: C.text, fontFamily: FONT.mono }}>{selected.asset_name}</span>
                   {selected.environment && <StatusPill tone={["production", "prod"].includes((selected.environment || "").toLowerCase()) ? C.riskMedium : C.riskLow}>{selected.environment}</StatusPill>}
                   <StatusPill tone={C.textDim}>{traceDiscovered(selected) ? "trace discovered" : "gateway"}</StatusPill>
@@ -352,6 +354,7 @@ export default function AssetIntelligenceV2({ onNavigate }) {
               </Section>
             </div>
           )}
+          </Modal>
         </div>
       )}
     </div>

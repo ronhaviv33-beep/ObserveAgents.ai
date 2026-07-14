@@ -6,6 +6,7 @@ import Section from "../ui2/Section.jsx";
 import RiskBadge from "../ui2/RiskBadge.jsx";
 import StatusPill from "../ui2/StatusPill.jsx";
 import EmptyState from "../ui2/EmptyState.jsx";
+import Modal from "../ui2/Modal.jsx";
 import { Donut, SegBar, BarRow, severitySegments } from "../ui2/viz.jsx";
 import { surfaceAllowsPage } from "../productSurface.js";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
@@ -83,13 +84,14 @@ function FindingRow({ f, assetName, isCandidate, onNavigate, hideAsset }) {
   );
 }
 
-/** Compact selectable agent card for the master list (mirrors AssetIntelligence's AssetRow). */
-function AgentSecurityRow({ a, selected, onSelect }) {
+/** Compact agent card — clicking it opens the agent's detail popup. */
+function AgentSecurityRow({ a, onSelect }) {
   return (
-    <div onClick={onSelect}
+    <div onClick={onSelect} className="oa-lift" role="button" tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); } }}
       style={{
-        background: selected ? C.surfaceRaised : C.surface,
-        border: `1px solid ${selected ? C.borderStrong : C.border}`,
+        background: C.surface,
+        border: `1px solid ${C.border}`,
         borderLeft: `3px solid ${riskColor(a.worst)}`,
         borderRadius: RADIUS.md, padding: "12px 14px", cursor: "pointer",
       }}>
@@ -165,7 +167,8 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
     return [...byKey.values()];
   }, [listRows, nameByKey, candidateKeys]);
 
-  const selectedAgent = agents.find((a) => a.key === selectedKey) ?? agents[0];
+  // Detail opens as a popup only when an agent is clicked — nothing selected by default.
+  const selectedAgent = agents.find((a) => a.key === selectedKey) || null;
 
   const loading = assets === null || findings === null || candidates === null;
   if (loading) return (
@@ -228,7 +231,7 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
       <Section
         label={`Agents with findings (${agents.length})`}
         right={<span style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute }}>
-          Only agents with sufficient runtime risk signals are recommended for Gateway Control.
+          Click an agent to open its findings. Only agents with sufficient runtime risk signals are recommended for Gateway Control.
         </span>}>
         {agents.length === 0 ? (
           <EmptyState icon="⛨"
@@ -238,64 +241,58 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
             actionLabel={surfaceAllowsPage("runtime") ? "Open Runtime" : undefined}
             onAction={() => onNavigate?.("runtime")} />
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "minmax(300px, 5fr) 7fr", gap: 16, alignItems: "start" }}>
-
-            {/* Master: one card per agent, worst first */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 620, overflowY: "auto" }}>
-              {agents.map((a) => (
-                <AgentSecurityRow key={a.key} a={a}
-                  selected={selectedAgent?.key === a.key}
-                  onSelect={() => setSelectedKey(a.key)} />
-              ))}
-            </div>
-
-            {/* Detail: the selected agent's security posture + findings */}
-            {selectedAgent && (
-              <div style={{ ...CARD, padding: "20px 22px",
-                display: "flex", flexDirection: "column", gap: 18 }}>
-
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 17, fontWeight: 700, color: C.text, fontFamily: FONT.mono }}>{selectedAgent.name}</span>
-                    <RiskBadge level={selectedAgent.worst} />
-                    {selectedAgent.isCandidate && <StatusPill tone={C.riskMedium}>gateway candidate</StatusPill>}
-                    <button onClick={() => onNavigate?.("intelligence")}
-                      style={{ marginLeft: "auto", background: "transparent", border: "none", color: C.accentDark,
-                        fontSize: 10.5, fontFamily: FONT.mono, cursor: "pointer", padding: 0, whiteSpace: "nowrap" }}>
-                      Open in Asset Intelligence →
-                    </button>
-                  </div>
-                  <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, marginTop: 8, lineHeight: 1.7 }}>
-                    key {String(selectedAgent.key).slice(0, 20)}… · {selectedAgent.findings.length} open finding{selectedAgent.findings.length !== 1 ? "s" : ""} · last seen {relTime(selectedAgent.lastSeen)}
-                  </div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
-                    {["critical", "high", "medium", "low", "info"].filter((s) => selectedAgent.counts[s] > 0).map((s) => (
-                      <StatusPill key={s} tone={riskColor(s)}>{selectedAgent.counts[s]} {s}</StatusPill>
-                    ))}
-                  </div>
-                </div>
-
-                <Section label="Findings (worst first)">
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {selectedAgent.findings.map((f) => (
-                      <FindingRow key={f.id} f={f} hideAsset isCandidate={false} onNavigate={onNavigate} />
-                    ))}
-                  </div>
-                </Section>
-
-                {selectedAgent.isCandidate && surfaceAllowsPage("gateway_control_center") && (
-                  <button onClick={() => onNavigate?.("gateway_control_center", { gccFocus: selectedAgent.key })}
-                    style={{ alignSelf: "flex-start", background: "transparent", color: C.riskMedium,
-                      border: `1px solid ${C.riskMedium}44`, borderRadius: RADIUS.sm, padding: "6px 14px",
-                      fontSize: 11, fontFamily: FONT.mono, cursor: "pointer" }}>
-                    Review in Gateway Control Center →
-                  </button>
-                )}
-              </div>
-            )}
+          <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "repeat(auto-fill, minmax(300px, 1fr))", gap: 10 }}>
+            {agents.map((a) => (
+              <AgentSecurityRow key={a.key} a={a} onSelect={() => setSelectedKey(a.key)} />
+            ))}
           </div>
         )}
       </Section>
+
+      {/* Agent detail popup — opens on click, closes on ✕ / outside / Escape */}
+      <Modal open={!!selectedAgent} onClose={() => setSelectedKey(null)}>
+        {selectedAgent && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingRight: 40 }}>
+                <span style={{ fontSize: 17, fontWeight: 700, color: C.text, fontFamily: FONT.mono }}>{selectedAgent.name}</span>
+                <RiskBadge level={selectedAgent.worst} />
+                {selectedAgent.isCandidate && <StatusPill tone={C.riskMedium}>gateway candidate</StatusPill>}
+                <button onClick={() => onNavigate?.("intelligence")}
+                  style={{ marginLeft: "auto", background: "transparent", border: "none", color: C.accentDark,
+                    fontSize: 10.5, fontFamily: FONT.mono, cursor: "pointer", padding: 0, whiteSpace: "nowrap" }}>
+                  Open in Asset Intelligence →
+                </button>
+              </div>
+              <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, marginTop: 8, lineHeight: 1.7 }}>
+                key {String(selectedAgent.key).slice(0, 20)}… · {selectedAgent.findings.length} open finding{selectedAgent.findings.length !== 1 ? "s" : ""} · last seen {relTime(selectedAgent.lastSeen)}
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+                {["critical", "high", "medium", "low", "info"].filter((s) => selectedAgent.counts[s] > 0).map((s) => (
+                  <StatusPill key={s} tone={riskColor(s)}>{selectedAgent.counts[s]} {s}</StatusPill>
+                ))}
+              </div>
+            </div>
+
+            <Section label="Findings (worst first)">
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {selectedAgent.findings.map((f) => (
+                  <FindingRow key={f.id} f={f} hideAsset isCandidate={false} onNavigate={onNavigate} />
+                ))}
+              </div>
+            </Section>
+
+            {selectedAgent.isCandidate && surfaceAllowsPage("gateway_control_center") && (
+              <button onClick={() => onNavigate?.("gateway_control_center", { gccFocus: selectedAgent.key })}
+                style={{ alignSelf: "flex-start", background: "transparent", color: C.riskMedium,
+                  border: `1px solid ${C.riskMedium}44`, borderRadius: RADIUS.sm, padding: "6px 14px",
+                  fontSize: 11, fontFamily: FONT.mono, cursor: "pointer" }}>
+                Review in Gateway Control Center →
+              </button>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {bp.isMobile && <div style={{ height: 8 }} />}
       <div style={{ ...microLabel, textTransform: "none", letterSpacing: "0.04em", lineHeight: 1.6 }}>
