@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_proxy_caller
-from app.otel_parser import parse_otlp_json, parse_otlp_protobuf
+from app.ingestion import otel as otel_ingestion
 from app.otel_normalizer import normalize_spans
 
 _log = logging.getLogger("ai_asset_mgmt.otel")
@@ -130,7 +130,7 @@ async def ingest_traces(
         if not raw:
             raise HTTPException(status_code=400, detail="Empty request body")
         try:
-            spans, resource_span_count = parse_otlp_protobuf(raw)
+            spans, resource_span_count = otel_ingestion.parse_otlp(raw)
         except Exception:
             # Never echo the raw body — size + declared encoding are enough to
             # diagnose the two common causes (compressed body without the
@@ -162,11 +162,10 @@ async def ingest_traces(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid JSON body")
         try:
-            spans = parse_otlp_json(body)
+            spans, resource_span_count = otel_ingestion.parse_otlp(body)
         except Exception as exc:
             _log.warning("OTLP parse error for org=%s: %s", org_id, exc)
             raise HTTPException(status_code=400, detail=f"OTLP parse error: {exc}")
-        resource_span_count = len(body.get("resourceSpans") or [])
     else:
         raise HTTPException(
             status_code=415,

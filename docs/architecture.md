@@ -77,6 +77,7 @@ Startup order: `Base.metadata.create_all` → `run_alembic_migrations()` (fresh 
 | Module | Responsibility |
 |---|---|
 | `app/routes/otel.py` | `POST /otel/v1/traces` — OTLP/HTTP JSON ingestion (auth: `get_proxy_caller`, JWT or `gk-` API key) |
+| `app/ingestion/` | Ingestion layer — one module per integration, each exposing `parse(payload) -> list[RuntimeSpan]` (`otel.py`, `sdk.py`); isolates integration-specific parsing from Runtime |
 | `app/otel_parser.py` | OTLP envelope → flat span dicts (`resourceSpans → scopeSpans → spans`) |
 | `app/otel_privacy.py` | `scrub_attributes()` — the redaction layer (invariant #2) |
 | `app/otel_normalizer.py` | Per-span: identity extraction (`agent.name` → declared, `service.name` → inferred), AssetRegistry upsert (`discovery_status="potential"`, `discovery_source="otel_trace"`), relationship + provenance detection, `OtelSpan` persist (dedup on org+trace+span). Per-batch: `otel_assets` evidence upsert |
@@ -93,7 +94,9 @@ Startup order: `Base.metadata.create_all` → `run_alembic_migrations()` (fresh 
 
 ### 2.3 Ingestion pipelines
 
-**OTel path** (primary): `POST /otel/v1/traces` → `parse_otlp_json` → per span: scrub → identity → registry upsert → genai/tool/db/api/workflow detection → relationship upsert → `OtelSpan` insert (skip duplicates) → `ProvenanceEvent` → per batch: `otel_assets` upsert (models/providers/tools/dependencies arrays, trace/span counts, first/last seen). Returns 202 with a creation summary.
+Integration-specific parsing lives in the **ingestion layer** (`app/ingestion/`): each evidence source is one module exposing `parse(payload) -> list[RuntimeSpan]`, where `RuntimeSpan` (a `TypedDict` in `app/ingestion/__init__.py`) is the flat span shape `normalize_spans()` accepts. OTel (`app/ingestion/otel.py`, wrapping `app/otel_parser.py`) and the SDK (`app/ingestion/sdk.py`, wrapping `app/runtime_events.py:to_span_dict`) both return it; the Runtime pipeline downstream is source-agnostic. Adding an integration (LangGraph, MCP, …) means adding one module with one `parse` function plus a route that authenticates, parses, and calls `normalize_spans`.
+
+**OTel path** (primary): `POST /otel/v1/traces` → `app/ingestion/otel.py:parse_otlp` → per span: scrub → identity → registry upsert → genai/tool/db/api/workflow detection → relationship upsert → `OtelSpan` insert (skip duplicates) → `ProvenanceEvent` → per batch: `otel_assets` upsert (models/providers/tools/dependencies arrays, trace/span counts, first/last seen). Returns 202 with a creation summary.
 
 **Gateway path**: `/v1/chat/completions` + `/v1/messages` → bearer auth → guard-mode pipeline (policy, budget — enforce-mode only for blocks) → provider routing by model prefix with BYOK credentials → streaming relay → `telemetry` row + header-derived relationships.
 

@@ -24,8 +24,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.auth import get_proxy_caller
+from app.ingestion import sdk as sdk_ingestion
 from app.otel_normalizer import normalize_spans
-from app.runtime_events import RuntimeEvent, to_span_dict
+from app.runtime_events import RuntimeEvent
 
 _log = logging.getLogger("ai_asset_mgmt.runtime_events")
 
@@ -94,7 +95,7 @@ async def ingest_runtime_events(
         return {"accepted": True, "events": 0, "spans": 0, "ai_systems": 0,
                 "relationships": 0, "provenance_events": 0, "content_redacted": True}
 
-    spans = [to_span_dict(ev) for ev in events]
+    spans = sdk_ingestion.parse(events)
     result = normalize_spans(db, org_id, spans, api_key_id=_get_api_key_id(caller))
 
     return {
