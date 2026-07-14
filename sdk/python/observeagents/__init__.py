@@ -4,7 +4,7 @@ ObserveAgents Python SDK — the first low-friction adapter over POST /runtime-e
 Wrap your OpenAI client with `ObserveOpenAI` and every chat-completion call emits one
 safe `llm_call` runtime event (metadata only, never content) to ObserveAgents, where the
 existing intelligence engine derives assets, findings, detection rules, and control
-candidates. See docs/python_sdk_mvp_implementation_plan.md.
+candidates. See docs/sdk-guide.md.
 """
 from observeagents.openai import ObserveOpenAI
 

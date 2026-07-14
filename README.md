@@ -191,7 +191,7 @@ One backend, one database. The intelligence layer is **derivation-only and idemp
 ### Observability
 
 - **OTLP/HTTP ingestion (JSON + protobuf)** — `POST /otel/v1/traces`; GenAI semantic conventions (`gen_ai.*`, `tool.*`, `mcp.*`, `db.*`, `url.*`) understood natively; agents discovered from `service.name`/`agent.name`, no manual registration
-- **Runtime Events ingestion** — `POST /runtime-events`: normalized GenAI runtime events (`llm_call` / `tool_call` / `mcp_tool` / `db_call` / `external_api_call`) from any source, validated against an allow-list schema and privacy-scrubbed at the boundary, then converted into the same span pipeline — one intelligence engine, no separate findings pipeline. A thin Python SDK wrapper over this endpoint is planned ([plan](docs/python_sdk_wrapper_plan.md))
+- **Runtime Events ingestion** — `POST /runtime-events`: normalized GenAI runtime events (`llm_call` / `tool_call` / `mcp_tool` / `db_call` / `external_api_call`) from any source, validated against an allow-list schema and privacy-scrubbed at the boundary, then converted into the same span pipeline — one intelligence engine, no separate findings pipeline. A thin Python SDK wrapper over this endpoint is available ([SDK guide](docs/sdk-guide.md))
 - **Runtime execution timelines** — session-grouped traces, per-step waterfalls, step classification (llm / tool / mcp_tool / database / external_api / step)
 - **Asset Intelligence** — derived capabilities (provider, model, mcp, database, shell, …) and findings across security / performance / operations / dependency / inventory; finding lifecycle open → dismissed/resolved → reopen; full catalog in [docs/asset_intelligence.md](docs/asset_intelligence.md)
 - **AI Agent Runtime Security Intelligence** — agent-specific, environment-aware security findings (`source=runtime_security`): database/API reach, MCP in production, broad tool surface, unknown providers, missing ownership, repeated tool errors, human-review combinations ([docs](docs/ai_agent_runtime_security_intelligence.md))
@@ -384,7 +384,7 @@ The repo includes `render.yaml`. Connect the repo in Render → **New** → **Bl
 | `ai-asset-demo` | *(unset → combined)* | Public demo only — the blended showcase surface |
 | `observeagents-website` | — | Marketing site (`website/`) |
 
-One backend, one database — the surfaces are frontend builds over the same spine ([design](docs/product_surface_separation_plan.md)). When attaching a hostname to the gateway console, add that origin to the backend's `FRONTEND_ORIGIN` env var for CORS. After first deploy, set provider API keys in the Render dashboard or the Settings page.
+One backend, one database — the surfaces are frontend builds over the same spine ([architecture](docs/architecture.md)). When attaching a hostname to the gateway console, add that origin to the backend's `FRONTEND_ORIGIN` env var for CORS. After first deploy, set provider API keys in the Render dashboard or the Settings page.
 
 ### Production database — Managed Postgres
 
@@ -450,7 +450,7 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 | ✅ | Rules & Alerts page (ui2-native) + detection-rule matches bucket in Security Intelligence |
 | ✅ | Webhook notifications (R5) — admin-managed channels, encrypted URLs, per-finding cooldown, fail-safe post-intelligence delivery |
 | ✅ | Runtime Events ingestion seam (Collector R1/R2) — `POST /runtime-events`, allow-list schema + privacy scrub, span-like adapter into the existing intelligence engine |
-| 🔜 | Python SDK wrapper (Collector R3) — thin `ObserveOpenAI`-style client emitting runtime events, plan approved ([plan](docs/python_sdk_wrapper_plan.md)) |
+| ✅ | Python SDK wrapper (Collector R3) — thin `ObserveOpenAI`-style client emitting runtime events ([guide](docs/sdk-guide.md)) |
 | 🔜 | Detection Rules R7+ — configurable rule builder, Slack channels, alert snooze/acknowledge |
 | 🔜 | Gateway Control Center GCR5+ — policy drafts, explicit approval workflow, enforcement for routed agents only |
 | 🔜 | Ecosystem Discovery — GitHub / Jira / Slack / n8n / MCP evidence sources |
@@ -476,7 +476,6 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 
 | Doc | What it covers |
 |---|---|
-| [docs/python_sdk_wrapper_plan.md](docs/python_sdk_wrapper_plan.md) | Python SDK wrapper plan (Collector R3) — low-friction adapter over `POST /runtime-events` |
 | [docs/asset_intelligence.md](docs/asset_intelligence.md) | Full capability + finding catalog |
 | [docs/ai_agent_runtime_security_intelligence.md](docs/ai_agent_runtime_security_intelligence.md) | Runtime security finding types and evidence rules |
 | [docs/gateway_control_center_architecture.md](docs/gateway_control_center_architecture.md) | Observe-to-Control architecture and candidate model |
