@@ -10,6 +10,7 @@ export default defineConfig({
         tour: resolve(import.meta.dirname, 'tour.html'),
         security: resolve(import.meta.dirname, 'solutions/security.html'),
         platform: resolve(import.meta.dirname, 'solutions/platform.html'),
+        integration: resolve(import.meta.dirname, 'integration.html'),
       },
     },
   },
