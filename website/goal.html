@@ -12,20 +12,27 @@
   <meta property="og:url" content="https://www.observeagents.ai/goal.html">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/pico.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
+    body, button, input, select, textarea { font-family: 'Inter', -apple-system, 'Segoe UI', system-ui, sans-serif; }
+    h1, h2, h3, nav strong { font-family: 'Space Grotesk', 'Inter', sans-serif !important; letter-spacing: -0.02em; }
+  </style>
+  <style>
     :root {
-      --background-color: #f7fbff;
-      --color: #142033;
-      --h1-color: #07111f;
-      --h2-color: #07111f;
-      --h3-color: #24334a;
-      --primary: #0f7cff;
-      --primary-hover: #075fd0;
-      --primary-focus: rgba(15, 124, 255, 0.22);
+      --background-color: #F4F7FC;
+      --color: #34456A;
+      --h1-color: #0C1B36;
+      --h2-color: #0C1B36;
+      --h3-color: #2C3D5F;
+      --primary: #0FA5D8;
+      --primary-hover: #0A7CA3;
+      --primary-focus: rgba(33, 181, 228, 0.22);
       --primary-inverse: #ffffff;
       --card-background-color: #ffffff;
-      --card-border-color: #dce8f7;
+      --card-border-color: #DCE4F2;
       --border-radius: 18px;
     }
 
@@ -35,10 +42,10 @@
 
     body {
       background:
-        radial-gradient(circle at 8vw 8vh, rgba(15, 124, 255, 0.16), transparent 420px),
-        radial-gradient(circle at 84vw 0, rgba(0, 200, 167, 0.16), transparent 390px),
-        radial-gradient(circle at 52vw 82vh, rgba(255, 199, 44, 0.12), transparent 420px),
-        linear-gradient(180deg, #f7fbff, #ffffff, #f3f8ff);
+        radial-gradient(circle at 8vw 8vh, rgba(33, 181, 228, 0.16), transparent 420px),
+        radial-gradient(circle at 84vw 0, rgba(122, 90, 248, 0.16), transparent 390px),
+        radial-gradient(circle at 52vw 82vh, rgba(233, 162, 59, 0.12), transparent 420px),
+        linear-gradient(180deg, #F4F7FC, #ffffff, #EEF3FB);
       overflow-x: hidden;
     }
 
@@ -55,7 +62,7 @@
     }
 
     nav strong {
-      color: #07111f;
+      color: #0C1B36;
       letter-spacing: -0.04em;
       font-size: 1.05rem;
     }
@@ -66,29 +73,29 @@
     }
 
     nav a:not([role="button"]) {
-      color: #41516a;
+      color: #3D4E6E;
     }
 
     nav a:not([role="button"]):hover,
     nav a.active {
-      color: #0f7cff;
+      color: #0FA5D8;
     }
 
     nav a[role="button"],
     a[role="button"],
     button {
-      background: linear-gradient(135deg, #0f7cff, #00b894);
+      background: linear-gradient(135deg, #0FA5D8, #7A5AF8);
       border: 0;
       color: #ffffff;
       font-weight: 700;
-      box-shadow: 0 14px 34px rgba(15, 124, 255, 0.22);
+      box-shadow: 0 14px 34px rgba(33, 181, 228, 0.22);
     }
 
     nav a[role="button"]:hover,
     a[role="button"]:hover,
     button:hover {
       transform: translateY(-1px);
-      box-shadow: 0 18px 44px rgba(15, 124, 255, 0.3);
+      box-shadow: 0 18px 44px rgba(33, 181, 228, 0.3);
     }
 
     .container {
@@ -105,10 +112,10 @@
       align-items: center;
       gap: 0.55rem;
       padding: 0.48rem 0.8rem;
-      border: 1px solid rgba(15, 124, 255, 0.18);
+      border: 1px solid rgba(33, 181, 228, 0.18);
       border-radius: 999px;
-      background: rgba(15, 124, 255, 0.08);
-      color: #075fd0;
+      background: rgba(33, 181, 228, 0.08);
+      color: #0A7CA3;
       font-size: 0.83rem;
       font-weight: 700;
       margin-bottom: 1.2rem;
@@ -118,8 +125,8 @@
       width: 0.58rem;
       height: 0.58rem;
       border-radius: 999px;
-      background: #00b894;
-      box-shadow: 0 0 0 7px rgba(0, 184, 148, 0.12);
+      background: #7A5AF8;
+      box-shadow: 0 0 0 7px rgba(122, 90, 248, 0.12);
     }
 
     .goal-hero {
@@ -142,7 +149,7 @@
     }
 
     .goal-hero p strong {
-      color: #075fd0;
+      color: #0A7CA3;
     }
 
     section.block {
@@ -193,9 +200,9 @@
 
     .role-pill {
       width: fit-content;
-      border: 1px solid rgba(15, 124, 255, 0.2);
-      color: #075fd0;
-      background: rgba(15, 124, 255, 0.08);
+      border: 1px solid rgba(33, 181, 228, 0.2);
+      color: #0A7CA3;
+      background: rgba(33, 181, 228, 0.08);
       border-radius: 999px;
       padding: 0.28rem 0.6rem;
       font-size: 0.78rem;
@@ -230,7 +237,7 @@
     }
 
     table.compare thead th {
-      background: linear-gradient(135deg, #0f7cff, #075fd0);
+      background: linear-gradient(135deg, #0FA5D8, #0A7CA3);
       color: #ffffff;
       font-weight: 800;
       letter-spacing: -0.01em;
@@ -260,7 +267,7 @@
     }
 
     table.compare td.ai {
-      background: rgba(15, 124, 255, 0.05);
+      background: rgba(33, 181, 228, 0.05);
       color: #14335c;
       font-weight: 600;
     }
@@ -273,13 +280,13 @@
     /* Closing CTA band */
     .demo-band {
       margin-top: 4rem;
-      border: 1px solid rgba(15, 124, 255, 0.2);
+      border: 1px solid rgba(33, 181, 228, 0.2);
       border-radius: 34px;
       padding: clamp(1.6rem, 5vw, 3rem);
       background:
-        radial-gradient(circle at 15vw 20vh, rgba(15, 124, 255, 0.16), transparent 290px),
-        radial-gradient(circle at 80vw 0, rgba(0, 184, 148, 0.18), transparent 320px),
-        linear-gradient(135deg, #ffffff, #eef7ff);
+        radial-gradient(circle at 15vw 20vh, rgba(33, 181, 228, 0.16), transparent 290px),
+        radial-gradient(circle at 80vw 0, rgba(122, 90, 248, 0.18), transparent 320px),
+        linear-gradient(135deg, #ffffff, #EEF3FB);
       box-shadow: 0 28px 80px rgba(23, 55, 100, 0.13);
     }
 
@@ -298,7 +305,7 @@
     }
 
     .cta-row a.secondary-link {
-      color: #075fd0;
+      color: #0A7CA3;
       font-weight: 800;
     }
 
@@ -309,7 +316,7 @@
     }
 
     footer a {
-      color: #41516a;
+      color: #3D4E6E;
     }
 
     @media (max-width: 860px) {
