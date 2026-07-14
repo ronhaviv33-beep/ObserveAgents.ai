@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ObserveAgents for Security Teams | AI Agent Runtime Security</title>
+  <meta name="description" content="Investigate AI-agent risk from runtime evidence — MCP and tool visibility, unknown providers, database reach, ownership gaps, and Gateway control recommendations. Observe-only until configured.">
+  <link rel="canonical" href="https://www.observeagents.ai/solutions/security.html">
+  <meta property="og:title" content="ObserveAgents for Security Teams">
+  <meta property="og:description" content="Let AI agents move fast — without losing sight of what they touch. Runtime security findings, backed by evidence, never enforced automatically.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./solutions.css">
+</head>
+
+<body>
+  <nav class="site-nav">
+    <div class="nav-inner">
+      <a class="brand" href="/">
+        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+          <defs><linearGradient id="lg-nav" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#21B5E4"/><stop offset="55%" stop-color="#7B8CFF"/><stop offset="100%" stop-color="#A66BFF"/>
+          </linearGradient></defs>
+          <rect x="1" y="1" width="22" height="22" rx="7" fill="url(#lg-nav)"/>
+          <path d="M5 12.5 H8.4 L10.5 7.5 L13.5 16.5 L15.6 11 H19" stroke="#0B1730" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        ObserveAgents
+      </a>
+      <ul class="nav-links">
+        <li><a href="/#features">Platform</a></li>
+        <li class="nav-drop" id="navDrop">
+          <button aria-expanded="false" aria-haspopup="true">Solutions <span class="caret">▾</span></button>
+          <div class="drop-panel" role="menu">
+            <div class="drop-label">By role</div>
+            <a class="drop-item" role="menuitem" href="/solutions/security.html">
+              <span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 6v5c0 5-3.3 8.6-8 10-4.7-1.4-8-5-8-10V6z"/><path d="m9 11.5 2 2 4-4.5"/></svg></span>
+              <span><b>Security Teams</b><span>Investigate agent risk from runtime evidence.</span></span>
+            </a>
+            <a class="drop-item" role="menuitem" href="/solutions/platform.html">
+              <span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+              <span><b>Platform Engineers</b><span>Debug what agents actually executed.</span></span>
+            </a>
+          </div>
+        </li>
+        <li><a href="/tour.html">Watch the Tour</a></li>
+        <li><a href="/goal.html">Our Goal</a></li>
+      </ul>
+      <div class="nav-cta">
+        <a class="btn btn-outline" href="/#contact">Talk to us</a>
+        <a class="btn btn-primary" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try our Demo <span class="arrow">→</span></a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Role hero ─────────────────────────────────────────────────────── -->
+  <header class="role-hero">
+    <div class="container role-grid">
+      <div class="role-copy">
+        <span class="kicker-pill"><span class="gem"></span> For Security Teams</span>
+        <h1>Let AI agents move fast<br><span class="grad">without losing sight of what they touch.</span></h1>
+        <p class="sub">
+          Your agents call MCP tools, reach databases, and hit external APIs in production.
+          ObserveAgents turns that runtime behavior into evidence-backed security findings —
+          worst first, explained, and never enforced automatically.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-aurora" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try our Demo →</a>
+          <a class="btn btn-outline" href="/tour.html">Watch the product tour</a>
+        </div>
+        <div class="fine">Evidence-backed findings · Privacy-scrubbed · Observe-only until configured</div>
+      </div>
+
+      <!-- vignette: shield core with orbiting finding chips -->
+      <div class="role-viz" aria-hidden="true">
+        <svg viewBox="0 0 430 360">
+          <defs>
+            <linearGradient id="sec-aur" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#21B5E4"/><stop offset="100%" stop-color="#A66BFF"/>
+            </linearGradient>
+          </defs>
+          <!-- links -->
+          <g stroke="rgba(167,139,250,0.45)" stroke-width="1.6" fill="none" stroke-dasharray="4 9">
+            <path class="dash" d="M215,185 C 165,150 120,110 92,78"/>
+            <path class="dash" d="M215,185 C 275,150 320,116 352,86"/>
+            <path class="dash" d="M215,185 C 205,240 195,280 188,308"/>
+          </g>
+          <!-- shield core -->
+          <g>
+            <circle cx="215" cy="182" r="66" fill="none" stroke="rgba(167,139,250,0.2)" stroke-width="1.5"/>
+            <path d="M215 128 250 141 v22 c0 24-15 40-35 47 -20-7-35-23-35-47 v-22 z"
+              fill="rgba(23,30,60,0.9)" stroke="url(#sec-aur)" stroke-width="2.2"/>
+            <path d="m201 165 10 10 20-22" stroke="#3DDC97" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+          <!-- finding chips -->
+          <g class="fl">
+            <rect x="24" y="42" width="150" height="38" rx="11" fill="rgba(15,18,34,0.85)" stroke="rgba(255,138,76,0.5)"/>
+            <circle cx="44" cy="61" r="4" fill="#FF8A4C"/>
+            <text x="56" y="65" font-family="'JetBrains Mono',monospace" font-size="11" fill="#FFC29E">mcp tool · HIGH</text>
+          </g>
+          <g class="fl fl2">
+            <rect x="288" y="52" width="128" height="38" rx="11" fill="rgba(15,18,34,0.85)" stroke="rgba(255,77,109,0.5)"/>
+            <circle cx="306" cy="71" r="4" fill="#FF4D6D"/>
+            <text x="318" y="75" font-family="'JetBrains Mono',monospace" font-size="11" fill="#FFAFC0">db reach</text>
+          </g>
+          <g class="fl">
+            <rect x="118" y="292" width="176" height="38" rx="11" fill="rgba(15,18,34,0.85)" stroke="rgba(245,197,68,0.5)"/>
+            <circle cx="137" cy="311" r="4" fill="#F5C544"/>
+            <text x="149" y="315" font-family="'JetBrains Mono',monospace" font-size="11" fill="#F1DDA0">unknown provider</text>
+          </g>
+          <circle cx="215" cy="182" r="86" fill="none" stroke="rgba(167,139,250,0.14)" stroke-width="1" class="bl"/>
+        </svg>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── The security problem ────────────────────────────────────────── -->
+    <section class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">The security problem</div>
+          <h2>Agents act in production.<br>Your audit trail doesn't see them.</h2>
+          <p>Every agent your teams ship can call tools, query databases, and reach external providers — with no inventory, no owner, and no record of what it touched. When someone asks "what can this agent actually do?", the honest answer is "we don't know."</p>
+          <div class="three">You have three bad options:</div>
+        </div>
+        <div class="options">
+          <article class="option-card">
+            <div class="num">01</div>
+            <h3>Block AI entirely</h3>
+            <p>Watch the productivity walk out the door — and come back as shadow agents nobody registered.</p>
+          </article>
+          <article class="option-card">
+            <div class="num">02</div>
+            <h3>Trust blindly</h3>
+            <p>Let agents run with database access and MCP tools you've never reviewed, and hope the incident never comes.</p>
+          </article>
+          <article class="option-card">
+            <div class="num">03</div>
+            <h3>Build it yourself</h3>
+            <p>Wire your own agent monitoring across every team and framework. Months of work that still misses the agents you don't know about.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── What it gives you ───────────────────────────────────────────── -->
+    <section class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">What ObserveAgents gives security</div>
+          <h2>Risk, with the evidence attached.</h2>
+          <p>Every finding is derived from privacy-scrubbed runtime evidence — identifiers, counts, and timings. Never prompts, never responses.</p>
+        </div>
+        <div class="bento">
+          <div class="tile tile-cream">
+            <div><span class="tile-tag">Findings</span>
+              <h3>Runtime security findings</h3>
+              <p>Worst-first investigation queue: risky tool usage, sensitive access, repeated failures — each with the evidence that fired it.</p>
+            </div>
+          </div>
+          <div class="tile tile-cyan">
+            <div><span class="tile-tag">MCP &amp; tools</span>
+              <h3>See every tool an agent holds</h3>
+              <p>MCP servers and tool calls surface from traces — including access levels that were never meant for production.</p>
+            </div>
+          </div>
+          <div class="tile tile-night">
+            <div><span class="tile-tag">Providers</span>
+              <h3>Unknown providers, flagged</h3>
+              <p>A production agent talking to a model provider outside your catalog becomes a high-severity finding — automatically.</p>
+            </div>
+          </div>
+          <div class="tile tile-violet">
+            <div><span class="tile-tag">Ownership</span>
+              <h3>No agent without an owner</h3>
+              <p>Missing ownership in production strengthens other findings and gets its own flag — audit context built in.</p>
+            </div>
+          </div>
+          <div class="tile tile-brand" aria-hidden="true">
+            <div class="gem-big">
+              <svg width="40" height="40" viewBox="0 0 24 24"><path d="M4 13 H8.4 L10.5 7 L13.5 17.5 L15.6 11.5 H20" stroke="#0B1730" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <div class="tile tile-night">
+            <div><span class="tile-tag">Gateway</span>
+              <h3>Control recommendations, not auto-blocks</h3>
+              <p>High-risk agents become review candidates with suggested controls. The Gateway enforces only when you explicitly configure it.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Three jobs ──────────────────────────────────────────────────── -->
+    <section class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">How it works</div>
+          <h2>Three jobs it does for security</h2>
+          <p>Investigate. Explain. Recommend. Without touching production behavior.</p>
+        </div>
+        <div class="jobs">
+          <article class="job-card">
+            <div class="job-visual">
+              <svg width="150" height="86" viewBox="0 0 150 86">
+                <g font-family="'JetBrains Mono',monospace" font-size="9">
+                  <rect x="10" y="10" width="130" height="18" rx="6" fill="rgba(255,77,109,0.14)" stroke="rgba(255,77,109,0.6)"/>
+                  <circle cx="22" cy="19" r="3" fill="#FF4D6D"/><text x="32" y="22" fill="#FFAFC0">critical · shell access</text>
+                  <rect x="10" y="34" width="130" height="18" rx="6" fill="rgba(255,138,76,0.12)" stroke="rgba(255,138,76,0.55)"/>
+                  <circle cx="22" cy="43" r="3" fill="#FF8A4C"/><text x="32" y="46" fill="#FFC29E">high · mcp in prod</text>
+                  <rect x="10" y="58" width="130" height="18" rx="6" fill="rgba(245,197,68,0.1)" stroke="rgba(245,197,68,0.5)"/>
+                  <circle cx="22" cy="67" r="3" fill="#F5C544"/><text x="32" y="70" fill="#F1DDA0">medium · no owner</text>
+                </g>
+              </svg>
+            </div>
+            <div class="job-body">
+              <div class="jk">01 · Investigate</div>
+              <h3>Findings, worst first</h3>
+              <p>One queue per agent, sorted by severity. Seven investigation buckets — from MCP risk to human-review signals.</p>
+            </div>
+          </article>
+          <article class="job-card">
+            <div class="job-visual">
+              <svg width="150" height="86" viewBox="0 0 150 86">
+                <rect x="14" y="14" width="122" height="58" rx="9" fill="rgba(23,30,60,0.9)" stroke="rgba(167,139,250,0.4)"/>
+                <g font-family="'JetBrains Mono',monospace" font-size="9" fill="#9AA9CB">
+                  <text x="26" y="32">finding: db_access</text>
+                  <text x="26" y="47" fill="#6FD6F7">evidence: 12 spans</text>
+                  <text x="26" y="62" fill="#6FD6F7">last seen: 4m ago</text>
+                </g>
+              </svg>
+            </div>
+            <div class="job-body">
+              <div class="jk">02 · Explain</div>
+              <h3>Every finding shows why</h3>
+              <p>No black-box risk scores. Each finding carries the spans, counts, and timings that produced it.</p>
+            </div>
+          </article>
+          <article class="job-card">
+            <div class="job-visual">
+              <svg width="150" height="86" viewBox="0 0 150 86">
+                <g stroke-linecap="round">
+                  <circle cx="30" cy="43" r="11" fill="none" stroke="#21B5E4" stroke-width="2.5"/>
+                  <line x1="44" y1="43" x2="70" y2="43" stroke="rgba(167,139,250,0.6)" stroke-width="2" stroke-dasharray="4 6"/>
+                  <circle cx="84" cy="43" r="11" fill="none" stroke="#FF8A4C" stroke-width="2.5"/>
+                  <line x1="98" y1="43" x2="122" y2="43" stroke="rgba(167,139,250,0.6)" stroke-width="2" stroke-dasharray="4 6"/>
+                  <circle cx="130" cy="43" r="8" fill="none" stroke="#A66BFF" stroke-width="2.5"/>
+                  <path d="m26 43 3 3 6-7" stroke="#3DDC97" stroke-width="2.2" fill="none"/>
+                </g>
+              </svg>
+            </div>
+            <div class="job-body">
+              <div class="jk">03 · Recommend</div>
+              <h3>Gateway candidates for review</h3>
+              <p>Risky agents arrive with suggested controls. You decide — nothing is blocked or rerouted automatically.</p>
+            </div>
+          </article>
+        </div>
+        <div class="banner">Every finding backed by runtime evidence. Nothing enforced automatically. Nothing invisible.</div>
+      </div>
+    </section>
+
+    <!-- ── CTA ─────────────────────────────────────────────────────────── -->
+    <section class="block" style="padding-bottom: 40px;">
+      <div class="container">
+        <div class="demo-band">
+          <div>
+            <h2>See your agents' risk surface today.</h2>
+            <p>Open the live demo: security findings, investigation buckets, and the Gateway Control Center — on realistic synthetic data, nothing to install.</p>
+            <a class="btn btn-light" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try our Demo →</a>
+          </div>
+          <img class="shot" src="/product-overview.png" alt="The ObserveAgents console" width="1512" height="920">
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span class="foot-brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="1" y="1" width="22" height="22" rx="7" fill="url(#lg-nav)"/>
+        <path d="M5 12.5 H8.4 L10.5 7.5 L13.5 16.5 L15.6 11 H19" stroke="#0B1730" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      ObserveAgents
+    </span>
+    <p class="motto">Observe first · Control only what matters</p>
+    <p><a href="/">Home</a> · <a href="/solutions/platform.html">For Platform Engineers</a> · <a href="/tour.html">Watch the Tour</a> · <a href="/#contact">Talk to the team</a></p>
+  </footer>
+
+  <script>
+    // Solutions dropdown: click toggle + Escape/outside close (hover handled in CSS).
+    (function () {
+      var drop = document.getElementById('navDrop');
+      if (!drop) return;
+      var btn = drop.querySelector('button');
+      btn.addEventListener('click', function () {
+        var open = drop.classList.toggle('open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function (e) {
+        if (!drop.contains(e.target)) { drop.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { drop.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+      });
+    })();
+
+    // Scroll reveals — same contract as the homepage.
+    (function () {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      ['.options', '.bento', '.jobs'].forEach(function (sel) {
+        document.querySelectorAll(sel).forEach(function (grid) {
+          Array.prototype.forEach.call(grid.children, function (el, i) {
+            el.classList.add('reveal', 'd' + Math.min(i % 6, 5));
+          });
+        });
+      });
+      document.querySelectorAll('.section-head, .banner, .demo-band').forEach(function (el) { el.classList.add('reveal'); });
+      if (reduce || !('IntersectionObserver' in window)) {
+        document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('on'); });
+      } else {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); }
+          });
+        }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+        document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+      }
+    })();
+  </script>
+</body>
+</html>

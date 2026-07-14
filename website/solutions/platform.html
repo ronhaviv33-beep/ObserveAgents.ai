@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ObserveAgents for Platform Engineers | AI Agent Observability</title>
+  <meta name="description" content="Debug what your AI agents actually executed — OpenTelemetry-native traces, session-grouped execution waterfalls, telemetry quality scoring, dependency maps, and threshold alerts. No proprietary SDK.">
+  <link rel="canonical" href="https://www.observeagents.ai/solutions/platform.html">
+  <meta property="og:title" content="ObserveAgents for Platform Engineers">
+  <meta property="og:description" content="Your OTel stack is the only integration. Sessions become execution waterfalls; agent failures stop being invisible.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./solutions.css">
+</head>
+
+<body>
+  <nav class="site-nav">
+    <div class="nav-inner">
+      <a class="brand" href="/">
+        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+          <defs><linearGradient id="lg-nav" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#21B5E4"/><stop offset="55%" stop-color="#7B8CFF"/><stop offset="100%" stop-color="#A66BFF"/>
+          </linearGradient></defs>
+          <rect x="1" y="1" width="22" height="22" rx="7" fill="url(#lg-nav)"/>
+          <path d="M5 12.5 H8.4 L10.5 7.5 L13.5 16.5 L15.6 11 H19" stroke="#0B1730" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        ObserveAgents
+      </a>
+      <ul class="nav-links">
+        <li><a href="/#features">Platform</a></li>
+        <li class="nav-drop" id="navDrop">
+          <button aria-expanded="false" aria-haspopup="true">Solutions <span class="caret">▾</span></button>
+          <div class="drop-panel" role="menu">
+            <div class="drop-label">By role</div>
+            <a class="drop-item" role="menuitem" href="/solutions/security.html">
+              <span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 6v5c0 5-3.3 8.6-8 10-4.7-1.4-8-5-8-10V6z"/><path d="m9 11.5 2 2 4-4.5"/></svg></span>
+              <span><b>Security Teams</b><span>Investigate agent risk from runtime evidence.</span></span>
+            </a>
+            <a class="drop-item" role="menuitem" href="/solutions/platform.html">
+              <span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+              <span><b>Platform Engineers</b><span>Debug what agents actually executed.</span></span>
+            </a>
+          </div>
+        </li>
+        <li><a href="/tour.html">Watch the Tour</a></li>
+        <li><a href="/goal.html">Our Goal</a></li>
+      </ul>
+      <div class="nav-cta">
+        <a class="btn btn-outline" href="/#contact">Talk to us</a>
+        <a class="btn btn-primary" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try our Demo <span class="arrow">→</span></a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Role hero ─────────────────────────────────────────────────────── -->
+  <header class="role-hero">
+    <div class="container role-grid">
+      <div class="role-copy">
+        <span class="kicker-pill"><span class="gem"></span> For Platform Engineers</span>
+        <h1>Your agents fail in ways<br><span class="grad">your logs will never show you.</span></h1>
+        <p class="sub">
+          Retries, silent tool errors, latency stacked across steps. ObserveAgents takes the
+          OpenTelemetry traces you already emit and turns every agent session into an execution
+          waterfall — no proprietary SDK, no re-instrumentation.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-aurora" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try our Demo →</a>
+          <a class="btn btn-outline" href="/tour.html">Watch the product tour</a>
+        </div>
+        <div class="fine">OTel-native · GenAI semantic conventions · Prompts &amp; responses never stored</div>
+      </div>
+
+      <!-- vignette: execution waterfall -->
+      <div class="role-viz" aria-hidden="true">
+        <svg viewBox="0 0 430 360">
+          <rect x="26" y="30" width="378" height="300" rx="16" fill="rgba(15,18,34,0.85)" stroke="rgba(167,139,250,0.3)"/>
+          <text x="48" y="64" font-family="'JetBrains Mono',monospace" font-size="11" fill="#66739B" letter-spacing="2">TRACE · SUPPORT-AGENT</text>
+          <!-- waterfall rows -->
+          <g font-family="'JetBrains Mono',monospace" font-size="10.5">
+            <text x="48" y="98" fill="#9AA9CB">agent.plan</text>
+            <rect x="160" y="88" width="60" height="13" rx="4" fill="#21B5E4"/>
+            <text x="48" y="126" fill="#9AA9CB">llm.call</text>
+            <rect x="190" y="116" width="112" height="13" rx="4" fill="#7B8CFF"/>
+            <text x="48" y="154" fill="#9AA9CB">mcp.connect</text>
+            <rect x="240" y="144" width="36" height="13" rx="4" fill="#A66BFF"/>
+            <text x="48" y="182" fill="#9AA9CB">tool.search</text>
+            <rect x="262" y="172" width="88" height="13" rx="4" fill="#2DD4BF"/>
+            <text x="48" y="210" fill="#FFAFC0">tool.retry ✗</text>
+            <rect x="286" y="200" width="52" height="13" rx="4" fill="#FF4D6D" class="bl"/>
+            <text x="48" y="238" fill="#9AA9CB">db.query</text>
+            <rect x="300" y="228" width="44" height="13" rx="4" fill="#F5C544"/>
+            <text x="48" y="266" fill="#9AA9CB">llm.summar…</text>
+            <rect x="312" y="256" width="72" height="13" rx="4" fill="#7B8CFF"/>
+          </g>
+          <line x1="160" y1="80" x2="160" y2="286" stroke="rgba(154,169,203,0.15)"/>
+          <text x="48" y="308" font-family="'JetBrains Mono',monospace" font-size="10" fill="#6FD6F7">7 steps · 1 error · 3.4s end-to-end</text>
+        </svg>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── The platform problem ────────────────────────────────────────── -->
+    <section class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">The platform problem</div>
+          <h2>Agent behavior is a distributed trace.<br>You're debugging it with print statements.</h2>
+          <p>An agent request fans out across models, tools, MCP servers, and databases. When it's slow or wrong, the story is spread over five systems and none of them agree. Reproducing it locally is a fantasy.</p>
+          <div class="three">You have three bad options:</div>
+        </div>
+        <div class="options">
+          <article class="option-card">
+            <div class="num">01</div>
+            <h3>Log-diving</h3>
+            <p>Grep five services and stitch timestamps by hand — for every flaky agent run, again and again.</p>
+          </article>
+          <article class="option-card">
+            <div class="num">02</div>
+            <h3>A dashboard per team</h3>
+            <p>Every squad builds its own partial view in its own tool. Nobody sees a whole session end-to-end.</p>
+          </article>
+          <article class="option-card">
+            <div class="num">03</div>
+            <h3>Build it yourself</h3>
+            <p>A custom trace pipeline plus a UI plus alerting — a quarter of platform work before the first insight.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── What it gives you ───────────────────────────────────────────── -->
+    <section class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">What ObserveAgents gives platform</div>
+          <h2>Your OTel stack is the only integration.</h2>
+          <p>Point an OTLP exporter at ObserveAgents. Sessions, waterfalls, inventory, and alerts appear — no manual registration, no tagging.</p>
+        </div>
+        <div class="bento">
+          <div class="tile tile-cream">
+            <div><span class="tile-tag">Ingest</span>
+              <h3>OTel-native, SDK-free</h3>
+              <p>Works with the OpenTelemetry SDKs and collectors you already run, speaking the GenAI semantic conventions.</p>
+            </div>
+          </div>
+          <div class="tile tile-cyan">
+            <div><span class="tile-tag">Runtime</span>
+              <h3>Execution waterfalls</h3>
+              <p>Traces grouped one row per agent session, expandable into per-step timing — where every request actually spent its time.</p>
+            </div>
+          </div>
+          <div class="tile tile-night">
+            <div><span class="tile-tag">Quality</span>
+              <h3>Telemetry quality scoring</h3>
+              <p>See which services classify fully, which signals are missing, and which custom attributes deserve a mapping.</p>
+            </div>
+          </div>
+          <div class="tile tile-violet">
+            <div><span class="tile-tag">Dependencies</span>
+              <h3>Runtime dependency map</h3>
+              <p>Every MCP server, tool, API, and database your agents touch at runtime — discovered, not declared.</p>
+            </div>
+          </div>
+          <div class="tile tile-brand" aria-hidden="true">
+            <div class="gem-big">
+              <svg width="40" height="40" viewBox="0 0 24 24"><path d="M4 13 H8.4 L10.5 7 L13.5 17.5 L15.6 11.5 H20" stroke="#0B1730" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <div class="tile tile-night">
+            <div><span class="tile-tag">Alerts</span>
+              <h3>Threshold rules, delivered</h3>
+              <p>Built-in detection rules over runtime behavior — repeated tool errors, MCP thresholds — delivered to your webhook.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Three jobs ──────────────────────────────────────────────────── -->
+    <section class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">How it works</div>
+          <h2>Three jobs it does for platform</h2>
+          <p>Ingest. Correlate. Alert. On the pipeline you already own.</p>
+        </div>
+        <div class="jobs">
+          <article class="job-card">
+            <div class="job-visual">
+              <svg width="150" height="86" viewBox="0 0 150 86">
+                <g stroke-linecap="round">
+                  <rect x="12" y="30" width="34" height="26" rx="7" fill="none" stroke="#21B5E4" stroke-width="2.2"/>
+                  <text x="20" y="47" font-family="'JetBrains Mono',monospace" font-size="9" fill="#6FD6F7">otel</text>
+                  <line x1="52" y1="43" x2="88" y2="43" stroke="rgba(167,139,250,0.6)" stroke-width="2" stroke-dasharray="4 6"/>
+                  <polygon points="102,43 94,38 94,48" fill="#7B8CFF"/>
+                  <rect x="104" y="28" width="34" height="30" rx="9" fill="none" stroke="#A66BFF" stroke-width="2.2"/>
+                  <path d="M112 43 h5 l3-7 4 13 3-8 h6" stroke="#A66BFF" stroke-width="1.8" fill="none"/>
+                </g>
+              </svg>
+            </div>
+            <div class="job-body">
+              <div class="jk">01 · Ingest</div>
+              <h3>Point your exporter, done</h3>
+              <p>POST /otel/v1/traces from your existing stack. Agents and their sessions appear without registration.</p>
+            </div>
+          </article>
+          <article class="job-card">
+            <div class="job-visual">
+              <svg width="150" height="86" viewBox="0 0 150 86">
+                <g>
+                  <rect x="22" y="16" width="52" height="9" rx="3" fill="#21B5E4"/>
+                  <rect x="40" y="31" width="74" height="9" rx="3" fill="#7B8CFF"/>
+                  <rect x="58" y="46" width="34" height="9" rx="3" fill="#2DD4BF"/>
+                  <rect x="74" y="61" width="52" height="9" rx="3" fill="#F5C544"/>
+                  <line x1="22" y1="10" x2="22" y2="76" stroke="rgba(154,169,203,0.25)"/>
+                </g>
+              </svg>
+            </div>
+            <div class="job-body">
+              <div class="jk">02 · Correlate</div>
+              <h3>Sessions become waterfalls</h3>
+              <p>One row per agent session, expandable to per-step timing, tool calls, token usage, and errors.</p>
+            </div>
+          </article>
+          <article class="job-card">
+            <div class="job-visual">
+              <svg width="150" height="86" viewBox="0 0 150 86">
+                <g font-family="'JetBrains Mono',monospace" font-size="9">
+                  <rect x="14" y="20" width="122" height="20" rx="7" fill="rgba(245,197,68,0.12)" stroke="rgba(245,197,68,0.55)"/>
+                  <circle cx="27" cy="30" r="3.5" fill="#F5C544"/>
+                  <text x="37" y="33" fill="#F1DDA0">repeated_tool_errors</text>
+                  <rect x="14" y="48" width="122" height="20" rx="7" fill="rgba(33,181,228,0.1)" stroke="rgba(33,181,228,0.5)"/>
+                  <circle cx="27" cy="58" r="3.5" fill="#21B5E4"/>
+                  <text x="37" y="61" fill="#8FD8F0">→ webhook delivered</text>
+                </g>
+              </svg>
+            </div>
+            <div class="job-body">
+              <div class="jk">03 · Alert</div>
+              <h3>Rules over behavior</h3>
+              <p>Threshold rules evaluate during intelligence runs — never inside ingestion — and reach you by webhook.</p>
+            </div>
+          </article>
+        </div>
+        <div class="banner">Structural metadata only — prompts and responses are never stored. Nothing added to your hot path.</div>
+      </div>
+    </section>
+
+    <!-- ── CTA ─────────────────────────────────────────────────────────── -->
+    <section class="block" style="padding-bottom: 40px;">
+      <div class="container">
+        <div class="demo-band">
+          <div>
+            <h2>Debug your first agent session in minutes.</h2>
+            <p>Open the live demo: runtime timelines, execution waterfalls, telemetry quality, and the dependency map — on realistic synthetic data.</p>
+            <a class="btn btn-light" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try our Demo →</a>
+          </div>
+          <img class="shot" src="/product-overview.png" alt="The ObserveAgents console" width="1512" height="920">
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span class="foot-brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="1" y="1" width="22" height="22" rx="7" fill="url(#lg-nav)"/>
+        <path d="M5 12.5 H8.4 L10.5 7.5 L13.5 16.5 L15.6 11 H19" stroke="#0B1730" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      ObserveAgents
+    </span>
+    <p class="motto">Observe first · Control only what matters</p>
+    <p><a href="/">Home</a> · <a href="/solutions/security.html">For Security Teams</a> · <a href="/tour.html">Watch the Tour</a> · <a href="/#contact">Talk to the team</a></p>
+  </footer>
+
+  <script>
+    // Solutions dropdown: click toggle + Escape/outside close (hover handled in CSS).
+    (function () {
+      var drop = document.getElementById('navDrop');
+      if (!drop) return;
+      var btn = drop.querySelector('button');
+      btn.addEventListener('click', function () {
+        var open = drop.classList.toggle('open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function (e) {
+        if (!drop.contains(e.target)) { drop.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { drop.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+      });
+    })();
+
+    // Scroll reveals — same contract as the homepage.
+    (function () {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      ['.options', '.bento', '.jobs'].forEach(function (sel) {
+        document.querySelectorAll(sel).forEach(function (grid) {
+          Array.prototype.forEach.call(grid.children, function (el, i) {
+            el.classList.add('reveal', 'd' + Math.min(i % 6, 5));
+          });
+        });
+      });
+      document.querySelectorAll('.section-head, .banner, .demo-band').forEach(function (el) { el.classList.add('reveal'); });
+      if (reduce || !('IntersectionObserver' in window)) {
+        document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('on'); });
+      } else {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); }
+          });
+        }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+        document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+      }
+    })();
+  </script>
+</body>
+</html>
