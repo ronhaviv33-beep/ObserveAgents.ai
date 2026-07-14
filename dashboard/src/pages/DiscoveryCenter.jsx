@@ -6,11 +6,11 @@ import { stageMeta } from "../discoveryStatus.js";
 const agentActionId = (a) => a?.id || a?.asset_key || a?.agent_id;
 
 const T = {
-  bg: "#F8FAFC", panel: "#FFFFFF", panelHi: "#F1F5F9",
-  border: "#E2E8F0", borderHi: "#CBD5E1",
-  text: "#0F172A", textDim: "#475569", textMute: "#64748B",
-  accent: "#16A34A", warn: "#D97706", crit: "#DC2626",
-  info: "#0891B2", yellow: "#CA8A04", purple: "#7C3AED",
+  bg: "#070A14", panel: "#0D1322", panelHi: "#141C31",
+  border: "#1D2740", borderHi: "#31406B",
+  text: "#E9EEF9", textDim: "#9AA9CB", textMute: "#5E6D90",
+  accent: "#3DDC97", warn: "#F5C544", crit: "#FF4D6D",
+  info: "#2DD4BF", yellow: "#F5C544", purple: "#A78BFA",
 };
 const MONO = "'JetBrains Mono','IBM Plex Mono',monospace";
 const FONT = "'Geist','Söhne',-apple-system,sans-serif";
@@ -62,7 +62,7 @@ function StageBadge({ agent }) {
 function DiscoveryStatusBadge({ status }) {
   const map = {
     verified:   { label: "Verified",   color: T.accent,    bg: "rgba(34,197,94,0.14)" },
-    likely:     { label: "Likely",     color: "#0D9488",   bg: "rgba(45,212,191,0.14)" },
+    likely:     { label: "Likely",     color: "#2DD4BF",   bg: "rgba(45,212,191,0.14)" },
     potential:  { label: "Potential",  color: T.warn,      bg: "rgba(245,158,11,0.14)" },
     historical: { label: "Historical", color: T.textDim,   bg: T.panelHi },
   };
@@ -77,10 +77,10 @@ function DiscoveryStatusBadge({ status }) {
 
 function AssetTypeBadge({ assetType }) {
   const map = {
-    agent:       { label: "Agent",    color: "#7C3AED", bg: "rgba(139,92,246,0.14)" },
-    workflow:    { label: "Workflow",  color: "#0891B2", bg: "rgba(96,165,250,0.14)" },
+    agent:       { label: "Agent",    color: "#A78BFA", bg: "rgba(139,92,246,0.14)" },
+    workflow:    { label: "Workflow",  color: "#2DD4BF", bg: "rgba(96,165,250,0.14)" },
     application: { label: "App",      color: "#DB2777", bg: "rgba(244,114,182,0.14)" },
-    copilot:     { label: "Copilot",  color: "#EA580C", bg: "rgba(251,146,60,0.14)" },
+    copilot:     { label: "Copilot",  color: "#FF8A4C", bg: "rgba(251,146,60,0.14)" },
     service:     { label: "Service",  color: T.accent,  bg: "rgba(34,197,94,0.14)" },
   };
   const m = map[assetType] || { label: assetType || "agent", color: T.textDim, bg: T.panelHi };
@@ -96,7 +96,7 @@ function LifecycleBadge({ status }) {
     unassigned:       { label: "Unassigned",      color: T.yellow },
     needs_validation: { label: "Needs Validation", color: T.warn },
     managed:          { label: "Managed",          color: T.accent },
-    retired:          { label: "Retired",          color: "#94A3B8" },
+    retired:          { label: "Retired",          color: "#5E6D90" },
   };
   const m = map[status] || { label: status || "—", color: T.textDim };
   return (
@@ -122,7 +122,7 @@ function ActionBtn({ label, color, onClick }) {
 
 function ModalOverlay({ onClose, children }) {
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(2,4,12,0.60)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto", fontFamily: FONT }}>
         {children}
       </div>
@@ -177,7 +177,7 @@ function ClaimModal({ agent, onClose, onSave, onApprove, onIgnore, environments 
       </div>
 
       {err && (
-        <div style={{ background: "#DC262618", border: "1px solid #DC262644", borderRadius: 5, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: T.crit, fontFamily: MONO }}>
+        <div style={{ background: "#FF4D6D18", border: "1px solid #FF4D6D44", borderRadius: 5, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: T.crit, fontFamily: MONO }}>
           {err}
         </div>
       )}
@@ -254,7 +254,7 @@ function ClaimModal({ agent, onClose, onSave, onApprove, onIgnore, environments 
 
 function ValidateConfirmModal({ agent, onConfirm, onClose, busy }) {
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(2,4,12,0.60)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, width: "100%", maxWidth: 420, fontFamily: FONT }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <span style={{ fontSize: 20, color: T.accent }}>✓</span>
@@ -297,7 +297,7 @@ function ValidateConfirmModal({ agent, onConfirm, onClose, busy }) {
 function RejectConfirmModal({ agent, onConfirm, onClose, busy }) {
   const [reason, setReason] = useState("");
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(2,4,12,0.60)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, width: "100%", maxWidth: 420, fontFamily: FONT }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <span style={{ fontSize: 20, color: T.crit }}>✕</span>
@@ -587,8 +587,8 @@ export default function DiscoveryCenter({ initialTab = "verified" }) {
 
       {/* Context info */}
       {tab === "likely" && (
-        <div style={{ marginBottom: 16, padding: "10px 14px", background: "#0D94880D", border: "1px solid #0D948833", borderRadius: 6, fontSize: 12, color: T.textDim }}>
-          <span style={{ color: "#0D9488" }}>●</span>&nbsp; Likely agents have multiple independent evidence sources from platform signals. Strong candidates for validation.
+        <div style={{ marginBottom: 16, padding: "10px 14px", background: "#2DD4BF0D", border: "1px solid #2DD4BF33", borderRadius: 6, fontSize: 12, color: T.textDim }}>
+          <span style={{ color: "#2DD4BF" }}>●</span>&nbsp; Likely agents have multiple independent evidence sources from platform signals. Strong candidates for validation.
         </div>
       )}
       {tab === "potential" && (

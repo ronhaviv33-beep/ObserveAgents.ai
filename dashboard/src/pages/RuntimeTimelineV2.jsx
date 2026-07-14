@@ -1,11 +1,12 @@
 import { Fragment, useState, useEffect, useMemo, useCallback } from "react";
 import { Bot, Sparkles, Wrench, Plug, Database, Circle } from "lucide-react";
-import { C, FONT, RADIUS } from "../ui2/tokens.js";
+import { C, FONT, RADIUS, microLabel } from "../ui2/tokens.js";
 import PageHeader from "../ui2/PageHeader.jsx";
 import Section from "../ui2/Section.jsx";
 import MetricCard from "../ui2/MetricCard.jsx";
 import StatusPill from "../ui2/StatusPill.jsx";
 import EmptyState from "../ui2/EmptyState.jsx";
+import { HeatStrip } from "../ui2/viz.jsx";
 import { surfaceAllowsPage } from "../productSurface.js";
 import { fetchRuntimeTraces, fetchRuntimeTrace } from "../api.js";
 
@@ -91,8 +92,8 @@ const SORT_KEYS = [
 function RailDot({ color, hollow }) {
   return (
     <span style={hollow
-      ? { width: 8, height: 8, borderRadius: "50%", background: "#FFFFFF", border: `2px solid ${color}`, boxShadow: "0 0 0 2px #FFFFFF", zIndex: 1 }
-      : { width: 10, height: 10, borderRadius: "50%", background: color, boxShadow: "0 0 0 2px #FFFFFF", zIndex: 1 }} />
+      ? { width: 8, height: 8, borderRadius: "50%", background: C.surface, border: `2px solid ${color}`, boxShadow: `0 0 0 3px ${C.surface}`, zIndex: 1 }
+      : { width: 10, height: 10, borderRadius: "50%", background: color, boxShadow: `0 0 0 3px ${C.surface}, 0 0 10px ${color}55`, zIndex: 1 }} />
   );
 }
 
@@ -306,6 +307,20 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
     };
   }, [filtered]);
 
+  // Activity pulse: current traces bucketed into 24 equal time slots.
+  const pulse = useMemo(() => {
+    const times = filtered.map((t) => new Date(t.start_time || 0).getTime()).filter((n) => n > 0);
+    if (times.length < 2) return null;
+    const min = Math.min(...times), max = Math.max(...times);
+    if (max === min) return null;
+    const N = 24, step = (max - min) / N;
+    const buckets = Array(N).fill(0);
+    const labels = Array.from({ length: N }, (_, i) =>
+      new Date(min + i * step).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
+    times.forEach((ts) => { buckets[Math.min(Math.floor((ts - min) / step), N - 1)] += 1; });
+    return { buckets, labels };
+  }, [filtered]);
+
   if (selected) return <TraceWaterfall trace={selected} onBack={() => setSelected(null)} />;
 
   const inputStyle = {
@@ -316,8 +331,9 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22, fontFamily: FONT.ui, maxWidth: 1160 }}>
 
-      <div>
+      <div className="oa-rise">
         <PageHeader
+          eyebrow="Observe · Runtime Evidence"
           title="Runtime"
           purpose="What your AI agents actually executed — grouped by agent, then session, each trace expandable into an execution waterfall.">
           <button onClick={load}
@@ -331,14 +347,24 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+      <div className="oa-rise oa-rise-1" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <MetricCard label="Traces" value={stats.traces} />
         <MetricCard label="Agents" value={stats.agents} />
         <MetricCard label="Sessions" value={stats.sessions} />
         <MetricCard label="Runtime steps" value={stats.spans} />
         <MetricCard label="Avg duration" value={fmtMs(stats.avgMs)} />
-        <MetricCard label="With errors" value={stats.errored} tone={stats.errored > 0 ? C.riskHigh : C.accent} />
+        <MetricCard label="With errors" value={stats.errored} tone={stats.errored > 0 ? C.riskHigh : C.ok} />
       </div>
+
+      {pulse && (
+        <div className="oa-rise oa-rise-2" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "14px 16px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <span style={microLabel}>Activity pulse</span>
+          <HeatStrip data={pulse.buckets} labels={pulse.labels} cell={13} />
+          <span style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textMute, marginLeft: "auto" }}>
+            {pulse.labels[0]} → {pulse.labels[pulse.labels.length - 1]}
+          </span>
+        </div>
+      )}
 
       <Section label="Execution traces"
         right={<span style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute }}>click a trace to see where it spent time</span>}>

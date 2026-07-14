@@ -11,672 +11,727 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.observeagents.ai/">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/pico.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <style>
+    /* ══ ObserveAgents marketing — "Agent City at Dusk" ══════════════════════
+       Daylight paper canvas above, the night-console world below. The deep
+       indigo hill carries the product's dashboard identity (signal cyan +
+       aurora violet) into an illustrated, friendly landing page. */
     :root {
-      --background-color: #f7fbff;
-      --color: #142033;
-      --h1-color: #07111f;
-      --h2-color: #07111f;
-      --h3-color: #24334a;
-      --primary: #0f7cff;
-      --primary-hover: #075fd0;
-      --primary-focus: rgba(15, 124, 255, 0.22);
-      --primary-inverse: #ffffff;
-      --card-background-color: #ffffff;
-      --card-border-color: #dce8f7;
-      --form-element-background-color: #ffffff;
-      --form-element-border-color: #cdddf0;
-      --form-element-color: #102033;
-      --form-element-placeholder-color: #738399;
-      --border-radius: 18px;
+      --paper: #F4F7FC;          /* page canvas */
+      --paper-warm: #EDF1F9;     /* alt band */
+      --card: #FFFFFF;
+      --ink: #0C1B36;            /* headings */
+      --ink-soft: #3D4E6E;       /* body */
+      --ink-mute: #7183A3;
+      --line: #DCE4F2;
+
+      --night: #101E3F;          /* the hill / dark frames */
+      --night-deep: #0B1730;
+      --night-line: #26375F;
+
+      --signal: #0FA5D8;         /* cyan, 600-level for light bg */
+      --signal-bright: #35C9F0;
+      --violet: #7A5AF8;
+      --violet-bright: #A78BFA;
+      --amber: #E9A23B;
+
+      --aurora: linear-gradient(90deg, #21B5E4 0%, #7B8CFF 55%, #A66BFF 100%);
+      --radius: 18px;
     }
 
-    html {
-      scroll-behavior: smooth;
-    }
-
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
-      background:
-        radial-gradient(circle at 8vw 8vh, rgba(15, 124, 255, 0.16), transparent 420px),
-        radial-gradient(circle at 84vw 0, rgba(0, 200, 167, 0.16), transparent 390px),
-        radial-gradient(circle at 52vw 82vh, rgba(255, 199, 44, 0.12), transparent 420px),
-        linear-gradient(180deg, #f7fbff, #ffffff, #f3f8ff);
+      margin: 0;
+      font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+      background: var(--paper);
+      color: var(--ink-soft);
+      font-size: 16px;
+      line-height: 1.65;
       overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
     }
+    h1, h2, h3 { font-family: 'Space Grotesk', 'Inter', sans-serif; color: var(--ink); margin: 0; letter-spacing: -0.02em; }
+    a { color: var(--signal); text-decoration: none; }
+    img { max-width: 100%; height: auto; }
+    .container { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
 
-    nav.container-fluid {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      backdrop-filter: blur(18px);
-      background: rgba(255, 255, 255, 0.88);
-      border-bottom: 1px solid rgba(126, 151, 185, 0.2);
-      padding-left: clamp(1rem, 4vw, 3rem);
-      padding-right: clamp(1rem, 4vw, 3rem);
-      box-shadow: 0 10px 35px rgba(20, 42, 74, 0.05);
-    }
+    ::selection { background: rgba(33, 181, 228, 0.25); }
+    :focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; border-radius: 4px; }
 
-    nav strong {
-      color: #07111f;
-      letter-spacing: -0.04em;
-      font-size: 1.05rem;
-    }
-
-    nav a:not([role="button"]) {
-      color: #41516a;
-    }
-
-    nav a:not([role="button"]):hover {
-      color: #0f7cff;
-    }
-
-    nav a[role="button"],
-    a[role="button"],
-    button {
-      background: linear-gradient(135deg, #0f7cff, #00b894);
-      border: 0;
-      color: #ffffff;
-      font-weight: 700;
-      box-shadow: 0 14px 34px rgba(15, 124, 255, 0.22);
-    }
-
-    nav a[role="button"]:hover,
-    a[role="button"]:hover,
-    button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 18px 44px rgba(15, 124, 255, 0.3);
-    }
-
-    .container {
-      max-width: 1180px;
-    }
-
-    main.container {
-      padding-top: clamp(4rem, 8vw, 7rem);
-      padding-bottom: 3rem;
-    }
-
-    .hero {
-      text-align: center;
-      max-width: 980px;
-      margin: 0 auto 2.5rem;
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.55rem;
-      padding: 0.48rem 0.8rem;
-      border: 1px solid rgba(15, 124, 255, 0.18);
-      border-radius: 999px;
-      background: rgba(15, 124, 255, 0.08);
-      color: #075fd0;
-      font-size: 0.83rem;
-      font-weight: 700;
-      margin-bottom: 1.2rem;
-    }
-
-    .pulse {
-      width: 0.58rem;
-      height: 0.58rem;
-      border-radius: 999px;
-      background: #00b894;
-      box-shadow: 0 0 0 7px rgba(0, 184, 148, 0.12);
-    }
-
-    .hero h2 {
-      font-size: clamp(3.2rem, 7vw, 6.6rem);
-      line-height: 0.92;
-      letter-spacing: -0.08em;
-      margin-bottom: 1rem;
-      background: linear-gradient(135deg, #061127, #0f5fc7, #1f7dff, #119fd6);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      max-width: 900px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .hero h3 {
-      color: #43536c;
-      font-weight: 500;
-      line-height: 1.4;
-      font-size: clamp(1.08rem, 2vw, 1.35rem);
-      max-width: 760px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .lead {
-      font-size: 1.08rem;
-      color: #4e6078;
-      max-width: 760px;
-      margin: 1.5rem auto 1.7rem;
-    }
-
-    .cta-row {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 0.85rem;
-      align-items: center;
-      margin-bottom: 1.4rem;
-    }
-
-    .secondary-link {
-      color: #17253a;
-      border: 1px solid rgba(15, 124, 255, 0.18);
-      border-radius: 999px;
-      padding: 0.72rem 1rem;
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      border-radius: 999px; padding: 12px 26px;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 15px;
+      cursor: pointer; border: 0; transition: transform 0.15s ease, box-shadow 0.15s ease;
       text-decoration: none;
-      background: #ffffff;
-      box-shadow: 0 10px 24px rgba(20, 42, 74, 0.06);
-      font-weight: 700;
+    }
+    .btn-primary {
+      background: var(--night); color: #7FE3FF;
+      box-shadow: 0 10px 28px rgba(12, 27, 54, 0.28);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 36px rgba(12, 27, 54, 0.34); }
+    .btn-primary .arrow {
+      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+      background: var(--aurora); display: inline-flex; align-items: center; justify-content: center;
+      color: #0B1730; font-weight: 700; font-size: 13px;
+    }
+    .btn-outline {
+      background: transparent; color: var(--ink);
+      border: 1.5px solid rgba(12, 27, 54, 0.28);
+    }
+    .btn-outline:hover { border-color: var(--ink); transform: translateY(-2px); }
+    .btn-light { background: #FFFFFF; color: var(--night); }
+    .btn-light:hover { transform: translateY(-2px); }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(244, 247, 252, 0.85);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(220, 228, 242, 0.8);
+    }
+    .nav-inner {
+      max-width: 1220px; margin: 0 auto; padding: 14px 24px;
+      display: flex; align-items: center; gap: 28px;
+    }
+    .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+    .nav-links { display: flex; gap: 24px; margin: 0 auto; padding: 0; list-style: none; }
+    .nav-links a { color: var(--ink-soft); font-size: 14.5px; font-weight: 500; }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-cta { display: flex; gap: 10px; align-items: center; }
+    .nav-cta .btn { padding: 9px 20px; font-size: 13.5px; }
+
+    /* ── Hero ── */
+    .hero { text-align: center; padding: 72px 24px 0; position: relative; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 9px;
+      background: #FFFFFF; border: 1px solid var(--line); border-radius: 999px;
+      padding: 7px 16px; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft);
+      box-shadow: 0 4px 14px rgba(12, 27, 54, 0.05);
+    }
+    .eyebrow .gem { width: 14px; height: 14px; border-radius: 4px; background: var(--aurora); flex-shrink: 0; }
+    .hero h1 {
+      font-size: clamp(34px, 5.4vw, 58px); font-weight: 700; line-height: 1.08;
+      max-width: 820px; margin: 26px auto 0;
+    }
+    .hero h1 .aurora-text {
+      background: var(--aurora); -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .hero .sub {
+      max-width: 640px; margin: 22px auto 0; font-size: 17.5px; color: var(--ink-soft);
+    }
+    .hero .cta-row { display: flex; gap: 14px; justify-content: center; margin-top: 32px; flex-wrap: wrap; }
+    .hero .fine {
+      margin-top: 26px; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-mute);
     }
 
-    .trust-strip {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 0.7rem;
-      color: #52647c;
-      font-size: 0.92rem;
+    /* ── Scene ── */
+    .scene-wrap { margin-top: 8px; position: relative; }
+    .scene-wrap svg { display: block; width: 100%; height: auto; }
+
+    @keyframes flowdash { to { stroke-dashoffset: -44; } }
+    @keyframes bob { from { transform: translateY(0); } to { transform: translateY(-14px); } }
+    @keyframes bob2 { from { transform: translateY(-8px); } to { transform: translateY(6px); } }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+    @keyframes ringpulse {
+      0% { transform: scale(0.5); opacity: 0.8; }
+      100% { transform: scale(1.9); opacity: 0; }
+    }
+    @keyframes sweep {
+      0% { transform: rotate(-32deg); }
+      50% { transform: rotate(32deg); }
+      100% { transform: rotate(-32deg); }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .flow { animation: flowdash 2.2s linear infinite; }
+      .drone-a { animation: bob 3.4s ease-in-out infinite alternate; }
+      .drone-b { animation: bob2 4.1s ease-in-out infinite alternate; }
+      .blink { animation: blink 2.2s ease-in-out infinite; }
+      .blink-slow { animation: blink 3.4s ease-in-out infinite; }
+      .ring { transform-box: fill-box; transform-origin: center; animation: ringpulse 2.8s ease-out infinite; }
+      .ring.r2 { animation-delay: 1.4s; }
+      .dish { transform-box: fill-box; transform-origin: 50% 88%; animation: sweep 7s ease-in-out infinite; }
     }
 
-    .trust-strip span {
-      padding: 0.42rem 0.85rem;
-      border: 1px solid rgba(15, 124, 255, 0.14);
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.9);
-      color: #354761;
-      font-weight: 600;
-      box-shadow: 0 8px 20px rgba(20, 42, 74, 0.045);
+    /* ── Sections ── */
+    section.block { padding: 96px 0 0; }
+    .section-head { text-align: center; max-width: 720px; margin: 0 auto 44px; }
+    .kicker {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--ink-mute); margin-bottom: 14px;
     }
+    .section-head h2 { font-size: clamp(26px, 3.6vw, 40px); font-weight: 700; line-height: 1.15; }
+    .section-head p { margin: 16px auto 0; max-width: 620px; font-size: 16px; }
 
-    .observability-panel {
-      position: relative;
-      max-width: 1040px;
-      margin: 2rem auto 0;
-      border: 1px solid rgba(126, 151, 185, 0.24);
-      border-radius: 30px;
-      padding: 1rem;
-      background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(239, 246, 255, 0.94));
-      box-shadow: 0 34px 90px rgba(23, 55, 100, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    /* problem cards */
+    .risk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+    .risk-card {
+      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 26px 24px; box-shadow: 0 6px 22px rgba(12, 27, 54, 0.05);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
     }
-
-    .panel-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.7rem 0.75rem 1rem;
-      color: #61728a;
-      font-size: 0.83rem;
-      font-weight: 700;
+    .risk-card:hover { transform: translateY(-4px); box-shadow: 0 16px 34px rgba(12, 27, 54, 0.1); }
+    .risk-card .icon {
+      width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px; color: var(--signal); background: rgba(33, 181, 228, 0.12);
     }
+    .risk-card:nth-child(2) .icon { color: var(--amber); background: rgba(233, 162, 59, 0.13); }
+    .risk-card:nth-child(3) .icon { color: #E14D68; background: rgba(225, 77, 104, 0.1); }
+    .risk-card:nth-child(4) .icon { color: var(--violet); background: rgba(122, 90, 248, 0.11); }
+    .risk-card h3 { font-size: 17px; margin-bottom: 8px; }
+    .risk-card p { margin: 0; font-size: 13.5px; line-height: 1.6; }
 
-    .dots {
-      display: flex;
-      gap: 0.35rem;
+    /* product frame */
+    .product-frame {
+      background: linear-gradient(160deg, #12224A 0%, #0B1730 70%);
+      border-radius: 28px; padding: clamp(26px, 4vw, 48px);
+      display: grid; grid-template-columns: minmax(240px, 5fr) 7fr; gap: clamp(24px, 4vw, 48px);
+      align-items: center; position: relative; overflow: hidden;
+      box-shadow: 0 30px 70px rgba(12, 27, 54, 0.35);
     }
-
-    .dots i {
-      width: 0.6rem;
-      height: 0.6rem;
-      border-radius: 999px;
-      background: #d5e0ef;
+    .product-frame::before {
+      content: ""; position: absolute; top: 0; left: 48px; right: 48px; height: 2px;
+      background: linear-gradient(90deg, transparent, #21B5E4 25%, #7B8CFF 55%, #A66BFF 80%, transparent);
+      opacity: 0.9;
     }
-
-    .dots i:nth-child(1) {
-      background: #ff6b6b;
+    .product-frame .pf-copy h2 { color: #EDF2FC; font-size: clamp(24px, 3vw, 34px); line-height: 1.15; }
+    .product-frame .pf-kicker {
+      font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.18em;
+      text-transform: uppercase; color: #6FD6F7; margin-bottom: 14px;
     }
-
-    .dots i:nth-child(2) {
-      background: #ffca3a;
+    .product-frame p { color: #9AA9CB; font-size: 15px; }
+    .product-frame ul { list-style: none; padding: 0; margin: 18px 0 26px; }
+    .product-frame li {
+      color: #C4D0E8; font-size: 14px; padding: 7px 0 7px 26px; position: relative;
     }
-
-    .dots i:nth-child(3) {
-      background: #00b894;
+    .product-frame li::before {
+      content: ""; position: absolute; left: 0; top: 13px; width: 14px; height: 3px;
+      border-radius: 2px; background: var(--aurora);
     }
-
-    .metric,
-    .trace-card,
-    .risk-card,
-    .timeline-card,
-    .feature-card,
-    .usecase-card,
-    .risk-box,
-    .hero-note {
-      border: 1px solid rgba(126, 151, 185, 0.18);
-      background: rgba(255, 255, 255, 0.92);
-      border-radius: 20px;
-      padding: 1.35rem;
-      line-height: 1.55;
-      box-shadow: 0 16px 40px rgba(23, 55, 100, 0.07);
-    }
-
-    .metric strong,
-    .timeline-card strong {
+    .product-frame .shot {
+      border-radius: 14px; border: 1px solid rgba(111, 214, 247, 0.25);
+      box-shadow: 0 20px 60px rgba(2, 6, 18, 0.6);
       display: block;
-      font-size: 2rem;
-      letter-spacing: -0.05em;
-      color: #07111f;
-      margin: 0.2rem 0;
     }
 
-    .metric span,
-    .trace-card span,
-    .risk-card span,
-    .timeline-card span {
-      color: #64748b;
-      font-size: 0.82rem;
+    /* evidence chain */
+    .chain {
+      background: var(--card); border: 1px solid var(--line); border-radius: 24px;
+      padding: 40px clamp(20px, 4vw, 56px) 34px; box-shadow: 0 10px 34px rgba(12, 27, 54, 0.06);
     }
-
-    .trace-card {
-      grid-column: span 2;
+    .chain-track { position: relative; margin-top: 34px; }
+    .chain-line { position: absolute; top: 13px; left: 6%; right: 6%; height: 3px; border-radius: 3px; background: var(--line); }
+    .chain-line .dash {
+      position: absolute; inset: 0; border-radius: 3px;
+      background: var(--aurora); opacity: 0.9;
+      -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 14px, transparent 14px 30px);
+      mask-image: repeating-linear-gradient(90deg, #000 0 14px, transparent 14px 30px);
     }
-
-    .trace-line {
-      display: grid;
-      grid-template-columns: 85px 1fr auto;
-      gap: 0.65rem;
-      align-items: center;
-      padding: 0.6rem 0;
-      border-bottom: 1px solid rgba(126, 151, 185, 0.16);
-      font-size: 0.84rem;
-      color: #27384f;
+    @keyframes chainflow { to { -webkit-mask-position: 60px 0; mask-position: 60px 0; } }
+    @media (prefers-reduced-motion: no-preference) {
+      .chain-line .dash { animation: chainflow 1.8s linear infinite; }
     }
-
-    .trace-line:last-child {
-      border-bottom: 0;
+    .chain-steps { display: flex; justify-content: space-between; position: relative; }
+    .chain-step { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 16%; min-width: 0; }
+    .chain-dot {
+      width: 28px; height: 28px; border-radius: 50%; background: #FFFFFF;
+      border: 3px solid var(--signal); box-shadow: 0 0 0 5px rgba(33, 181, 228, 0.14);
+      display: flex; align-items: center; justify-content: center;
     }
+    .chain-dot i { width: 10px; height: 10px; border-radius: 50%; background: var(--signal); }
+    .chain-step:last-child .chain-dot { border-color: var(--violet); box-shadow: 0 0 0 5px rgba(122, 90, 248, 0.14); }
+    .chain-step:last-child .chain-dot i { background: var(--violet); }
+    .chain-step span { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft); text-align: center; line-height: 1.4; }
+    .chain-note { text-align: center; margin-top: 30px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--signal); letter-spacing: 0.04em; }
 
-    .badge {
-      border-radius: 999px;
-      padding: 0.22rem 0.5rem;
-      background: rgba(0, 184, 148, 0.12);
-      color: #00866d;
-      font-size: 0.72rem;
-      font-weight: 800;
+    /* bento */
+    .bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .tile {
+      border-radius: 20px; padding: 26px 24px; min-height: 190px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      transition: transform 0.18s ease;
     }
-
-    .badge.warn {
-      background: rgba(255, 199, 44, 0.2);
-      color: #9a6b00;
+    .tile:hover { transform: translateY(-4px); }
+    .tile h3 { font-size: 19px; line-height: 1.25; margin-bottom: 10px; }
+    .tile p { margin: 0; font-size: 13px; line-height: 1.6; }
+    .tile-cream { background: var(--card); border: 1px solid var(--line); }
+    .tile-cream p { color: var(--ink-soft); }
+    .tile-cyan { background: #DDF3FB; }
+    .tile-cyan h3 { color: #093A4E; }
+    .tile-cyan p { color: #2E5D70; }
+    .tile-night { background: var(--night); }
+    .tile-night h3 { color: #EDF2FC; }
+    .tile-night p { color: #9AA9CB; }
+    .tile-violet { background: #E9E3FD; }
+    .tile-violet h3 { color: #2C1E63; }
+    .tile-violet p { color: #55479A; }
+    .tile-brand {
+      background: var(--night); align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
     }
-
-    .badge.risk {
-      background: rgba(255, 107, 107, 0.14);
-      color: #c43636;
+    .tile-brand::after {
+      content: ""; position: absolute; inset: -40%;
+      background: radial-gradient(circle at 50% 50%, rgba(123, 140, 255, 0.22), transparent 60%);
     }
-
-    .hero-notes {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
-      margin-top: 1.4rem;
+    .tile-brand .gem-big {
+      width: 74px; height: 74px; border-radius: 22px; background: var(--aurora);
+      box-shadow: 0 0 40px rgba(59, 199, 240, 0.5); position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: center;
     }
-
-    .hero-note,
-    .risk-box,
-    .feature-card,
-    .usecase-card {
-      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    .tile .tile-tag {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.14em;
+      text-transform: uppercase; margin-bottom: 12px; display: block;
     }
+    .tile-cream .tile-tag { color: var(--signal); }
+    .tile-cyan .tile-tag { color: #0A7CA3; }
+    .tile-night .tile-tag { color: #6FD6F7; }
+    .tile-violet .tile-tag { color: #6C4FE0; }
 
-    .hero-note:hover,
-    .risk-box:hover,
-    .feature-card:hover,
-    .usecase-card:hover {
-      transform: translateY(-4px);
-      border-color: rgba(15, 124, 255, 0.28);
-      box-shadow: 0 24px 58px rgba(15, 124, 255, 0.12);
+    /* integrations */
+    .chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 860px; margin: 0 auto; }
+    .chip {
+      background: #FFFFFF; border: 1px solid var(--line); border-radius: 999px;
+      padding: 9px 18px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--ink);
+      box-shadow: 0 4px 12px rgba(12, 27, 54, 0.04); white-space: nowrap;
     }
+    .chip.hl { border-color: rgba(33, 181, 228, 0.5); color: #0A7CA3; background: #EFFAFE; }
 
-    section.block {
-      padding-top: clamp(4.5rem, 9vw, 8rem);
-      padding-bottom: 1rem;
+    /* use cases */
+    .usecase-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+    .usecase {
+      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 28px 26px; display: flex; flex-direction: column; gap: 14px;
+      box-shadow: 0 6px 22px rgba(12, 27, 54, 0.05);
     }
-
-    .section-heading {
-      max-width: 780px;
-      margin-bottom: 2.4rem;
+    .usecase .role {
+      align-self: flex-start; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+      letter-spacing: 0.12em; text-transform: uppercase; color: #0A7CA3;
+      background: #EFFAFE; border: 1px solid rgba(33, 181, 228, 0.35); border-radius: 999px; padding: 4px 12px;
     }
+    .usecase h3 { font-size: 18px; }
+    .usecase p { margin: 0; font-size: 14px; flex: 1; }
+    .usecase a { font-weight: 600; font-size: 14px; }
 
-    .section-heading h2 {
-      font-size: clamp(2rem, 4vw, 3.6rem);
-      letter-spacing: -0.055em;
-      margin-bottom: 0.75rem;
-    }
-
-    .section-heading p,
-    section p {
-      color: #53657e;
-    }
-
-    .problem-card {
-      padding: clamp(1.4rem, 3vw, 2.2rem);
-      border-radius: 30px;
-      border: 1px solid rgba(126, 151, 185, 0.18);
-      background:
-        radial-gradient(circle at top right, rgba(255, 199, 44, 0.2), transparent 320px),
-        radial-gradient(circle at bottom left, rgba(15, 124, 255, 0.12), transparent 290px),
-        #ffffff;
-      box-shadow: 0 24px 70px rgba(23, 55, 100, 0.1);
-    }
-
-    .risk-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
-      gap: 1.15rem;
-      margin-top: 1.6rem;
-    }
-
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1.15rem;
-    }
-
-    .feature-icon {
-      width: 2.6rem;
-      height: 2.6rem;
-      display: grid;
-      place-items: center;
-      border-radius: 14px;
-      background: rgba(15, 124, 255, 0.09);
-      margin-bottom: 1rem;
-      color: #075fd0;
-    }
-
-    .risk-icon {
-      width: 2.4rem;
-      height: 2.4rem;
-      display: grid;
-      place-items: center;
-      border-radius: 12px;
-      background: rgba(255, 107, 107, 0.1);
-      color: #c43636;
-      margin-bottom: 0.85rem;
-    }
-
-    .panel-shot {
-      display: block;
-      width: 100%;
-      height: auto;
-      border-radius: 18px;
-      border: 1px solid rgba(126, 151, 185, 0.22);
-    }
-
-    .mini-shot {
-      display: block;
-      width: 100%;
-      height: auto;
-      border-radius: 12px;
-      border: 1px solid rgba(126, 151, 185, 0.2);
-      margin: 0.6rem 0 0.9rem;
-      box-shadow: 0 14px 34px rgba(23, 55, 100, 0.12);
-    }
-
-    .usecase-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-    }
-
-    .usecase-card {
-      min-height: 220px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .usecase-card a {
-      color: #0f7cff;
-      font-weight: 800;
-    }
-
-    .role-pill {
-      width: fit-content;
-      border: 1px solid rgba(15, 124, 255, 0.2);
-      color: #075fd0;
-      background: rgba(15, 124, 255, 0.08);
-      border-radius: 999px;
-      padding: 0.28rem 0.6rem;
-      font-size: 0.78rem;
-      font-weight: 800;
-      margin-bottom: 1rem;
-    }
-
+    /* demo band */
     .demo-band {
-      margin-top: 4rem;
-      border: 1px solid rgba(15, 124, 255, 0.2);
-      border-radius: 34px;
-      padding: clamp(1.6rem, 5vw, 3rem);
-      background:
-        radial-gradient(circle at 15vw 20vh, rgba(15, 124, 255, 0.16), transparent 290px),
-        radial-gradient(circle at 80vw 0, rgba(0, 184, 148, 0.18), transparent 320px),
-        linear-gradient(135deg, #ffffff, #eef7ff);
-      display: grid;
-      grid-template-columns: 1.25fr 0.75fr;
-      gap: 2rem;
-      align-items: center;
-      box-shadow: 0 28px 80px rgba(23, 55, 100, 0.13);
+      background: linear-gradient(160deg, #12224A 0%, #0B1730 75%);
+      border-radius: 28px; padding: clamp(30px, 5vw, 56px);
+      display: grid; grid-template-columns: 1.1fr 0.9fr; gap: clamp(24px, 4vw, 56px);
+      align-items: center; position: relative; overflow: hidden;
+      box-shadow: 0 30px 70px rgba(12, 27, 54, 0.35);
+    }
+    .demo-band::before {
+      content: ""; position: absolute; top: 0; left: 48px; right: 48px; height: 2px;
+      background: linear-gradient(90deg, transparent, #21B5E4 25%, #7B8CFF 55%, #A66BFF 80%, transparent);
+    }
+    .demo-band h2 { color: #EDF2FC; font-size: clamp(24px, 3.4vw, 36px); line-height: 1.15; }
+    .demo-band p { color: #9AA9CB; font-size: 15.5px; margin: 16px 0 26px; }
+    .demo-band .shot { border-radius: 14px; border: 1px solid rgba(111, 214, 247, 0.25); box-shadow: 0 20px 60px rgba(2, 6, 18, 0.6); }
+
+    /* contact */
+    .contact-card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 24px;
+      padding: clamp(28px, 4vw, 48px); box-shadow: 0 10px 34px rgba(12, 27, 54, 0.06);
+      max-width: 860px; margin: 0 auto;
+    }
+    .contact-card h2 { font-size: clamp(24px, 3vw, 32px); }
+    .contact-card .sub { margin: 12px 0 28px; }
+    .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .contact-grid textarea, .contact-grid button { grid-column: 1 / -1; }
+    input, textarea {
+      width: 100%; background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+      padding: 13px 16px; font-family: 'Inter', sans-serif; font-size: 14.5px; color: var(--ink);
+      transition: border-color 0.15s ease;
+    }
+    input:focus, textarea:focus { outline: none; border-color: var(--signal); }
+    textarea { min-height: 110px; resize: vertical; }
+    .contact-grid .btn { justify-content: center; }
+
+    footer { padding: 60px 24px 40px; text-align: center; }
+    footer .foot-brand { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); font-family: 'Space Grotesk', sans-serif; font-weight: 700; }
+    footer p { font-size: 13px; color: var(--ink-mute); margin-top: 10px; }
+    footer .motto { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-mute); }
+
+    /* ── Scroll reveals ──────────────────────────────────────────────────
+       Elements tagged .reveal rise into place when they enter the viewport
+       (IntersectionObserver adds .on). Stagger with .d1–.d5. */
+    .reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.7s cubic-bezier(0.2, 0.65, 0.25, 1), transform 0.7s cubic-bezier(0.2, 0.65, 0.25, 1); }
+    .reveal.on { opacity: 1; transform: none; }
+    .reveal.d1 { transition-delay: 0.08s; }
+    .reveal.d2 { transition-delay: 0.16s; }
+    .reveal.d3 { transition-delay: 0.24s; }
+    .reveal.d4 { transition-delay: 0.32s; }
+    .reveal.d5 { transition-delay: 0.4s; }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
     }
 
-    .demo-band h2 {
-      font-size: clamp(2rem, 4vw, 3.5rem);
-      letter-spacing: -0.055em;
-      margin-bottom: 0.7rem;
+    /* chain dots light up in sequence once the section scrolls in */
+    .chain-dot, .chain-step span { transition: opacity 0.5s ease, box-shadow 0.5s ease, border-color 0.5s ease; }
+    .chain.armed .chain-dot { border-color: var(--line); box-shadow: none; opacity: 0.45; }
+    .chain.armed .chain-dot i { opacity: 0; transition: opacity 0.5s ease; }
+    .chain.armed .chain-step span { opacity: 0.4; }
+    .chain.armed .chain-step.lit .chain-dot { border-color: var(--signal); box-shadow: 0 0 0 5px rgba(33, 181, 228, 0.14); opacity: 1; }
+    .chain.armed .chain-step.lit:last-child .chain-dot { border-color: var(--violet); box-shadow: 0 0 0 5px rgba(122, 90, 248, 0.14); }
+    .chain.armed .chain-step.lit .chain-dot i { opacity: 1; }
+    .chain.armed .chain-step.lit span { opacity: 1; }
+
+    /* ── Live evidence flow (Agent → MCP → Slack/DB) ───────────────────── */
+    .liveflow {
+      background: var(--card); border: 1px solid var(--line); border-radius: 24px;
+      padding: clamp(20px, 3.5vw, 40px); box-shadow: 0 10px 34px rgba(12, 27, 54, 0.06);
+      position: relative; overflow: hidden;
+    }
+    .liveflow::before {
+      content: ""; position: absolute; top: 0; left: 40px; right: 40px; height: 2px;
+      background: linear-gradient(90deg, transparent, #21B5E4 30%, #A66BFF 70%, transparent); opacity: 0.55;
+    }
+    .liveflow svg { display: block; width: 100%; height: auto; }
+    .liveflow .fpath { stroke-dasharray: 6 10; }
+    .lf-caption {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin-top: 18px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-mute);
+      flex-wrap: wrap; text-align: center;
+    }
+    .lf-caption .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #17B877; flex-shrink: 0; }
+    @media (prefers-reduced-motion: no-preference) {
+      .lf-caption .live-dot { animation: blink 2s ease-in-out infinite; }
     }
 
-    .mini-dashboard {
-      border: 1px solid rgba(126, 151, 185, 0.18);
-      border-radius: 22px;
-      padding: 1rem;
-      background: rgba(255, 255, 255, 0.82);
-      box-shadow: 0 18px 44px rgba(23, 55, 100, 0.08);
+    /* responsive */
+    @media (max-width: 900px) {
+      .nav-links { display: none; }
+      .product-frame, .demo-band { grid-template-columns: 1fr; }
+      .bento { grid-template-columns: 1fr 1fr; }
+      .chain-steps { flex-wrap: wrap; gap: 18px; justify-content: center; }
+      .chain-step { width: 30%; }
+      .chain-line { display: none; }
     }
-
-    .mini-dashboard span {
-      color: #64748b;
-      font-weight: 800;
-    }
-
-    .mini-dashboard strong {
-      color: #07111f;
-    }
-
-    section[aria-label="Subscribe example"] {
-      padding-top: 2rem;
-      padding-bottom: 3rem;
-    }
-
-    section[aria-label="Subscribe example"] article {
-      border: 1px solid rgba(126, 151, 185, 0.18);
-      border-radius: 30px;
-      background: #ffffff;
-      box-shadow: 0 28px 80px rgba(23, 55, 100, 0.12);
-    }
-
-    .contact-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
-    }
-
-    input,
-    textarea {
-      box-shadow: 0 10px 24px rgba(23, 55, 100, 0.045);
-    }
-
-    textarea {
-      grid-column: span 2;
-      min-height: 150px;
-    }
-
-    footer.container {
-      text-align: center;
-      padding-top: 2.6rem;
-      padding-bottom: 3.2rem;
-      margin-top: 2rem;
-      border-top: 1px solid rgba(126, 151, 185, 0.18);
-      color: #64748b;
-    }
-
-    footer a {
-      color: #41516a;
-    }
-
-    @media (max-width: 980px) {
-      .ui-grid,
-      .risk-list,
-      .feature-grid,
-      .usecase-grid,
-      .hero-notes {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .demo-band {
-        grid-template-columns: 1fr;
-      }
-
-      .trace-card {
-        grid-column: span 2;
-      }
-    }
-
-    @media (max-width: 700px) {
-      nav.container-fluid ul:last-child li:nth-child(1),
-      nav.container-fluid ul:last-child li:nth-child(2) {
-        display: none;
-      }
-
-      .ui-grid,
-      .risk-list,
-      .feature-grid,
-      .usecase-grid,
-      .hero-notes,
-      .contact-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .trace-card {
-        grid-column: span 1;
-      }
-
-      .trace-line {
-        grid-template-columns: 1fr;
-        gap: 0.2rem;
-      }
-
-      textarea {
-        grid-column: span 1;
-      }
+    @media (max-width: 600px) {
+      .bento { grid-template-columns: 1fr; }
+      .contact-grid { grid-template-columns: 1fr; }
+      .chain-step { width: 44%; }
+      section.block { padding-top: 68px; }
     }
   </style>
 </head>
 
 <body>
-  <nav class="container-fluid">
-    <ul>
-      <li><strong style="display:inline-flex;align-items:center;gap:0.5rem"><img src="/favicon.svg" alt="" width="22" height="22"> ObserveAgents</strong></li>
-    </ul>
-    <ul>
-      <li><a href="#features">Features</a></li>
-      <li><a href="#use-cases">Use Cases</a></li>
-      <li><a href="/tour.html">Watch the Tour</a></li>
-      <li><a href="/goal.html">Our Goal</a></li>
-      <li><a href="https://demo.observeagents.ai" target="_blank" rel="noopener" role="button">Try our Demo</a></li>
-    </ul>
+  <nav>
+    <div class="nav-inner">
+      <a class="brand" href="/">
+        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+          <defs><linearGradient id="lg-nav" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#21B5E4"/><stop offset="55%" stop-color="#7B8CFF"/><stop offset="100%" stop-color="#A66BFF"/>
+          </linearGradient></defs>
+          <rect x="1" y="1" width="22" height="22" rx="7" fill="url(#lg-nav)"/>
+          <path d="M5 12.5 H8.4 L10.5 7.5 L13.5 16.5 L15.6 11 H19" stroke="#0B1730" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        ObserveAgents
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Platform</a></li>
+        <li><a href="#use-cases">Use Cases</a></li>
+        <li><a href="/tour.html">Watch the Tour</a></li>
+        <li><a href="/goal.html">Our Goal</a></li>
+      </ul>
+      <div class="nav-cta">
+        <a class="btn btn-outline" href="#contact">Talk to us</a>
+        <a class="btn btn-primary" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try our Demo <span class="arrow">→</span></a>
+      </div>
+    </div>
   </nav>
 
-  <main class="container">
-    <div class="grid">
-      <section>
-        <div class="hero">
-          <span class="eyebrow"><span class="pulse"></span> Runtime visibility for AI agent teams</span>
-
-          <hgroup>
-            <h2>See what your AI agents are actually doing.</h2>
-            <h3>ObserveAgents turns OpenTelemetry runtime evidence into an agent inventory, security findings, and Gateway control recommendations.</h3>
-          </hgroup>
-
-          <p class="lead">
-            Built for teams shipping AI agents. Connect OpenTelemetry, discover your agents, inspect runtime behavior, detect risky patterns, and review what needs control — before it becomes a production problem. <strong>Observe first. Control only what matters.</strong>
-          </p>
-
-          <div class="cta-row">
-            <a href="https://demo.observeagents.ai" target="_blank" rel="noopener" role="button">Try our Demo</a>
-            <a class="secondary-link" href="/tour.html">Watch the product tour →</a>
-            <a class="secondary-link" href="#problem">See the risk model</a>
-          </div>
-
-          <div class="trust-strip" aria-label="Platform principles">
-            <span>OpenTelemetry-native</span>
-            <span>Runtime evidence</span>
-            <span>Security intelligence</span>
-            <span>Control recommendations</span>
-          </div>
-        </div>
-
-        <aside class="observability-panel" aria-label="ObserveAgents product interface preview">
-          <div class="panel-top">
-            <div class="dots"><i></i><i></i><i></i></div>
-            <span>Live agent operations</span>
-          </div>
-
-          <img class="panel-shot" src="/hero-dashboard.png"
-            alt="ObserveAgents dashboard — runtime activity, findings by severity, latency distribution, and gateway control candidates"
-            width="1440" height="940">
-        </aside>
-
-        <div class="hero-notes">
-          <article class="hero-note">
-            <h3>Built for teams building agents</h3>
-            <p>Translate complex agent behavior into clear runtime, security, and reliability signals your team can act on.</p>
-          </article>
-
-          <article class="hero-note">
-            <h3>Designed for controlled autonomy</h3>
-            <p>Every recommendation is evidence-backed and observe-only — nothing is blocked or rerouted until control is explicitly configured through the Gateway.</p>
-          </article>
-        </div>
-      </section>
+  <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+  <header class="hero">
+    <span class="eyebrow"><span class="gem"></span> The runtime visibility &amp; control layer for AI agents</span>
+    <h1>Your AI agents are already at&nbsp;work.<br><span class="aurora-text">Now you can watch them work.</span></h1>
+    <p class="sub">
+      ObserveAgents turns OpenTelemetry runtime evidence into an agent inventory, security
+      findings, and Gateway control recommendations. Observe first. Control only what matters.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try our Demo <span class="arrow">→</span></a>
+      <a class="btn btn-outline" href="/tour.html">Watch the product tour</a>
     </div>
+    <div class="fine">OpenTelemetry-native · Runtime evidence · Observe-only until configured</div>
+  </header>
 
+  <!-- ── Isometric scene: the agent city at dusk ──────────────────────────── -->
+  <div class="scene-wrap" aria-hidden="true">
+    <svg viewBox="0 0 1600 620" preserveAspectRatio="xMidYMax slice">
+      <defs>
+        <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#182A54"/>
+          <stop offset="100%" stop-color="#0B1730"/>
+        </linearGradient>
+        <linearGradient id="aur" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#21B5E4"/><stop offset="55%" stop-color="#7B8CFF"/><stop offset="100%" stop-color="#A66BFF"/>
+        </linearGradient>
+        <radialGradient id="beaconGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#35C9F0" stop-opacity="0.5"/>
+          <stop offset="100%" stop-color="#35C9F0" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="violetGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#A66BFF" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="#A66BFF" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- the hill -->
+      <path d="M0,330 C 220,250 420,368 700,338 C 980,308 1130,208 1380,262 C 1480,284 1550,272 1600,258 L1600,620 L0,620 Z" fill="url(#hill)"/>
+      <path d="M0,330 C 220,250 420,368 700,338 C 980,308 1130,208 1380,262 C 1480,284 1550,272 1600,258" fill="none" stroke="#2A3E73" stroke-width="2.5"/>
+
+      <!-- roads -->
+      <path d="M60,560 C 320,470 520,500 760,432 C 950,378 1120,362 1330,330" fill="none" stroke="#1C2E5C" stroke-width="30" stroke-linecap="round"/>
+      <path d="M60,560 C 320,470 520,500 760,432 C 950,378 1120,362 1330,330" fill="none" stroke="url(#aur)" stroke-width="3" stroke-dasharray="12 32" stroke-linecap="round" class="flow" opacity="0.9"/>
+      <path d="M420,620 C 470,540 560,500 700,470 C 830,442 900,420 980,388" fill="none" stroke="#1C2E5C" stroke-width="24" stroke-linecap="round"/>
+      <path d="M420,620 C 470,540 560,500 700,470 C 830,442 900,420 980,388" fill="none" stroke="url(#aur)" stroke-width="2.5" stroke-dasharray="10 28" stroke-linecap="round" class="flow" opacity="0.75"/>
+
+      <!-- ══ services district (left) — three prisms ══ -->
+      <!-- tall building -->
+      <g>
+        <polygon points="300,290 356,318 300,346 244,318" fill="#3A4F88"/>
+        <polygon points="356,318 356,428 300,456 300,346" fill="#1B2A52"/>
+        <polygon points="244,318 244,428 300,456 300,346" fill="#24365F"/>
+        <!-- windows -->
+        <g fill="#46D3F5">
+          <rect x="312" y="360" width="9" height="12" rx="1.5" opacity="0.9" class="blink-slow"/>
+          <rect x="330" y="352" width="9" height="12" rx="1.5" opacity="0.75"/>
+          <rect x="312" y="386" width="9" height="12" rx="1.5" opacity="0.55"/>
+          <rect x="330" y="378" width="9" height="12" rx="1.5" opacity="0.9"/>
+          <rect x="256" y="352" width="9" height="12" rx="1.5" opacity="0.8" class="blink"/>
+          <rect x="272" y="362" width="9" height="12" rx="1.5" opacity="0.5"/>
+          <rect x="256" y="380" width="9" height="12" rx="1.5" opacity="0.65"/>
+        </g>
+        <line x1="300" y1="290" x2="300" y2="258" stroke="#46D3F5" stroke-width="2.5"/>
+        <circle cx="300" cy="254" r="4" fill="#46D3F5" class="blink"/>
+      </g>
+      <!-- mid building -->
+      <g>
+        <polygon points="410,352 454,374 410,396 366,374" fill="#33477F"/>
+        <polygon points="454,374 454,446 410,468 410,396" fill="#192851"/>
+        <polygon points="366,374 366,446 410,468 410,396" fill="#22345D"/>
+        <g fill="#46D3F5">
+          <rect x="420" y="400" width="8" height="10" rx="1.5" opacity="0.85"/>
+          <rect x="436" y="392" width="8" height="10" rx="1.5" opacity="0.6" class="blink-slow"/>
+          <rect x="378" y="400" width="8" height="10" rx="1.5" opacity="0.8"/>
+        </g>
+      </g>
+      <!-- small building -->
+      <g>
+        <polygon points="192,400 232,420 192,440 152,420" fill="#33477F"/>
+        <polygon points="232,420 232,474 192,494 192,440" fill="#192851"/>
+        <polygon points="152,420 152,474 192,494 192,440" fill="#22345D"/>
+        <g fill="#46D3F5">
+          <rect x="202" y="432" width="8" height="9" rx="1.5" opacity="0.85" class="blink"/>
+          <rect x="166" y="430" width="8" height="9" rx="1.5" opacity="0.6"/>
+        </g>
+      </g>
+
+      <!-- ══ observatory tower (right of center) ══ -->
+      <g>
+        <circle cx="1100" cy="240" r="150" fill="url(#violetGlow)"/>
+        <!-- tower body -->
+        <polygon points="1100,196 1140,216 1100,236 1060,216" fill="#3A4F88"/>
+        <polygon points="1140,216 1140,356 1100,376 1100,236" fill="#1B2A52"/>
+        <polygon points="1060,216 1060,356 1100,376 1100,236" fill="#24365F"/>
+        <!-- observation ring on the roofline -->
+        <polygon points="1100,194 1142,215 1100,236 1058,215" fill="none" stroke="#7B8CFF" stroke-width="2" opacity="0.55"/>
+        <!-- windows -->
+        <g fill="#46D3F5">
+          <rect x="1112" y="250" width="10" height="13" rx="2" opacity="0.9" class="blink-slow"/>
+          <rect x="1126" y="242" width="10" height="13" rx="2" opacity="0.6"/>
+          <rect x="1112" y="280" width="10" height="13" rx="2" opacity="0.75"/>
+          <rect x="1074" y="248" width="10" height="13" rx="2" opacity="0.85" class="blink"/>
+          <rect x="1074" y="278" width="10" height="13" rx="2" opacity="0.55"/>
+        </g>
+        <!-- radar dish -->
+        <g class="dish">
+          <line x1="1100" y1="196" x2="1100" y2="156" stroke="#9AA9CB" stroke-width="3"/>
+          <path d="M1078,150 A 26 26 0 0 1 1122,150 L1100,162 Z" fill="#A78BFA"/>
+          <circle cx="1100" cy="146" r="4.5" fill="#E9EEF9"/>
+        </g>
+        <circle cx="1100" cy="140" r="7" fill="#A66BFF" class="blink"/>
+      </g>
+
+      <!-- ══ data beacon (campfire analogue) ══ -->
+      <g>
+        <circle cx="700" cy="470" r="70" fill="url(#beaconGlow)"/>
+        <circle cx="700" cy="470" r="26" fill="none" stroke="#35C9F0" stroke-width="2" class="ring"/>
+        <circle cx="700" cy="470" r="26" fill="none" stroke="#35C9F0" stroke-width="2" class="ring r2"/>
+        <polygon points="700,448 716,456 700,464 684,456" fill="#46D3F5"/>
+        <polygon points="716,456 716,470 700,478 700,464" fill="#0FA5D8"/>
+        <polygon points="684,456 684,470 700,478 700,464" fill="#1B8FBB"/>
+      </g>
+
+      <!-- ══ agent robots ══ -->
+      <!-- robot 1: on main road, carrying violet data cube -->
+      <g>
+        <polygon points="560,466 578,475 560,484 542,475" fill="#46D3F5"/>
+        <polygon points="578,475 578,497 560,506 560,484" fill="#149CC9"/>
+        <polygon points="542,475 542,497 560,506 560,484" fill="#22B4E2"/>
+        <rect x="549" y="478" width="12" height="7" rx="3.5" fill="#0B1730"/>
+        <circle cx="553" cy="481.5" r="1.6" fill="#7FE3FF"/>
+        <circle cx="558.5" cy="481.5" r="1.6" fill="#7FE3FF"/>
+        <line x1="560" y1="466" x2="560" y2="456" stroke="#46D3F5" stroke-width="2"/>
+        <circle cx="560" cy="453" r="3" fill="#A66BFF" class="blink"/>
+        <!-- carried cube -->
+        <g class="drone-b">
+          <polygon points="588,462 600,468 588,474 576,468" fill="#C4B5FD"/>
+          <polygon points="600,468 600,478 588,484 588,474" fill="#7A5AF8"/>
+          <polygon points="576,468 576,478 588,484 588,474" fill="#9377FB"/>
+        </g>
+      </g>
+      <!-- robot 2: near tower -->
+      <g>
+        <polygon points="960,404 976,412 960,420 944,412" fill="#46D3F5"/>
+        <polygon points="976,412 976,432 960,440 960,420" fill="#149CC9"/>
+        <polygon points="944,412 944,432 960,440 960,420" fill="#22B4E2"/>
+        <rect x="950" y="415" width="11" height="6.5" rx="3" fill="#0B1730"/>
+        <circle cx="953.5" cy="418" r="1.5" fill="#7FE3FF"/>
+        <circle cx="958.5" cy="418" r="1.5" fill="#7FE3FF"/>
+        <line x1="960" y1="404" x2="960" y2="395" stroke="#46D3F5" stroke-width="2"/>
+        <circle cx="960" cy="392" r="2.6" fill="#35C9F0" class="blink-slow"/>
+      </g>
+      <!-- robot 3: left path -->
+      <g>
+        <polygon points="250,520 266,528 250,536 234,528" fill="#A78BFA"/>
+        <polygon points="266,528 266,548 250,556 250,536" fill="#6B4EE6"/>
+        <polygon points="234,528 234,548 250,556 250,536" fill="#8B6EF5"/>
+        <rect x="240" y="531" width="11" height="6.5" rx="3" fill="#0B1730"/>
+        <circle cx="243.5" cy="534" r="1.5" fill="#E4D9FF"/>
+        <circle cx="248.5" cy="534" r="1.5" fill="#E4D9FF"/>
+      </g>
+
+      <!-- ══ signal masts (the "trees") ══ -->
+      <g stroke="#31406B" stroke-width="3">
+        <line x1="880" y1="330" x2="880" y2="286"/>
+        <line x1="1260" y1="356" x2="1260" y2="316"/>
+        <line x1="480" y1="392" x2="480" y2="356"/>
+        <line x1="1450" y1="330" x2="1450" y2="296"/>
+      </g>
+      <g fill="none" stroke="#46D3F5" stroke-width="1.6" opacity="0.75">
+        <path d="M872,296 A 10 10 0 0 1 888,296"/>
+        <path d="M868,290 A 15 15 0 0 1 892,290"/>
+        <path d="M1252,326 A 10 10 0 0 1 1268,326"/>
+        <path d="M472,366 A 10 10 0 0 1 488,366"/>
+        <path d="M1442,306 A 10 10 0 0 1 1458,306"/>
+      </g>
+      <g fill="#46D3F5">
+        <circle cx="880" cy="284" r="3.2" class="blink"/>
+        <circle cx="1260" cy="314" r="3" class="blink-slow"/>
+        <circle cx="480" cy="354" r="3" class="blink-slow"/>
+        <circle cx="1450" cy="294" r="3" class="blink"/>
+      </g>
+
+      <!-- iso crystals (violet accents) -->
+      <g>
+        <polygon points="1330,300 1346,326 1330,344 1314,326" fill="#8B6EF5"/>
+        <polygon points="1330,300 1346,326 1330,344" fill="#6B4EE6"/>
+        <polygon points="820,392 832,412 820,426 808,412" fill="#8B6EF5"/>
+        <polygon points="820,392 832,412 820,426" fill="#6B4EE6"/>
+        <polygon points="130,470 144,494 130,510 116,494" fill="#8B6EF5"/>
+        <polygon points="130,470 144,494 130,510" fill="#6B4EE6"/>
+      </g>
+
+      <!-- ══ drones (agents in flight) ══ -->
+      <g class="drone-a">
+        <g transform="translate(430,150)">
+          <line x1="-26" y1="-8" x2="-8" y2="-2" stroke="#31406B" stroke-width="3"/>
+          <line x1="26" y1="-8" x2="8" y2="-2" stroke="#31406B" stroke-width="3"/>
+          <ellipse cx="-30" cy="-10" rx="16" ry="3.5" fill="#9AA9CB" opacity="0.65"/>
+          <ellipse cx="30" cy="-10" rx="16" ry="3.5" fill="#9AA9CB" opacity="0.65"/>
+          <polygon points="0,-8 16,0 0,8 -16,0" fill="#46D3F5"/>
+          <polygon points="16,0 16,10 0,18 0,8" fill="#149CC9"/>
+          <polygon points="-16,0 -16,10 0,18 0,8" fill="#22B4E2"/>
+          <circle cx="0" cy="2" r="3" fill="#0B1730"/>
+          <line x1="0" y1="18" x2="0" y2="28" stroke="#46D3F5" stroke-width="1.6"/>
+          <polygon points="0,26 9,30.5 0,35 -9,30.5" fill="#C4B5FD"/>
+          <polygon points="9,30.5 9,38 0,42.5 0,35" fill="#7A5AF8"/>
+          <polygon points="-9,30.5 -9,38 0,42.5 0,35" fill="#9377FB"/>
+        </g>
+      </g>
+      <g class="drone-b">
+        <g transform="translate(1310,130) scale(1.15)">
+          <line x1="-26" y1="-8" x2="-8" y2="-2" stroke="#31406B" stroke-width="3"/>
+          <line x1="26" y1="-8" x2="8" y2="-2" stroke="#31406B" stroke-width="3"/>
+          <ellipse cx="-30" cy="-10" rx="16" ry="3.5" fill="#9AA9CB" opacity="0.65"/>
+          <ellipse cx="30" cy="-10" rx="16" ry="3.5" fill="#9AA9CB" opacity="0.65"/>
+          <polygon points="0,-8 16,0 0,8 -16,0" fill="#A78BFA"/>
+          <polygon points="16,0 16,10 0,18 0,8" fill="#6B4EE6"/>
+          <polygon points="-16,0 -16,10 0,18 0,8" fill="#8B6EF5"/>
+          <circle cx="0" cy="2" r="3" fill="#0B1730"/>
+          <line x1="0" y1="18" x2="0" y2="26" stroke="#A78BFA" stroke-width="1.6"/>
+          <polygon points="0,24 9,28.5 0,33 -9,28.5" fill="#7FE3FF"/>
+          <polygon points="9,28.5 9,36 0,40.5 0,33" fill="#149CC9"/>
+          <polygon points="-9,28.5 -9,36 0,40.5 0,33" fill="#22B4E2"/>
+        </g>
+      </g>
+      <g class="drone-a" style="animation-delay: 1.2s">
+        <g transform="translate(780,110) scale(0.8)">
+          <line x1="-26" y1="-8" x2="-8" y2="-2" stroke="#8A99BC" stroke-width="3"/>
+          <line x1="26" y1="-8" x2="8" y2="-2" stroke="#8A99BC" stroke-width="3"/>
+          <ellipse cx="-30" cy="-10" rx="16" ry="3.5" fill="#B9C4DC" opacity="0.8"/>
+          <ellipse cx="30" cy="-10" rx="16" ry="3.5" fill="#B9C4DC" opacity="0.8"/>
+          <polygon points="0,-8 16,0 0,8 -16,0" fill="#46D3F5"/>
+          <polygon points="16,0 16,10 0,18 0,8" fill="#149CC9"/>
+          <polygon points="-16,0 -16,10 0,18 0,8" fill="#22B4E2"/>
+          <circle cx="0" cy="2" r="3" fill="#0B1730"/>
+        </g>
+      </g>
+
+      <!-- signpost like willow's -->
+      <g stroke="#31406B" stroke-width="4" stroke-linecap="round">
+        <line x1="1210" y1="470" x2="1210" y2="420"/>
+      </g>
+      <g fill="#33477F" stroke="#46D3F5" stroke-width="1" stroke-opacity="0.4">
+        <polygon points="1210,420 1256,420 1266,428 1256,436 1210,436"/>
+        <polygon points="1210,444 1170,444 1160,452 1170,460 1210,460"/>
+      </g>
+      <g font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#BFF0FF">
+        <text x="1215" y="431">RUNTIME</text>
+        <text x="1173" y="455">GATEWAY</text>
+      </g>
+    </svg>
+  </div>
+
+  <main>
+    <!-- ── Problem ──────────────────────────────────────────────────────── -->
     <section id="problem" class="block">
-      <div class="problem-card">
-        <div class="section-heading">
-          <h2>AI agents are moving fast. Your visibility is not.</h2>
-          <p>
-            Autonomous agents can make decisions, call tools, access systems, and trigger workflows across your product. Without runtime visibility, teams inherit black-box actions, unknown failures, security exposure, and ownership gaps.
-          </p>
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Agents are already in your org</div>
+          <h2>AI agents are moving fast.<br>Your visibility is not.</h2>
+          <p>Autonomous agents make decisions, call tools, access systems, and trigger workflows across your product. Without runtime visibility, teams inherit four problems at once.</p>
         </div>
-
-        <div class="risk-list">
-          <article class="risk-box">
-            <div class="risk-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></div>
+        <div class="risk-grid">
+          <article class="risk-card">
+            <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></div>
             <h3>Black-box actions</h3>
             <p>Know which agent acted, what it touched, and which downstream system changed.</p>
           </article>
-
-          <article class="risk-box">
-            <div class="risk-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+          <article class="risk-card">
+            <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
             <h3>Unknown failures</h3>
             <p>Spot failed tasks, retries, degraded outcomes, and reliability patterns before they spread.</p>
           </article>
-
-          <article class="risk-box">
-            <div class="risk-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></div>
+          <article class="risk-card">
+            <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></div>
             <h3>Security exposure</h3>
             <p>Detect unusual access, risky tool calls, data movement, and policy exceptions.</p>
           </article>
-
-          <article class="risk-box">
-            <div class="risk-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <article class="risk-card">
+            <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
             <h3>Ownership gaps</h3>
             <p>Know who owns every agent, with auditable context for decisions, reviews, and controls.</p>
           </article>
@@ -684,124 +739,418 @@
       </div>
     </section>
 
-    <section id="features" class="block">
-      <div class="section-heading">
-        <h2>From runtime evidence to recommended control.</h2>
-        <p>One evidence chain: OpenTelemetry traces flow into Runtime, power Asset and Security Intelligence, and end in the Gateway Control Center — clear workflows for product, engineering, and agent teams.</p>
-      </div>
-
-      <div class="feature-grid">
-        <article class="feature-card">
-          <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
-          <h3>Runtime Evidence</h3>
-          <p>OpenTelemetry-native execution timelines — sessions, per-step waterfalls, tool and MCP calls, errors, and latency. Prompts and responses are never stored.</p>
-        </article>
-
-        <article class="feature-card">
-          <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg></div>
-          <h3>AI Asset Intelligence</h3>
-          <p>Every AI system discovered from traces — ownership, capabilities, dependencies, and findings, with the agents that need attention sorted first.</p>
-        </article>
-
-        <article class="feature-card">
-          <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></div>
-          <h3>AI Agent Security Intelligence</h3>
-          <p>Agent-specific runtime security findings — MCP tools in production, database and API reach, unknown providers, missing ownership, repeated failures.</p>
-        </article>
-
-        <article class="feature-card">
-          <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></div>
-          <h3>Overview</h3>
-          <p>Your agents at a glance — assets discovered, agents with findings, ownership gaps, and control candidates, each backed by the evidence behind it.</p>
-        </article>
-
-        <article class="feature-card">
-          <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="m12 8 4 4-4 4"/></svg></div>
-          <h3>Gateway Control Center</h3>
-          <p>Risky agents become review candidates with suggested controls. Observe can recommend — the Gateway enforces only when explicitly configured.</p>
-        </article>
+    <!-- ── Product frame ────────────────────────────────────────────────── -->
+    <section id="product" class="block">
+      <div class="container">
+        <div class="product-frame">
+          <div class="pf-copy">
+            <div class="pf-kicker">One console · The whole evidence chain</div>
+            <h2>Mission control for your AI fleet.</h2>
+            <p>Every page answers one question from runtime evidence — never from guesswork.</p>
+            <ul>
+              <li>Runtime — what actually executed, step by step</li>
+              <li>Asset Intelligence — every agent, discovered from traces</li>
+              <li>Security Intelligence — which agents are risky, and why</li>
+              <li>Rules &amp; Alerts — thresholds over runtime behavior</li>
+              <li>Gateway Control — recommendations, never auto-enforcement</li>
+            </ul>
+            <a class="btn btn-light" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Explore the live demo →</a>
+          </div>
+          <img class="shot" src="/product-overview.png" alt="The ObserveAgents console — overview with the evidence chain, live metrics, runtime activity, and findings by severity" width="1512" height="920">
+        </div>
       </div>
     </section>
 
-    <section id="use-cases" class="block">
-      <div class="section-heading">
-        <h2>Built for the teams shipping AI agents.</h2>
-        <p>Different teams need different answers. ObserveAgents gives each one the right level of visibility without hiding the technical truth.</p>
-      </div>
+    <!-- ── Live evidence flow ───────────────────────────────────────────── -->
+    <section id="live-evidence" class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Runtime evidence, live</div>
+          <h2>Every hop your agent makes<br>becomes evidence.</h2>
+          <p>An agent reaches an MCP server, the MCP server reaches Slack or your database — ObserveAgents records each hop as a span. Identifiers and timings only, never prompts or responses.</p>
+        </div>
+        <div class="liveflow">
+          <svg viewBox="0 0 1000 340" aria-label="Animated diagram: an agent calls an MCP server, which calls Slack and a database; ObserveAgents records each hop as a span">
+            <defs>
+              <linearGradient id="pk" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#21B5E4"/><stop offset="100%" stop-color="#A66BFF"/>
+              </linearGradient>
+            </defs>
 
-      <div class="usecase-grid">
-        <article class="usecase-card">
-          <div>
-            <div class="role-pill">For product teams</div>
+            <!-- connection paths -->
+            <path id="lf-p1" class="fpath" d="M228,170 C 310,170 350,170 424,170" fill="none" stroke="#C9D6EC" stroke-width="2.5"/>
+            <path id="lf-p2" class="fpath" d="M576,148 C 660,118 700,96 784,80" fill="none" stroke="#C9D6EC" stroke-width="2.5"/>
+            <path id="lf-p3" class="fpath" d="M576,192 C 660,222 700,244 784,260" fill="none" stroke="#C9D6EC" stroke-width="2.5"/>
+
+            <!-- observation lines from the watcher -->
+            <g stroke="#A66BFF" stroke-width="1.4" stroke-dasharray="3 6" fill="none">
+              <path d="M500,64 C 420,90 360,130 326,164" opacity="0.25">
+                <animate attributeName="opacity" values="0.25;0.8;0.25" dur="0.8s" begin="lf-f1.end"/>
+              </path>
+              <path d="M500,64 C 560,80 640,96 676,112" opacity="0.25">
+                <animate attributeName="opacity" values="0.25;0.8;0.25" dur="0.8s" begin="lf-f2.end"/>
+              </path>
+              <path d="M500,64 C 570,110 640,180 672,216" opacity="0.25">
+                <animate attributeName="opacity" values="0.25;0.8;0.25" dur="0.8s" begin="lf-f3.end"/>
+              </path>
+            </g>
+
+            <!-- the watcher (ObserveAgents) -->
+            <g>
+              <circle cx="500" cy="42" r="26" fill="none" stroke="#A66BFF" stroke-opacity="0.3" stroke-width="1.5">
+                <animate attributeName="r" values="24;30;24" dur="3s" repeatCount="indefinite"/>
+              </circle>
+              <rect x="486" y="28" width="28" height="28" rx="9" fill="url(#pk)"/>
+              <path d="M492 42.5 H497 L499.5 36.5 L503 48 L505.5 41 H508" stroke="#0B1730" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <text x="500" y="86" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10.5" fill="#7183A3" letter-spacing="1">OBSERVEAGENTS</text>
+            </g>
+
+            <!-- Agent node -->
+            <g>
+              <rect x="68" y="132" width="160" height="76" rx="16" fill="#F4F7FC" stroke="#DCE4F2" stroke-width="1.5">
+                <animate attributeName="stroke" values="#21B5E4;#DCE4F2" dur="1.2s" begin="lf-f1.begin"/>
+              </rect>
+              <rect x="86" y="152" width="34" height="28" rx="9" fill="#21B5E4"/>
+              <circle cx="97" cy="166" r="3" fill="#0B1730"/>
+              <circle cx="109" cy="166" r="3" fill="#0B1730"/>
+              <line x1="103" y1="152" x2="103" y2="144" stroke="#21B5E4" stroke-width="2"/>
+              <circle cx="103" cy="142" r="2.5" fill="#A66BFF"/>
+              <text x="132" y="165" font-family="'Space Grotesk', sans-serif" font-size="14" font-weight="600" fill="#0C1B36">Agent</text>
+              <text x="132" y="183" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#7183A3">support-agent</text>
+            </g>
+
+            <!-- MCP node -->
+            <g>
+              <rect x="424" y="132" width="152" height="76" rx="16" fill="#F4F7FC" stroke="#DCE4F2" stroke-width="1.5">
+                <animate attributeName="stroke" values="#7A5AF8;#DCE4F2" dur="1.2s" begin="lf-f1.end"/>
+              </rect>
+              <rect x="442" y="152" width="30" height="30" rx="8" fill="#EDE8FE" stroke="#7A5AF8" stroke-width="1.5"/>
+              <path d="M451 160 v6 M463 160 v6 M449 166 h16 v5 a8 8 0 0 1 -16 0 z" fill="none" stroke="#7A5AF8" stroke-width="1.8" stroke-linecap="round"/>
+              <text x="482" y="165" font-family="'Space Grotesk', sans-serif" font-size="14" font-weight="600" fill="#0C1B36">MCP Server</text>
+              <text x="482" y="183" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#7183A3">tools gateway</text>
+            </g>
+
+            <!-- Slack node -->
+            <g>
+              <rect x="784" y="44" width="152" height="70" rx="16" fill="#F4F7FC" stroke="#DCE4F2" stroke-width="1.5">
+                <animate attributeName="stroke" values="#21B5E4;#DCE4F2" dur="1.2s" begin="lf-f2.end"/>
+              </rect>
+              <rect x="801" y="61" width="30" height="30" rx="8" fill="#E7F6EC" stroke="#17B877" stroke-width="1.5"/>
+              <path d="M810 68 v10 M822 74 h-10 M814 64 h4 M812 84 h8" stroke="#17B877" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+              <text x="841" y="76" font-family="'Space Grotesk', sans-serif" font-size="14" font-weight="600" fill="#0C1B36">Slack</text>
+              <text x="841" y="94" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#7183A3">postMessage</text>
+            </g>
+
+            <!-- Database node -->
+            <g>
+              <rect x="784" y="226" width="152" height="70" rx="16" fill="#F4F7FC" stroke="#DCE4F2" stroke-width="1.5">
+                <animate attributeName="stroke" values="#E9A23B;#DCE4F2" dur="1.2s" begin="lf-f3.end"/>
+              </rect>
+              <g stroke="#E9A23B" stroke-width="1.8" fill="none">
+                <ellipse cx="816" cy="249" rx="13" ry="5"/>
+                <path d="M803,249 v18 a13 5 0 0 0 26 0 v-18"/>
+                <path d="M803,258 a13 5 0 0 0 26 0"/>
+              </g>
+              <text x="841" y="258" font-family="'Space Grotesk', sans-serif" font-size="14" font-weight="600" fill="#0C1B36">Database</text>
+              <text x="841" y="276" font-family="'JetBrains Mono', monospace" font-size="9.5" fill="#7183A3">read-only query</text>
+            </g>
+
+            <!-- packets -->
+            <g opacity="0">
+              <circle r="7" fill="url(#pk)"/>
+              <circle r="12" fill="none" stroke="#21B5E4" stroke-opacity="0.4" stroke-width="2"/>
+              <animateMotion id="lf-f1" dur="1.6s" begin="1s;lf-f3.end+2s" keyPoints="0;1" keyTimes="0;1" calcMode="linear">
+                <mpath href="#lf-p1"/>
+              </animateMotion>
+              <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.08;0.9;1" dur="1.6s" begin="lf-f1.begin"/>
+            </g>
+            <g opacity="0">
+              <circle r="7" fill="url(#pk)"/>
+              <circle r="12" fill="none" stroke="#7A5AF8" stroke-opacity="0.4" stroke-width="2"/>
+              <animateMotion id="lf-f2" dur="1.6s" begin="lf-f1.end+0.4s">
+                <mpath href="#lf-p2"/>
+              </animateMotion>
+              <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.08;0.9;1" dur="1.6s" begin="lf-f2.begin"/>
+            </g>
+            <g opacity="0">
+              <circle r="7" fill="url(#pk)"/>
+              <circle r="12" fill="none" stroke="#E9A23B" stroke-opacity="0.5" stroke-width="2"/>
+              <animateMotion id="lf-f3" dur="1.6s" begin="lf-f2.end+0.4s">
+                <mpath href="#lf-p3"/>
+              </animateMotion>
+              <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.08;0.9;1" dur="1.6s" begin="lf-f3.begin"/>
+            </g>
+
+            <!-- span chips recorded under each hop -->
+            <g opacity="0" font-family="'JetBrains Mono', monospace" font-size="10">
+              <rect x="252" y="196" width="150" height="24" rx="12" fill="#EFFAFE" stroke="#9BDDF2"/>
+              <circle cx="268" cy="208" r="3.5" fill="#17B877"/>
+              <text x="280" y="212" fill="#0A7CA3">mcp.connect · 62ms</text>
+              <animate attributeName="opacity" values="0;1" dur="0.35s" begin="lf-f1.end" fill="freeze"/>
+              <animate attributeName="opacity" values="1;0" dur="0.25s" begin="lf-f1.begin" fill="freeze"/>
+            </g>
+            <g opacity="0" font-family="'JetBrains Mono', monospace" font-size="10">
+              <rect x="608" y="52" width="176" height="24" rx="12" fill="#EFFAFE" stroke="#9BDDF2"/>
+              <circle cx="624" cy="64" r="3.5" fill="#17B877"/>
+              <text x="636" y="68" fill="#0A7CA3">slack.post · 210ms</text>
+              <animate attributeName="opacity" values="0;1" dur="0.35s" begin="lf-f2.end" fill="freeze"/>
+              <animate attributeName="opacity" values="1;0" dur="0.25s" begin="lf-f1.begin" fill="freeze"/>
+            </g>
+            <g opacity="0" font-family="'JetBrains Mono', monospace" font-size="10">
+              <rect x="608" y="264" width="176" height="24" rx="12" fill="#FDF6E9" stroke="#EDD3A2"/>
+              <circle cx="624" cy="276" r="3.5" fill="#E9A23B"/>
+              <text x="636" y="280" fill="#9A6A1B">db.query · 48ms</text>
+              <animate attributeName="opacity" values="0;1" dur="0.35s" begin="lf-f3.end" fill="freeze"/>
+              <animate attributeName="opacity" values="1;0" dur="0.25s" begin="lf-f1.begin" fill="freeze"/>
+            </g>
+          </svg>
+          <div class="lf-caption">
+            <span class="live-dot"></span>
+            <span>agent → mcp → slack · 3 spans recorded · one trace, end to end — this is the evidence everything else is built from</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Evidence chain ───────────────────────────────────────────────── -->
+    <section id="features" class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">How it works</div>
+          <h2>From runtime evidence<br>to recommended control.</h2>
+          <p>One evidence chain: OpenTelemetry traces flow into Runtime, power Asset and Security Intelligence, and end in the Gateway Control Center.</p>
+        </div>
+        <div class="chain">
+          <div class="chain-track">
+            <div class="chain-line"><div class="dash"></div></div>
+            <div class="chain-steps">
+              <div class="chain-step"><div class="chain-dot"><i></i></div><span>OTel / OTLP<br>traces in</span></div>
+              <div class="chain-step"><div class="chain-dot"><i></i></div><span>Runtime<br>what executed</span></div>
+              <div class="chain-step"><div class="chain-dot"><i></i></div><span>Assets<br>inventory</span></div>
+              <div class="chain-step"><div class="chain-dot"><i></i></div><span>Security<br>risk, explained</span></div>
+              <div class="chain-step"><div class="chain-dot"><i></i></div><span>Rules<br>alerts</span></div>
+              <div class="chain-step"><div class="chain-dot"><i></i></div><span>Gateway<br>control, reviewed</span></div>
+            </div>
+          </div>
+          <div class="chain-note">Observe first. Control only what matters. Nothing is ever blocked automatically.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Bento ────────────────────────────────────────────────────────── -->
+    <section class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">The platform</div>
+          <h2>Send traces once.<br>Everything else appears.</h2>
+          <p>No manual registration, no tagging, no proprietary SDK. Your existing OpenTelemetry stack is the only integration.</p>
+        </div>
+        <div class="bento">
+          <div class="tile tile-cream">
+            <div><span class="tile-tag">Runtime</span>
+              <h3>See what actually executed</h3>
+              <p>Session-grouped traces and per-step execution waterfalls. Structural metadata only — prompts and responses are never stored.</p>
+            </div>
+          </div>
+          <div class="tile tile-cyan">
+            <div><span class="tile-tag">Asset Intelligence</span>
+              <h3>Agents inventory themselves</h3>
+              <p>Every AI system discovered from traces — ownership, capabilities, dependencies, and findings, worst first.</p>
+            </div>
+          </div>
+          <div class="tile tile-night">
+            <div><span class="tile-tag">Security Intelligence</span>
+              <h3>Risk, with the evidence attached</h3>
+              <p>MCP tools in production, database and API reach, unknown providers, missing owners — every finding shows why it fired.</p>
+            </div>
+          </div>
+          <div class="tile tile-violet">
+            <div><span class="tile-tag">Rules &amp; Alerts</span>
+              <h3>Thresholds over behavior</h3>
+              <p>Built-in detection rules evaluate during the intelligence run — never inside ingestion, never enforcing anything.</p>
+            </div>
+          </div>
+          <div class="tile tile-brand" aria-hidden="true">
+            <div class="gem-big">
+              <svg width="40" height="40" viewBox="0 0 24 24"><path d="M4 13 H8.4 L10.5 7 L13.5 17.5 L15.6 11.5 H20" stroke="#0B1730" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <div class="tile tile-night">
+            <div><span class="tile-tag">Gateway Control</span>
+              <h3>Control only what matters</h3>
+              <p>Risky agents become review candidates with suggested controls. The Gateway enforces only when you explicitly configure it.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Integrations ─────────────────────────────────────────────────── -->
+    <section class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Integrations</div>
+          <h2>Works with the stack<br>you already have.</h2>
+          <p>OpenTelemetry is the pipe; the GenAI semantic conventions are the language. If your agents emit traces, ObserveAgents understands them.</p>
+        </div>
+        <div class="chips">
+          <span class="chip hl">OpenTelemetry</span>
+          <span class="chip hl">OTel Collector</span>
+          <span class="chip hl">GenAI SemConv</span>
+          <span class="chip">MCP telemetry</span>
+          <span class="chip">Claude Code telemetry</span>
+          <span class="chip">OpenAI SDK</span>
+          <span class="chip">LangChain</span>
+          <span class="chip">CrewAI</span>
+          <span class="chip">LiteLLM</span>
+          <span class="chip">Vercel AI SDK</span>
+          <span class="chip">Any OpenAI-compatible client</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Use cases ────────────────────────────────────────────────────── -->
+    <section id="use-cases" class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Who it's for</div>
+          <h2>Built for the teams<br>shipping AI agents.</h2>
+          <p>Different teams need different answers. ObserveAgents gives each one the right level of visibility without hiding the technical truth.</p>
+        </div>
+        <div class="usecase-grid">
+          <article class="usecase">
+            <span class="role">For product teams</span>
             <h3>Understand what your agents do</h3>
             <p>See which agents run, what they touch, where they get stuck, and which product workflows depend on autonomous activity.</p>
-          </div>
-          <a href="https://demo.observeagents.ai" target="_blank" rel="noopener">View the demo →</a>
-        </article>
-
-        <article class="usecase-card">
-          <div>
-            <div class="role-pill">For engineers</div>
+            <a href="https://demo.observeagents.ai" target="_blank" rel="noopener">View the demo →</a>
+          </article>
+          <article class="usecase">
+            <span class="role">For engineers</span>
             <h3>Debug agent behavior from evidence</h3>
             <p>Runtime timelines, per-step execution waterfalls, tool and MCP calls, errors, and latency — straight from your OpenTelemetry traces.</p>
-          </div>
-          <a href="https://demo.observeagents.ai" target="_blank" rel="noopener">Explore runtime evidence →</a>
-        </article>
-
-        <article class="usecase-card">
-          <div>
-            <div class="role-pill">For security engineers</div>
+            <a href="https://demo.observeagents.ai" target="_blank" rel="noopener">Explore runtime evidence →</a>
+          </article>
+          <article class="usecase">
+            <span class="role">For security engineers</span>
             <h3>Detect risky agent behavior</h3>
             <p>Investigate runtime security findings — MCP usage, database and API reach, unknown providers, ownership gaps — and review the agents recommended for control.</p>
-          </div>
-          <a href="https://demo.observeagents.ai" target="_blank" rel="noopener">Review security signals →</a>
-        </article>
+            <a href="https://demo.observeagents.ai" target="_blank" rel="noopener">Review security signals →</a>
+          </article>
+        </div>
       </div>
     </section>
 
-    <section id="demo" class="demo-band">
-      <div>
-        <h2>Ready to make agent activity observable?</h2>
-        <p>
-          Try the ObserveAgents demo: nothing to install — runtime timelines, the AI asset inventory, security findings, and the Gateway Control Center, all on realistic synthetic data.
-        </p>
-        <a href="https://demo.observeagents.ai" target="_blank" rel="noopener" role="button">Try our Demo</a>
+    <!-- ── Demo band ────────────────────────────────────────────────────── -->
+    <section id="demo" class="block">
+      <div class="container">
+        <div class="demo-band">
+          <div>
+            <h2>Ready to make agent activity observable?</h2>
+            <p>Try the ObserveAgents demo: nothing to install — runtime timelines, the AI asset inventory, security findings, and the Gateway Control Center, all on realistic synthetic data.</p>
+            <a class="btn btn-light" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try our Demo →</a>
+          </div>
+          <img class="shot" src="/product-overview.png" alt="ObserveAgents demo dashboard preview" width="1512" height="920">
+        </div>
       </div>
+    </section>
 
-      <div class="mini-dashboard" aria-label="Demo preview metrics">
-        <span>Demo environment</span>
-        <img class="mini-shot" src="/hero-dashboard.png" alt="ObserveAgents demo dashboard preview">
-        <p><strong>Runtime evidence mapped</strong> across critical agent workflows</p>
-        <p><strong>Fewer unresolved failures</strong> across monitored workflows</p>
+    <!-- ── Contact ──────────────────────────────────────────────────────── -->
+    <section id="contact" class="block" style="padding-bottom: 40px;">
+      <div class="container">
+        <div class="contact-card">
+          <h2>Talk to the ObserveAgents team.</h2>
+          <p class="sub">Share a few details and we'll help you explore the demo for your AI agent environment.</p>
+          <form id="contact-form" class="contact-grid">
+            <input type="text" id="firstname" name="firstname" placeholder="Name" aria-label="Name" required />
+            <input type="email" id="email" name="email" placeholder="Work email" aria-label="Work email" required />
+            <input type="text" id="company" name="company" placeholder="Company" aria-label="Company" required />
+            <input type="text" id="role" name="role" placeholder="Role" aria-label="Role" required />
+            <textarea id="message" name="message" placeholder="Message" aria-label="Message"></textarea>
+            <button type="submit" class="btn btn-primary">Send request <span class="arrow">→</span></button>
+          </form>
+        </div>
       </div>
     </section>
   </main>
 
-  <section id="contact" aria-label="Subscribe example">
-    <div class="container">
-      <article>
-        <hgroup>
-          <h2>Talk to the ObserveAgents team.</h2>
-          <h3>Share a few details and we’ll help you explore the demo for your AI agent environment.</h3>
-        </hgroup>
-
-        <form id="contact-form" class="grid contact-grid">
-          <input type="text" id="firstname" name="firstname" placeholder="Name" aria-label="Name" required />
-          <input type="email" id="email" name="email" placeholder="Work Email" aria-label="Work Email" required />
-          <input type="text" id="company" name="company" placeholder="Company" aria-label="Company" required />
-          <input type="text" id="role" name="role" placeholder="Role" aria-label="Role" required />
-          <textarea id="message" name="message" placeholder="Message" aria-label="Message"></textarea>
-          <button type="submit">Try our Demo</button>
-        </form>
-      </article>
-    </div>
-  </section>
-
-  <footer class="container">
-    <small><a href="#">ObserveAgents</a> • <a href="#contact">Talk to the ObserveAgents team</a></small>
+  <footer>
+    <span class="foot-brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="1" y="1" width="22" height="22" rx="7" fill="url(#lg-nav)"/>
+        <path d="M5 12.5 H8.4 L10.5 7.5 L13.5 16.5 L15.6 11 H19" stroke="#0B1730" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      ObserveAgents
+    </span>
+    <p class="motto">Observe first · Control only what matters</p>
+    <p><a href="/tour.html">Watch the Tour</a> · <a href="/goal.html">Our Goal</a> · <a href="#contact">Talk to the team</a></p>
   </footer>
 
   <script>
+    // ── Scroll reveals ───────────────────────────────────────────────────
+    // Tag section pieces as .reveal, stagger siblings, then let an
+    // IntersectionObserver flip them on. Reduced motion renders instantly.
+    (function () {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      var groups = ['.risk-grid', '.bento', '.usecase-grid', '.chain-steps'];
+      groups.forEach(function (sel) {
+        document.querySelectorAll(sel).forEach(function (grid) {
+          Array.prototype.forEach.call(grid.children, function (el, i) {
+            el.classList.add('reveal', 'd' + Math.min(i % 6, 5));
+          });
+        });
+      });
+      document.querySelectorAll('.section-head, .product-frame, .liveflow, .chain, .chips, .demo-band, .contact-card')
+        .forEach(function (el) { el.classList.add('reveal'); });
+
+      if (reduce || !('IntersectionObserver' in window)) {
+        document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('on'); });
+      } else {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); }
+          });
+        }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+        document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+      }
+
+      // Evidence chain: dim, then light the stations left to right.
+      var chain = document.querySelector('.chain');
+      if (chain && !reduce && 'IntersectionObserver' in window) {
+        chain.classList.add('armed');
+        var lit = false;
+        var cio = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting && !lit) {
+              lit = true;
+              var steps = chain.querySelectorAll('.chain-step');
+              steps.forEach(function (s, i) {
+                setTimeout(function () { s.classList.add('lit'); }, 250 + i * 320);
+              });
+              cio.disconnect();
+            }
+          });
+        }, { threshold: 0.4 });
+        cio.observe(chain);
+      }
+
+      // Live evidence flow: pause the SMIL loop off-screen / under reduced motion.
+      var lf = document.querySelector('.liveflow svg');
+      if (lf && lf.pauseAnimations) {
+        if (reduce) {
+          lf.pauseAnimations();
+        } else if ('IntersectionObserver' in window) {
+          lf.pauseAnimations();
+          var fio = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) lf.unpauseAnimations(); else lf.pauseAnimations();
+            });
+          }, { threshold: 0.25 });
+          fio.observe(lf);
+        }
+      }
+    })();
+
     // Static site, no backend: submitting the form opens a pre-filled email.
     document.getElementById("contact-form").addEventListener("submit", function (e) {
       e.preventDefault();

@@ -13,11 +13,11 @@ import { fetchIntelligenceFindings, fetchIntelligenceAssetSummary, dismissFindin
  */
 
 const T = {
-  bg: "#F8FAFC", panel: "#FFFFFF", panelHi: "#F1F5F9",
-  border: "#E2E8F0", borderHi: "#CBD5E1",
-  text: "#0F172A", textDim: "#475569", textMute: "#64748B",
-  accent: "#16A34A", warn: "#D97706", crit: "#DC2626",
-  info: "#0891B2", purple: "#7C3AED",
+  bg: "#070A14", panel: "#0D1322", panelHi: "#141C31",
+  border: "#1D2740", borderHi: "#31406B",
+  text: "#E9EEF9", textDim: "#9AA9CB", textMute: "#5E6D90",
+  accent: "#3DDC97", warn: "#F5C544", crit: "#FF4D6D",
+  info: "#2DD4BF", purple: "#A78BFA",
 };
 const MONO = "'JetBrains Mono','IBM Plex Mono',monospace";
 const FONT = "'Geist','Söhne',-apple-system,sans-serif";

@@ -219,7 +219,7 @@ export default function SurfacesDemo({ onNavigate }) {
                   <CartesianGrid stroke={T.border} vertical={false} />
                   <XAxis dataKey="d" stroke={T.textMute} style={{ fontFamily: MONO, fontSize: 10 }} tickLine={false} />
                   <YAxis hide />
-                  <Tooltip contentStyle={{ background: "#FFFFFF", border: `1px solid ${T.border}`, borderRadius: 8, boxShadow: "0 4px 12px rgba(15,23,42,0.08)", fontFamily: MONO, fontSize: 11 }} />
+                  <Tooltip contentStyle={{ background: "#101830", border: "1px solid #31406B", borderRadius: 10, boxShadow: "0 12px 32px rgba(2,4,12,0.6)", color: "#E9EEF9", fontFamily: MONO, fontSize: 11 }} labelStyle={{ color: "#9AA9CB" }} />
                   <Area type="monotone" dataKey="v" stroke={T.purple} strokeWidth={1.5} fill="url(#sdSpend)" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -229,7 +229,7 @@ export default function SurfacesDemo({ onNavigate }) {
                 <BarChart data={FINDINGS_BARS}>
                   <CartesianGrid stroke={T.border} vertical={false} />
                   <XAxis hide /><YAxis hide />
-                  <Tooltip contentStyle={{ background: "#FFFFFF", border: `1px solid ${T.border}`, borderRadius: 8, boxShadow: "0 4px 12px rgba(15,23,42,0.08)", fontFamily: MONO, fontSize: 11 }} cursor={{ fill: `${T.purple}11` }} />
+                  <Tooltip contentStyle={{ background: "#101830", border: "1px solid #31406B", borderRadius: 10, boxShadow: "0 12px 32px rgba(2,4,12,0.6)", color: "#E9EEF9", fontFamily: MONO, fontSize: 11 }} labelStyle={{ color: "#9AA9CB" }} cursor={{ fill: `${T.purple}11` }} />
                   <Bar dataKey="v" fill={T.purple} opacity={0.7} radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

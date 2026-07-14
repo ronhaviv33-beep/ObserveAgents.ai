@@ -14,8 +14,10 @@ export default function EvidenceCard({ level = "info", title, reason, pills = []
   const color = riskColor(level);
   return (
     <div style={{
-      background: C.surface, border: `1px solid ${color}33`, borderLeft: `3px solid ${color}`,
-      borderRadius: RADIUS.md, padding: "14px 18px", display: "flex", gap: 14, alignItems: "flex-start", boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+      background: `linear-gradient(90deg, ${color}0D 0%, ${C.surface} 34%)`,
+      border: `1px solid ${color}30`, borderLeft: `3px solid ${color}`,
+      borderRadius: RADIUS.md, padding: "14px 18px", display: "flex", gap: 14, alignItems: "flex-start",
+      boxShadow: "0 1px 0 rgba(255,255,255,0.03) inset, 0 10px 30px rgba(2,4,12,0.45)",
     }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>

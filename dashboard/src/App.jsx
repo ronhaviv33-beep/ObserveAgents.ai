@@ -6,10 +6,10 @@ class PageErrorBoundary extends Component {
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 24, fontFamily: "monospace", fontSize: 13, color: "#DC2626", background: "#FFFFFF", borderRadius: 8, border: "1px solid #DC262644" }}>
+        <div style={{ padding: 24, fontFamily: "monospace", fontSize: 13, color: "#FF4D6D", background: "#0D1322", borderRadius: 8, border: "1px solid #FF4D6D44" }}>
           <strong>Page error:</strong> {String(this.state.error.message || this.state.error)}
           <br /><br />
-          <button onClick={() => this.setState({ error: null })} style={{ background: "transparent", border: "1px solid #DC2626", color: "#DC2626", padding: "4px 12px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace" }}>Retry</button>
+          <button onClick={() => this.setState({ error: null })} style={{ background: "transparent", border: "1px solid #FF4D6D", color: "#FF4D6D", padding: "4px 12px", borderRadius: 4, cursor: "pointer", fontFamily: "monospace" }}>Retry</button>
         </div>
       );
     }
@@ -167,7 +167,7 @@ function Overview({ A, events, allAgents, allTeams }) {
               <CartesianGrid stroke={T.border} vertical={false}/>
               <XAxis dataKey="date" tickFormatter={(d)=>new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric"})} stroke={T.textMute} style={{ fontFamily:FONT_MONO, fontSize:10 }}/>
               <YAxis stroke={T.textMute} style={{ fontFamily:FONT_MONO, fontSize:10 }} tickFormatter={(v)=>`$${v.toFixed(0)}`}/>
-              <Tooltip contentStyle={{ background:"#FFFFFF", border:`1px solid ${T.border}`, borderRadius:8, boxShadow:"0 4px 12px rgba(15,23,42,0.08)", fontFamily:FONT_MONO, fontSize:11 }} labelFormatter={(d)=>new Date(d).toLocaleDateString("en-US")} formatter={(v)=>[`$${v.toFixed(2)}`,"cost"]}/>
+              <Tooltip contentStyle={{ background:"#101830", border:`1px solid ${T.borderHi}`, borderRadius:8, boxShadow:"0 12px 32px rgba(2,4,12,0.6)", fontFamily:FONT_MONO, fontSize:11, color:T.text }} labelFormatter={(d)=>new Date(d).toLocaleDateString("en-US")} formatter={(v)=>[`$${v.toFixed(2)}`,"cost"]}/>
               <Area type="monotone" dataKey="cost" stroke={T.accent} strokeWidth={1.5} fill="url(#g1)"/>
             </AreaChart>
           </ResponsiveContainer>
@@ -928,7 +928,7 @@ export default function App() {
       viewingOrg={user?.is_platform_admin && viewOrgId ? allOrgs.find((o) => String(o.id) === String(viewOrgId))?.name : null}
       bp={bp} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}>
 
-      {!["dashboard","overview_hub","surfaces_demo","home","agent_inventory","discovery","governance","relationship_map","runtime","intelligence","gateway_control_center","guardrails","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
+      {!["dashboard","overview_hub","surfaces_demo","home","agent_inventory","discovery","governance","relationship_map","runtime","intelligence","telemetry_quality","rules_alerts","gateway_control_center","guardrails","security_intel","ecosystem","cost","pricing","budgets","security","chat","users","apikeys","settings","integrations","onboarding","welcome"].includes(page) && <FilterBar filters={filters} setFilters={setFilters} allTeams={allTeams} allAgents={allAgents} user={user} rolesMap={rolesMap}/>}
 
       {/* Admin-only: surface missing/invalid secrets detected at startup */}
       {user?.role === "admin" && secretWarnings.length > 0 && (

@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { C, FONT, RADIUS, microLabel } from "../ui2/tokens.js";
+import { C, FONT, RADIUS, CARD, microLabel } from "../ui2/tokens.js";
 import PageHeader from "../ui2/PageHeader.jsx";
 import Section from "../ui2/Section.jsx";
 import MetricCard from "../ui2/MetricCard.jsx";
 import StatusPill from "../ui2/StatusPill.jsx";
 import EmptyState from "../ui2/EmptyState.jsx";
+import { Gauge } from "../ui2/viz.jsx";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import { fetchTelemetryQuality, reclassifyTelemetry } from "../api.js";
 
@@ -171,8 +172,9 @@ export default function TelemetryQualityV2({ isAdmin, onNavigate }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, fontFamily: FONT.ui, maxWidth: 1240 }}>
 
-      <div>
+      <div className="oa-rise">
         <PageHeader
+          eyebrow="Observe · Signal Fidelity"
           title="Telemetry Quality"
           purpose="How well each service's telemetry classifies — which signals are missing, which custom attributes may need mapping, and which sources are unidentified.">
           <div style={{ display: "flex", gap: 4 }}>
@@ -215,7 +217,7 @@ export default function TelemetryQualityV2({ isAdmin, onNavigate }) {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+      <div className="oa-rise oa-rise-1" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
         <MetricCard label="Services reporting" value={services.length} sub={`last ${report.window_days || days} days`} />
         <MetricCard label="Fully classified spans"
           value={totals.total ? `${Math.round((totals.full / totals.total) * 100)}%` : "—"}
@@ -247,21 +249,28 @@ export default function TelemetryQualityV2({ isAdmin, onNavigate }) {
 
           {/* ── Selected service detail ─────────────────────────────────── */}
           {selected && (
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "20px 22px", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ ...CARD, padding: "20px 22px", display: "flex", flexDirection: "column", gap: 20 }}>
 
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 17, fontWeight: 700, color: C.text, fontFamily: FONT.mono, overflowWrap: "anywhere" }}>
-                    {selected.service_name}
-                  </span>
-                  <StatusPill tone={statusMeta(selected.classification_status).tone()}>
-                    {statusMeta(selected.classification_status).label}
-                  </StatusPill>
-                  {selected.environment && <StatusPill tone={C.textDim}>{selected.environment}</StatusPill>}
+              <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 17, fontWeight: 700, color: C.text, fontFamily: FONT.mono, overflowWrap: "anywhere" }}>
+                      {selected.service_name}
+                    </span>
+                    <StatusPill tone={statusMeta(selected.classification_status).tone()}>
+                      {statusMeta(selected.classification_status).label}
+                    </StatusPill>
+                    {selected.environment && <StatusPill tone={C.textDim}>{selected.environment}</StatusPill>}
+                  </div>
+                  <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, marginTop: 8 }}>
+                    telemetry quality score {selected.confidence_score != null ? `${selected.confidence_score} / 100` : "—"}
+                  </div>
                 </div>
-                <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, marginTop: 8 }}>
-                  telemetry quality score {selected.confidence_score != null ? `${selected.confidence_score} / 100` : "—"}
-                </div>
+                {selected.confidence_score != null && (
+                  <Gauge value={selected.confidence_score} max={100} size={104} thickness={10}
+                    color={statusMeta(selected.classification_status).tone()} label="quality"
+                    format={(v) => `${Math.round(v)}`} />
+                )}
               </div>
 
               <Section label="Span classification">

@@ -10,24 +10,28 @@
   <meta property="og:description" content="See what your AI agents are actually doing: runtime evidence → agent inventory → security findings → control recommendations.">
   <meta property="og:type" content="website">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --ink:      #07111F;
-      --ink-2:    #24334A;
-      --body:     #41516A;
-      --bg:       #F7FBFF;
+      --ink:      #0C1B36;
+      --ink-2:    #2C3D5F;
+      --body:     #3D4E6E;
+      --bg:       #F4F7FC;
       --bg-2:     #FFFFFF;
       --card:     #FFFFFF;
-      --line:     #DCE8F7;
-      --line-2:   #CDDDF0;
-      --brand:    #0F7CFF;
-      --brand-2:  #00B894;
-      --brand-ink:#075FD0;
-      --amber:    #FFC72C;
-      --high:     #EA580C;
-      --shadow:   0 30px 70px rgba(20, 42, 74, .12);
-      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
-      --mono: ui-monospace, "JetBrains Mono", "SF Mono", "IBM Plex Mono", Menlo, monospace;
+      --line:     #DCE4F2;
+      --line-2:   #CBD6EA;
+      --brand:    #0FA5D8;
+      --brand-2:  #7A5AF8;
+      --brand-ink:#0A7CA3;
+      --amber:    #E9A23B;
+      --high:     #FF8A4C;
+      --shadow:   0 30px 70px rgba(12, 27, 54, .13);
+      --sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+      --display: 'Space Grotesk', 'Inter', sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, "SF Mono", "IBM Plex Mono", Menlo, monospace;
       --maxw: 1160px;
       color-scheme: light;
     }
@@ -37,8 +41,8 @@
       margin: 0; font-family: var(--sans); color: var(--body); line-height: 1.6;
       -webkit-font-smoothing: antialiased;
       background:
-        radial-gradient(circle at 6vw 4vh, rgba(15,124,255,.13), transparent 460px),
-        radial-gradient(circle at 94vw 1vh, rgba(0,184,148,.13), transparent 440px),
+        radial-gradient(circle at 6vw 4vh, rgba(33,181,228,.12), transparent 460px),
+        radial-gradient(circle at 94vw 1vh, rgba(122,90,248,.11), transparent 440px),
         var(--bg);
     }
     .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 clamp(1rem, 4vw, 2.5rem); }
@@ -50,20 +54,21 @@
       border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
     }
     .bar { display: flex; align-items: center; gap: 1rem; padding: .8rem 0; }
-    .brand { display: flex; align-items: center; gap: .55rem; font-weight: 800; letter-spacing: -.03em; color: var(--ink); font-size: 1.05rem; text-decoration: none; }
-    .glyph { width: 26px; height: 26px; border-radius: 8px; flex: none; background: linear-gradient(135deg, var(--brand), var(--brand-2)); display: grid; place-items: center; box-shadow: 0 6px 16px rgba(15,124,255,.34); }
-    .glyph::after { content:""; width: 9px; height: 9px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.35); }
+    .brand { display: flex; align-items: center; gap: .55rem; font-weight: 700; font-family: var(--display); letter-spacing: -.03em; color: var(--ink); font-size: 1.05rem; text-decoration: none; }
+    .glyph { width: 26px; height: 26px; border-radius: 8px; flex: none; background: linear-gradient(135deg, #21B5E4, #7B8CFF 60%, #A66BFF); display: grid; place-items: center; box-shadow: 0 6px 16px rgba(33,181,228,.4); }
+    .glyph::after { content:""; width: 9px; height: 9px; border-radius: 50%; background: #0B1730; box-shadow: 0 0 0 3px rgba(11,23,48,.2); }
     .bar .spacer { flex: 1; }
     a.ghost { font-size: .85rem; font-weight: 700; color: var(--ink-2); text-decoration: none; border: 1px solid var(--line-2); padding: .5rem .9rem; border-radius: 10px; }
     a.cta {
-      font-size: .85rem; font-weight: 700; color: #fff; text-decoration: none;
-      padding: .55rem 1.05rem; border-radius: 10px;
-      background: linear-gradient(135deg, var(--brand), var(--brand-2));
-      box-shadow: 0 12px 26px rgba(15,124,255,.28);
+      font-size: .85rem; font-weight: 700; color: #7FE3FF; text-decoration: none;
+      padding: .55rem 1.05rem; border-radius: 999px;
+      background: #101E3F;
+      box-shadow: 0 12px 26px rgba(12,27,54,.28);
       display: inline-flex; align-items: center; gap: .4rem;
       transition: transform .15s ease, box-shadow .15s ease;
+      font-family: var(--display);
     }
-    a.cta:hover { transform: translateY(-1px); box-shadow: 0 16px 34px rgba(15,124,255,.36); }
+    a.cta:hover { transform: translateY(-1px); box-shadow: 0 16px 34px rgba(12,27,54,.36); }
 
     .hero { text-align: center; padding: clamp(2.6rem, 6vw, 4.4rem) 0 1.2rem; }
     .eyebrow {
@@ -73,8 +78,8 @@
       border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
     }
     .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-2) 30%, transparent); }
-    h1 { color: var(--ink); font-weight: 850; letter-spacing: -.035em; text-wrap: balance; font-size: clamp(2.1rem, 5.2vw, 3.5rem); line-height: 1.05; margin: 0 auto .9rem; max-width: 17ch; }
-    h1 .grad { background: linear-gradient(120deg, var(--brand), var(--brand-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    h1 { color: var(--ink); font-family: var(--display); font-weight: 700; letter-spacing: -.03em; text-wrap: balance; font-size: clamp(2.1rem, 5.2vw, 3.5rem); line-height: 1.05; margin: 0 auto .9rem; max-width: 17ch; }
+    h1 .grad { background: linear-gradient(120deg, #21B5E4, #7B8CFF 55%, #A66BFF); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .sub { font-size: clamp(1.02rem, 2.1vw, 1.2rem); max-width: 62ch; margin: 0 auto 1.5rem; color: var(--body); text-wrap: balance; }
     .hero-cta { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; }
     .trust { display: flex; gap: .5rem 1.3rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; font-family: var(--mono); font-size: .74rem; letter-spacing: .02em; color: var(--body); opacity: .82; }
@@ -84,7 +89,7 @@
     .video-band { padding: clamp(1.6rem, 4vw, 2.6rem) 0 0; }
     .video-band .vhead { text-align: center; max-width: 62ch; margin: 0 auto 1.3rem; }
     .video-band .vk { font-family: var(--mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-ink); font-weight: 700; }
-    .video-band h2 { color: var(--ink); font-size: clamp(1.5rem, 3.4vw, 2.15rem); letter-spacing: -.03em; margin: .35rem 0 0; text-wrap: balance; }
+    .video-band h2 { color: var(--ink); font-family: var(--display); font-size: clamp(1.5rem, 3.4vw, 2.15rem); letter-spacing: -.03em; margin: .35rem 0 0; text-wrap: balance; }
     .video-band video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #faf9f7; }
 
     .stage { padding: 1rem 0 clamp(3rem, 7vw, 5rem); }
@@ -100,7 +105,7 @@
     .step .n { font-family: var(--mono); font-size: .66rem; letter-spacing: .1em; color: var(--brand-ink); font-weight: 700; }
     .step .t { color: var(--ink); font-weight: 750; font-size: .94rem; letter-spacing: -.01em; }
     .step[aria-selected="true"] { border-color: transparent; box-shadow: var(--shadow), inset 0 0 0 1.5px var(--brand); }
-    .step .fill { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: linear-gradient(90deg, var(--brand), var(--brand-2)); transform-origin: left; transform: scaleX(0); opacity: 0; }
+    .step .fill { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: linear-gradient(90deg, #21B5E4, #7B8CFF 55%, #A66BFF); transform-origin: left; transform: scaleX(0); opacity: 0; }
     .step[aria-selected="true"] .fill { opacity: 1; }
     .step[aria-selected="true"].run .fill { animation: grow var(--dur, 6000ms) linear forwards; }
     @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
@@ -126,7 +131,7 @@
     .controls button:hover { border-color: var(--brand); color: var(--brand-ink); }
 
     .close { text-align: center; padding: clamp(2.6rem, 6vw, 4.2rem) 0; border-top: 1px solid var(--line); }
-    .close h2 { color: var(--ink); font-size: clamp(1.5rem, 3.4vw, 2.15rem); letter-spacing: -.03em; margin: 0 0 .5rem; text-wrap: balance; }
+    .close h2 { color: var(--ink); font-family: var(--display); font-size: clamp(1.5rem, 3.4vw, 2.15rem); letter-spacing: -.03em; margin: 0 0 .5rem; text-wrap: balance; }
     .close .line { font-family: var(--mono); color: var(--brand-ink); font-size: .92rem; margin-bottom: 1.4rem; }
     footer { text-align: center; padding: 1.6rem 0 2.4rem; font-size: .8rem; color: var(--body); }
 

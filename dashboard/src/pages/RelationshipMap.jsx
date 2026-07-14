@@ -5,23 +5,23 @@ import { relationshipEvidenceLabel } from '../discoveryStatus.js'
 import { useBreakpoint } from '../hooks/useBreakpoint.js'
 import CollapsiblePanel from '../components/CollapsiblePanel.jsx'
 
-// ── Design tokens ──────────────────────────────────────────────────────────────
+// ── Design tokens — mirrors src/ui2/tokens.js (night console) ──────────────────
 const T = {
-  bg:       '#F8FAFC',
-  panel:    '#FFFFFF',
-  panelHi:  '#F1F5F9',
-  border:   '#E2E8F0',
-  borderHi: '#CBD5E1',
-  text:     '#0F172A',
-  textDim:  '#475569',
-  textMute: '#64748B',
-  accent:   '#2563EB',
-  success:  '#16A34A',
-  warn:     '#D97706',
-  crit:     '#DC2626',
-  purple:   '#7C3AED',
-  teal:     '#0D9488',
-  info:     '#0891B2',
+  bg:       '#070A14',
+  panel:    '#0D1322',
+  panelHi:  '#141C31',
+  border:   '#1D2740',
+  borderHi: '#31406B',
+  text:     '#E9EEF9',
+  textDim:  '#9AA9CB',
+  textMute: '#5E6D90',
+  accent:   '#3BC7F0',
+  success:  '#3DDC97',
+  warn:     '#F5C544',
+  crit:     '#FF4D6D',
+  purple:   '#A78BFA',
+  teal:     '#2DD4BF',
+  info:     '#6FA8FF',
 }
 const FONT_MONO = "'JetBrains Mono', 'Fira Code', monospace"
 const FONT_SANS = "'Inter', system-ui, sans-serif"
@@ -36,8 +36,8 @@ const TYPE_META = {
   workflow:   { color: T.warn,     icon: '⚡', label: 'Workflow',   Icon: Zap },
   api:        { color: T.info,     icon: '🌐', label: 'API',        Icon: Globe },
   database:   { color: T.success,  icon: '🗄',  label: 'Database',   Icon: Database },
-  crm:        { color: '#EA580C',  icon: '📋', label: 'CRM',        Icon: ClipboardList },
-  spreadsheet:{ color: '#16A34A',  icon: '📊', label: 'Spreadsheet', Icon: Table2 },
+  crm:        { color: '#FF8A4C',  icon: '📋', label: 'CRM',        Icon: ClipboardList },
+  spreadsheet:{ color: '#3DDC97',  icon: '📊', label: 'Spreadsheet', Icon: Table2 },
   provider:   { color: T.accent,   icon: '◈',  label: 'Provider',   Icon: Cloud },
   model:      { color: T.purple,   icon: '⊞',  label: 'Model',      Icon: Cpu },
   gateway:    { color: T.success,  icon: '⊕',  label: 'Gateway',    Icon: Shield },
@@ -700,7 +700,7 @@ function FlowGraphView({ group, ordered }) {
             <span key={r.id ?? i} style={{
               position: 'absolute', left: '50%', top: y, transform: 'translate(-50%, -50%)',
               padding: '1px 8px', borderRadius: 999, fontSize: 9, fontFamily: FONT_MONO,
-              background: '#FFFFFF', color: rel.color, border: `1px solid ${rel.color}40`, whiteSpace: 'nowrap',
+              background: T.panelHi, color: rel.color, border: `1px solid ${rel.color}40`, whiteSpace: 'nowrap',
             }}>{rel.label}</span>
           )
         })}
@@ -739,8 +739,8 @@ function FlowModal({ group, onClose }) {
   const [flowView, setFlowView] = useState('path')
   const ordered = [...group.rows].sort((a, b) => relOrder(a.relationship_type) - relOrder(b.relationship_type))
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 16, boxShadow: '0 20px 50px rgba(15,23,42,0.18)', width: '100%', maxWidth: 920, maxHeight: '86vh', display: 'flex', flexDirection: 'column', fontFamily: FONT_SANS }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(2,4,12,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(2,4,12,0.65)', width: '100%', maxWidth: 920, maxHeight: '86vh', display: 'flex', flexDirection: 'column', fontFamily: FONT_SANS }}>
 
         {/* Header */}
         <div style={{ padding: '20px 24px 14px', borderBottom: `1px solid ${T.border}` }}>
@@ -762,7 +762,7 @@ function FlowModal({ group, onClose }) {
                     background: flowView === t.id ? T.panel : 'transparent',
                     border: flowView === t.id ? `1px solid ${T.border}` : '1px solid transparent',
                     color: flowView === t.id ? T.text : T.textDim,
-                    boxShadow: flowView === t.id ? '0 1px 2px rgba(15,23,42,0.06)' : 'none',
+                    boxShadow: 'none',
                     padding: '5px 14px', borderRadius: 6, fontSize: 11, fontFamily: FONT_MONO, cursor: 'pointer',
                   }}>
                   {t.label}

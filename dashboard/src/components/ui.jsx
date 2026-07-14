@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { T, FONT_UI, FONT_MONO } from "../theme.js";
 
 export const Card = ({ children, style, title, subtitle, right }) => (
-  <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:16, padding:24, boxShadow:"0 1px 2px rgba(15,23,42,0.04)", ...style }}>
+  <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:16, padding:24, boxShadow:"0 1px 2px rgba(2,4,12,0.16)", ...style }}>
     {(title||right) && (
       <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:14 }}>
         <div>

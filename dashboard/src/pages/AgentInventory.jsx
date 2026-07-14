@@ -13,11 +13,11 @@ const agentActionId = (a) => a?.id || a?.asset_key || a?.agent_id;
 
 // ─── Design tokens — mirror App.jsx T ────────────────────────────────────────
 const T = {
-  bg: "#F8FAFC", panel: "#FFFFFF", panelHi: "#F1F5F9",
-  border: "#E2E8F0", borderHi: "#CBD5E1",
-  text: "#0F172A", textDim: "#475569", textMute: "#64748B",
-  accent: "#16A34A", accentDim: "#16A34A",
-  warn: "#D97706", crit: "#DC2626", info: "#0891B2", purple: "#7C3AED",
+  bg: "#070A14", panel: "#0D1322", panelHi: "#141C31",
+  border: "#1D2740", borderHi: "#31406B",
+  text: "#E9EEF9", textDim: "#9AA9CB", textMute: "#5E6D90",
+  accent: "#3DDC97", accentDim: "#3DDC97",
+  warn: "#F5C544", crit: "#FF4D6D", info: "#2DD4BF", purple: "#A78BFA",
 };
 const FONT_UI   = "'Geist','Söhne',-apple-system,BlinkMacSystemFont,sans-serif";
 const FONT_MONO = "'JetBrains Mono','IBM Plex Mono',ui-monospace,SFMono-Regular,monospace";
@@ -101,7 +101,7 @@ const StatusPill = ({ status }) => {
 };
 
 const RISK_COLORS = {
-  critical: { fg: "#DC2626", bg: "rgba(239,68,68,0.18)" },
+  critical: { fg: "#FF4D6D", bg: "rgba(239,68,68,0.18)" },
   high:     { fg: T.crit,   bg: "rgba(239,68,68,0.14)"  },
   medium:   { fg: T.warn,   bg: "rgba(245,158,11,0.14)"  },
   low:      { fg: T.accent, bg: "rgba(34,197,94,0.14)"  },
@@ -194,8 +194,8 @@ function RiskChip({ risk, signals, capabilities }) {
             style={{
               position: "fixed", top: anchor.top, left: Math.min(anchor.left, window.innerWidth - 320),
               zIndex: 9999, width: 300,
-              background: "#FFFFFF", border: `1px solid ${fg}55`,
-              borderRadius: 8, padding: "12px 14px", boxShadow: `0 8px 32px rgba(15,23,42,0.12)`,
+              background: T.panel, border: `1px solid ${fg}55`,
+              borderRadius: 8, padding: "12px 14px", boxShadow: `0 8px 32px rgba(2,4,12,0.48)`,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
@@ -208,16 +208,16 @@ function RiskChip({ risk, signals, capabilities }) {
               {reasons.map((r, i) => (
                 <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                   <span style={{ color: fg, fontSize: 10, flexShrink: 0, marginTop: 2 }}>▸</span>
-                  <span style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>{r}</span>
+                  <span style={{ fontSize: 12, color: T.textDim, lineHeight: 1.5 }}>{r}</span>
                 </div>
               ))}
             </div>
             {capabilities && capabilities.length > 0 && (
-              <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid #E2E8F0` }}>
+              <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
                 <div style={{ fontSize: 10, fontFamily: FONT_MONO, color: T.textMute, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.08em" }}>Capabilities</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                   {capabilities.map(c => (
-                    <span key={c} style={{ fontSize: 9, fontFamily: FONT_MONO, color: T.textDim, background: "#F1F5F9", border: "1px solid #E2E8F0", padding: "1px 6px", borderRadius: 3 }}>{c}</span>
+                    <span key={c} style={{ fontSize: 9, fontFamily: FONT_MONO, color: T.textDim, background: T.panelHi, border: `1px solid ${T.border}`, padding: "1px 6px", borderRadius: 3 }}>{c}</span>
                   ))}
                 </div>
               </div>
@@ -233,7 +233,7 @@ function RiskChip({ risk, signals, capabilities }) {
 const DiscoveryStatusBadge = ({ status }) => {
   const map = {
     verified:  { label: "Verified",  color: T.accent,   bg: "rgba(34,197,94,0.14)" },
-    likely:    { label: "Likely",    color: "#0D9488",  bg: "rgba(45,212,191,0.14)" },
+    likely:    { label: "Likely",    color: "#2DD4BF",  bg: "rgba(45,212,191,0.14)" },
     potential: { label: "Potential", color: T.warn,     bg: "rgba(245,158,11,0.14)" },
     historical: { label: "Historical", color: T.textDim, bg: T.panelHi },
   };
@@ -251,7 +251,7 @@ const AssetTypeBadge = ({ assetType }) => {
     agent:       { label: "Agent",       color: T.purple, bg: "rgba(139,92,246,0.14)" },
     workflow:    { label: "Workflow",     color: T.info,   bg: "rgba(96,165,250,0.14)" },
     application: { label: "App",         color: "#DB2777", bg: "rgba(244,114,182,0.14)" },
-    copilot:     { label: "Copilot",     color: "#EA580C", bg: "rgba(251,146,60,0.14)" },
+    copilot:     { label: "Copilot",     color: "#FF8A4C", bg: "rgba(251,146,60,0.14)" },
     service:     { label: "Service",     color: T.accent,  bg: "rgba(34,197,94,0.14)" },
   };
   const m = map[assetType] || { label: assetType || "agent", color: T.textMute, bg: T.panelHi };
@@ -419,7 +419,7 @@ function VerifiedTable({ agents, onClaim, onEdit }) {
     return (
       <div>
         {sorted.map((a, i) => (
-          <div key={a.id} style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.panel : "#F8FAFC" }}>
+          <div key={a.id} style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.panel : T.bg }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
@@ -478,9 +478,9 @@ function VerifiedTable({ agents, onClaim, onEdit }) {
         </tr></thead>
         <tbody>
           {sorted.map((a, i) => (
-            <tr key={a.id} style={{ background: i % 2 === 0 ? T.panel : "#F8FAFC" }}
+            <tr key={a.id} style={{ background: i % 2 === 0 ? T.panel : T.bg }}
               onMouseEnter={e => e.currentTarget.style.background = T.panelHi}
-              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? T.panel : "#F8FAFC"}>
+              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? T.panel : T.bg}>
               <Td style={{ paddingLeft: 20 }}>
                 <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.text, fontWeight: 500 }}>{a.name}</div>
                 <div style={{ marginTop: 4 }}><LifecycleBadge status={a.lifecycle_status} /></div>
@@ -546,7 +546,7 @@ function PotentialTable({ agents, onValidate, onReject, onEdit }) {
     return (
       <div>
         {sorted.map((a, i) => (
-          <div key={a.id} style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.panel : "#F8FAFC" }}>
+          <div key={a.id} style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.panel : T.bg }}>
             <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 6 }}>{a.name}</div>
             {a.discovery_reason && (
               <div style={{ fontSize: 11, color: T.textMute, marginBottom: 8, lineHeight: 1.5 }}>{a.discovery_reason}</div>
@@ -584,9 +584,9 @@ function PotentialTable({ agents, onValidate, onReject, onEdit }) {
         </tr></thead>
         <tbody>
           {sorted.map((a, i) => (
-            <tr key={a.id} style={{ background: i % 2 === 0 ? T.panel : "#F8FAFC" }}
+            <tr key={a.id} style={{ background: i % 2 === 0 ? T.panel : T.bg }}
               onMouseEnter={e => e.currentTarget.style.background = T.panelHi}
-              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? T.panel : "#F8FAFC"}>
+              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? T.panel : T.bg}>
               <Td style={{ paddingLeft: 20 }}>
                 <div title={a.name} style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.text }}>{a.name}</div>
                 {a.discovery_reason && (
@@ -623,7 +623,7 @@ function ManagedTable({ agents, onEdit }) {
     return (
       <div>
         {sorted.map((a, i) => (
-          <div key={a.id} style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.panel : "#F8FAFC" }}>
+          <div key={a.id} style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.panel : T.bg }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
@@ -667,9 +667,9 @@ function ManagedTable({ agents, onEdit }) {
         </tr></thead>
         <tbody>
           {sorted.map((a, i) => (
-            <tr key={a.id} style={{ background: i % 2 === 0 ? T.panel : "#F8FAFC" }}
+            <tr key={a.id} style={{ background: i % 2 === 0 ? T.panel : T.bg }}
               onMouseEnter={e => e.currentTarget.style.background = T.panelHi}
-              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? T.panel : "#F8FAFC"}>
+              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? T.panel : T.bg}>
               <Td style={{ paddingLeft: 20 }}>
                 <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.text, fontWeight: 500 }}>{a.name}</div>
                 {a.business_purpose && (
@@ -712,7 +712,7 @@ function RetiredTable({ agents, onEdit }) {
     return (
       <div>
         {sorted.map((a, i) => (
-          <div key={a.id} style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.panel : "#F8FAFC", opacity: 0.8 }}>
+          <div key={a.id} style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? T.panel : T.bg, opacity: 0.8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.textMute, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
@@ -750,9 +750,9 @@ function RetiredTable({ agents, onEdit }) {
         </tr></thead>
         <tbody>
           {sorted.map((a, i) => (
-            <tr key={a.id} style={{ background: i % 2 === 0 ? T.panel : "#F8FAFC", opacity: 0.7 }}
+            <tr key={a.id} style={{ background: i % 2 === 0 ? T.panel : T.bg, opacity: 0.7 }}
               onMouseEnter={e => { e.currentTarget.style.background = T.panelHi; e.currentTarget.style.opacity = "1"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? T.panel : "#F8FAFC"; e.currentTarget.style.opacity = "0.7"; }}>
+              onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? T.panel : T.bg; e.currentTarget.style.opacity = "0.7"; }}>
               <Td style={{ paddingLeft: 20 }}>
                 <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: T.textMute }}>{a.name}</div>
                 <div style={{ marginTop: 4 }}><LifecycleBadge status="retired" /></div>
@@ -783,7 +783,7 @@ function EmptyState({ message }) {
 // ─── Modals ───────────────────────────────────────────────────────────────────
 function ModalOverlay({ onClose, children }) {
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(2,4,12,0.60)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 10, padding: 28, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto", fontFamily: FONT_UI }}>
         {children}
       </div>
@@ -813,7 +813,7 @@ function ClaimModal({ agent, onSave, onClose, saving, environments = ["productio
     <ModalOverlay onClose={onClose}>
       <div style={{ fontSize: 17, fontWeight: 500, marginBottom: 4 }}>Claim Agent</div>
       <div style={{ fontSize: 12, color: T.textMute, fontFamily: FONT_MONO, marginBottom: 20 }}>Assign ownership to <strong>{agent?.name}</strong></div>
-      {error && <div style={{ background: "#DC262618", border: "1px solid #DC262644", borderRadius: 5, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: "#DC2626", fontFamily: FONT_MONO }}>{error}</div>}
+      {error && <div style={{ background: "#FF4D6D18", border: "1px solid #FF4D6D44", borderRadius: 5, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: "#FF4D6D", fontFamily: FONT_MONO }}>{error}</div>}
 
       <div style={{ background: T.panelHi, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", marginBottom: 20, fontSize: 11, color: T.textMute, fontFamily: FONT_MONO }}>
         <div><span style={{ color: T.accent }}>●</span> Source: {agent?.discovery_source?.replace(/_/g, " ") || "gateway"}</div>
@@ -949,7 +949,7 @@ function EditModal({ agent, onSave, onClose, saving, environments = ["production
         <span style={{ marginLeft: 8, background: "rgba(245,158,11,0.14)", color: T.warn, fontSize: 10, padding: "1px 7px", borderRadius: 3, textTransform: "uppercase", letterSpacing: "0.08em" }}>Admin</span>
       </div>
 
-      {error && <div style={{ background: "#DC262618", border: "1px solid #DC262644", borderRadius: 5, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: "#DC2626", fontFamily: FONT_MONO }}>{error}</div>}
+      {error && <div style={{ background: "#FF4D6D18", border: "1px solid #FF4D6D44", borderRadius: 5, padding: "8px 12px", marginBottom: 14, fontSize: 12, color: "#FF4D6D", fontFamily: FONT_MONO }}>{error}</div>}
 
       <ModalField label="Agent Name" required>
         <input style={inputStyle} value={form.agent_name} onChange={set("agent_name")} placeholder="agent-name" />
@@ -989,7 +989,7 @@ function EditModal({ agent, onSave, onClose, saving, environments = ["production
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
         <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.textDim, padding: "8px 16px", borderRadius: 5, fontSize: 13, cursor: "pointer", fontFamily: FONT_UI }}>Cancel</button>
-        <button onClick={() => onSave(agent.id, form)} disabled={!form.agent_name || saving} style={{ background: T.info, border: "none", color: "#fff", padding: "8px 20px", borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: form.agent_name && !saving ? "pointer" : "not-allowed", opacity: !form.agent_name || saving ? 0.6 : 1, fontFamily: FONT_UI }}>
+        <button onClick={() => onSave(agent.id, form)} disabled={!form.agent_name || saving} style={{ background: T.info, border: "none", color: "#04121D", padding: "8px 20px", borderRadius: 5, fontSize: 13, fontWeight: 600, cursor: form.agent_name && !saving ? "pointer" : "not-allowed", opacity: !form.agent_name || saving ? 0.6 : 1, fontFamily: FONT_UI }}>
           {saving ? "Saving…" : "Save Changes →"}
         </button>
       </div>
@@ -1123,7 +1123,7 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
 
   if (error) {
     return (
-      <div style={{ padding: 24, background: "#FEF2F2", border: `1px solid ${T.crit}44`, borderRadius: 8, color: T.crit, fontFamily: FONT_MONO, fontSize: 13 }}>
+      <div style={{ padding: 24, background: "rgba(255,77,109,0.08)", border: `1px solid ${T.crit}44`, borderRadius: 8, color: T.crit, fontFamily: FONT_MONO, fontSize: 13 }}>
         Failed to load inventory: {error}
         <button onClick={loadData} style={{ marginLeft: 16, background: "transparent", border: `1px solid ${T.crit}`, color: T.crit, padding: "4px 10px", borderRadius: 4, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11 }}>Retry</button>
       </div>

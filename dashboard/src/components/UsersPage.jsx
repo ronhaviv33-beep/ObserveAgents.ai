@@ -235,7 +235,7 @@ export default function UsersPage() {
 
       {/* ── Change Password Modal ── */}
       {pwModal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,0.40)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(2,4,12,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
           <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:8, padding:28, minWidth:340, display:"flex", flexDirection:"column", gap:16 }}>
             <div style={{ fontFamily:FONT_MONO, fontWeight:700, color:T.text, fontSize:14 }}>Change Password — {pwModal.name}</div>
             {[
@@ -265,7 +265,7 @@ export default function UsersPage() {
 
       {/* ── Disable Confirmation Modal ── */}
       {disableConfirm && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,0.45)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(2,4,12,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
           <div style={{ background:T.panel, border:`1px solid ${T.warn}55`, borderRadius:10, padding:28, minWidth:340, maxWidth:420, display:"flex", flexDirection:"column", gap:18 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontSize:20, color:T.warn }}>⚠</span>
