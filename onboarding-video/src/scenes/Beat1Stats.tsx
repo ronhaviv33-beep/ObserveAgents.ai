@@ -12,13 +12,13 @@ import { TopCaption } from "../components/TopCaption";
 import { Card, MonoLabel } from "../components/ui";
 
 const STATS = [
-  { label: "AI ASSETS DISCOVERED", value: 2, color: theme.text, sub: "0 managed" },
-  { label: "OPEN FINDINGS", value: 27, color: theme.orange, sub: "across 2 agents" },
-  { label: "ERROR TRACES", value: 4, color: theme.orange, sub: "5 slow traces" },
+  { label: "AI ASSETS DISCOVERED", value: 2, color: theme.text, sub: "1 managed" },
+  { label: "OPEN FINDINGS", value: 27, color: theme.riskMedium, sub: "across 2 agents" },
+  { label: "ERROR TRACES", value: 4, color: theme.riskHigh, sub: "5 slow traces" },
   {
     label: "GATEWAY CONTROL CANDIDATES",
     value: 2,
-    color: theme.orange,
+    color: theme.ok,
     sub: "recommended for review — nothing applied automatically",
   },
 ];
@@ -60,7 +60,7 @@ export const Beat1Stats: React.FC = () => {
           );
           const landed = frame >= delay + 34;
           const pulse =
-            stat.color === theme.orange && landed
+            stat.color !== theme.text && landed
               ? 1 +
                 0.06 *
                   Math.max(
@@ -83,11 +83,12 @@ export const Beat1Stats: React.FC = () => {
               <MonoLabel text={stat.label} size={19} />
               <div
                 style={{
-                  fontFamily: theme.sans,
+                  fontFamily: theme.display,
                   fontSize: 92,
-                  fontWeight: 800,
+                  fontWeight: 700,
                   color: stat.color,
                   lineHeight: 1.15,
+                  letterSpacing: -2,
                   transform: `scale(${pulse})`,
                   transformOrigin: "left center",
                 }}
@@ -98,7 +99,7 @@ export const Beat1Stats: React.FC = () => {
                 style={{
                   fontFamily: theme.mono,
                   fontSize: 19,
-                  color: theme.textFaint,
+                  color: theme.textMute,
                   lineHeight: 1.4,
                 }}
               >

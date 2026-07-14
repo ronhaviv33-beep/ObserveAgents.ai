@@ -27,11 +27,19 @@ export const EndCard: React.FC = () => {
   return (
     <AbsoluteFill
       style={{
-        background: theme.bgTint,
+        background: theme.bgVoid,
         alignItems: "center",
         justifyContent: "center",
       }}
     >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(circle at 30% 30%, rgba(59,199,240,0.14), transparent 55%), radial-gradient(circle at 75% 65%, rgba(142,123,255,0.14), transparent 55%)",
+        }}
+      />
       <div
         style={{
           display: "flex",
@@ -43,35 +51,50 @@ export const EndCard: React.FC = () => {
       >
         <div
           style={{
-            width: 30,
-            height: 30,
-            borderRadius: "50%",
-            background: theme.blue,
+            width: 58,
+            height: 58,
+            borderRadius: 16,
+            background: `linear-gradient(135deg, ${theme.accent}, ${theme.violet})`,
+            boxShadow: `0 0 40px rgba(59,199,240,0.4)`,
+            display: "grid",
+            placeItems: "center",
           }}
-        />
+        >
+          <div
+            style={{
+              width: 16,
+              height: 16,
+              borderRadius: "50%",
+              background: theme.bgVoid,
+              boxShadow: "0 0 0 4px rgba(255,255,255,0.25)",
+            }}
+          />
+        </div>
         <div
           style={{
-            fontFamily: theme.sans,
+            fontFamily: theme.display,
             fontSize: 96,
-            fontWeight: 800,
+            fontWeight: 700,
             color: theme.text,
             letterSpacing: -2,
           }}
         >
-          ObserveAgents<span style={{ color: theme.blue }}>.ai</span>
+          ObserveAgents
+          <span style={{ color: theme.accent }}>.ai</span>
         </div>
       </div>
       <div
         style={{
           fontFamily: theme.mono,
           fontSize: 32,
-          color: theme.textSoft,
+          color: theme.textDim,
           marginTop: 42,
           opacity: tagline,
           transform: `translateY(${(1 - tagline) * 60}px)`,
         }}
       >
-        Observe first. <span style={{ color: theme.blue }}>Control only what matters.</span>
+        Observe first.{" "}
+        <span style={{ color: theme.accent }}>Control only what matters.</span>
       </div>
     </AbsoluteFill>
   );

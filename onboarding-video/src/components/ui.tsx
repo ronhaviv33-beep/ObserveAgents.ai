@@ -8,7 +8,13 @@ export const Chip: React.FC<{
   bg?: string;
   border?: string;
   size?: number;
-}> = ({ text, color = theme.textSoft, bg = "#f4f2ee", border, size = 20 }) => (
+}> = ({
+  text,
+  color = theme.textDim,
+  bg = theme.surfaceRaised,
+  border,
+  size = 20,
+}) => (
   <span
     style={{
       fontFamily: theme.mono,
@@ -36,9 +42,9 @@ export const HighBadge: React.FC<{ scale?: number; size?: number }> = ({
       fontSize: size,
       fontWeight: 700,
       letterSpacing: 1,
-      color: theme.orange,
-      background: theme.orangeFaint,
-      border: `1.5px solid ${theme.orangeSoft}`,
+      color: theme.riskHigh,
+      background: "rgba(255, 138, 76, 0.12)",
+      border: `1.5px solid rgba(255, 138, 76, 0.35)`,
       borderRadius: 6,
       padding: `${size * 0.25}px ${size * 0.6}px`,
       display: "inline-block",
@@ -55,10 +61,10 @@ export const Card: React.FC<{
 }> = ({ style, children }) => (
   <div
     style={{
-      background: theme.card,
-      border: `1.5px solid ${theme.border}`,
-      borderRadius: 12,
-      boxShadow: "0 1px 3px rgba(17, 24, 39, 0.04)",
+      background: theme.surface,
+      border: `1px solid ${theme.border}`,
+      borderRadius: theme.radiusMd,
+      boxShadow: "0 1px 0 rgba(255,255,255,0.02) inset, 0 12px 30px rgba(0,0,0,0.35)",
       ...style,
     }}
   >
@@ -71,7 +77,7 @@ export const MonoLabel: React.FC<{
   size?: number;
   color?: string;
   spacing?: number;
-}> = ({ text, size = 20, color = theme.textSoft, spacing = 1.5 }) => (
+}> = ({ text, size = 20, color = theme.textMute, spacing = 1.5 }) => (
   <div
     style={{
       fontFamily: theme.mono,
@@ -85,9 +91,10 @@ export const MonoLabel: React.FC<{
   </div>
 );
 
-export const Dot: React.FC<{ color: string; size?: number }> = ({
+export const Dot: React.FC<{ color: string; size?: number; glow?: boolean }> = ({
   color,
   size = 12,
+  glow = true,
 }) => (
   <span
     style={{
@@ -97,6 +104,7 @@ export const Dot: React.FC<{ color: string; size?: number }> = ({
       background: color,
       display: "inline-block",
       flexShrink: 0,
+      boxShadow: glow ? `0 0 8px ${color}99` : undefined,
     }}
   />
 );

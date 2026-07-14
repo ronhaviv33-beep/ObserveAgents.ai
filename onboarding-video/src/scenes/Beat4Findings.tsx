@@ -42,7 +42,7 @@ export const Beat4Findings: React.FC = () => {
   const { fps } = useVideoConfig();
 
   // Faded strip of capability chips above, implying the asset context.
-  const contextOpacity = interpolate(frame, [4, 20], [0, 0.4], {
+  const contextOpacity = interpolate(frame, [4, 20], [0, 0.45], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -63,11 +63,11 @@ export const Beat4Findings: React.FC = () => {
           filter: "blur(1.5px)",
         }}
       >
-        <Chip text="provider: Anthropic" color={theme.blue} bg={theme.blueFaint} />
-        <Chip text="model: claude-sonnet-5" color={theme.blue} bg={theme.blueFaint} />
-        <Chip text="database: postgresql" color={theme.orange} bg={theme.orangeFaint} />
-        <Chip text="runtime: production" color={theme.teal} bg={theme.tealSoft} />
-        <Chip text="mcp: jira_search" color={theme.orange} bg={theme.orangeFaint} />
+        <Chip text="provider: Anthropic" color={theme.accent} bg={theme.accentSoft} />
+        <Chip text="model: claude-sonnet-5" color={theme.accent} bg={theme.accentSoft} />
+        <Chip text="database: postgresql" color={theme.riskLow} bg="rgba(111,168,255,0.12)" />
+        <Chip text="runtime: production" color={theme.teal} bg="rgba(45,212,191,0.12)" />
+        <Chip text="mcp: jira_search" color={theme.riskHigh} bg="rgba(255,138,76,0.12)" />
         <Chip text="+3" />
       </div>
 
@@ -116,7 +116,7 @@ export const Beat4Findings: React.FC = () => {
                 <HighBadge scale={badgePop} />
                 <span
                   style={{
-                    fontFamily: theme.sans,
+                    fontFamily: theme.display,
                     fontSize: 28,
                     fontWeight: 700,
                     color: theme.text,
@@ -129,7 +129,7 @@ export const Beat4Findings: React.FC = () => {
                     style={{
                       fontFamily: theme.mono,
                       fontSize: 20,
-                      color: theme.textSoft,
+                      color: theme.textDim,
                     }}
                   >
                     {finding.mult}
@@ -141,7 +141,7 @@ export const Beat4Findings: React.FC = () => {
                   style={{
                     fontFamily: theme.mono,
                     fontSize: 18,
-                    color: theme.textFaint,
+                    color: theme.textMute,
                   }}
                 >
                   {finding.source}
@@ -151,7 +151,7 @@ export const Beat4Findings: React.FC = () => {
                 style={{
                   fontFamily: theme.sans,
                   fontSize: 21,
-                  color: theme.textSoft,
+                  color: theme.textDim,
                   marginTop: 14,
                   lineHeight: 1.45,
                 }}

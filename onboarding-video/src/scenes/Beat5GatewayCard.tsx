@@ -79,7 +79,7 @@ export const Beat5GatewayCard: React.FC = () => {
           style={{
             fontFamily: theme.mono,
             fontSize: 22,
-            color: theme.blue,
+            color: theme.accent,
             marginTop: 26,
           }}
         >
@@ -92,9 +92,9 @@ export const Beat5GatewayCard: React.FC = () => {
             fontFamily: theme.mono,
             fontSize: 22,
             fontWeight: 700,
-            color: theme.orange,
-            background: pressed ? theme.orangeSoft : theme.orangeFaint,
-            border: `2px solid ${theme.orangeSoft}`,
+            color: theme.violet,
+            background: pressed ? "rgba(142,123,255,0.24)" : "rgba(142,123,255,0.12)",
+            border: `2px solid rgba(142,123,255,0.4)`,
             borderRadius: 10,
             padding: "16px 34px",
             transform: pressed ? "scale(0.96)" : "scale(1)",
@@ -112,7 +112,7 @@ export const Beat5GatewayCard: React.FC = () => {
           width: CARD_W,
           fontFamily: theme.sans,
           fontSize: 21,
-          color: theme.textSoft,
+          color: theme.textDim,
           opacity: interpolate(frame, [30, 46], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",

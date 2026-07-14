@@ -15,32 +15,32 @@ const SPANS = [
   {
     name: "agent.workflow",
     sub: null,
-    chip: { text: "Step", color: theme.slate, bg: theme.slateSoft },
-    bar: { width: 1, color: "#475569", height: 16 },
+    chip: { text: "Step", color: theme.textDim, bg: theme.surfaceRaised },
+    bar: { width: 1, color: theme.textDim, height: 16 },
     ms: "200ms",
     indent: 0,
   },
   {
     name: "gen_ai.request",
     sub: "anthropic · claude-sonnet-5 · 850→300 tok",
-    chip: { text: "LLM", color: theme.purple, bg: theme.purpleSoft },
-    bar: { width: 1, color: theme.purple, height: 16 },
+    chip: { text: "LLM", color: theme.violet, bg: "rgba(142,123,255,0.14)" },
+    bar: { width: 1, color: theme.violet, height: 16 },
     ms: "200ms",
     indent: 1,
   },
   {
     name: "db.query",
     sub: null,
-    chip: { text: "Database", color: theme.blue, bg: theme.blueSoft },
-    bar: { width: 0.04, color: "#cbd5e1", height: 10 },
+    chip: { text: "Database", color: theme.riskLow, bg: "rgba(111,168,255,0.14)" },
+    bar: { width: 0.04, color: theme.borderStrong, height: 10 },
     ms: "0ms",
     indent: 1,
   },
   {
     name: "mcp.call",
     sub: null,
-    chip: { text: "MCP Tool", color: theme.orange, bg: theme.orangeSoft },
-    bar: { width: 0.04, color: "#cbd5e1", height: 10 },
+    chip: { text: "MCP Tool", color: theme.riskHigh, bg: "rgba(255,138,76,0.14)" },
+    bar: { width: 0.04, color: theme.borderStrong, height: 10 },
     ms: "0ms",
     indent: 1,
   },
@@ -49,7 +49,7 @@ const SPANS = [
 const STATS = [
   { label: "TOTAL TIME", value: "200ms" },
   { label: "STEPS", value: "4" },
-  { label: "ERRORS", value: "0" },
+  { label: "ERRORS", value: "0", color: theme.ok },
   { label: "TOKENS IN / OUT", value: "850 / 300" },
 ];
 
@@ -94,10 +94,10 @@ export const Beat3Waterfall: React.FC = () => {
               <MonoLabel text={stat.label} size={17} />
               <div
                 style={{
-                  fontFamily: theme.sans,
+                  fontFamily: theme.display,
                   fontSize: 44,
-                  fontWeight: 800,
-                  color: theme.text,
+                  fontWeight: 700,
+                  color: stat.color ?? theme.text,
                   marginTop: 6,
                 }}
               >
@@ -128,7 +128,7 @@ export const Beat3Waterfall: React.FC = () => {
             style={{
               fontFamily: theme.mono,
               fontSize: 18,
-              color: theme.textFaint,
+              color: theme.textMute,
             }}
           >
             each step positioned by start offset, sized by duration
@@ -181,7 +181,7 @@ export const Beat3Waterfall: React.FC = () => {
                       style={{
                         fontFamily: theme.mono,
                         fontSize: 16.5,
-                        color: theme.textFaint,
+                        color: theme.textMute,
                         marginTop: 5,
                         opacity: interpolate(
                           frame,
@@ -211,7 +211,7 @@ export const Beat3Waterfall: React.FC = () => {
                     flex: 1,
                     height: 22,
                     borderRadius: 999,
-                    background: "#f1efe9",
+                    background: theme.surfaceRaised,
                     overflow: "hidden",
                     display: "flex",
                     alignItems: "center",
@@ -225,6 +225,10 @@ export const Beat3Waterfall: React.FC = () => {
                       borderRadius: 999,
                       marginLeft: 3,
                       background: span.bar.color,
+                      boxShadow:
+                        span.indent === 1 && span.chip.text === "LLM"
+                          ? `0 0 14px ${theme.violet}66`
+                          : undefined,
                     }}
                   />
                 </div>
@@ -232,7 +236,7 @@ export const Beat3Waterfall: React.FC = () => {
                   style={{
                     fontFamily: theme.mono,
                     fontSize: 20,
-                    color: theme.textSoft,
+                    color: theme.textDim,
                     width: 90,
                     textAlign: "right",
                   }}

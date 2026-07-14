@@ -1,6 +1,6 @@
 import React from "react";
 import { Easing, interpolate, useCurrentFrame } from "remotion";
-import { uiEase } from "../theme";
+import { theme, uiEase } from "../theme";
 
 export type PointerStop = {
   x: number;
@@ -81,13 +81,14 @@ export const Pointer: React.FC<{
           opacity,
           transform: `scale(${scale})`,
           transformOrigin: "6px 4px",
-          filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.35))",
+          filter:
+            "drop-shadow(0 2px 6px rgba(0,0,0,0.55)) drop-shadow(0 0 10px rgba(59,199,240,0.35))",
         }}
       >
         <path
           d="M5.5 2.5 L5.5 17.5 L9.3 13.9 L11.6 19.4 L14.4 18.2 L12.1 12.8 L17.3 12.5 Z"
-          fill="#111827"
-          stroke="#ffffff"
+          fill={theme.text}
+          stroke={theme.bgVoid}
           strokeWidth={1.3}
         />
       </svg>
@@ -117,8 +118,8 @@ const TapRipple: React.FC<{ x: number; y: number; at: number }> = ({
         width: size,
         height: size,
         borderRadius: "50%",
-        border: "3px solid rgba(37, 99, 235, 0.55)",
-        background: "rgba(37, 99, 235, 0.12)",
+        border: `3px solid rgba(59, 199, 240, ${0.6 * (1 - t) + 0.05})`,
+        background: "rgba(59, 199, 240, 0.14)",
         opacity: 1 - t,
       }}
     />

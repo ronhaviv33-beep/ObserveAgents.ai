@@ -13,7 +13,7 @@ import { Pointer } from "../components/Pointer";
 
 const ROWS = [
   {
-    dot: theme.orangeBright,
+    dot: theme.riskHigh,
     id: "23891659",
     time: "11:56:02 AM",
     steps: "8 steps",
@@ -21,7 +21,7 @@ const ROWS = [
     ms: "0ms",
   },
   {
-    dot: theme.blue,
+    dot: theme.accent,
     id: "ec34c8fa",
     time: "11:56:01 AM",
     steps: "4 steps",
@@ -29,7 +29,7 @@ const ROWS = [
     ms: "200ms",
   },
   {
-    dot: theme.orangeBright,
+    dot: theme.riskHigh,
     id: "1d1d93f7",
     time: "11:55:05 AM",
     steps: "8 steps",
@@ -37,7 +37,7 @@ const ROWS = [
     ms: "0ms",
   },
   {
-    dot: theme.blue,
+    dot: theme.accent,
     id: "6e6d2144",
     time: "11:55:05 AM",
     steps: "4 steps",
@@ -101,12 +101,12 @@ export const Beat2TraceList: React.FC = () => {
                 height: ROW_H,
                 marginTop: 12,
                 padding: "0 30px",
-                borderRadius: 12,
+                borderRadius: theme.radiusMd,
                 background: isTapped
-                  ? `rgba(37, 99, 235, ${rowHighlight * 0.08})`
+                  ? `rgba(59, 199, 240, ${rowHighlight * 0.1})`
                   : "transparent",
                 border: isTapped
-                  ? `1.5px solid rgba(37, 99, 235, ${rowHighlight * 0.45})`
+                  ? `1.5px solid rgba(59, 199, 240, ${rowHighlight * 0.5})`
                   : "1.5px solid transparent",
                 opacity: enter,
                 transform: `translateY(${(1 - enter) * 40}px)`,
@@ -128,7 +128,7 @@ export const Beat2TraceList: React.FC = () => {
                   style={{
                     fontFamily: theme.mono,
                     fontSize: 19,
-                    color: theme.textFaint,
+                    color: theme.textMute,
                     marginTop: 6,
                   }}
                 >
@@ -140,9 +140,9 @@ export const Beat2TraceList: React.FC = () => {
                 {row.errors ? (
                   <Chip
                     text={row.errors}
-                    color={theme.orange}
-                    bg={theme.orangeFaint}
-                    border={theme.orangeSoft}
+                    color={theme.riskHigh}
+                    bg="rgba(255, 138, 76, 0.12)"
+                    border="rgba(255, 138, 76, 0.35)"
                   />
                 ) : null}
                 <span
@@ -189,12 +189,12 @@ const GroupHeader: React.FC<{ frame: number; fps: number }> = ({
         gap: 22,
         height: HEADER_H,
         padding: "0 30px",
-        background: "#f5f3ef",
+        background: theme.surfaceRaised,
         opacity: enter,
         transform: `translateY(${(1 - enter) * 40}px)`,
       }}
     >
-      <Dot color={theme.orangeBright} />
+      <Dot color={theme.riskHigh} />
       <span
         style={{
           fontFamily: theme.mono,
@@ -208,15 +208,15 @@ const GroupHeader: React.FC<{ frame: number; fps: number }> = ({
       <Chip text="8 traces" />
       <div style={{ flex: 1 }} />
       <span
-        style={{ fontFamily: theme.mono, fontSize: 21, color: theme.textSoft }}
+        style={{ fontFamily: theme.mono, fontSize: 21, color: theme.textDim }}
       >
         48 steps
       </span>
       <Chip
         text="12 errors"
-        color={theme.orange}
-        bg={theme.orangeFaint}
-        border={theme.orangeSoft}
+        color={theme.riskHigh}
+        bg="rgba(255, 138, 76, 0.12)"
+        border="rgba(255, 138, 76, 0.35)"
       />
       <span
         style={{

@@ -34,7 +34,7 @@ export const TopCaption: React.FC<{
     >
       <div
         style={{
-          fontFamily: theme.sans,
+          fontFamily: theme.display,
           fontSize: 58,
           fontWeight: 700,
           color: theme.text,
@@ -43,6 +43,7 @@ export const TopCaption: React.FC<{
           letterSpacing: -0.5,
           opacity: progress,
           transform: `translateY(${(1 - progress) * 60}px)`,
+          textShadow: "0 0 40px rgba(59, 199, 240, 0.18)",
         }}
       >
         {text}
