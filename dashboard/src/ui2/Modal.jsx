@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { C, FONT, RADIUS } from "./tokens.js";
 
 /**
@@ -24,17 +25,21 @@ export default function Modal({ open, onClose, children, maxWidth = 780 }) {
 
   if (!open) return null;
 
-  return (
+  // Portal to <body>: the app shell's <main> sits below the sidebar in the
+  // stacking order, so a modal rendered inside it would paint underneath the
+  // sidebar. margin:auto (not flex centering) keeps wide dialogs scrollable
+  // instead of clipping their left edge.
+  return createPortal(
     <div onClick={onClose}
       style={{
-        position: "fixed", inset: 0, zIndex: 400,
+        position: "fixed", inset: 0, zIndex: 1000,
         background: "rgba(2,4,12,0.72)",
         backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)",
-        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        display: "flex", padding: 20, overflow: "auto",
       }}>
       <div onClick={(e) => e.stopPropagation()} className="oa-rise" role="dialog" aria-modal="true"
         style={{
-          position: "relative", width: "100%", maxWidth, maxHeight: "88vh",
+          position: "relative", width: "100%", maxWidth, maxHeight: "88vh", margin: "auto",
           display: "flex", flexDirection: "column",
           background: C.surface, border: `1px solid ${C.borderStrong}`, borderRadius: RADIUS.lg,
           boxShadow: "0 1px 0 rgba(255,255,255,0.04) inset, 0 40px 110px rgba(0,0,0,0.72)",
@@ -61,6 +66,7 @@ export default function Modal({ open, onClose, children, maxWidth = 780 }) {
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

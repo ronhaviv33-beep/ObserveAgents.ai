@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { Bot, Wrench, Server, Zap, Globe, Database, ClipboardList, Table2, Cloud, Cpu, Shield, HelpCircle } from 'lucide-react'
 import { fetchRelationships } from '../api.js'
 import { relationshipEvidenceLabel } from '../discoveryStatus.js'
@@ -738,9 +739,12 @@ function FlowGraphView({ group, ordered }) {
 function FlowModal({ group, onClose }) {
   const [flowView, setFlowView] = useState('path')
   const ordered = [...group.rows].sort((a, b) => relOrder(a.relationship_type) - relOrder(b.relationship_type))
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(2,4,12,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(2,4,12,0.65)', width: '100%', maxWidth: 920, maxHeight: '86vh', display: 'flex', flexDirection: 'column', fontFamily: FONT_SANS }}>
+  // Portal to <body>: rendered inside <main> the dialog paints underneath the
+  // sidebar (main sits lower in the shell's stacking order) and wide content
+  // clips at the left edge. margin:auto keeps oversized dialogs scrollable.
+  return createPortal(
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(2,4,12,0.6)', display: 'flex', zIndex: 1000, padding: 20, overflow: 'auto' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(2,4,12,0.65)', width: '100%', maxWidth: 920, maxHeight: '86vh', margin: 'auto', display: 'flex', flexDirection: 'column', fontFamily: FONT_SANS }}>
 
         {/* Header */}
         <div style={{ padding: '20px 24px 14px', borderBottom: `1px solid ${T.border}` }}>
@@ -809,6 +813,7 @@ function FlowModal({ group, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
