@@ -13,158 +13,184 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./solutions/solutions.css">
+
   <style>
-    :root {
-      --ink:      #0C1B36;
-      --ink-2:    #2C3D5F;
-      --body:     #3D4E6E;
-      --bg:       #F4F7FC;
-      --bg-2:     #FFFFFF;
-      --card:     #FFFFFF;
-      --line:     #DCE4F2;
-      --line-2:   #CBD6EA;
-      --brand:    #0FA5D8;
-      --brand-2:  #7A5AF8;
-      --brand-ink:#0A7CA3;
-      --amber:    #E9A23B;
-      --high:     #FF8A4C;
-      --shadow:   0 30px 70px rgba(12, 27, 54, .13);
-      --sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
-      --display: 'Space Grotesk', 'Inter', sans-serif;
-      --mono: 'JetBrains Mono', ui-monospace, "SF Mono", "IBM Plex Mono", Menlo, monospace;
-      --maxw: 1160px;
-      color-scheme: light;
+    /* centered hero variant + the video frame */
+    .role-hero .hero-center { text-align: center; max-width: 760px; margin: 0 auto; position: relative; z-index: 1; }
+    .hero-center .sub { margin-left: auto; margin-right: auto; }
+    .hero-center .cta-row { justify-content: center; }
+    .trust {
+      display: flex; gap: 8px 26px; justify-content: center; flex-wrap: wrap; margin-top: 26px;
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.04em; color: #8B97B8;
     }
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
-      margin: 0; font-family: var(--sans); color: var(--body); line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-      background:
-        radial-gradient(circle at 6vw 4vh, rgba(33,181,228,.12), transparent 460px),
-        radial-gradient(circle at 94vw 1vh, rgba(122,90,248,.11), transparent 440px),
-        var(--bg);
+    .trust span { display: inline-flex; align-items: center; gap: 7px; }
+    .trust span::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #A66BFF; }
+
+    .video-frame {
+      max-width: 1000px; margin: 0 auto; border-radius: 18px; overflow: hidden;
+      border: 1px solid var(--line); background: var(--card);
+      box-shadow: 0 30px 80px rgba(12, 27, 54, 0.16);
     }
-    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 clamp(1rem, 4vw, 2.5rem); }
-
-    header {
-      position: sticky; top: 0; z-index: 30;
-      backdrop-filter: blur(16px);
-      background: color-mix(in srgb, var(--bg-2) 82%, transparent);
-      border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+    .video-frame .chrome {
+      display: flex; align-items: center; gap: 8px; padding: 11px 15px;
+      border-bottom: 1px solid var(--line); background: #EDF1F9;
     }
-    .bar { display: flex; align-items: center; gap: 1rem; padding: .8rem 0; }
-    .brand { display: flex; align-items: center; gap: .55rem; font-weight: 700; font-family: var(--display); letter-spacing: -.03em; color: var(--ink); font-size: 1.05rem; text-decoration: none; }
-    .glyph { width: 26px; height: 26px; border-radius: 8px; flex: none; background: linear-gradient(135deg, #21B5E4, #7B8CFF 60%, #A66BFF); display: grid; place-items: center; box-shadow: 0 6px 16px rgba(33,181,228,.4); }
-    .glyph::after { content:""; width: 9px; height: 9px; border-radius: 50%; background: #0B1730; box-shadow: 0 0 0 3px rgba(11,23,48,.2); }
-    .bar .spacer { flex: 1; }
-    a.ghost { font-size: .85rem; font-weight: 700; color: var(--ink-2); text-decoration: none; border: 1px solid var(--line-2); padding: .5rem .9rem; border-radius: 10px; }
-    a.cta {
-      font-size: .85rem; font-weight: 700; color: #7FE3FF; text-decoration: none;
-      padding: .55rem 1.05rem; border-radius: 999px;
-      background: #101E3F;
-      box-shadow: 0 12px 26px rgba(12,27,54,.28);
-      display: inline-flex; align-items: center; gap: .4rem;
-      transition: transform .15s ease, box-shadow .15s ease;
-      font-family: var(--display);
+    .video-frame .chrome i { width: 10px; height: 10px; border-radius: 50%; }
+    .video-frame .chrome .r1 { background: #ff5f57; } .video-frame .chrome .r2 { background: #febc2e; } .video-frame .chrome .r3 { background: #28c840; }
+    .video-frame .chrome .addr {
+      margin-left: 6px; flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft);
+      background: #FFFFFF; border: 1px solid var(--line); border-radius: 7px; padding: 3px 11px;
     }
-    a.cta:hover { transform: translateY(-1px); box-shadow: 0 16px 34px rgba(12,27,54,.36); }
-
-    .hero { text-align: center; padding: clamp(2.6rem, 6vw, 4.4rem) 0 1.2rem; }
-    .eyebrow {
-      display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1.1rem;
-      padding: .42rem .8rem; border-radius: 999px; font-size: .8rem; font-weight: 700;
-      color: var(--brand-ink); background: color-mix(in srgb, var(--brand) 10%, transparent);
-      border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
-    }
-    .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-2) 30%, transparent); }
-    h1 { color: var(--ink); font-family: var(--display); font-weight: 700; letter-spacing: -.03em; text-wrap: balance; font-size: clamp(2.1rem, 5.2vw, 3.5rem); line-height: 1.05; margin: 0 auto .9rem; max-width: 17ch; }
-    h1 .grad { background: linear-gradient(120deg, #21B5E4, #7B8CFF 55%, #A66BFF); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .sub { font-size: clamp(1.02rem, 2.1vw, 1.2rem); max-width: 62ch; margin: 0 auto 1.5rem; color: var(--body); text-wrap: balance; }
-    .hero-cta { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; }
-    .trust { display: flex; gap: .5rem 1.3rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; font-family: var(--mono); font-size: .74rem; letter-spacing: .02em; color: var(--body); opacity: .82; }
-    .trust span { display: inline-flex; align-items: center; gap: .4rem; }
-    .trust span::before { content:""; width: 5px; height: 5px; border-radius: 50%; background: var(--brand-2); }
-
-    .video-band { padding: clamp(1.6rem, 4vw, 2.6rem) 0 0; }
-    .video-band .vhead { text-align: center; max-width: 62ch; margin: 0 auto 1.3rem; }
-    .video-band .vk { font-family: var(--mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--brand-ink); font-weight: 700; }
-    .video-band h2 { color: var(--ink); font-family: var(--display); font-size: clamp(1.5rem, 3.4vw, 2.15rem); letter-spacing: -.03em; margin: .35rem 0 0; text-wrap: balance; }
-    .video-band video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #070A14; }
-
-    .frame {
-      max-width: 1000px; margin: 0 auto; border-radius: 16px; overflow: hidden;
-      border: 1px solid var(--line-2); background: var(--card); box-shadow: var(--shadow);
-    }
-    .frame .chrome { display: flex; align-items: center; gap: .5rem; padding: .6rem .85rem; border-bottom: 1px solid var(--line); background: #eef4fb; }
-    .frame .chrome i { width: 11px; height: 11px; border-radius: 50%; }
-    .frame .chrome .r1 { background: #ff5f57; } .frame .chrome .r2 { background: #febc2e; } .frame .chrome .r3 { background: #28c840; }
-    .frame .chrome .addr { margin-left: .5rem; flex: 1; font-family: var(--mono); font-size: .72rem; color: var(--body); background: #fff; border: 1px solid var(--line); border-radius: 7px; padding: .22rem .65rem; }
-    .frame .chrome .addr .p { color: var(--brand-ink); }
-
-
-    .close { text-align: center; padding: clamp(2.6rem, 6vw, 4.2rem) 0; border-top: 1px solid var(--line); }
-    .close h2 { color: var(--ink); font-family: var(--display); font-size: clamp(1.5rem, 3.4vw, 2.15rem); letter-spacing: -.03em; margin: 0 0 .5rem; text-wrap: balance; }
-    .close .line { font-family: var(--mono); color: var(--brand-ink); font-size: .92rem; margin-bottom: 1.4rem; }
-    footer { text-align: center; padding: 1.6rem 0 2.4rem; font-size: .8rem; color: var(--body); }
-
-    :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
-    @media (prefers-reduced-motion: reduce) {
-      html { scroll-behavior: auto; }
-      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
-      }
+    .video-frame .chrome .addr .p { color: #0A7CA3; }
+    .video-frame video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #070A14; }
   </style>
 </head>
+
 <body>
-  <header>
-    <div class="wrap bar">
-      <a class="brand" href="/"><span class="glyph"></span>ObserveAgents</a>
-      <span class="spacer"></span>
-      <a class="ghost" href="/integration.html">How to Connect</a>
-      <a class="ghost" href="/">← Back to site</a>
-      <a class="cta" href="https://demo.observeagents.ai" id="demoTop">Try the live demo →</a>
+  <nav class="site-nav">
+    <div class="nav-inner">
+      <a class="brand" href="/">
+        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+          <defs><linearGradient id="lg-nav" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#21B5E4"/><stop offset="55%" stop-color="#7B8CFF"/><stop offset="100%" stop-color="#A66BFF"/>
+          </linearGradient></defs>
+          <rect x="1" y="1" width="22" height="22" rx="7" fill="url(#lg-nav)"/>
+          <path d="M5 12.5 H8.4 L10.5 7.5 L13.5 16.5 L15.6 11 H19" stroke="#0B1730" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        ObserveAgents
+      </a>
+      <ul class="nav-links">
+        <li><a href="/#features">Platform</a></li>
+        <li class="nav-drop" id="navDrop">
+          <button aria-expanded="false" aria-haspopup="true">Solutions <span class="caret">▾</span></button>
+          <div class="drop-panel" role="menu">
+            <div class="drop-label">By role</div>
+            <a class="drop-item" role="menuitem" href="/solutions/security.html">
+              <span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 6v5c0 5-3.3 8.6-8 10-4.7-1.4-8-5-8-10V6z"/><path d="m9 11.5 2 2 4-4.5"/></svg></span>
+              <span><b>Security Teams</b><span>Investigate agent risk from runtime evidence.</span></span>
+            </a>
+            <a class="drop-item" role="menuitem" href="/solutions/platform.html">
+              <span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+              <span><b>Platform Engineers</b><span>Debug what agents actually executed.</span></span>
+            </a>
+          </div>
+        </li>
+        <li><a href="/integration.html">How to Connect</a></li>
+        <li><a href="/tour.html" class="active" aria-current="page">Watch the Tour</a></li>
+        <li><a href="/goal.html">Our Goal</a></li>
+      </ul>
+      <div class="nav-cta">
+        <a class="btn btn-outline" href="/#contact">Talk to us</a>
+        <a class="btn btn-primary" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try our Demo <span class="arrow">→</span></a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Hero ──────────────────────────────────────────────────────────── -->
+  <header class="role-hero">
+    <div class="container">
+      <div class="hero-center">
+        <span class="kicker-pill"><span class="gem"></span> Product tour · 35 seconds</span>
+        <h1 style="font-size: clamp(34px, 4.6vw, 54px); font-weight: 700; line-height: 1.08; margin: 24px 0 0; color: #F4F6FE; letter-spacing: -0.025em;">
+          See what your AI agents are<br><span class="grad" style="background: var(--aurora); -webkit-background-clip: text; background-clip: text; color: transparent;">actually doing.</span>
+        </h1>
+        <p class="sub" style="margin-top: 20px; font-size: 16.5px; color: #A6B1CE; max-width: 620px;">
+          Connect OpenTelemetry — no proprietary SDK — and ObserveAgents turns runtime evidence into
+          an agent inventory, security findings, and control recommendations. Here's the whole
+          product in motion, from real runtime data.
+        </p>
+        <div class="cta-row" style="display: flex; gap: 14px; margin-top: 30px; flex-wrap: wrap;">
+          <a class="btn btn-aurora" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try the live demo →</a>
+          <a class="btn btn-outline" href="/integration.html">How to connect</a>
+        </div>
+        <div class="trust">
+          <span>Claude Code</span><span>OpenAI</span><span>MCP</span><span>LangChain</span><span>OpenLLMetry</span>
+        </div>
+      </div>
     </div>
   </header>
 
   <main>
-    <section class="wrap hero">
-      <span class="eyebrow"><span class="dot"></span> SDK &amp; OpenTelemetry native · observe-first</span>
-      <h1>See what your AI agents are <span class="grad">actually doing</span></h1>
-      <p class="sub">Connect OpenTelemetry — no proprietary SDK — and ObserveAgents turns runtime evidence into an agent inventory, security findings, and control recommendations. Here's the whole product in motion, from real runtime data.</p>
-      <div class="hero-cta">
-        <a class="cta" href="https://demo.observeagents.ai" id="demoHero">Try the live demo →</a>
-      </div>
-      <div class="trust">
-        <span>Claude Code</span><span>OpenAI</span><span>MCP</span><span>LangChain</span><span>OpenLLMetry</span>
-      </div>
-    </section>
-
-    <section class="wrap video-band" id="overview-video">
-      <div class="vhead">
-        <span class="vk">35-second overview</span>
-        <h2>Watch the product in motion</h2>
-      </div>
-      <div class="frame">
-        <div class="chrome">
-          <i class="r1"></i><i class="r2"></i><i class="r3"></i>
-          <span class="addr">app.observeagents.ai<span class="p">/overview</span></span>
+    <!-- ── Overview video ──────────────────────────────────────────────── -->
+    <section class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">35-second overview</div>
+          <h2>Watch the product in motion</h2>
         </div>
-        <video src="/tour/observeagents-onboarding.mp4" poster="/hero-dashboard.png"
-          controls muted autoplay loop playsinline preload="metadata"
-          aria-label="ObserveAgents overview video — dashboard, runtime traces, execution waterfall, security findings, and the Gateway Control Center"></video>
+        <div class="video-frame">
+          <div class="chrome">
+            <i class="r1"></i><i class="r2"></i><i class="r3"></i>
+            <span class="addr">app.observeagents.ai<span class="p">/overview</span></span>
+          </div>
+          <video src="/tour/observeagents-onboarding.mp4" poster="/hero-dashboard.png"
+            controls muted autoplay loop playsinline preload="metadata"
+            aria-label="ObserveAgents overview video — dashboard, runtime traces, execution waterfall, security findings, and the Gateway Control Center"></video>
+        </div>
       </div>
     </section>
 
-    <section class="close">
-      <div class="wrap">
-        <h2>Observe first. Control only what matters.</h2>
-        <div class="line">Connect OpenTelemetry → see your agents → find the risk → control when you're ready.</div>
-        <a class="cta" href="https://demo.observeagents.ai" id="demoBottom">Explore the live demo →</a>
+    <!-- ── Closing CTA ─────────────────────────────────────────────────── -->
+    <section class="block" style="padding-bottom: 40px;">
+      <div class="container">
+        <div class="demo-band">
+          <div>
+            <h2>Observe first.<br>Control only what matters.</h2>
+            <p style="font-family: 'JetBrains Mono', monospace; font-size: 13px;">Connect OpenTelemetry → see your agents → find the risk → control when you're ready.</p>
+            <a class="btn btn-light" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Explore the live demo →</a>
+          </div>
+          <img class="shot" src="/product-overview.png" alt="The ObserveAgents console" width="1512" height="920">
+        </div>
       </div>
     </section>
   </main>
 
-  <footer>ObserveAgents — the runtime visibility and control layer for AI agents.</footer>
+  <footer>
+    <span class="foot-brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="1" y="1" width="22" height="22" rx="7" fill="url(#lg-nav)"/>
+        <path d="M5 12.5 H8.4 L10.5 7.5 L13.5 16.5 L15.6 11 H19" stroke="#0B1730" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      ObserveAgents
+    </span>
+    <p class="motto">Observe first · Control only what matters</p>
+    <p><a href="/">Home</a> · <a href="/integration.html">How to Connect</a> · <a href="/goal.html">Our Goal</a> · <a href="/#contact">Talk to the team</a></p>
+  </footer>
 
+  <script>
+    // Solutions dropdown: click toggle + Escape/outside close (hover handled in CSS).
+    (function () {
+      var drop = document.getElementById('navDrop');
+      if (!drop) return;
+      var btn = drop.querySelector('button');
+      btn.addEventListener('click', function () {
+        var open = drop.classList.toggle('open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function (e) {
+        if (!drop.contains(e.target)) { drop.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { drop.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+      });
+    })();
+
+    // Scroll reveals — same contract as the rest of the site.
+    (function () {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      document.querySelectorAll('.section-head, .video-frame, .demo-band').forEach(function (el) { el.classList.add('reveal'); });
+      if (reduce || !('IntersectionObserver' in window)) {
+        document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('on'); });
+      } else {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); }
+          });
+        }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+        document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+      }
+    })();
+  </script>
 </body>
 </html>
