@@ -326,13 +326,14 @@ export default function AssetIntelligenceV2({ onNavigate }) {
               <Section label="Gateway control">
                 {cand ? (
                   <div>
+                    {/* trailing parenthetical duplicates the findings above */}
                     <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.65, marginBottom: 8 }}>
-                      {cand.evidence?.reason || cand.summary}
+                      {(cand.evidence?.reason || cand.summary || "").replace(/\s*\([^()]*\)\s*\.?\s*$/, ".")}
                     </div>
-                    {(cand.evidence?.recommended_controls || []).length > 0 && (
+                    {(cand.evidence?.recommended_controls || []).filter((cc) => cc.kind !== "soft").length > 0 && (
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12 }}>
-                        {cand.evidence.recommended_controls.slice(0, 5).map((cc) => (
-                          <StatusPill key={cc.control} tone={cc.kind === "hard" ? C.riskHigh : cc.kind === "routing" ? C.purple : C.accent}>
+                        {cand.evidence.recommended_controls.filter((cc) => cc.kind !== "soft").slice(0, 5).map((cc) => (
+                          <StatusPill key={cc.control} tone={cc.kind === "routing" ? C.purple : C.violet}>
                             {cc.control}
                           </StatusPill>
                         ))}
