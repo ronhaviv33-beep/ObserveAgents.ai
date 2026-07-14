@@ -246,7 +246,7 @@ response = client.chat.completions.create(
           "Owner & control suggestions surfaced",
         ];
         return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24, overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(2,4,12,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24, overflowY: "auto" }}>
           <div style={{ background: T.panel, border: `1px solid ${T.accent}66`, borderRadius: 8, padding: 28, maxWidth: 600, width: "100%", display: "flex", flexDirection: "column", gap: 16, margin: "auto" }}>
             <div style={{ fontFamily: FONT_MONO, fontWeight: 700, color: T.accent, fontSize: 14 }}>Copy your key — shown once only</div>
             <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: T.textDim }}>

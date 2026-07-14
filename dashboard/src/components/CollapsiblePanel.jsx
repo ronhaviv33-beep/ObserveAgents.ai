@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback, useId } from "react";
 
 // ── Shared ObserveAgents dark palette (matches the per-page T tokens) ──────────
 const C = {
-  panel: "#FFFFFF", panelHi: "#F1F5F9",
-  border: "#E2E8F0",
-  text: "#0F172A", textDim: "#475569", textMute: "#64748B",
-  accent: "#16A34A",
+  panel: "#0D1322", panelHi: "#141C31",
+  border: "#1D2740",
+  text: "#E9EEF9", textDim: "#9AA9CB", textMute: "#5E6D90",
+  accent: "#3DDC97",
 };
 const MONO = "'JetBrains Mono','IBM Plex Mono',ui-monospace,monospace";
 const FONT = "'Geist','Söhne',-apple-system,BlinkMacSystemFont,sans-serif";
@@ -78,7 +78,7 @@ export default function CollapsiblePanel({
   }, [group, persist]);
 
   return (
-    <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 1px 2px rgba(15,23,42,0.04)", overflow: "hidden", fontFamily: FONT, ...style }}>
+    <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: "0 1px 2px rgba(2,4,12,0.16)", overflow: "hidden", fontFamily: FONT, ...style }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px" }}>
         <button

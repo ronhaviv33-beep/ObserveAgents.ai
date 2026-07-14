@@ -8,11 +8,11 @@ import { isObservability, isGateway } from "../productSurface.js";
 import CollapsiblePanel, { PanelGroupControls } from "../components/CollapsiblePanel.jsx";
 
 const T = {
-  bg: "#F8FAFC", panel: "#FFFFFF", panelHi: "#F1F5F9",
-  border: "#E2E8F0", borderHi: "#CBD5E1",
-  text: "#0F172A", textDim: "#475569", textMute: "#64748B",
-  accent: "#16A34A", warn: "#D97706", crit: "#DC2626",
-  info: "#0891B2", yellow: "#CA8A04", purple: "#7C3AED", teal: "#0D9488",
+  bg: "#070A14", panel: "#0D1322", panelHi: "#141C31",
+  border: "#1D2740", borderHi: "#31406B",
+  text: "#E9EEF9", textDim: "#9AA9CB", textMute: "#5E6D90",
+  accent: "#3DDC97", warn: "#F5C544", crit: "#FF4D6D",
+  info: "#2DD4BF", yellow: "#F5C544", purple: "#A78BFA", teal: "#2DD4BF",
 };
 const FONT = "'Geist','Söhne',-apple-system,sans-serif";
 const MONO = "'JetBrains Mono','IBM Plex Mono',monospace";
@@ -228,7 +228,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
             </div>
           </div>
           <button onClick={() => onNavigate?.("integrations")}
-            style={{ background: T.accent, color: "#FFFFFF", border: "none", borderRadius: 6, padding: "9px 20px", fontSize: 12, fontWeight: 600, fontFamily: FONT, cursor: "pointer", whiteSpace: "nowrap" }}>
+            style={{ background: T.accent, color: "#04121D", border: "none", borderRadius: 6, padding: "9px 20px", fontSize: 12, fontWeight: 600, fontFamily: FONT, cursor: "pointer", whiteSpace: "nowrap" }}>
             Start Setup →
           </button>
         </div>

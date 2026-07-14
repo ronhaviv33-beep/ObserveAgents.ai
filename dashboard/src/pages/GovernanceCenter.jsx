@@ -7,11 +7,11 @@ import CollapsiblePanel from "../components/CollapsiblePanel.jsx";
 const agentActionId = (a) => a?.id || a?.asset_key || a?.agent_id;
 
 const T = {
-  bg: "#F8FAFC", panel: "#FFFFFF", panelHi: "#F1F5F9",
-  border: "#E2E8F0", borderHi: "#CBD5E1",
-  text: "#0F172A", textDim: "#475569", textMute: "#64748B",
-  accent: "#16A34A", warn: "#D97706", crit: "#DC2626",
-  info: "#0891B2", yellow: "#CA8A04", purple: "#7C3AED",
+  bg: "#070A14", panel: "#0D1322", panelHi: "#141C31",
+  border: "#1D2740", borderHi: "#31406B",
+  text: "#E9EEF9", textDim: "#9AA9CB", textMute: "#5E6D90",
+  accent: "#3DDC97", warn: "#F5C544", crit: "#FF4D6D",
+  info: "#2DD4BF", yellow: "#F5C544", purple: "#A78BFA",
 };
 const MONO = "'JetBrains Mono','IBM Plex Mono',monospace";
 const FONT = "'Geist','Söhne',-apple-system,sans-serif";
@@ -356,7 +356,7 @@ export default function GovernanceCenter() {
             {[
               { label: "Managed",        count: managed.length,  color: T.accent,  sub: "Fully governed" },
               { label: "Needs Attention", count: needsValidation.length + unassigned.length, color: T.warn, sub: "Action required" },
-              { label: "Retired",        count: retired.length,  color: "#94A3B8",    sub: "Decommissioned" },
+              { label: "Retired",        count: retired.length,  color: "#5E6D90",    sub: "Decommissioned" },
             ].map(({ label, count, color, sub }) => (
               <div key={label} style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 8, padding: "18px 20px" }}>
                 <div style={{ fontSize: 9, fontFamily: MONO, color: T.textMute, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 }}>{label}</div>

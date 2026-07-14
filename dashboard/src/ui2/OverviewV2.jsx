@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
-  XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell,
+  XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
-import { C, FONT, RADIUS, microLabel, riskColor } from "./tokens.js";
+import { C, FONT, RADIUS, CARD, TOOLTIP, TICK, microLabel, riskColor } from "./tokens.js";
 import PageHeader from "./PageHeader.jsx";
 import Section from "./Section.jsx";
 import MetricCard from "./MetricCard.jsx";
 import RiskBadge from "./RiskBadge.jsx";
 import StatusPill from "./StatusPill.jsx";
 import EmptyState from "./EmptyState.jsx";
+import { FlowRibbon, Donut, BarRow, PulseDot, severitySegments } from "./viz.jsx";
 import { surfaceAllowsPage } from "../productSurface.js";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import {
@@ -17,21 +18,22 @@ import {
 } from "../overviewApi.js";
 
 /**
- * OverviewV2 — the first ui2 page (redesign step 1, docs/ui_redesign_plan.md).
+ * OverviewV2 — the ui2 landing page (docs/ui_redesign_plan.md).
  *
- * Layout: hero line · flow strip · four primary metrics · Zone of Attention
- * (evidence-backed, conditional) · Runtime Activity (30s countdown) · Gateway
- * Control Preview. Everything shown traces back to runtime evidence; the page
- * teaches the Observe-to-Control product model in one glance.
+ * Layout: hero line · evidence-flow ribbon (the signature element) · four
+ * primary metrics with live sparklines · analytics column · Zone of Attention
+ * (evidence-backed, conditional) · Gateway Control preview. Everything shown
+ * traces back to runtime evidence; the page teaches the Observe-to-Control
+ * product model in one glance.
  */
 
 const FLOW = [
-  { label: "OTel / OTLP",   page: "integrations" },
-  { label: "Runtime",       page: "runtime" },
-  { label: "Assets",        page: "intelligence" },
-  { label: "Security",      page: "security_intel" },
-  { label: "Rules",         page: null, planned: true },
-  { label: "Gateway Control", page: "gateway_control_center" },
+  { label: "OTel / OTLP",     page: "integrations" },
+  { label: "Runtime",         page: "runtime" },
+  { label: "Assets",          page: "intelligence" },
+  { label: "Security",        page: "security_intel" },
+  { label: "Rules",           page: "rules_alerts" },
+  { label: "Gateway Control", page: "gateway_control_center", tone: "#B07BFF" },
 ];
 
 const SLOW_MS = 5000;
@@ -42,30 +44,6 @@ const fmtMs = (ms) => {
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${(ms / 60000).toFixed(1)}m`;
 };
-
-function FlowStrip({ onNavigate }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-      {FLOW.map((step, i) => {
-        const clickable = step.page && surfaceAllowsPage(step.page);
-        return (
-          <span key={step.label} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <button onClick={clickable ? () => onNavigate?.(step.page) : undefined}
-              style={{
-                background: C.surfaceRaised, color: step.planned ? C.textMute : C.text,
-                border: `1px solid ${C.border}`, borderRadius: RADIUS.sm, padding: "6px 12px",
-                fontSize: 11, fontFamily: FONT.mono, whiteSpace: "nowrap",
-                cursor: clickable ? "pointer" : "default", opacity: step.planned ? 0.65 : 1,
-              }}>
-              {step.label}{step.planned && <span style={{ marginLeft: 6, fontSize: 9, color: C.textMute }}>planned</span>}
-            </button>
-            {i < FLOW.length - 1 && <span style={{ color: C.textMute, fontSize: 11 }}>→</span>}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
 
 export default function OverviewV2({ onNavigate }) {
   const bp = useBreakpoint();
@@ -169,15 +147,19 @@ export default function OverviewV2({ onNavigate }) {
     }));
   }, [traceRows]);
 
-  const sevBreakdown = useMemo(() =>
-    ["critical", "high", "medium", "low", "info"]
-      .map((s) => ({ name: s, value: openFindings.filter((f) => f.severity === s).length }))
-      .filter((d) => d.value > 0),
-    [openFindings]);
+  const eventTrend = useMemo(() => activitySeries.map((b) => b.events), [activitySeries]);
+  const errorTrend = useMemo(() => activitySeries.map((b) => b.errors), [activitySeries]);
+
+  const sevCounts = useMemo(() => {
+    const m = {};
+    openFindings.forEach((f) => { m[f.severity] = (m[f.severity] || 0) + 1; });
+    return m;
+  }, [openFindings]);
+  const sevSegments = useMemo(() => severitySegments(sevCounts), [sevCounts]);
 
   const latencyBuckets = useMemo(() => {
     const b = [
-      { label: "<1s", n: 0, color: C.accent }, { label: "1–5s", n: 0, color: C.accent },
+      { label: "<1s", n: 0, color: C.accent }, { label: "1–5s", n: 0, color: C.violet },
       { label: "5–15s", n: 0, color: C.riskMedium }, { label: "15s+", n: 0, color: C.riskHigh },
     ];
     traceRows.forEach((t) => {
@@ -190,15 +172,7 @@ export default function OverviewV2({ onNavigate }) {
   const att = attention || {};
   const nav = (page, opts) => { if (surfaceAllowsPage(page)) onNavigate?.(page, opts); };
 
-  const chartCard = {
-    background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md,
-    boxShadow: "0 1px 2px rgba(15,23,42,0.04)", padding: "16px 18px",
-  };
-  const tooltipStyle = {
-    background: "#FFFFFF", border: `1px solid ${C.border}`, borderRadius: 8,
-    boxShadow: "0 4px 12px rgba(15,23,42,0.08)", fontFamily: FONT.mono, fontSize: 11,
-  };
-  const tick = { fill: C.textMute, fontSize: 9.5, fontFamily: FONT.mono };
+  const chartCard = { ...CARD, padding: "16px 18px" };
 
   if (loading) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 280, color: C.textMute, fontFamily: FONT.mono, fontSize: 13 }}>
@@ -209,39 +183,44 @@ export default function OverviewV2({ onNavigate }) {
   const anySample = assets?.demo || findings?.demo || traces?.demo || att.demo;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 28, fontFamily: FONT.ui, maxWidth: 1160 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 26, fontFamily: FONT.ui, maxWidth: 1160 }}>
 
-      {/* ── Hero + flow strip ────────────────────────────────────────────── */}
-      <div>
+      {/* ── Hero + evidence-flow ribbon ──────────────────────────────────── */}
+      <div className="oa-rise">
         <PageHeader
+          eyebrow="Mission Control"
           title="Overview"
-          purpose={<span>Runtime evidence from your AI systems, turned into inventory, findings, and control recommendations. <span style={{ color: C.accent }}>Observe first. Control only what matters.</span></span>}>
-          <span style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textMute }}>
-            next refresh · <span style={{ color: C.textDim }}>{nextIn}s</span>
+          purpose={<span>Runtime evidence from your AI systems, turned into inventory, findings, and control recommendations. <span style={{ color: C.accentDark }}>Observe first. Control only what matters.</span></span>}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 10, fontFamily: FONT.mono, color: C.textMute }}>
+            <PulseDot /> live · next refresh <span style={{ color: C.textDim, fontVariantNumeric: "tabular-nums", display: "inline-block", minWidth: 24 }}>{nextIn}s</span>
           </span>
           {anySample && <StatusPill tone={C.textMute}>sample data</StatusPill>}
         </PageHeader>
-        <div style={{ marginTop: 16 }}>
-          <FlowStrip onNavigate={onNavigate} />
+        <div style={{ ...CARD, marginTop: 18, padding: "18px 22px 10px", borderRadius: RADIUS.lg, position: "relative", overflow: "hidden" }}>
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(600px 120px at 50% 0%, rgba(123,140,255,0.07), transparent 70%)" }} />
+          <div style={{ ...microLabel, fontSize: 9, marginBottom: 14 }}>The evidence chain — telemetry in, control out</div>
+          <FlowRibbon steps={FLOW} onNavigate={(p) => nav(p)} allows={surfaceAllowsPage} />
         </div>
       </div>
 
       {/* ── Primary metrics ──────────────────────────────────────────────── */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+      <div className="oa-rise oa-rise-1" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <MetricCard label="AI assets discovered" value={assetList.length}
           sub={`${att.systemsManaged ?? 0} managed`} tone={C.text}
+          trend={eventTrend} trendColor={C.accent}
           onClick={surfaceAllowsPage("intelligence") ? () => nav("intelligence") : undefined} />
         <MetricCard label="Open findings" value={openFindings.length}
           sub={`across ${agentsWithFindings} agent${agentsWithFindings !== 1 ? "s" : ""}`}
-          tone={openFindings.length > 0 ? C.riskMedium : C.accent}
+          tone={openFindings.length > 0 ? C.riskMedium : C.ok}
           onClick={surfaceAllowsPage("security_intel") ? () => nav("security_intel") : undefined} />
         <MetricCard label="Error traces" value={errorTraces}
           sub={`${slowTraces} slow trace${slowTraces !== 1 ? "s" : ""}`}
-          tone={errorTraces > 0 ? C.riskHigh : C.accent}
+          tone={errorTraces > 0 ? C.riskHigh : C.ok}
+          trend={errorTrend.some((n) => n > 0) ? errorTrend : undefined} trendColor={C.riskHigh}
           onClick={surfaceAllowsPage("runtime") ? () => nav("runtime") : undefined} />
         <MetricCard label="Gateway control candidates" value={openCandidates.length}
           sub="recommended for review — nothing applied automatically"
-          tone={openCandidates.length > 0 ? C.riskHigh : C.accent}
+          tone={openCandidates.length > 0 ? C.violet : C.ok}
           onClick={surfaceAllowsPage("gateway_control_center") ? () => nav("gateway_control_center") : undefined} />
       </div>
 
@@ -251,19 +230,27 @@ export default function OverviewV2({ onNavigate }) {
         {/* Left: analytics */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
 
-          <div style={chartCard}>
+          <div className="oa-rise oa-rise-2" style={chartCard}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
               <span style={microLabel}>Runtime activity</span>
-              <span style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textMute }}>{errorTraces} error · {slowTraces} slow</span>
+              <span style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textMute }}>
+                <span style={{ color: errorTraces > 0 ? C.riskHigh : C.textMute }}>{errorTraces} error</span> · {slowTraces} slow
+              </span>
             </div>
             {activitySeries.length > 0 ? (
               <ResponsiveContainer width="100%" height={170}>
                 <AreaChart data={activitySeries} margin={{ top: 4, right: 4, left: -22, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="ovAct" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={C.accent} stopOpacity={0.32} />
+                      <stop offset="100%" stopColor={C.accent} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid stroke={C.border} strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="label" tick={tick} axisLine={{ stroke: C.border }} tickLine={false} />
-                  <YAxis tick={tick} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Area type="monotone" dataKey="events" stroke={C.accent} strokeWidth={2} fill={`${C.accent}18`} name="events" />
+                  <XAxis dataKey="label" tick={TICK} axisLine={{ stroke: C.border }} tickLine={false} />
+                  <YAxis tick={TICK} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip contentStyle={TOOLTIP} labelStyle={{ color: C.textDim }} />
+                  <Area type="monotone" dataKey="events" stroke={C.accent} strokeWidth={2} fill="url(#ovAct)" name="events" />
                   <Area type="monotone" dataKey="errors" stroke={C.riskHigh} strokeWidth={1.5} fill={`${C.riskHigh}22`} name="error traces" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -274,30 +261,17 @@ export default function OverviewV2({ onNavigate }) {
             )}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+          <div className="oa-rise oa-rise-3" style={{ display: "grid", gridTemplateColumns: bp.isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
             <div style={chartCard}>
               <div style={{ ...microLabel, marginBottom: 12 }}>Findings by severity</div>
-              {sevBreakdown.length > 0 ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ position: "relative", width: 130, height: 130, flexShrink: 0 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={sevBreakdown} dataKey="value" nameKey="name"
-                          innerRadius={40} outerRadius={58} paddingAngle={2} strokeWidth={0}>
-                          {sevBreakdown.map((d) => <Cell key={d.name} fill={riskColor(d.name)} />)}
-                        </Pie>
-                        <Tooltip contentStyle={tooltipStyle} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-                      <span style={{ fontSize: 20, fontWeight: 700, color: C.text }}>{openFindings.length}</span>
-                      <span style={{ fontSize: 8, fontFamily: FONT.mono, color: C.textMute, letterSpacing: "0.1em" }}>OPEN</span>
-                    </div>
-                  </div>
-                  <div style={{ fontFamily: FONT.mono, fontSize: 10.5, lineHeight: 2, minWidth: 0 }}>
-                    {sevBreakdown.map((d) => (
-                      <div key={d.name} style={{ color: C.textDim }}>
-                        <span style={{ color: riskColor(d.name) }}>●</span> {d.value} {d.name}
+              {sevSegments.length > 0 ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  <Donut segments={sevSegments} size={124} thickness={12}
+                    centerValue={openFindings.length} centerLabel="open" />
+                  <div style={{ fontFamily: FONT.mono, fontSize: 10.5, lineHeight: 2.1, minWidth: 0 }}>
+                    {sevSegments.map((d) => (
+                      <div key={d.label} style={{ color: C.textDim }}>
+                        <span style={{ color: d.color }}>●</span> {d.value} {d.label}
                       </div>
                     ))}
                   </div>
@@ -312,9 +286,9 @@ export default function OverviewV2({ onNavigate }) {
               {traceRows.length > 0 ? (
                 <ResponsiveContainer width="100%" height={130}>
                   <BarChart data={latencyBuckets} margin={{ top: 4, right: 4, left: -26, bottom: 0 }}>
-                    <XAxis dataKey="label" tick={tick} axisLine={{ stroke: C.border }} tickLine={false} />
-                    <YAxis tick={tick} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "traces"]} cursor={{ fill: `${C.accent}0D` }} />
+                    <XAxis dataKey="label" tick={TICK} axisLine={{ stroke: C.border }} tickLine={false} />
+                    <YAxis tick={TICK} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Tooltip contentStyle={TOOLTIP} labelStyle={{ color: C.textDim }} formatter={(v) => [v, "traces"]} cursor={{ fill: `${C.accent}0D` }} />
                     <Bar dataKey="n" radius={[5, 5, 0, 0]}>
                       {latencyBuckets.map((b) => <Cell key={b.label} fill={b.color} />)}
                     </Bar>
@@ -326,35 +300,28 @@ export default function OverviewV2({ onNavigate }) {
             </div>
           </div>
 
-          <div style={chartCard}>
-            <div style={{ ...microLabel, marginBottom: 12 }}>Events per agent</div>
-            {agentActivity.length > 0 ? agentActivity.slice(0, 8).map((a) => {
-              const maxEv = Math.max(...agentActivity.map((x) => x.events), 1);
-              return (
-                <div key={a.agent}
-                  onClick={surfaceAllowsPage("runtime") ? () => onNavigate?.("runtime", { runtimeAgent: a.agent }) : undefined}
-                  style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10,
-                    cursor: surfaceAllowsPage("runtime") ? "pointer" : "default" }}>
-                  <span title={a.agent} style={{ fontSize: 11, fontFamily: FONT.mono, color: C.text, width: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0 }}>
-                    {a.agent}
-                  </span>
-                  <div style={{ flex: 1, height: 14, background: C.surfaceRaised, borderRadius: 5, overflow: "hidden", display: "flex" }}>
-                    <div style={{ width: `${((a.events - a.errors) / maxEv) * 100}%`, background: `linear-gradient(90deg, ${C.accent}, ${C.accent}CC)` }} />
-                    {a.errors > 0 && <div style={{ width: `${(Math.min(a.errors, a.events) / maxEv) * 100}%`, background: C.riskHigh }} />}
-                  </div>
-                  <span style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textMute, width: 106, textAlign: "right", flexShrink: 0 }}>
-                    {a.events} ev{a.errors > 0 && <> · <span style={{ color: C.riskHigh }}>{a.errors} err</span></>} · {fmtMs(a.withMs ? Math.round(a.totalMs / a.withMs) : null)}
-                  </span>
-                </div>
-              );
-            }) : (
+          <div className="oa-rise oa-rise-4" style={chartCard}>
+            <div style={{ ...microLabel, marginBottom: 14 }}>Events per agent</div>
+            {agentActivity.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {agentActivity.slice(0, 8).map((a) => {
+                  const maxEv = Math.max(...agentActivity.map((x) => x.events), 1);
+                  return (
+                    <BarRow key={a.agent} label={a.agent} title={a.agent}
+                      value={a.events} max={maxEv} errorValue={Math.min(a.errors, a.events)}
+                      right={<>{a.events} ev{a.errors > 0 && <> · <span style={{ color: C.riskHigh }}>{a.errors} err</span></>} · {fmtMs(a.withMs ? Math.round(a.totalMs / a.withMs) : null)}</>}
+                      onClick={surfaceAllowsPage("runtime") ? () => onNavigate?.("runtime", { runtimeAgent: a.agent }) : undefined} />
+                  );
+                })}
+              </div>
+            ) : (
               <div style={{ fontSize: 11.5, fontFamily: FONT.mono, color: C.textMute }}>No agent activity yet.</div>
             )}
           </div>
         </div>
 
         {/* Right: attention + gateway preview */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+        <div className="oa-rise oa-rise-3" style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
 
           <Section label="Attention · worst first">
             {(() => {
@@ -380,7 +347,7 @@ export default function OverviewV2({ onNavigate }) {
                 page: "security_intel",
               });
               return rows.length > 0 ? (
-                <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, boxShadow: "0 1px 2px rgba(15,23,42,0.04)", overflow: "hidden" }}>
+                <div style={{ ...CARD, overflow: "hidden" }}>
                   {rows.map((r, i) => (
                     <div key={r.key} onClick={() => nav(r.page)}
                       style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
@@ -388,7 +355,7 @@ export default function OverviewV2({ onNavigate }) {
                         cursor: surfaceAllowsPage(r.page) ? "pointer" : "default" }}
                       onMouseEnter={(e) => { e.currentTarget.style.background = C.surfaceHover; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: r.color, flexShrink: 0 }} />
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: r.color, boxShadow: `0 0 8px ${r.color}66`, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12.5, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
                         <div style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textMute, marginTop: 2 }}>{r.sub}</div>
@@ -417,7 +384,7 @@ export default function OverviewV2({ onNavigate }) {
                 const controls = cand.evidence?.recommended_controls || [];
                 const top = controls[0];
                 return (
-                  <div key={cand.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "14px 16px" }}>
+                  <div key={cand.id} style={{ ...CARD, padding: "14px 16px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: C.text, fontFamily: FONT.mono }}>
                         {nameByKey[cand.asset_key] || cand.asset_key.slice(0, 12) + "…"}
@@ -431,7 +398,7 @@ export default function OverviewV2({ onNavigate }) {
                     </div>
                     {surfaceAllowsPage("gateway_control_center") && (
                       <button onClick={() => onNavigate?.("gateway_control_center", { gccFocus: cand.asset_key })}
-                        style={{ background: "transparent", color: C.riskMedium, border: `1px solid ${C.riskMedium}44`,
+                        style={{ background: `${C.violet}14`, color: C.violet, border: `1px solid ${C.violet}44`,
                           borderRadius: RADIUS.sm, padding: "5px 13px", fontSize: 10.5, fontFamily: FONT.mono, cursor: "pointer" }}>
                         Review in Control Center →
                       </button>

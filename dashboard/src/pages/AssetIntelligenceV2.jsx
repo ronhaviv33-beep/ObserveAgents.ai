@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { C, FONT, RADIUS, microLabel } from "../ui2/tokens.js";
+import { C, FONT, RADIUS, CARD, microLabel } from "../ui2/tokens.js";
 import PageHeader from "../ui2/PageHeader.jsx";
 import Section from "../ui2/Section.jsx";
+import MetricCard from "../ui2/MetricCard.jsx";
 import RiskBadge from "../ui2/RiskBadge.jsx";
 import StatusPill from "../ui2/StatusPill.jsx";
 import EmptyState from "../ui2/EmptyState.jsx";
@@ -164,8 +165,9 @@ export default function AssetIntelligenceV2({ onNavigate }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, fontFamily: FONT.ui, maxWidth: 1240 }}>
 
-      <div>
+      <div className="oa-rise">
         <PageHeader
+          eyebrow="Observe · Inventory"
           title="Asset Intelligence"
           purpose="AI assets discovered from runtime evidence — ownership, capabilities, dependencies, findings, and control readiness.">
           {(assets.demo || candidates.demo) && <StatusPill tone={C.textMute}>sample data</StatusPill>}
@@ -184,6 +186,22 @@ export default function AssetIntelligenceV2({ onNavigate }) {
         {runResult && <div style={{ fontSize: 11, fontFamily: FONT.mono, color: C.accent, marginTop: 8 }}>Intelligence run complete — {runResult}</div>}
         {error && <div style={{ fontSize: 11, fontFamily: FONT.mono, color: C.riskHigh, marginTop: 8 }}>{error}</div>}
       </div>
+
+      {allAssets.length > 0 && (
+        <div className="oa-rise oa-rise-1" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <MetricCard label="AI assets" value={allAssets.length}
+            sub={`${allAssets.filter(traceDiscovered).length} trace discovered`} />
+          <MetricCard label="With findings" value={allAssets.filter((a) => (a.open_findings_count || 0) > 0).length}
+            sub="open findings on the asset"
+            tone={allAssets.some((a) => (a.open_findings_count || 0) > 0) ? C.riskMedium : C.ok} />
+          <MetricCard label="Security risk" value={allAssets.filter(hasSecurityRisk).length}
+            sub="medium+ security findings"
+            tone={allAssets.some(hasSecurityRisk) ? C.riskHigh : C.ok} />
+          <MetricCard label="Gateway candidates" value={candidateKeys.size}
+            sub="recommended for control review"
+            tone={candidateKeys.size > 0 ? C.violet : C.ok} />
+        </div>
+      )}
 
       {allAssets.length === 0 ? (
         <EmptyState icon="◈"
@@ -224,7 +242,7 @@ export default function AssetIntelligenceV2({ onNavigate }) {
 
           {/* ── Selected asset detail ───────────────────────────────────── */}
           {selected && (
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "20px 22px", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ ...CARD, padding: "20px 22px", display: "flex", flexDirection: "column", gap: 20 }}>
 
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>

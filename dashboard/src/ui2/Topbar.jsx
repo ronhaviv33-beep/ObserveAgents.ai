@@ -7,31 +7,34 @@ import { C, FONT } from "./tokens.js";
  * (AppShell renders the fixed mobile bar instead).
  */
 export default function Topbar({ pageId, pageLabel, isTablet, items = [], viewingOrg }) {
-  // Desktop: sticky translucent header band, full-bleed across <main>'s
-  // padding (must mirror AppShell's desktop padding of 28px 36px).
+  // Desktop: sticky glass header band, full-bleed across <main>'s padding
+  // (must mirror AppShell's desktop padding of 28px 36px).
   const band = isTablet
     ? { marginBottom: 18, paddingBottom: 12, borderBottom: `1px solid ${C.border}` }
     : {
         position: "sticky", top: 0, zIndex: 120,
-        margin: "-28px -36px 28px", padding: "14px 36px",
-        background: "rgba(255,255,255,0.86)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+        margin: "-28px -36px 28px", padding: "11px 36px",
+        background: "rgba(7,10,20,0.78)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
         borderBottom: `1px solid ${C.border}`,
       };
+  // One slim row: "workspace ⟩ page" breadcrumb left, operational chips right.
+  // The page's own PageHeader carries the big title — never repeated here.
   return (
     <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, ...band }}>
-      <div>
-        <div style={{ fontSize: 10.5, color: C.textMute, fontFamily: FONT.ui, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>{pageId}</div>
-        <h1 style={{ fontSize: isTablet ? 18 : 21, fontWeight: 600, margin: "3px 0 0", letterSpacing: "-0.02em", color: C.text }}>{pageLabel}</h1>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <span style={{ fontSize: 10, color: C.textMute, fontFamily: FONT.mono, letterSpacing: "0.14em", textTransform: "uppercase" }}>ObserveAgents</span>
+        <span style={{ color: C.borderStrong, fontSize: 10 }}>⟩</span>
+        <h1 style={{ fontSize: 13, fontWeight: 600, margin: 0, letterSpacing: "-0.01em", color: C.text, fontFamily: FONT.display }}>{pageLabel}</h1>
       </div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", fontFamily: FONT.mono, fontSize: 11, color: C.textDim, flexWrap: "wrap" }}>
         {viewingOrg && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: `${C.purple}1f`, border: `1px solid ${C.purple}4d`, color: C.purple, padding: "3px 9px", borderRadius: 4, fontSize: 10 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: `${C.purple}1A`, border: `1px solid ${C.purple}4d`, color: C.purple, padding: "3px 9px", borderRadius: 999, fontSize: 10 }}>
             ◆ Viewing: {viewingOrg}
           </span>
         )}
         {items.map((it, i) => (
           <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-            {i > 0 && <span style={{ color: C.textMute }}>|</span>}
+            {i > 0 && <span style={{ color: C.border }}>|</span>}
             <span title={it.title} style={{ color: it.color || C.textDim, display: "inline-flex", alignItems: "center", gap: 5 }}>
               {it.dot && "● "}{it.label}
             </span>

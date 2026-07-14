@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { C, FONT, RADIUS, microLabel } from "../ui2/tokens.js";
+import { C, FONT, RADIUS, CARD, microLabel } from "../ui2/tokens.js";
+import { FlowRibbon } from "../ui2/viz.jsx";
 import PageHeader from "../ui2/PageHeader.jsx";
 import Section from "../ui2/Section.jsx";
 import MetricCard from "../ui2/MetricCard.jsx";
@@ -24,11 +25,11 @@ import { getControlCandidates, getAssetSummary } from "../overviewApi.js";
  */
 
 const JOURNEY = [
-  { label: "Observed via OTel" },
-  { label: "Risk detected" },
-  { label: "Gateway recommended" },
-  { label: "Policy draft", future: true },
-  { label: "Explicit enforcement", future: true },
+  { label: "Observed via OTel", tone: "#3BC7F0" },
+  { label: "Risk detected", tone: "#FF8A4C" },
+  { label: "Gateway recommended", tone: "#B07BFF" },
+  { label: "Policy draft", planned: true },
+  { label: "Explicit enforcement", planned: true },
 ];
 
 const KIND_META = {
@@ -69,19 +70,10 @@ const relTime = (iso) => {
 
 function JourneyStrip() {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-      {JOURNEY.map((step, i) => (
-        <span key={step.label} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          <span style={{
-            background: C.surfaceRaised, color: step.future ? C.textMute : C.text,
-            border: `1px solid ${C.border}`, borderRadius: RADIUS.sm, padding: "6px 12px",
-            fontSize: 11, fontFamily: FONT.mono, whiteSpace: "nowrap", opacity: step.future ? 0.6 : 1,
-          }}>
-            {step.label}{step.future && <span style={{ marginLeft: 6, fontSize: 9, color: C.textMute }}>future</span>}
-          </span>
-          {i < JOURNEY.length - 1 && <span style={{ color: C.textMute, fontSize: 11 }}>→</span>}
-        </span>
-      ))}
+    <div style={{ ...CARD, borderRadius: RADIUS.lg, padding: "16px 22px 8px", position: "relative", overflow: "hidden" }}>
+      <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(600px 120px at 50% 0%, rgba(176,123,255,0.07), transparent 70%)" }} />
+      <div style={{ ...microLabel, fontSize: 9, marginBottom: 12 }}>From evidence to explicit control</div>
+      <FlowRibbon steps={JOURNEY} compact />
     </div>
   );
 }
@@ -263,8 +255,9 @@ export default function GatewayControlCenterV2({ isAdmin = false, focusAssetKey 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 26, fontFamily: FONT.ui, maxWidth: 1100 }}>
 
-      <div>
+      <div className="oa-rise">
         <PageHeader
+          eyebrow="Control · Review Queue"
           title="Gateway Control Center"
           purpose="Review AI agents recommended for Gateway control from runtime evidence, findings, and detection signals.">
           {candidates?.demo && <StatusPill tone={C.textMute}>sample data</StatusPill>}
@@ -278,13 +271,13 @@ export default function GatewayControlCenterV2({ isAdmin = false, focusAssetKey 
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+      <div className="oa-rise oa-rise-1" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <MetricCard label="Control candidates" value={openAll.length}
-          sub="recommended for review" tone={openAll.length > 0 ? C.riskMedium : C.accent} />
+          sub="recommended for review" tone={openAll.length > 0 ? C.violet : C.ok} />
         <MetricCard label="High risk candidates" value={highCount}
-          sub="high-severity evidence" tone={highCount > 0 ? C.riskHigh : C.accent} />
+          sub="high-severity evidence" tone={highCount > 0 ? C.riskHigh : C.ok} />
         <MetricCard label="Human review recommended" value={humanReview}
-          sub="risk combination needs a person" tone={humanReview > 0 ? C.riskMedium : C.accent} />
+          sub="risk combination needs a person" tone={humanReview > 0 ? C.riskMedium : C.ok} />
       </div>
 
       {focusAssetKey && (

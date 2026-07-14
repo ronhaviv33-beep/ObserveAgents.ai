@@ -4,18 +4,18 @@ import { relationshipEvidenceLabel } from "../discoveryStatus.js";
 import CollapsiblePanel, { PanelGroupControls } from "../components/CollapsiblePanel.jsx";
 
 const T = {
-  bg: "#F8FAFC", panel: "#FFFFFF", panelHi: "#F1F5F9",
-  border: "#E2E8F0", borderHi: "#CBD5E1",
-  text: "#0F172A", textDim: "#475569", textMute: "#64748B",
-  accent: "#16A34A", warn: "#D97706", crit: "#DC2626",
-  info: "#0891B2", yellow: "#CA8A04", purple: "#7C3AED",
+  bg: "#070A14", panel: "#0D1322", panelHi: "#141C31",
+  border: "#1D2740", borderHi: "#31406B",
+  text: "#E9EEF9", textDim: "#9AA9CB", textMute: "#5E6D90",
+  accent: "#3DDC97", warn: "#F5C544", crit: "#FF4D6D",
+  info: "#2DD4BF", yellow: "#F5C544", purple: "#A78BFA",
 };
 const MONO = "'JetBrains Mono','IBM Plex Mono',monospace";
 const FONT = "'Geist','Söhne',-apple-system,sans-serif";
 
 const PLATFORM_META = {
   gateway_telemetry: { label: "Gateway Telemetry", color: T.accent,  icon: "◉", desc: "AI runtime gateway — primary discovery source" },
-  sdk_runtime:       { label: "Runtime Metadata",   color: "#16A34A", icon: "◈", desc: "Agents discovered from runtime metadata attached by instrumentation" },
+  sdk_runtime:       { label: "Runtime Metadata",   color: "#3DDC97", icon: "◈", desc: "Agents discovered from runtime metadata attached by instrumentation" },
   github:            { label: "GitHub Repositories", color: T.info,  icon: "◎", desc: "Repositories with AI SDK dependencies" },
   n8n:               { label: "n8n Workflows",       color: T.purple, icon: "◈", desc: "Automation workflows using AI nodes" },
   slack:             { label: "Slack Bots",           color: "#B45309", icon: "◆", desc: "Slack app integrations using AI" },
@@ -157,10 +157,10 @@ function relativeTime(iso) {
 }
 
 const LIFECYCLE_MAP = {
-  unassigned:       { label: "Unassigned",  color: "#D97706", bg: "rgba(245,158,11,0.14)" },
-  needs_validation: { label: "Needs Val.",  color: "#7C3AED", bg: "rgba(139,92,246,0.14)" },
-  managed:          { label: "Managed",     color: "#16A34A", bg: "rgba(34,197,94,0.14)" },
-  retired:          { label: "Retired",     color: "#64748B", bg: "#F1F5F9" },
+  unassigned:       { label: "Unassigned",  color: "#F5C544", bg: "rgba(245,158,11,0.14)" },
+  needs_validation: { label: "Needs Val.",  color: "#A78BFA", bg: "rgba(139,92,246,0.14)" },
+  managed:          { label: "Managed",     color: "#3DDC97", bg: "rgba(34,197,94,0.14)" },
+  retired:          { label: "Retired",     color: "#5E6D90", bg: "#141C31" },
 };
 
 function ProviderAgentsModal({ provider, agents, onClose }) {
@@ -168,7 +168,7 @@ function ProviderAgentsModal({ provider, agents, onClose }) {
   const { meta, costUsd } = provider;
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 1000, padding: "0 0 0 0" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(2,4,12,0.60)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 1000, padding: "0 0 0 0" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderTop: `2px solid ${meta.color}`, borderRadius: "12px 12px 0 0", width: "100%", maxWidth: 900, maxHeight: "75vh", display: "flex", flexDirection: "column", fontFamily: FONT }}>
 
         {/* Header */}
@@ -202,9 +202,9 @@ function ProviderAgentsModal({ provider, agents, onClose }) {
                 const risk = a.risk || "—";
                 const riskColor = risk === "high" ? T.crit : risk === "medium" ? T.warn : risk === "low" ? T.accent : T.textMute;
                 return (
-                  <tr key={a.id || a.name || i} style={{ background: i % 2 === 0 ? T.panel : "#F8FAFC" }}
+                  <tr key={a.id || a.name || i} style={{ background: i % 2 === 0 ? T.panel : T.bg }}
                     onMouseEnter={e => e.currentTarget.style.background = T.panelHi}
-                    onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? T.panel : "#F8FAFC"}>
+                    onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? T.panel : T.bg}>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
                       <div style={{ fontSize: 13, fontFamily: MONO, color: T.text, fontWeight: 500 }}>{a.name || a.agent_name}</div>
                       <span style={{ display: "inline-block", background: lc.bg, color: lc.color, fontSize: 9, fontFamily: MONO, fontWeight: 600, padding: "1px 6px", borderRadius: 3, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 3 }}>{lc.label}</span>
@@ -217,7 +217,7 @@ function ProviderAgentsModal({ provider, agents, onClose }) {
                     </td>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 12, color: T.textDim }}>{a.owner === "Unassigned" ? <span style={{ color: T.warn, fontSize: 11, fontFamily: MONO }}>Unassigned</span> : (a.owner || "—")}</td>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
-                      <span style={{ background: a.status === "active" ? "rgba(34,197,94,0.14)" : "#F1F5F9", color: a.status === "active" ? T.accent : T.textDim, fontSize: 11, fontFamily: MONO, fontWeight: 600, padding: "2px 8px", borderRadius: 4, textTransform: "capitalize" }}>{a.status || "—"}</span>
+                      <span style={{ background: a.status === "active" ? "rgba(34,197,94,0.14)" : "#141C31", color: a.status === "active" ? T.accent : T.textDim, fontSize: 11, fontFamily: MONO, fontWeight: 600, padding: "2px 8px", borderRadius: 4, textTransform: "capitalize" }}>{a.status || "—"}</span>
                     </td>
                     <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
                       <span style={{ fontSize: 11, fontFamily: MONO, color: riskColor, textTransform: "capitalize" }}>{risk}</span>
@@ -250,7 +250,7 @@ function RelationshipModal({ category, rows, onClose }) {
     : rows;
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 1000 }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(2,4,12,0.60)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 1000 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: T.panel, border: `1px solid ${T.border}`, borderTop: `2px solid ${meta.color}`, borderRadius: "12px 12px 0 0", width: "100%", maxWidth: 980, maxHeight: "78vh", display: "flex", flexDirection: "column", fontFamily: FONT }}>
 
         {/* Header */}
@@ -292,7 +292,7 @@ function RelationshipModal({ category, rows, onClose }) {
                 {filtered.map((r, i) => {
                   const ev = relationshipEvidenceLabel(r);
                   return (
-                    <tr key={r.id ?? `${r.source_agent_name}-${r.target_name}-${i}`} style={{ background: i % 2 === 0 ? T.panel : "#F8FAFC" }}>
+                    <tr key={r.id ?? `${r.source_agent_name}-${r.target_name}-${i}`} style={{ background: i % 2 === 0 ? T.panel : T.bg }}>
                       <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 13, fontFamily: MONO, color: T.text, fontWeight: 500 }}>{r.source_agent_name}</td>
                       <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 12, fontFamily: MONO, color: T.textDim }}>{(r.relationship_type || "").replace(/_/g, " ")}</td>
                       <td style={{ padding: "11px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 11, fontFamily: MONO, color: meta.color, textTransform: "uppercase" }}>{(r.target_type || "").replace(/_/g, " ")}</td>

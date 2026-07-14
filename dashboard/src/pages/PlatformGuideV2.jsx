@@ -1,7 +1,7 @@
-import { Fragment } from "react";
-import { C, FONT, RADIUS, microLabel } from "../ui2/tokens.js";
+import { C, FONT, RADIUS, AURORA, microLabel } from "../ui2/tokens.js";
 import Section from "../ui2/Section.jsx";
 import StatusPill from "../ui2/StatusPill.jsx";
+import { FlowRibbon } from "../ui2/viz.jsx";
 import { isObservability, surfaceAllowsPage } from "../productSurface.js";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
 
@@ -14,7 +14,14 @@ import { useBreakpoint } from "../hooks/useBreakpoint.js";
  * Center card, so the guide reflects the shipped Observe-to-Control flow.
  */
 
-const FLOW_STEPS = ["OTel / OTLP", "Runtime", "Asset Intelligence", "Security Intelligence", "Detection Rules", "Gateway Control Center"];
+const FLOW_STEPS = [
+  { label: "OTel / OTLP" },
+  { label: "Runtime" },
+  { label: "Asset Intelligence" },
+  { label: "Security Intelligence" },
+  { label: "Detection Rules" },
+  { label: "Gateway Control", tone: "#B07BFF" },
+];
 
 export default function PlatformGuideV2({ onNavigate }) {
   const bp = useBreakpoint();
@@ -80,14 +87,19 @@ export default function PlatformGuideV2({ onNavigate }) {
     <div style={{ maxWidth: 940, margin: "0 auto", fontFamily: FONT.ui, display: "flex", flexDirection: "column", gap: 30 }}>
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <div style={{ padding: bp.isMobile ? "26px 22px" : "38px 42px", background: C.surface,
-        border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: -70, right: -70, width: 300, height: 300, borderRadius: "50%",
-          background: `${C.accent}06`, pointerEvents: "none" }} />
-        <div style={{ ...microLabel, color: C.accent, marginBottom: 14 }}>ObserveAgents · Runtime visibility & control for AI agents</div>
-        <div style={{ fontSize: bp.isMobile ? 23 : 31, fontWeight: 700, color: C.text, marginBottom: 14, lineHeight: 1.18, letterSpacing: "-0.02em" }}>
+      <div className="oa-rise" style={{ padding: bp.isMobile ? "26px 22px" : "38px 42px", background: C.surface,
+        border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, position: "relative", overflow: "hidden",
+        boxShadow: "0 1px 0 rgba(255,255,255,0.03) inset, 0 10px 30px rgba(2,4,12,0.45)" }}>
+        <div aria-hidden="true" style={{ position: "absolute", top: 0, left: 42, right: 42, height: 2,
+          background: "linear-gradient(90deg, transparent, #3BC7F0 25%, #7B8CFF 55%, #B07BFF 80%, transparent)", opacity: 0.85 }} />
+        <div aria-hidden="true" style={{ position: "absolute", top: -110, right: -90, width: 380, height: 380, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(59,199,240,0.09), transparent 65%)", pointerEvents: "none" }} />
+        <div aria-hidden="true" style={{ position: "absolute", bottom: -140, left: -60, width: 340, height: 340, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(176,123,255,0.07), transparent 65%)", pointerEvents: "none" }} />
+        <div style={{ ...microLabel, color: C.accentDark, marginBottom: 14 }}>ObserveAgents · Runtime visibility & control for AI agents</div>
+        <div style={{ fontSize: bp.isMobile ? 24 : 34, fontWeight: 700, color: C.text, marginBottom: 14, lineHeight: 1.15, letterSpacing: "-0.02em", fontFamily: FONT.display }}>
           See your real AI footprint.<br />
-          <span style={{ color: C.accent }}>No manual registration needed.</span>
+          <span style={{ background: AURORA, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>No manual registration needed.</span>
         </div>
         <div style={{ fontSize: 14.5, color: C.textDim, lineHeight: 1.75, maxWidth: 580, marginBottom: 24 }}>
           Observe connects signals from your AI systems and turns them into a clear view of what is
@@ -122,15 +134,8 @@ export default function PlatformGuideV2({ onNavigate }) {
             reliability, or governance signals, it can be reviewed in the Gateway Control Center with
             recommended controls — observe-only until explicitly configured.
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            {FLOW_STEPS.map((step, i) => (
-              <Fragment key={step}>
-                <span style={{ fontSize: 11, fontFamily: FONT.mono, color: C.text,
-                  background: C.surfaceRaised, border: `1px solid ${C.border}`, borderRadius: RADIUS.sm,
-                  padding: "5px 11px", whiteSpace: "nowrap" }}>{step}</span>
-                {i < FLOW_STEPS.length - 1 && <span style={{ color: C.textMute, fontSize: 11 }}>→</span>}
-              </Fragment>
-            ))}
+          <div style={{ marginBottom: 16 }}>
+            <FlowRibbon steps={FLOW_STEPS} compact />
           </div>
           <div style={{ fontSize: 12, fontFamily: FONT.mono, color: C.accent }}>
             Observe first. Control only what matters.

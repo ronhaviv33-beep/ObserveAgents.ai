@@ -15,20 +15,20 @@ import CollapsiblePanel, { PanelGroupControls } from '../components/CollapsibleP
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const T = {
-  bg:       '#F8FAFC',
-  panel:    '#FFFFFF',
-  panelHi:  '#F1F5F9',
-  border:   '#E2E8F0',
-  borderHi: '#CBD5E1',
-  text:     '#0F172A',
-  textDim:  '#475569',
-  textMute: '#64748B',
-  accent:   '#2563EB',
-  success:  '#16A34A',
-  warn:     '#D97706',
-  crit:     '#DC2626',
-  purple:   '#7C3AED',
-  teal:     '#0D9488',
+  bg:       '#070A14',
+  panel:    '#0D1322',
+  panelHi:  '#141C31',
+  border:   '#1D2740',
+  borderHi: '#31406B',
+  text:     '#E9EEF9',
+  textDim:  '#9AA9CB',
+  textMute: '#5E6D90',
+  accent:   '#3BC7F0',
+  success:  '#3DDC97',
+  warn:     '#F5C544',
+  crit:     '#FF4D6D',
+  purple:   '#A78BFA',
+  teal:     '#2DD4BF',
 }
 const FONT_MONO = "'JetBrains Mono', 'Fira Code', monospace"
 const FONT_SANS = "'Inter', system-ui, sans-serif"
@@ -202,7 +202,7 @@ function BreakdownList({ items, breakdownBy }) {
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background: '#FFFFFF', border: `1px solid ${T.border}`, borderRadius: 8, boxShadow: '0 4px 12px rgba(15,23,42,0.08)', padding: '8px 12px', fontFamily: FONT_MONO, fontSize: 11 }}>
+    <div style={{ background: '#101830', border: `1px solid ${T.borderHi}`, borderRadius: 8, boxShadow: '0 12px 32px rgba(2,4,12,0.6)', padding: '8px 12px', fontFamily: FONT_MONO, fontSize: 11 }}>
       <div style={{ color: T.textDim, marginBottom: 4 }}>{label}</div>
       <div style={{ color: T.accent }}>{fmtFull$(payload[0].value)}</div>
       {payload[1] && <div style={{ color: T.textMute }}>{payload[1].value.toLocaleString()} calls</div>}
@@ -408,7 +408,7 @@ function ImportModal({ onClose, onSubmit, saving }) {
   const labelStyle = { fontSize: 11, color: T.textDim, marginBottom: 4, display: 'block', fontFamily: FONT_MONO }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,4,12,0.60)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
       <div style={{ background: T.panel, border: `1px solid ${T.borderHi}`, borderRadius: 8, padding: 24, width: 'min(460px, calc(100vw - 32px))', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>Import Provider Billing</div>
@@ -503,7 +503,7 @@ function EditBillingModal({ record, onClose, onSubmit, saving }) {
   const labelStyle = { fontSize: 11, color: T.textDim, marginBottom: 4, display: 'block', fontFamily: FONT_MONO }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,4,12,0.60)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
       <div style={{ background: T.panel, border: `1px solid ${T.borderHi}`, borderRadius: 8, padding: 24, width: 'min(460px, calc(100vw - 32px))', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>

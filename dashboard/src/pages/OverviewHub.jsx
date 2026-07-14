@@ -198,7 +198,7 @@ export default function OverviewHub({ onNavigate }) {
             <button key={r} onClick={() => pickRole(r)}
               style={{
                 background: role === r ? T.accent : "transparent",
-                color: role === r ? "#FFFFFF" : T.textDim,
+                color: role === r ? "#04121D" : T.textDim,
                 border: "none", padding: "8px 20px", fontSize: 12, fontWeight: 600,
                 fontFamily: FONT, cursor: "pointer", textTransform: "capitalize",
               }}>
@@ -292,7 +292,7 @@ export default function OverviewHub({ onNavigate }) {
                     <CartesianGrid stroke={T.border} vertical={false} />
                     <XAxis dataKey="date" stroke={T.textMute} style={{ fontFamily: MONO, fontSize: 10 }} />
                     <YAxis stroke={T.textMute} style={{ fontFamily: MONO, fontSize: 10 }} tickFormatter={(v) => `$${v.toFixed(0)}`} />
-                    <Tooltip contentStyle={{ background: "#FFFFFF", border: `1px solid ${T.border}`, borderRadius: 8, boxShadow: "0 4px 12px rgba(15,23,42,0.08)", fontFamily: MONO, fontSize: 11 }} formatter={(v) => [fmt$(v), "cost"]} />
+                    <Tooltip contentStyle={{ background: "#101830", border: "1px solid #31406B", borderRadius: 10, boxShadow: "0 12px 32px rgba(2,4,12,0.6)", color: "#E9EEF9", fontFamily: MONO, fontSize: 11 }} labelStyle={{ color: "#9AA9CB" }} formatter={(v) => [fmt$(v), "cost"]} />
                     <Area type="monotone" dataKey="cost" stroke={T.accent} strokeWidth={1.5} fill="url(#ovCost)" />
                   </AreaChart>
                 </ResponsiveContainer>

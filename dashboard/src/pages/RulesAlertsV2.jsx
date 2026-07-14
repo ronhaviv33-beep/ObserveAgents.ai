@@ -243,8 +243,9 @@ export default function RulesAlertsV2({ onNavigate }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 26, fontFamily: FONT.ui, maxWidth: 1160 }}>
 
-      <div>
+      <div className="oa-rise">
         <PageHeader
+          eyebrow="Observe · Detection"
           title="Rules & Alerts"
           purpose="Built-in detection rules that turn AI-agent runtime evidence into alerts — thresholds over MCP usage, tool errors, and provider risk.">
           {(matches.demo || assets.demo) && <StatusPill tone={C.textMute}>sample data</StatusPill>}
@@ -266,15 +267,15 @@ export default function RulesAlertsV2({ onNavigate }) {
         {error && <div style={{ fontSize: 11, fontFamily: FONT.mono, color: C.riskHigh, marginTop: 8 }}>{error}</div>}
       </div>
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+      <div className="oa-rise oa-rise-1" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <MetricCard label="Built-in rules" value={builtIn}
           sub={`${RULE_TEMPLATES.length - builtIn} more planned`} tone={C.text} />
         <MetricCard label="Open rule matches" value={openRows.length}
-          tone={openRows.length > 0 ? C.riskMedium : C.accent} />
+          tone={openRows.length > 0 ? C.riskMedium : C.ok} />
         <MetricCard label="High severity" value={highOpen}
-          tone={highOpen > 0 ? C.riskHigh : C.accent} />
+          tone={highOpen > 0 ? C.riskHigh : C.ok} />
         <MetricCard label="Agents affected" value={agentsAffected}
-          sub="agents with open rule matches" tone={agentsAffected > 0 ? C.riskMedium : C.accent} />
+          sub="agents with open rule matches" tone={agentsAffected > 0 ? C.riskMedium : C.ok} />
       </div>
 
       <Section label="Built-in rule templates"
@@ -291,7 +292,7 @@ export default function RulesAlertsV2({ onNavigate }) {
           </span>
         }>
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md,
-          boxShadow: "0 1px 2px rgba(15,23,42,0.04)", overflow: "hidden" }}>
+          boxShadow: "0 1px 0 rgba(255,255,255,0.03) inset, 0 10px 30px rgba(2,4,12,0.45)", overflow: "hidden" }}>
           {orderedTemplates.map((t, i) => (
             <RuleListRow key={t.type} t={t} open={openRules.has(t.type)}
               onToggle={() => toggleRule(t.type)} last={i === orderedTemplates.length - 1} />

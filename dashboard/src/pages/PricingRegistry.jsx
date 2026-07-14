@@ -11,20 +11,20 @@ import { useBreakpoint } from '../hooks/useBreakpoint.js'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const T = {
-  bg:       '#F8FAFC',
-  panel:    '#FFFFFF',
-  panelHi:  '#F1F5F9',
-  border:   '#E2E8F0',
-  borderHi: '#CBD5E1',
-  text:     '#0F172A',
-  textDim:  '#475569',
-  textMute: '#64748B',
-  accent:   '#2563EB',
-  success:  '#16A34A',
-  warn:     '#D97706',
-  crit:     '#DC2626',
-  purple:   '#7C3AED',
-  teal:     '#0D9488',
+  bg:       '#070A14',
+  panel:    '#0D1322',
+  panelHi:  '#141C31',
+  border:   '#1D2740',
+  borderHi: '#31406B',
+  text:     '#E9EEF9',
+  textDim:  '#9AA9CB',
+  textMute: '#5E6D90',
+  accent:   '#3BC7F0',
+  success:  '#3DDC97',
+  warn:     '#F5C544',
+  crit:     '#FF4D6D',
+  purple:   '#A78BFA',
+  teal:     '#2DD4BF',
 }
 const FONT_MONO = "'JetBrains Mono', 'Fira Code', monospace"
 const FONT_SANS = "'Inter', system-ui, sans-serif"
@@ -163,7 +163,7 @@ function HistoryDrawer({ provider, model, onClose }) {
   }, [provider, model])
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,4,12,0.60)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
       <div style={{ background: T.panel, border: `1px solid ${T.borderHi}`, borderRadius: 8, padding: 24, width: 'min(560px, calc(100vw - 32px))', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div>
@@ -255,7 +255,7 @@ function OverrideModal({ prefill, onClose, onSubmit, saving }) {
   const labelStyle = { fontSize: 11, color: T.textDim, marginBottom: 4, display: 'block', fontFamily: FONT_MONO }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,4,12,0.60)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
       <div style={{ background: T.panel, border: `1px solid ${T.borderHi}`, borderRadius: 8, padding: 24, width: 'min(440px, calc(100vw - 32px))', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>Pricing Override</div>
