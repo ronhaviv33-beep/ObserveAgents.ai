@@ -26,10 +26,10 @@ const clamp = (frame: number, from: number, to: number) =>
   });
 
 const HEADER_CHIPS: { text: string; color: string; bg: string }[] = [
-  { text: "production", color: theme.textSoft, bg: "#f4f2ee" },
-  { text: "9 findings", color: theme.textSoft, bg: "#f4f2ee" },
-  { text: "routing required", color: theme.purple, bg: theme.purpleSoft },
-  { text: "recommended", color: theme.orange, bg: theme.orangeFaint },
+  { text: "production", color: theme.textDim, bg: theme.surfaceRaised },
+  { text: "9 findings", color: theme.textDim, bg: theme.surfaceRaised },
+  { text: "routing required", color: theme.violet, bg: "rgba(142,123,255,0.14)" },
+  { text: "recommended", color: theme.riskHigh, bg: "rgba(255,138,76,0.12)" },
 ];
 
 const DETECTION_RULES = [
@@ -47,19 +47,19 @@ const SECURITY_INTEL = [
 const ASSET_INTEL = ["sensitive_system_access"];
 
 const CONTROLS = [
-  { label: "route through gateway", chip: "routing step", tone: "purple" },
-  { label: "human review requirement", chip: "available now", tone: "blue" },
-  { label: "mcp/tool usage policy", chip: "requires Gateway routing", tone: "orange" },
-  { label: "rate limit", chip: "requires Gateway routing", tone: "orange" },
-  { label: "provider allowlist", chip: "requires Gateway routing", tone: "orange" },
-  { label: "block unknown provider", chip: "requires Gateway routing", tone: "orange" },
-  { label: "alert-only rule", chip: "available now", tone: "blue" },
+  { label: "route through gateway", chip: "routing step", tone: "violet" },
+  { label: "human review requirement", chip: "available now", tone: "accent" },
+  { label: "mcp/tool usage policy", chip: "requires Gateway routing", tone: "high" },
+  { label: "rate limit", chip: "requires Gateway routing", tone: "high" },
+  { label: "provider allowlist", chip: "requires Gateway routing", tone: "high" },
+  { label: "block unknown provider", chip: "requires Gateway routing", tone: "high" },
+  { label: "alert-only rule", chip: "available now", tone: "accent" },
 ];
 
 const tones: Record<string, { color: string; bg: string }> = {
-  purple: { color: theme.purple, bg: theme.purpleSoft },
-  blue: { color: theme.blue, bg: theme.blueSoft },
-  orange: { color: theme.orange, bg: theme.orangeSoft },
+  violet: { color: theme.violet, bg: "rgba(142,123,255,0.14)" },
+  accent: { color: theme.accent, bg: theme.accentSoft },
+  high: { color: theme.riskHigh, bg: "rgba(255,138,76,0.12)" },
 };
 
 const ChipGroup: React.FC<{
@@ -79,9 +79,9 @@ const ChipGroup: React.FC<{
           <Chip
             text={chip}
             size={15}
-            color={theme.orange}
-            bg={theme.orangeFaint}
-            border={theme.orangeSoft}
+            color={theme.riskHigh}
+            bg="rgba(255,138,76,0.1)"
+            border="rgba(255,138,76,0.3)"
           />
         </span>
       ))}
@@ -139,7 +139,7 @@ export const Beat6Controls: React.FC = () => {
               style={{
                 fontFamily: theme.mono,
                 fontSize: 16,
-                color: theme.textFaint,
+                color: theme.textMute,
                 marginTop: 6,
               }}
             >
@@ -162,7 +162,7 @@ export const Beat6Controls: React.FC = () => {
             style={{
               fontFamily: theme.mono,
               fontSize: 16,
-              color: theme.textFaint,
+              color: theme.textMute,
               opacity: clamp(frame, 27, 35),
             }}
           >
@@ -170,11 +170,11 @@ export const Beat6Controls: React.FC = () => {
           </span>
         </div>
 
-        {/* Card body — tinted, two columns */}
+        {/* Card body — raised surface, two columns */}
         <div
           style={{
-            background: "#f7f5f1",
-            borderTop: `1.5px solid ${theme.borderSoft}`,
+            background: theme.surfaceRaised,
+            borderTop: `1px solid ${theme.border}`,
             display: "flex",
             gap: 56,
             padding: "30px 40px 36px",
@@ -188,14 +188,14 @@ export const Beat6Controls: React.FC = () => {
                 style={{
                   fontFamily: theme.sans,
                   fontSize: 18.5,
-                  color: theme.textSoft,
+                  color: theme.textDim,
                   lineHeight: 1.55,
                   marginTop: 12,
                 }}
               >
-                <span style={{ color: theme.blue }}>Runtime evidence</span>{" "}
+                <span style={{ color: theme.accent }}>Runtime evidence</span>{" "}
                 recommends reviewing this agent for Gateway control:{" "}
-                <span style={{ color: theme.orange }}>
+                <span style={{ color: theme.riskHigh }}>
                   9 open high-severity findings
                 </span>{" "}
                 and human review recommended (agent_has_database_access,
@@ -275,7 +275,7 @@ export const Beat6Controls: React.FC = () => {
               style={{
                 fontFamily: theme.sans,
                 fontSize: 16.5,
-                color: theme.textSoft,
+                color: theme.textDim,
                 lineHeight: 1.5,
                 marginTop: 18,
                 maxWidth: 640,
@@ -292,9 +292,9 @@ export const Beat6Controls: React.FC = () => {
                 marginTop: 20,
                 fontFamily: theme.mono,
                 fontSize: 17,
-                color: theme.orange,
-                background: theme.card,
-                border: `1.5px solid ${theme.orangeSoft}`,
+                color: theme.riskHigh,
+                background: theme.surface,
+                border: `1.5px solid rgba(255,138,76,0.3)`,
                 borderRadius: 8,
                 padding: "10px 22px",
                 opacity: clamp(frame, 86, 100),
