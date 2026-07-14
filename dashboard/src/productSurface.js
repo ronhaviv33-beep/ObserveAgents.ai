@@ -1,4 +1,4 @@
-// Product surface mode — Phase 2 of docs/product_surface_separation_plan.md.
+// Product surface mode — Observability vs Gateway split (see docs/architecture.md).
 //
 // ObserveAgents ships two customer-facing products on one shared backend:
 //   observability — AI observability & intelligence through OpenTelemetry

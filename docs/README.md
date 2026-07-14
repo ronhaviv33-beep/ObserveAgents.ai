@@ -22,4 +22,4 @@
 | [soc_agents_model.md](soc_agents_model.md) | Detect → Triage → Respond operating lens |
 | [roadmap.md](roadmap.md) | Phased forward roadmap |
 
-Design/planning docs (`*_plan.md`), dev/QA guides, and the UI contract also live in this directory. Superseded docs are kept under [archive/](archive/).
+Design/planning docs, the UI contract ([ui_contract.md](ui_contract.md), [ui_redesign_plan.md](ui_redesign_plan.md)), and the demo dataset doc ([demo_seed_data.md](demo_seed_data.md)) also live in this directory. Superseded docs are kept under [archive/](archive/).
