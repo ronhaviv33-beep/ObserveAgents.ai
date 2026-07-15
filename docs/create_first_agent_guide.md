@@ -1,8 +1,10 @@
 # Create Your First Agent — Local Developer Onboarding
 
-Build a small, safe AI agent on your machine, send its activity to
-ObserveAgents, and watch it appear in the product. Beginner-friendly and
-copy/paste oriented — everything runs locally with fake data.
+Build a small, safe AI agent on your machine, send its activity to your
+**live ObserveAgents environment**, and watch it appear in the product.
+Beginner-friendly and copy/paste oriented — the agent runs on your machine
+(plain Python or a throwaway Docker container) with fake data; ObserveAgents
+itself is already running, nothing needs to be deployed for this guide.
 
 ## 1. What you will build
 
@@ -27,12 +29,17 @@ Both use the same `gk-` API key for authentication. **Note the key format is
 
 ## 2. Prerequisites
 
-- ObserveAgents backend running locally (default `http://localhost:8000`)
-- Dashboard running (or the combined server serving the built dashboard)
-- Python 3.10+ installed
+- A **live, running ObserveAgents environment** and its base URL — e.g.
+  `https://your-observeagents-domain.com`. Nothing needs to be started for
+  this guide; you are testing against the deployment that already runs.
+  (If you self-host in Docker on your machine, the base URL is
+  `http://localhost:<mapped-port>` — check `docker ps` for the port.)
 - Visual Studio Code installed (optional: GitHub Copilot enabled)
-- A valid `gk-` API key — create one in the dashboard under
-  **Administration → API Keys** (copy it once; it is never shown again)
+- **Python 3.10+ installed, or Docker** — with Docker you can run the test
+  agent in a throwaway container without installing Python at all (see §3)
+- A valid `gk-` API key from that live environment — create one in the
+  dashboard under **Administration → API Keys** (copy it once; it is never
+  shown again)
 - A `.env` file for secrets (created below)
 
 > ⚠️ **Never hardcode API keys, routing keys, tokens, passwords, or customer
@@ -73,6 +80,35 @@ agent_gateway.py
 README.md
 ```
 
+### Alternative: run with Docker (no local Python)
+
+Since the ObserveAgents environment is already live, the only thing that
+needs Python is the little test agent — and Docker can supply that. Skip the
+venv/pip steps above and, once the files exist, run either script in a
+throwaway container:
+
+```bash
+docker run --rm --env-file .env -v "$PWD":/app -w /app python:3.12-slim \
+  sh -c "pip install -q requests python-dotenv && python agent_gateway.py"
+```
+
+Windows PowerShell:
+
+```powershell
+docker run --rm --env-file .env -v "${PWD}:/app" -w /app python:3.12-slim `
+  sh -c "pip install -q requests python-dotenv && python agent_gateway.py"
+```
+
+Notes:
+- `--env-file .env` passes your configuration in; secrets stay out of the image.
+- One Docker quirk: `.env` values must be **unquoted** for `--env-file`
+  (`KEY=value`, not `KEY="value"`).
+- If your ObserveAgents instance also runs in Docker **on the same machine**
+  and you call it via `localhost`, the container can't see the host's
+  localhost — use `http://host.docker.internal:<port>` in `.env` instead
+  (add `--add-host=host.docker.internal:host-gateway` on Linux). With a real
+  live domain this doesn't apply.
+
 ## 4. Option A — OTLP / OpenTelemetry path
 
 This option sends telemetry as an OpenTelemetry trace to the real OTLP
@@ -84,7 +120,9 @@ path — only structure and metadata).
 ### `.env` for OTLP
 
 ```env
-OBSERVEAGENTS_OTLP_URL=http://localhost:8000/otel/v1/traces
+# Replace YOUR-LIVE-DOMAIN with your deployment's host.
+# Self-hosting in local Docker instead? Use http://localhost:<mapped-port>.
+OBSERVEAGENTS_OTLP_URL=https://YOUR-LIVE-DOMAIN/otel/v1/traces
 OBSERVEAGENTS_API_KEY=gk-REPLACE_WITH_YOUR_KEY
 AGENT_ID=billing-agent-otlp-local
 AGENT_NAME=Billing Agent OTLP Local
@@ -93,7 +131,7 @@ AGENT_ENVIRONMENT=development
 AGENT_OWNER=ron@example.com
 ```
 
-- `OBSERVEAGENTS_OTLP_URL` — the OTLP traces endpoint on your backend
+- `OBSERVEAGENTS_OTLP_URL` — the OTLP traces endpoint on your live deployment
 - `OBSERVEAGENTS_API_KEY` — your `gk-` key (sent as a Bearer token)
 - `AGENT_ID` — the stable identity; becomes the discovered agent
 - `AGENT_TEAM` / `AGENT_ENVIRONMENT` / `AGENT_OWNER` — governance metadata shown in Agent Inventory
@@ -204,8 +242,9 @@ Runtime → **Agent events**, Rules & Alerts findings, and daily metrics.
 ### `.env` for the Gateway key path
 
 ```env
-OBSERVEAGENTS_TELEMETRY_URL=http://localhost:8000/api/v1/telemetry/batch
-OBSERVEAGENTS_RUNTIME_EVENTS_URL=http://localhost:8000/runtime-events
+# Replace YOUR-LIVE-DOMAIN with your deployment's host.
+OBSERVEAGENTS_TELEMETRY_URL=https://YOUR-LIVE-DOMAIN/api/v1/telemetry/batch
+OBSERVEAGENTS_RUNTIME_EVENTS_URL=https://YOUR-LIVE-DOMAIN/runtime-events
 OBSERVEAGENTS_API_KEY=gk-REPLACE_WITH_YOUR_KEY
 AGENT_ID=billing-agent-gateway-local
 AGENT_NAME=Billing Agent Gateway Local
@@ -394,7 +433,10 @@ the exact endpoint paths.
 | Agent events empty | Check you're on the **Agent events** view (not Traces), the right agent is selected, and the time range covers your event's timestamp |
 | Rules & Alerts empty | The event may not trigger any enabled rule — try the warning example in §6 |
 | Metrics not updated | Rollups update after worker processing — wait and refresh |
-| Connection refused | Backend port differs — match `.env` URLs to where the backend actually runs |
+| Connection refused / DNS error | Wrong base URL — use your live domain exactly (https, no trailing slash); for local Docker, match the mapped port from `docker ps` |
+| Works with curl, fails from Docker | Container can't reach the host's `localhost` — use `http://host.docker.internal:<port>` (see §3), or your live domain |
+| `.env` values look wrong in Docker | `docker run --env-file` doesn't strip quotes — keep values unquoted (`KEY=value`) |
+| SSL certificate error | Your live deployment's HTTPS cert isn't trusted by the container/host — fix the cert; never disable TLS verification |
 | CORS errors | You're calling from a browser page — call the API from Python/curl instead, or go through the dashboard's dev proxy |
 
 ## 9. Data safety
@@ -406,15 +448,17 @@ the exact endpoint paths.
 - The batch API **preserves your raw payload byte-for-byte** for
   investigation — whatever you send is stored. Send metadata about activity,
   not content. (The OTLP path stores content hashes only.)
-- Use `environment=development` for local testing so test agents are clearly
-  separated from production.
+- Use `environment=development` so test agents are clearly separated from
+  production — especially important here, since you're sending into a live
+  deployment: the test events and demo agents will be visible to everyone
+  who uses that environment until cleaned up.
 
 ## 10. Optional curl examples
 
 OTLP:
 
 ```bash
-curl -s -X POST http://localhost:8000/otel/v1/traces \
+curl -s -X POST https://YOUR-LIVE-DOMAIN/otel/v1/traces \
   -H "Authorization: Bearer gk-YOUR_KEY" -H "Content-Type: application/json" \
   -d '{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"curl-demo-agent"}}]},"scopeSpans":[{"spans":[{"traceId":"5b8efff798038103d269b633813fc60c","spanId":"eee19b7ec3c1b174","name":"chat gpt-4o-mini","kind":3,"startTimeUnixNano":"1752570000000000000","endTimeUnixNano":"1752570001000000000","attributes":[{"key":"gen_ai.operation.name","value":{"stringValue":"chat"}},{"key":"gen_ai.system","value":{"stringValue":"openai"}},{"key":"gen_ai.request.model","value":{"stringValue":"gpt-4o-mini"}}],"status":{}}]}]}]}'
 ```
@@ -422,16 +466,16 @@ curl -s -X POST http://localhost:8000/otel/v1/traces \
 Batch telemetry (Gateway key path):
 
 ```bash
-curl -s -X POST http://localhost:8000/api/v1/telemetry/batch \
+curl -s -X POST https://YOUR-LIVE-DOMAIN/api/v1/telemetry/batch \
   -H "Authorization: Bearer gk-YOUR_KEY" -H "Content-Type: application/json" \
   -d '{"events":[{"event_id":"demo-1","agent_id":"curl-demo-agent","agent_name":"Curl Demo Agent","team":"Finance","owner":"ron@example.com","environment":"development","event_type":"llm_call","provider":"openai","model":"gpt-4o-mini","input_tokens":100,"output_tokens":20,"latency_ms":800,"status":"ok"}]}'
 ```
 
 ## 11. Final validation checklist
 
-- [ ] Backend is running
-- [ ] Dashboard is running
-- [ ] `gk-` API key is configured in `.env` (never hardcoded)
+- [ ] Live environment is reachable (`curl https://YOUR-LIVE-DOMAIN/health` returns `"status":"ok"`)
+- [ ] Dashboard opens and you can log in
+- [ ] `.env` points at the live base URL and the `gk-` API key (never hardcoded)
 - [ ] OTLP script returns `202` and the trace appears in Runtime → Traces
 - [ ] Gateway script returns `202` with `accepted > 0`
 - [ ] Both agents appear in Agent Inventory with team/owner/environment
