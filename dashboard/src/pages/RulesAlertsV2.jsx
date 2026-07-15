@@ -8,7 +8,9 @@ import RiskBadge from "../ui2/RiskBadge.jsx";
 import StatusPill from "../ui2/StatusPill.jsx";
 import EmptyState from "../ui2/EmptyState.jsx";
 import { surfaceAllowsPage } from "../productSurface.js";
-import { runIntelligence, fetchRiskFindings, fetchRiskFindingsSummary, fetchRiskRules } from "../api.js";
+import { runIntelligence, fetchRiskFindings, fetchRiskFindingsSummary,
+  fetchDetectionRules, fetchDetectionRuleTemplates, createDetectionRule,
+  updateDetectionRule, deleteDetectionRule } from "../api.js";
 import { getAssetSummary, getControlCandidates, getRuleMatches } from "../overviewApi.js";
 
 /**
@@ -198,6 +200,175 @@ const FILTER_SELECT = {
   borderRadius: RADIUS.sm, padding: "6px 10px", fontSize: 11.5, fontFamily: FONT.ui,
 };
 
+// ── Managed rules (admin-editable, template-based) ───────────────────────────
+
+const SMALL_BTN = {
+  background: "transparent", border: `1px solid ${C.border}`, color: C.textDim,
+  borderRadius: RADIUS.sm, padding: "4px 11px", fontSize: 10.5, fontFamily: FONT.mono, cursor: "pointer",
+};
+const INPUT = {
+  background: C.surfaceRaised, color: C.text, border: `1px solid ${C.border}`,
+  borderRadius: RADIUS.sm, padding: "6px 10px", fontSize: 11.5, fontFamily: FONT.ui,
+};
+
+/** Editable config fields for one rule's template params. Values held as raw
+ * strings; string_list params are comma-separated. */
+function configToFields(templates, templateType, config) {
+  const tpl = templates.find((t) => t.template_type === templateType);
+  if (!tpl) return [];
+  return tpl.params.map((p) => ({
+    ...p,
+    raw: p.type === "string_list"
+      ? (config?.[p.key] || []).join(", ")
+      : (config?.[p.key] ?? ""),
+  }));
+}
+
+function fieldsToConfig(fields) {
+  const out = {};
+  for (const f of fields) {
+    if (f.type === "string_list") {
+      out[f.key] = String(f.raw).split(",").map((s) => s.trim()).filter(Boolean);
+    } else {
+      out[f.key] = Number(f.raw);
+    }
+  }
+  return out;
+}
+
+function ManagedRuleRow({ rule, templates, canManage, onSaved, onError, last }) {
+  const cat = CATEGORY_META[rule.category] || CATEGORY_META.security;
+  const CatIcon = cat.icon;
+  const [editing, setEditing] = useState(false);
+  const [fields, setFields] = useState([]);
+  const [severity, setSeverity] = useState(rule.severity);
+  const [busy, setBusy] = useState(false);
+  const idOrKey = rule.id ?? rule.rule_key;
+  const hasParams = !!rule.template_type && configToFields(templates, rule.template_type, rule.config).length > 0;
+
+  const startEdit = () => {
+    setFields(configToFields(templates, rule.template_type, rule.config));
+    setSeverity(rule.severity);
+    setEditing(true);
+  };
+  const call = (fn) => { setBusy(true); fn().then(onSaved).catch((e) => onError(e.message)).finally(() => setBusy(false)); };
+  const save = () => call(() => updateDetectionRule(idOrKey, {
+    severity,
+    ...(hasParams && fields.length ? { config: fieldsToConfig(fields) } : {}),
+  }).then(() => setEditing(false)));
+  const toggle = () => call(() => updateDetectionRule(idOrKey, { enabled: !rule.enabled }));
+  const remove = () => call(() => deleteDetectionRule(rule.id));
+
+  return (
+    <div style={{ borderBottom: last ? "none" : `1px solid ${C.border}`, opacity: rule.enabled ? 1 : 0.55 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", flexWrap: "wrap" }}>
+        <span style={{ width: 24, height: 24, borderRadius: 8, background: `${cat.color}14`,
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <CatIcon size={13} color={cat.color} strokeWidth={2} />
+        </span>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: C.text }}>{rule.name}</span>
+        <StatusPill tone={rule.source === "custom" ? C.violet : C.accent}>
+          {rule.source === "custom" ? "custom" : "built-in"}
+        </StatusPill>
+        <RiskBadge level={rule.severity} />
+        {!rule.enabled && <StatusPill tone={C.textMute}>disabled</StatusPill>}
+        <span style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+          {rule.updated_by && (
+            <span title={rule.updated_at || ""} style={{ fontSize: 9.5, fontFamily: FONT.mono, color: C.textMute }}>
+              updated by {rule.updated_by}
+            </span>
+          )}
+          {canManage && (
+            <>
+              <button onClick={toggle} disabled={busy} style={SMALL_BTN}>{rule.enabled ? "Disable" : "Enable"}</button>
+              {!editing && <button onClick={startEdit} disabled={busy} style={SMALL_BTN}>Edit</button>}
+              {rule.source === "custom" && (
+                <button onClick={remove} disabled={busy} style={{ ...SMALL_BTN, color: C.riskHigh, borderColor: `${C.riskHigh}44` }}>Delete</button>
+              )}
+            </>
+          )}
+        </span>
+      </div>
+      {editing && (
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap",
+          padding: "4px 16px 14px 50px", background: C.surfaceRaised }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 9.5, fontFamily: FONT.mono, color: C.textMute, textTransform: "uppercase" }}>
+            severity
+            <select value={severity} onChange={(e) => setSeverity(e.target.value)} style={INPUT}>
+              <option value="low">low</option><option value="medium">medium</option><option value="high">high</option>
+            </select>
+          </label>
+          {fields.map((f, i) => (
+            <label key={f.key} style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 9.5, fontFamily: FONT.mono, color: C.textMute, textTransform: "uppercase" }}>
+              {f.label}
+              <input value={f.raw} style={{ ...INPUT, minWidth: f.type === "string_list" ? 220 : 120 }}
+                onChange={(e) => setFields((cur) => cur.map((x, j) => j === i ? { ...x, raw: e.target.value } : x))} />
+            </label>
+          ))}
+          <button onClick={save} disabled={busy}
+            style={{ ...SMALL_BTN, background: C.accent, color: C.accentInk, border: "none", fontWeight: 700 }}>
+            {busy ? "Saving…" : "Save"}
+          </button>
+          <button onClick={() => setEditing(false)} disabled={busy} style={SMALL_BTN}>Cancel</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AddRuleForm({ templates, onSaved, onError, onClose }) {
+  const [templateType, setTemplateType] = useState(templates[0]?.template_type || "");
+  const [name, setName] = useState("");
+  const [severity, setSeverity] = useState("medium");
+  const [fields, setFields] = useState(() => configToFields(templates, templates[0]?.template_type, {}));
+  const [busy, setBusy] = useState(false);
+
+  const pickTemplate = (t) => { setTemplateType(t); setFields(configToFields(templates, t, {})); };
+  const save = () => {
+    setBusy(true);
+    createDetectionRule({ name: name.trim() || templates.find((t) => t.template_type === templateType)?.label,
+      template_type: templateType, severity, config: fieldsToConfig(fields) })
+      .then(() => { onSaved(); onClose(); })
+      .catch((e) => onError(e.message))
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap",
+      border: `1px dashed ${C.borderStrong}66`, borderRadius: RADIUS.md, padding: "14px 16px", marginBottom: 10 }}>
+      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 9.5, fontFamily: FONT.mono, color: C.textMute, textTransform: "uppercase" }}>
+        template
+        <select value={templateType} onChange={(e) => pickTemplate(e.target.value)} style={INPUT}>
+          {templates.map((t) => <option key={t.template_type} value={t.template_type}>{t.label}</option>)}
+        </select>
+      </label>
+      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 9.5, fontFamily: FONT.mono, color: C.textMute, textTransform: "uppercase" }}>
+        name
+        <input value={name} placeholder="Rule name" onChange={(e) => setName(e.target.value)} style={{ ...INPUT, minWidth: 180 }} />
+      </label>
+      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 9.5, fontFamily: FONT.mono, color: C.textMute, textTransform: "uppercase" }}>
+        severity
+        <select value={severity} onChange={(e) => setSeverity(e.target.value)} style={INPUT}>
+          <option value="low">low</option><option value="medium">medium</option><option value="high">high</option>
+        </select>
+      </label>
+      {fields.map((f, i) => (
+        <label key={f.key} style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 9.5, fontFamily: FONT.mono, color: C.textMute, textTransform: "uppercase" }}>
+          {f.label}
+          <input value={f.raw} placeholder={f.type === "string_list" ? "comma, separated" : "number"}
+            style={{ ...INPUT, minWidth: f.type === "string_list" ? 220 : 120 }}
+            onChange={(e) => setFields((cur) => cur.map((x, j) => j === i ? { ...x, raw: e.target.value } : x))} />
+        </label>
+      ))}
+      <button onClick={save} disabled={busy}
+        style={{ ...SMALL_BTN, background: C.accent, color: C.accentInk, border: "none", fontWeight: 700 }}>
+        {busy ? "Saving…" : "Save rule"}
+      </button>
+      <button onClick={onClose} disabled={busy} style={SMALL_BTN}>Cancel</button>
+    </div>
+  );
+}
+
 function MatchRow({ f, assetName, isCandidate, onNavigate }) {
   const sevColor = riskColor(f.severity);
   return (
@@ -248,7 +419,10 @@ export default function RulesAlertsV2({ onNavigate }) {
   // Event-level findings (real-time risk scoring at ingestion)
   const [findings, setFindings] = useState(null);
   const [findingsSummary, setFindingsSummary] = useState(null);
-  const [riskRules, setRiskRules] = useState(null);
+  const [managedRules, setManagedRules] = useState(null);   // {rules, can_manage}
+  const [ruleTemplates, setRuleTemplates] = useState([]);
+  const [addingRule, setAddingRule] = useState(false);
+  const [ruleError, setRuleError] = useState(null);
   const [nextCursor, setNextCursor] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [filters, setFilters] = useState({ days: 7, risk_level: "", policy_action: "", team: "", environment: "" });
@@ -269,9 +443,15 @@ export default function RulesAlertsV2({ onNavigate }) {
   }, [filters]);
 
   useEffect(() => { loadFindings(); }, [loadFindings]);
-  useEffect(() => {
-    fetchRiskRules().then(setRiskRules).catch(() => setRiskRules({ rules: [] }));
+
+  const loadManagedRules = useCallback(() => {
+    setRuleError(null);
+    return fetchDetectionRules().then(setManagedRules).catch(() => setManagedRules({ rules: [], can_manage: false }));
   }, []);
+  useEffect(() => {
+    loadManagedRules();
+    fetchDetectionRuleTemplates().then((d) => setRuleTemplates(d.templates || [])).catch(() => setRuleTemplates([]));
+  }, [loadManagedRules]);
 
   const loadMoreFindings = () => {
     if (!nextCursor) return;
@@ -439,30 +619,39 @@ export default function RulesAlertsV2({ onNavigate }) {
       </Section>
 
       <Section label="Real-time risk rules"
-        right={<StatusPill tone={C.accent}>evaluated at ingestion</StatusPill>}>
+        right={
+          <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <StatusPill tone={C.accent}>evaluated at ingestion</StatusPill>
+            {managedRules?.can_manage && !addingRule && (
+              <button onClick={() => setAddingRule(true)}
+                style={{ background: C.accent, color: C.accentInk, border: "none", borderRadius: RADIUS.sm,
+                  padding: "6px 14px", fontSize: 11, fontWeight: 700, fontFamily: FONT.ui, cursor: "pointer" }}>
+                Add rule
+              </button>
+            )}
+          </span>
+        }>
+        <div style={{ fontSize: 11, color: C.textMute, marginBottom: 10 }}>
+          Rules define what the platform watches for; findings above are their real matches from agent
+          runtime activity. {managedRules?.can_manage
+            ? "Tune severity and thresholds to match your organization's risk tolerance — changes apply to future events only."
+            : "Only admins can manage detection rules."}
+        </div>
+        {ruleError && <div style={{ fontSize: 11, fontFamily: FONT.mono, color: C.riskHigh, marginBottom: 8 }}>{ruleError}</div>}
+        {addingRule && ruleTemplates.length > 0 && (
+          <AddRuleForm templates={ruleTemplates} onSaved={loadManagedRules}
+            onError={setRuleError} onClose={() => setAddingRule(false)} />
+        )}
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, overflow: "hidden" }}>
-          {(riskRules?.rules || []).map((r, i) => {
-            const cat = CATEGORY_META[r.category] || CATEGORY_META.security;
-            const CatIcon = cat.icon;
-            return (
-              <div key={r.rule_id} style={{ display: "flex", alignItems: "center", gap: 10,
-                padding: "9px 16px", borderBottom: i === riskRules.rules.length - 1 ? "none" : `1px solid ${C.border}` }}>
-                <span style={{ width: 22, height: 22, borderRadius: 7, background: `${cat.color}14`,
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <CatIcon size={12} color={cat.color} strokeWidth={2} />
-                </span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: C.text }}>{r.rule_name}</span>
-                <span style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textMute, textTransform: "uppercase", letterSpacing: "0.06em" }}>{r.category}</span>
-                  <span style={{ fontSize: 10, fontFamily: FONT.mono, color: C.textDim, background: C.surfaceRaised, borderRadius: 999, padding: "2px 9px" }}>+{r.weight}</span>
-                </span>
-              </div>
-            );
-          })}
+          {(managedRules?.rules || []).map((r, i) => (
+            <ManagedRuleRow key={r.rule_key} rule={r} templates={ruleTemplates}
+              canManage={!!managedRules?.can_manage} onSaved={loadManagedRules}
+              onError={setRuleError} last={i === managedRules.rules.length - 1} />
+          ))}
         </div>
         <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, marginTop: 8 }}>
-          Additive weights, capped at 100 · warn at {riskRules?.thresholds?.warn_score ?? 50} · block on policy rules ·
-          thresholds configurable per org via risk_thresholds.
+          Template-based only — rules never run custom code. Severity maps to score weight
+          (low +10 · medium +15 · high +25), additive and capped at 100; policy rules can block.
         </div>
       </Section>
 

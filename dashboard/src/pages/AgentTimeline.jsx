@@ -125,7 +125,7 @@ function TimelineRow({ e }) {
   );
 }
 
-export default function AgentTimeline({ focusAgentId = null, onFocusConsumed }) {
+export default function AgentTimeline({ focusAgentId = null, onFocusConsumed, embedded = false }) {
   const [agents, setAgents] = useState([]);
   const [agentId, setAgentId] = useState(focusAgentId || "");
   const [days, setDays] = useState(7);
@@ -200,30 +200,43 @@ export default function AgentTimeline({ focusAgentId = null, onFocusConsumed }) 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22, fontFamily: FONT.ui }}>
-      <PageHeader
-        eyebrow="Operational evidence"
-        title="Agent Timeline"
-        purpose="Everything one agent did — model calls, tools, cost, latency, errors, and risk — as a single reviewable feed."
-      >
-        <select value={agentId} onChange={(e) => setAgentId(e.target.value)} style={selectStyle} aria-label="Agent">
-          {!agents.length && <option value="">No agents yet</option>}
-          {agents.map((a) => (
-            <option key={a.id} value={a.id}>{a.name || a.agent_name || a.id}</option>
-          ))}
-        </select>
-        <div style={{ display: "flex", gap: 4 }}>
-          {RANGES.map((r) => (
-            <button key={r.days} onClick={() => setDays(r.days)}
-              style={{
-                background: days === r.days ? `${C.accent}1F` : "transparent",
-                color: days === r.days ? C.accentDark || C.accent : C.textDim,
-                border: `1px solid ${days === r.days ? `${C.accent}55` : C.border}`,
-                borderRadius: RADIUS.sm, padding: "7px 13px", fontSize: 11.5,
-                fontFamily: FONT.mono, cursor: "pointer",
-              }}>{r.label}</button>
-          ))}
-        </div>
-      </PageHeader>
+      {(() => {
+        const controls = (
+          <>
+            <select value={agentId} onChange={(e) => setAgentId(e.target.value)} style={selectStyle} aria-label="Agent">
+              {!agents.length && <option value="">No agents yet</option>}
+              {agents.map((a) => (
+                <option key={a.id} value={a.id}>{a.name || a.agent_name || a.id}</option>
+              ))}
+            </select>
+            <div style={{ display: "flex", gap: 4 }}>
+              {RANGES.map((r) => (
+                <button key={r.days} onClick={() => setDays(r.days)}
+                  style={{
+                    background: days === r.days ? `${C.accent}1F` : "transparent",
+                    color: days === r.days ? C.accentDark || C.accent : C.textDim,
+                    border: `1px solid ${days === r.days ? `${C.accent}55` : C.border}`,
+                    borderRadius: RADIUS.sm, padding: "7px 13px", fontSize: 11.5,
+                    fontFamily: FONT.mono, cursor: "pointer",
+                  }}>{r.label}</button>
+              ))}
+            </div>
+          </>
+        );
+        return embedded ? (
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {controls}
+          </div>
+        ) : (
+          <PageHeader
+            eyebrow="Operational evidence"
+            title="Agent Timeline"
+            purpose="Everything one agent did — model calls, tools, cost, latency, errors, and risk — as a single reviewable feed."
+          >
+            {controls}
+          </PageHeader>
+        );
+      })()}
 
       {data?.agent && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>

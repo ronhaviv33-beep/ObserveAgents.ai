@@ -53,8 +53,8 @@ export default function PlatformGuideV2({ onNavigate }) {
       n: "1", color: C.accent,
       title: "How data gets in",
       desc: isObservability
-        ? "Send OpenTelemetry traces to the OTLP endpoint — it works with your existing OTel stack and the GenAI semantic conventions. Ecosystem sources like GitHub, Jira, Slack, n8n, and MCP are coming later."
-        : "Send OpenTelemetry traces to the OTLP endpoint, or route AI traffic through the gateway. Both work with your existing stack — no proprietary SDK required. Ecosystem sources like GitHub, Jira, Slack, n8n, and MCP are coming later.",
+        ? "Send OpenTelemetry traces to the OTLP endpoint, or send agent events to the batch telemetry API (POST /api/v1/telemetry/batch with a gk- API key). Both work with your existing stack and the GenAI semantic conventions. Ecosystem sources like GitHub, Jira, Slack, n8n, and MCP are coming later."
+        : "Send OpenTelemetry traces to the OTLP endpoint, send agent events to the batch telemetry API (POST /api/v1/telemetry/batch), or route AI traffic through the gateway. All work with your existing stack — no proprietary SDK required. Ecosystem sources like GitHub, Jira, Slack, n8n, and MCP are coming later.",
       note: null,
       sdks: isObservability
         ? ["OpenTelemetry", "OTel Collector", "GenAI SemConv", "MCP telemetry", "Claude Code telemetry"]
@@ -64,14 +64,14 @@ export default function PlatformGuideV2({ onNavigate }) {
     {
       n: "2", color: C.teal,
       title: "What you can see",
-      desc: "Runtime traces and execution timelines. An inventory of every AI system. Capabilities, dependencies, and findings per system. Security signals, cost signals, and guardrail observations — all derived from observed behavior.",
+      desc: "Runtime traces and execution timelines. An Agent Inventory discovered from telemetry, with owner, team, and environment. A per-agent Timeline of model and tool activity — cost, latency, errors, policy actions, and risk reasons. Risk findings and rule matches, security signals, and cost signals — all derived from observed behavior.",
       note: "Everything appears automatically once data flows. No manual registration, no tagging.",
       cta: "Open Runtime →", page: "runtime",
     },
     {
       n: "3", color: C.riskLow,
       title: "What to do next",
-      desc: "Send OpenTelemetry traces from one AI service. Then open Runtime to see traces, Asset Intelligence to see discovered AI systems, and Guardrails to see advisory observations. Check Security and Cost Intelligence for risky or heavy systems.",
+      desc: "Send telemetry from one AI service. Then open Runtime to see traces, Agent Inventory to see discovered agents, and Agent Timeline to review each agent's activity. Check Rules & Alerts for risk findings and Security Intelligence for risky systems.",
       note: "Optional: review and assign owners to discovered systems in Governance Readiness when you're ready.",
       cta: "Open Asset Intelligence →", page: "intelligence",
     },
@@ -128,9 +128,9 @@ export default function PlatformGuideV2({ onNavigate }) {
       <Section label="How ObserveAgents works">
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "22px 26px" }}>
           <div style={{ fontSize: 13, color: C.textDim, lineHeight: 1.75, maxWidth: 720, marginBottom: 16 }}>
-            ObserveAgents starts with OpenTelemetry runtime evidence. AI systems send OTLP traces into
-            Runtime, where spans and signals reveal what agents actually do. That evidence powers Asset
-            Intelligence, Security Intelligence, and Detection Rules. When an agent shows risk, cost,
+            ObserveAgents starts with runtime evidence. AI systems send OpenTelemetry traces or batch
+            telemetry events, where spans and signals reveal what agents actually do. That evidence powers the Agent
+            Inventory and Timeline, Asset Intelligence, Security Intelligence, and Detection Rules. When an agent shows risk, cost,
             reliability, or governance signals, it can be reviewed in the Gateway Control Center with
             recommended controls — observe-only until explicitly configured.
           </div>

@@ -287,7 +287,7 @@ function EvidenceChips({ evidence = {} }) {
     if (s.team_hint)         chunks.push(`team: ${s.team_hint}`);
     if (s.environment_hint)  chunks.push(`env: ${s.environment_hint}`);
   }
-  if (chunks.length === 0) return <span style={{ fontSize: 11, color: T.textMute, fontFamily: FONT_MONO }}>Gateway traffic</span>;
+  if (chunks.length === 0) return <span style={{ fontSize: 11, color: T.textMute, fontFamily: FONT_MONO }}>Runtime telemetry</span>;
   return (
     <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
       {chunks.slice(0, 4).map((c, i) => (
@@ -412,7 +412,7 @@ function VerifiedTable({ agents, onClaim, onEdit, onTimeline }) {
   const sorted = sortAgents(agents, sort.key, sort.dir);
   const bp = useBreakpoint();
   if (agents.length === 0) {
-    return <EmptyState message="No verified agents in this view." />;
+    return <EmptyState message="No verified agents in this view. Agents are discovered automatically from ingested telemetry — create a gk- API key and send events to POST /api/v1/telemetry/batch or the OTel endpoint." />;
   }
 
   if (bp.isMobile) {
@@ -1150,7 +1150,7 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
           label="Verified Agents"
           value={verifiedSummary.total ?? verified.length}
           color={T.accent}
-          sub="confirmed from runtime traffic"
+          sub="confirmed from runtime telemetry"
         />
         <KpiCard
           label="Unassigned"
@@ -1209,7 +1209,7 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
             {[verified, potential, retired].reduce((s, l) => s + l.length, 0) + managed.filter(a => !verified.includes(a)).length} total inventory records
           </span>
           <span style={{ fontSize: 10, fontFamily: FONT_MONO, color: T.textMute }}>
-            Verified agents from runtime traffic · Potential agents from platform scans
+            Verified agents from runtime telemetry · Potential agents from platform scans
           </span>
         </div>
       </div>

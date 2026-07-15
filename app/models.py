@@ -1034,3 +1034,41 @@ class AgentMetricsDaily(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc), nullable=False,
     )
+
+
+class DetectionRule(Base):
+    """
+    Admin-managed detection rule (Rules & Alerts).
+
+    Two sources: "built_in" rows are per-org overrides of the fixed real-time
+    risk rules (enabled/severity/config only — identity comes from rule_key =
+    risk_processor.RULE_CATALOG rule_id); "custom" rows are created from
+    approved templates (app/detection_rule_templates.py) with validated
+    config_json. Never stores code — template_type maps to a known function.
+    """
+    __tablename__ = "detection_rules"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "rule_key", name="uq_detection_rules_org_key"),
+        Index("ix_detection_rules_org_enabled", "organization_id", "enabled"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    rule_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    category: Mapped[str] = mapped_column(String(32), default="security", nullable=False)
+    severity: Mapped[str] = mapped_column(String(16), default="medium", nullable=False)  # low|medium|high
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    source: Mapped[str] = mapped_column(String(16), default="custom", nullable=False)  # built_in|custom
+    template_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    config_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # validated template params
+    created_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc), nullable=False,
+    )

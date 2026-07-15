@@ -115,7 +115,38 @@ def _canonical_env(environment: str | None) -> str | None:
     return _ENV_ALIASES.get(environment.strip().lower())
 
 
-def evaluate_event(db: Session, org_id: int, event: dict, config: dict | None = None) -> RiskResult:
+def load_detection_rules(db: Session, org_id: int) -> dict:
+    """Load the org's admin-managed rule rows: per-built-in overrides keyed by
+    rule_key, plus enabled custom rules. Empty dicts when the org has no rows
+    — evaluate_event then behaves exactly as before rule management existed."""
+    from app.models import DetectionRule
+    import json as _json
+
+    overrides: dict[str, dict] = {}
+    custom: list[dict] = []
+    try:
+        rows = db.query(DetectionRule).filter(DetectionRule.organization_id == org_id).all()
+    except Exception:
+        _log.warning("detection_rules load failed for org %s — using defaults", org_id, exc_info=True)
+        rows = []
+    for r in rows:
+        cfg = {}
+        if r.config_json:
+            try:
+                cfg = _json.loads(r.config_json) or {}
+            except Exception:
+                cfg = {}
+        entry = {"rule_key": r.rule_key, "name": r.name, "enabled": bool(r.enabled),
+                 "severity": r.severity, "config": cfg, "template_type": r.template_type}
+        if r.source == "built_in":
+            overrides[r.rule_key] = entry
+        elif r.enabled:
+            custom.append(entry)
+    return {"builtin": overrides, "custom": custom}
+
+
+def evaluate_event(db: Session, org_id: int, event: dict, config: dict | None = None,
+                   rules: dict | None = None) -> RiskResult:
     """Evaluate risk rules against one normalized event dict.
 
     `event` uses the normalized TelemetryEvent field names (owner, team,
@@ -124,6 +155,28 @@ def evaluate_event(db: Session, org_id: int, event: dict, config: dict | None = 
     Returns RiskResult(score 0-100, reasons, policy_action).
     """
     cfg = config or load_risk_config(db, org_id)
+    managed = rules if rules is not None else load_detection_rules(db, org_id)
+    from app.detection_rule_templates import SEVERITY_WEIGHT, evaluate_custom_rule
+    overrides = managed.get("builtin", {})
+
+    def _on(rule_key: str) -> bool:
+        ov = overrides.get(rule_key)
+        return True if ov is None else ov["enabled"]
+
+    def _w(rule_key: str, default: int) -> int:
+        ov = overrides.get(rule_key)
+        if ov is None:
+            return default
+        return SEVERITY_WEIGHT.get(ov["severity"], default)
+
+    def _ov_cfg(rule_key: str, key: str, default):
+        ov = overrides.get(rule_key)
+        if ov and isinstance(ov["config"].get(key), (int, float)) and not isinstance(ov["config"].get(key), bool):
+            return float(ov["config"][key])
+        if ov and isinstance(ov["config"].get(key), list):
+            return ov["config"][key]
+        return default
+
     score = 0
     reasons: list[str] = []
     blocked = False
@@ -141,62 +194,67 @@ def evaluate_event(db: Session, org_id: int, event: dict, config: dict | None = 
     team = event.get("team")
 
     # 1. Event reported an error.
-    if status == "error":
-        hit(25, "Event reported an error")
+    if status == "error" and _on("status_error"):
+        hit(_w("status_error", 25), "Event reported an error")
 
-    # 2. Upstream policy already blocked this action.
+    # 2. Upstream policy already blocked this action. (Never disable-able:
+    # an upstream block is a fact about the event, not a tunable heuristic.)
     if status == "blocked" or (event.get("upstream_policy_action") or "").lower() == "block":
         hit(25, "Upstream policy blocked this action")
         blocked = True
 
     # 3-4. Missing ownership metadata.
-    if not (event.get("owner") or "").strip():
-        hit(10, "Agent has no registered owner")
-    if not (team or "").strip():
-        hit(10, "Agent has no team assignment")
+    if not (event.get("owner") or "").strip() and _on("missing_owner"):
+        hit(_w("missing_owner", 10), "Agent has no registered owner")
+    if not (team or "").strip() and _on("missing_team"):
+        hit(_w("missing_team", 10), "Agent has no team assignment")
 
     # 5. Unknown environment.
-    if environment and canonical_env is None:
-        hit(15, f"Unknown environment '{environment}'")
-    elif not environment:
-        hit(10, "No environment declared")
+    if _on("unknown_environment"):
+        if environment and canonical_env is None:
+            hit(_w("unknown_environment", 15), f"Unknown environment '{environment}'")
+        elif not environment:
+            hit(10, "No environment declared")
 
     # 6. Unknown provider.
-    resolved_provider = (provider or "").strip().lower()
-    if resolved_provider and resolved_provider not in _KNOWN_PROVIDERS:
-        hit(10, f"Unrecognized provider '{provider}'")
-    elif not resolved_provider and model:
-        inferred = _infer_provider(model)
-        if inferred == "unknown":
-            hit(10, "Provider could not be determined")
+    if _on("unknown_provider"):
+        resolved_provider = (provider or "").strip().lower()
+        if resolved_provider and resolved_provider not in _KNOWN_PROVIDERS:
+            hit(_w("unknown_provider", 10), f"Unrecognized provider '{provider}'")
+        elif not resolved_provider and model:
+            inferred = _infer_provider(model)
+            if inferred == "unknown":
+                hit(_w("unknown_provider", 10), "Provider could not be determined")
 
     # 7. Unknown model (not in the pricing registry).
-    if model:
+    if model and _on("unknown_model"):
         try:
             pricing = get_active_pricing(db, model, org_id) or get_active_pricing(db, _normalize_model(model), org_id)
         except Exception:
             pricing = None
         if pricing is None:
-            hit(15, f"Model '{model}' not in pricing registry")
+            hit(_w("unknown_model", 15), f"Model '{model}' not in pricing registry")
 
     # 8. Cost exceeds threshold.
     cost = event.get("cost_usd")
-    if cost is not None and cost > cfg["cost_usd_threshold"]:
-        hit(20, f"Cost ${cost:.2f} exceeds ${cfg['cost_usd_threshold']:.2f} threshold")
+    cost_threshold = _ov_cfg("cost_threshold", "cost_usd", cfg["cost_usd_threshold"])
+    if cost is not None and cost > cost_threshold and _on("cost_threshold"):
+        hit(_w("cost_threshold", 20), f"Cost ${cost:.2f} exceeds ${cost_threshold:.2f} threshold")
 
     # 9. Unusually high latency.
     latency = event.get("latency_ms")
-    if latency is not None and latency > cfg["latency_ms_threshold"]:
-        hit(15, f"Latency {latency:.0f}ms exceeds {cfg['latency_ms_threshold']:.0f}ms threshold")
+    latency_threshold = _ov_cfg("latency_threshold", "latency_ms", cfg["latency_ms_threshold"])
+    if latency is not None and latency > latency_threshold and _on("latency_threshold"):
+        hit(_w("latency_threshold", 15), f"Latency {latency:.0f}ms exceeds {latency_threshold:.0f}ms threshold")
 
     # 10. Risky tool usage.
     tool = (event.get("tool_name") or "").strip().lower()
-    risky_tools = {t.lower() for t in cfg.get("risky_tools", [])}
-    if tool and tool in risky_tools:
-        hit(25, f"Tool '{event.get('tool_name')}' is on the risky-tool list")
+    risky_tools = {t.lower() for t in _ov_cfg("risky_tool", "tools", cfg.get("risky_tools", []))}
+    if tool and tool in risky_tools and _on("risky_tool"):
+        hit(_w("risky_tool", 25), f"Tool '{event.get('tool_name')}' is on the risky-tool list")
 
     # 11. Production agent using a non-approved model (existing policy engine).
-    if canonical_env == "production" and model:
+    if canonical_env == "production" and model and _on("non_approved_model"):
         try:
             verdict = policy.check_model(db, org_id, team or "*", model)
         except Exception:
@@ -204,6 +262,13 @@ def evaluate_event(db: Session, org_id: int, event: dict, config: dict | None = 
         if not verdict.get("allowed", True):
             hit(30, verdict.get("reason") or f"Model '{model}' is not approved for production")
             blocked = True
+
+    # 12. Custom rules — approved templates only, validated config, no code.
+    for rule in managed.get("custom", []):
+        import json as _json
+        reason = evaluate_custom_rule(rule["template_type"], _json.dumps(rule["config"]), event)
+        if reason:
+            hit(SEVERITY_WEIGHT.get(rule["severity"], 15), f"[{rule['name']}] {reason}")
 
     score = min(score, 100)
     if blocked:
