@@ -35,6 +35,9 @@ DEFAULTS: dict = {
     # validated against app/otel_attribute_mapping.ALLOWED_TARGETS and applied
     # as a pre-extraction pass during OTLP ingestion.
     "otel_attribute_mapping": {},
+    # Per-org overrides for telemetry risk scoring (merged over
+    # app/risk_processor.RISK_DEFAULTS). Empty dict = use defaults.
+    "risk_thresholds": {},
 }
 
 

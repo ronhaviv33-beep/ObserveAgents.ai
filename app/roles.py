@@ -15,7 +15,7 @@ SEED_ROLES = [
         "pages": json.dumps([
             "dashboard", "overview_hub", "surfaces_demo", "welcome",
             "agent_inventory", "discovery", "governance", "relationship_map",
-            "runtime", "intelligence", "telemetry_quality", "gateway_control_center", "guardrails", "cost", "security_intel", "rules_alerts", "ecosystem",
+            "runtime", "agent_timeline", "intelligence", "telemetry_quality", "gateway_control_center", "guardrails", "cost", "security_intel", "rules_alerts", "ecosystem",
             "budgets", "pricing", "security", "users", "apikeys", "settings",
             "home", "chat", "assets", "overview", "agents", "models",
             "workflows", "alerts", "integrations", "onboarding", "providers",
@@ -30,7 +30,7 @@ SEED_ROLES = [
         "pages": json.dumps([
             "dashboard", "overview_hub", "surfaces_demo", "welcome",
             "agent_inventory", "discovery", "governance", "relationship_map",
-            "runtime", "intelligence", "telemetry_quality", "gateway_control_center", "guardrails", "cost", "security_intel", "rules_alerts", "ecosystem",
+            "runtime", "agent_timeline", "intelligence", "telemetry_quality", "gateway_control_center", "guardrails", "cost", "security_intel", "rules_alerts", "ecosystem",
             "budgets", "pricing",
             "home", "chat", "assets", "overview", "agents", "models",
             "workflows", "alerts", "integrations", "onboarding",
@@ -45,7 +45,7 @@ SEED_ROLES = [
         "pages": json.dumps([
             "dashboard", "overview_hub", "surfaces_demo", "welcome",
             "agent_inventory", "discovery", "governance", "relationship_map",
-            "runtime", "intelligence", "telemetry_quality", "gateway_control_center", "guardrails", "cost", "security_intel", "rules_alerts", "ecosystem",
+            "runtime", "agent_timeline", "intelligence", "telemetry_quality", "gateway_control_center", "guardrails", "cost", "security_intel", "rules_alerts", "ecosystem",
             "budgets", "pricing",
             "home", "assets", "overview", "agents", "models",
             "workflows", "alerts",

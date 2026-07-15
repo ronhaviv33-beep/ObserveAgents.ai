@@ -41,6 +41,7 @@ import RelationshipMap from "./pages/RelationshipMap.jsx";
 // ui2 (redesign step 6): V2 replaces pages/RuntimeTimeline.jsx, which stays
 // in the tree for rollback — see docs/ui_redesign_plan.md.
 import RuntimeTimelineV2 from "./pages/RuntimeTimelineV2.jsx";
+import AgentTimeline from "./pages/AgentTimeline.jsx";
 // ui2 (redesign step 4): V2 replaces pages/AssetIntelligence.jsx, which
 // stays in the tree for rollback — see docs/ui_redesign_plan.md.
 import AssetIntelligenceV2 from "./pages/AssetIntelligenceV2.jsx";
@@ -340,6 +341,7 @@ const PAGES = [
   { id:"ecosystem",        label:"Ecosystem Discovery" },
   { id:"relationship_map", label:"Runtime Dependency Map" },
   { id:"runtime",          label:"Runtime" },
+  { id:"agent_timeline",   label:"Agent Timeline" },
   { id:"intelligence",     label:"Asset Intelligence" },
   { id:"telemetry_quality", label:"Telemetry Quality" },
   { id:"gateway_control_center", label:"Gateway Control Center" },
@@ -386,6 +388,7 @@ const NAV_GROUPS_COMBINED = [
     label: "OBSERVE",
     items: [
       { id: "runtime",          label: "Runtime" },
+      { id: "agent_timeline",   label: "Agent Timeline" },
       { id: "intelligence",     label: "Asset Intelligence" },
       { id: "telemetry_quality", label: "Telemetry Quality" },
       { id: "security_intel",   label: "Security Intelligence" },
@@ -439,6 +442,7 @@ const NAV_GROUPS_OBSERVABILITY = [
     label: "OBSERVE",
     items: [
       { id: "runtime",          label: "Runtime" },
+      { id: "agent_timeline",   label: "Agent Timeline" },
       { id: "intelligence",     label: "Asset Intelligence" },
       { id: "telemetry_quality", label: "Telemetry Quality" },
       { id: "security_intel",   label: "Security Intelligence" },
@@ -526,6 +530,8 @@ export default function App() {
   const [gccFocusKey, setGccFocusKey] = useState(null);
   // Overview "Runtime activity" rows deep-link into Runtime filtered to one agent.
   const [rtFocusService, setRtFocusService] = useState(null);
+  // Agent Inventory rows deep-link into the Agent Timeline for one agent.
+  const [timelineFocusAgent, setTimelineFocusAgent] = useState(null);
 
   // Navigate to a page and push a browser history entry so back/forward works.
   const navigate = useCallback((id) => {
@@ -821,7 +827,7 @@ export default function App() {
       case "surfaces_demo":  return isDemoMode() ? <SurfacesDemo onNavigate={navigate} />
                                     : <OverviewV2 onNavigate={overviewNav} />;
       case "welcome":        return <PlatformGuideV2 onNavigate={navigate} />;
-      case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); navigate(pg); }} />;
+      case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); if (opts.timelineAgent) setTimelineFocusAgent(opts.timelineAgent); navigate(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
       case "governance":     return <GovernanceCenter />;
       case "security_intel": return <SecurityIntelligenceV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
@@ -829,6 +835,7 @@ export default function App() {
       case "ecosystem":        return <EcosystemDiscovery />;
       case "relationship_map": return <RelationshipMap />;
       case "runtime":          return <RuntimeTimelineV2 onNavigate={navigate} focusService={rtFocusService} onFocusConsumed={() => setRtFocusService(null)} />;
+      case "agent_timeline":   return <AgentTimeline focusAgentId={timelineFocusAgent} onFocusConsumed={() => setTimelineFocusAgent(null)} />;
       case "intelligence":     return <AssetIntelligenceV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
       case "telemetry_quality":
         return <TelemetryQualityV2 isAdmin={user?.role === "admin" || user?.is_platform_admin}

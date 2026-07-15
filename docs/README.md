@@ -7,6 +7,7 @@
 | [architecture.md](architecture.md) | Overall platform architecture |
 | [customer-integration-guide.md](customer-integration-guide.md) | Customer-facing integration guide (stakeholder + technical rollout) |
 | [otel-deployment-guide.md](otel-deployment-guide.md) | Complete OpenTelemetry deployment guide |
+| [telemetry_ingestion.md](telemetry_ingestion.md) | Batch telemetry ingestion: queue/worker, dedup, risk scoring, metrics, Agent Timeline |
 | [sdk-guide.md](sdk-guide.md) | ObserveAgents Python SDK guide |
 | [runtime-flow.md](runtime-flow.md) | Runtime processing and intelligence flow |
 
