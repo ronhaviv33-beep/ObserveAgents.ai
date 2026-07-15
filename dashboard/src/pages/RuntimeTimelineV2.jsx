@@ -9,6 +9,9 @@ import EmptyState from "../ui2/EmptyState.jsx";
 import { HeatStrip } from "../ui2/viz.jsx";
 import { surfaceAllowsPage } from "../productSurface.js";
 import { fetchRuntimeTraces, fetchRuntimeTrace } from "../api.js";
+// The per-agent telemetry event feed (batch ingestion) — embedded as the
+// "Agent events" view of this page; previously its own nav page.
+import AgentTimelineFeed from "./AgentTimeline.jsx";
 
 /**
  * RuntimeTimelineV2 — redesign step 6 (docs/ui_redesign_plan.md).
@@ -188,7 +191,11 @@ function TraceWaterfall({ trace, onBack }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function RuntimeTimelineV2({ onNavigate, focusService = null, onFocusConsumed }) {
+export default function RuntimeTimelineV2({ onNavigate, focusService = null, onFocusConsumed,
+                                            initialView = "traces", eventsAgent = null, onEventsAgentConsumed }) {
+  // Two runtime evidence views: OTLP trace waterfalls, and the per-agent
+  // event feed (batch telemetry) that previously lived on its own page.
+  const [view, setView] = useState(eventsAgent ? "events" : initialView);
   const [traces, setTraces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -335,17 +342,40 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
         <PageHeader
           eyebrow="Observe · Runtime Evidence"
           title="Runtime"
-          purpose="What your AI agents actually executed — grouped by agent, then session, each trace expandable into an execution waterfall.">
-          <button onClick={load}
-            style={{ background: "transparent", color: C.textDim, border: `1px solid ${C.border}`,
-              padding: "6px 14px", borderRadius: RADIUS.sm, fontSize: 11, fontFamily: FONT.mono, cursor: "pointer" }}>
-            ↻ Refresh
-          </button>
+          purpose={view === "events"
+            ? "Everything one agent did — model calls, tools, cost, latency, errors, and risk — as a single reviewable feed."
+            : "What your AI agents actually executed — grouped by agent, then session, each trace expandable into an execution waterfall."}>
+          <div style={{ display: "flex", gap: 4 }}>
+            {[["traces", "Traces"], ["events", "Agent events"]].map(([id, label]) => (
+              <button key={id} onClick={() => setView(id)}
+                style={{
+                  background: view === id ? `${C.accent}1F` : "transparent",
+                  color: view === id ? C.accentDark : C.textDim,
+                  border: `1px solid ${view === id ? `${C.accent}55` : C.border}`,
+                  borderRadius: RADIUS.sm, padding: "6px 13px", fontSize: 11,
+                  fontFamily: FONT.mono, cursor: "pointer",
+                }}>{label}</button>
+            ))}
+          </div>
+          {view === "traces" && (
+            <button onClick={load}
+              style={{ background: "transparent", color: C.textDim, border: `1px solid ${C.border}`,
+                padding: "6px 14px", borderRadius: RADIUS.sm, fontSize: 11, fontFamily: FONT.mono, cursor: "pointer" }}>
+              ↻ Refresh
+            </button>
+          )}
         </PageHeader>
         <div style={{ fontSize: 11.5, fontFamily: FONT.mono, color: C.textDim, marginTop: 10 }}>
-          Runtime evidence, structural metadata only — prompts and responses are never stored.
+          {view === "events"
+            ? "Event-level telemetry from the batch ingestion API — risk-scored at ingestion."
+            : "Runtime evidence, structural metadata only — prompts and responses are never stored."}
         </div>
       </div>
+
+      {view === "events" && (
+        <AgentTimelineFeed focusAgentId={eventsAgent} onFocusConsumed={onEventsAgentConsumed} embedded />
+      )}
+      {view === "traces" && (<>
 
       <div className="oa-rise oa-rise-1" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <MetricCard label="Traces" value={stats.traces} />
@@ -546,6 +576,7 @@ export default function RuntimeTimelineV2({ onNavigate, focusService = null, onF
           )}
         </div>
       </Section>
+      </>)}
     </div>
   );
 }

@@ -32,11 +32,18 @@ const JOURNEY = [
   { label: "Explicit enforcement", planned: true },
 ];
 
+// Suggested controls show only what the Control Center itself will apply:
+// remote control of the agent through the Gateway. Soft actions (human
+// review, alert-only rules) live on their own pages and are filtered out.
 const KIND_META = {
-  soft:    { label: "available now",             tone: "accent" },
-  routing: { label: "routing step",              tone: "purple" },
-  hard:    { label: "requires Gateway routing",  tone: "riskHigh" },
+  routing: { label: "routing step",   tone: "purple" },
+  hard:    { label: "in development", tone: "violet" },
 };
+
+/** The reason's trailing parenthesized finding list duplicates the trigger
+ *  pills rendered below it — keep the sentence, drop the parenthetical. */
+const trimReason = (text) =>
+  (text || "").replace(/\s*\([^()]*\)\s*\.?\s*$/, ".");
 
 // "Why this agent is here", split by the evidence source that produced each
 // finding (keys match app/gateway_control.py's trigger_findings_by_source).
@@ -80,15 +87,21 @@ function JourneyStrip() {
 
 function suggestedControls(cand) {
   const fromServer = cand.evidence?.recommended_controls;
-  if (Array.isArray(fromServer) && fromServer.length > 0) return fromServer;
-  const out = [];
-  const seen = new Set();
-  for (const t of cand.evidence?.trigger_finding_types || []) {
-    for (const c of FALLBACK_CONTROLS[t] || []) {
-      if (!seen.has(c.control)) { seen.add(c.control); out.push(c); }
-    }
-  }
-  return out;
+  const all = (Array.isArray(fromServer) && fromServer.length > 0)
+    ? fromServer
+    : (() => {
+        const out = [];
+        const seen = new Set();
+        for (const t of cand.evidence?.trigger_finding_types || []) {
+          for (const c of FALLBACK_CONTROLS[t] || []) {
+            if (!seen.has(c.control)) { seen.add(c.control); out.push(c); }
+          }
+        }
+        return out;
+      })();
+  // Control Center scope: only controls applied through it (remote control
+  // of the agent via the Gateway) — drop soft/observe-side actions.
+  return all.filter((c) => c.kind !== "soft");
 }
 
 function CandidateCard({ cand, asset, isAdmin, expanded, onToggle, onAction }) {
@@ -122,7 +135,7 @@ function CandidateCard({ cand, asset, isAdmin, expanded, onToggle, onAction }) {
           display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 22 }}>
           <div>
             <div style={{ ...microLabel, marginBottom: 8 }}>Why this agent is here</div>
-            <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.65, marginBottom: 12 }}>{ev.reason || cand.summary}</div>
+            <div style={{ fontSize: 12, color: C.textDim, lineHeight: 1.65, marginBottom: 12 }}>{trimReason(ev.reason || cand.summary)}</div>
             {(() => {
               const bySource = ev.trigger_findings_by_source;
               // Grouped view (new candidates). Preserve group order; append any
@@ -163,8 +176,8 @@ function CandidateCard({ cand, asset, isAdmin, expanded, onToggle, onAction }) {
             <div style={{ ...microLabel, marginBottom: 8 }}>Suggested controls</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
               {controls.length > 0 ? controls.map((c) => {
-                const meta = KIND_META[c.kind] || KIND_META.soft;
-                const tone = { accent: C.accent, purple: C.purple, riskHigh: C.riskHigh }[meta.tone];
+                const meta = KIND_META[c.kind] || KIND_META.hard;
+                const tone = { purple: C.purple, violet: C.violet }[meta.tone] || C.violet;
                 return (
                   <div key={c.control} style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 12, color: C.text }}>{c.control}</span>
@@ -174,8 +187,9 @@ function CandidateCard({ cand, asset, isAdmin, expanded, onToggle, onAction }) {
               }) : <span style={{ fontSize: 12, color: C.textMute }}>—</span>}
             </div>
             <div style={{ fontSize: 11, color: C.textMute, marginTop: 12, lineHeight: 1.55 }}>
-              Recommendations only — nothing is applied automatically. Hard controls work only
-              if this agent's traffic is routed through the Gateway, after explicit approval.
+              The goal: remote control of this agent through the Control Center, applied via the
+              Gateway after explicit approval. This capability is in development — recommendations
+              only, nothing is applied automatically.
             </div>
             {isAdmin && (
               <div style={{ display: "flex", gap: 8, marginTop: 14 }}>

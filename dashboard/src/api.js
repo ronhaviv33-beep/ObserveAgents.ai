@@ -435,6 +435,76 @@ export async function fetchAgentDetail(agentId, days = 90) {
   return r.json()
 }
 
+export async function fetchAgentTimeline(agentId, params = {}) {
+  const q = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}/timeline${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch agent timeline: ${agentId}`)
+  return r.json()
+}
+
+export async function fetchRiskFindings(params = {}) {
+  const q = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  const r = await authFetch(`${BASE}/risk-findings${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch risk findings')
+  return r.json()
+}
+
+export async function fetchRiskFindingsSummary(days = 7) {
+  const r = await authFetch(`${BASE}/risk-findings/summary?days=${days}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch risk findings summary')
+  return r.json()
+}
+
+export async function fetchRiskRules() {
+  const r = await authFetch(`${BASE}/risk-findings/rules`)
+  if (!r || !r.ok) throw new Error('Failed to fetch risk rules')
+  return r.json()
+}
+
+export async function fetchDetectionRules() {
+  const r = await authFetch(`${BASE}/detection-rules`)
+  if (!r || !r.ok) throw new Error('Failed to fetch detection rules')
+  return r.json()
+}
+
+export async function fetchDetectionRuleTemplates() {
+  const r = await authFetch(`${BASE}/detection-rules/templates`)
+  if (!r || !r.ok) throw new Error('Failed to fetch rule templates')
+  return r.json()
+}
+
+export async function createDetectionRule(payload) {
+  const r = await authFetch(`${BASE}/detection-rules`, { method: 'POST', body: JSON.stringify(payload) })
+  if (!r) throw new Error('Not authenticated')
+  const body = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'Failed to create rule')
+  return body
+}
+
+export async function updateDetectionRule(ruleId, payload) {
+  const r = await authFetch(`${BASE}/detection-rules/${encodeURIComponent(ruleId)}`, { method: 'PATCH', body: JSON.stringify(payload) })
+  if (!r) throw new Error('Not authenticated')
+  const body = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'Failed to update rule')
+  return body
+}
+
+export async function deleteDetectionRule(ruleId) {
+  const r = await authFetch(`${BASE}/detection-rules/${encodeURIComponent(ruleId)}`, { method: 'DELETE' })
+  if (!r || !r.ok) throw new Error('Failed to delete rule')
+  return r.json()
+}
+
+export async function fetchTelemetryMetricsDaily(days = 7, groupBy = 'agent') {
+  const r = await authFetch(`${BASE}/telemetry/metrics/daily?days=${days}&group_by=${groupBy}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch telemetry metrics')
+  return r.json()
+}
+
 export async function updateInventoryAgent(agentId, data) {
   const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}`, {
     method: 'PATCH',

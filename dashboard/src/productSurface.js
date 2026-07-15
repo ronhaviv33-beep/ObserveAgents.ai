@@ -54,7 +54,7 @@ const _HIDDEN = {
   ]),
   gateway: new Set([
     // observability product pages
-    "runtime", "intelligence", "guardrails", "relationship_map",
+    "runtime", "intelligence", "relationship_map",
     "security_intel", "rules_alerts", "ecosystem",
     // the platform guide tells the observability story
     "welcome", "onboarding",

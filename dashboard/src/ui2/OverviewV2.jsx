@@ -190,7 +190,7 @@ export default function OverviewV2({ onNavigate }) {
         <PageHeader
           eyebrow="Mission Control"
           title="Overview"
-          purpose={<span>Runtime evidence from your AI systems, turned into inventory, findings, and control recommendations. <span style={{ color: C.accentDark }}>Observe first. Control only what matters.</span></span>}>
+          purpose={<span>See what your AI agents are doing, detect risky behavior, understand cost and performance, and investigate with runtime evidence — telemetry turned into inventory, findings, and control recommendations. <span style={{ color: C.accentDark }}>Observe first. Control only what matters.</span></span>}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 10, fontFamily: FONT.mono, color: C.textMute }}>
             <PulseDot /> live · next refresh <span style={{ color: C.textDim, fontVariantNumeric: "tabular-nums", display: "inline-block", minWidth: 24 }}>{nextIn}s</span>
           </span>
@@ -382,7 +382,8 @@ export default function OverviewV2({ onNavigate }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {openCandidates.slice(0, 3).map((cand) => {
                 const controls = cand.evidence?.recommended_controls || [];
-                const top = controls[0];
+                // Prefer a control the Control Center will actually apply.
+                const top = controls.find((c) => c.kind !== "soft") || controls[0];
                 return (
                   <div key={cand.id} style={{ ...CARD, padding: "14px 16px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
@@ -394,7 +395,7 @@ export default function OverviewV2({ onNavigate }) {
                     </div>
                     <div style={{ fontSize: 11.5, color: C.textDim, lineHeight: 1.55, marginBottom: 10 }}>
                       {cand.evidence?.trigger_count || 0} trigger finding{(cand.evidence?.trigger_count || 0) !== 1 ? "s" : ""}
-                      {top ? <> · suggested: <span style={{ color: C.text }}>{top.control}</span>{top.kind === "hard" && <span style={{ color: C.riskHigh }}> (requires Gateway routing)</span>}</> : null}
+                      {top ? <> · suggested: <span style={{ color: C.text }}>{top.control}</span>{top.kind === "hard" && <span style={{ color: C.violet }}> (in development)</span>}</> : null}
                     </div>
                     {surfaceAllowsPage("gateway_control_center") && (
                       <button onClick={() => onNavigate?.("gateway_control_center", { gccFocus: cand.asset_key })}

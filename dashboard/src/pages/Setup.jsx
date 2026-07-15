@@ -68,7 +68,8 @@ function ObservabilitySetup() {
 
       <SetupStep n={1} title="Create an API key">
         Go to <strong style={{ color: T.text }}>API Keys</strong> and create a key (it starts with <code style={{ fontFamily: FONT_MONO, color: T.accent, fontSize: 11 }}>gk-</code>).
-        The key authenticates trace ingestion; copy it immediately — it is shown once.
+        The key authenticates telemetry ingestion — OTLP traces and the batch telemetry API (POST /api/v1/telemetry/batch)
+        use the same key. Copy it immediately — it is shown once.
       </SetupStep>
 
       <SetupStep n={2} title="Point your OpenTelemetry exporter at Observe">
@@ -109,7 +110,8 @@ OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,team=my-team`} />
       <SetupStep n={6} title="Verify in Runtime">
         Open <strong style={{ color: T.text }}>Runtime</strong> — your first trace should appear within seconds with a nested
         execution timeline. Then open <strong style={{ color: T.text }}>Asset Intelligence</strong> to see the discovered AI system,
-        its models, tools, dependencies, and first findings.
+        its models, tools, dependencies, and first findings. Discovered agents also appear in Agent Inventory,
+        and Agent Timeline shows each agent's event-level activity — model and tool usage, latency, cost, and risk.
       </SetupStep>
     </div>
   );

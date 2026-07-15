@@ -319,6 +319,17 @@ def seed_pricing_registry() -> None:
         _log.warning("Pricing sync thread non-fatal: %s", exc)
 
 
+def start_telemetry_worker() -> None:
+    """Start the telemetry ingest worker thread (idempotent). Respects
+    TELEMETRY_WORKER_ENABLED=false and TELEMETRY_WORKER_MODE=inline."""
+    from app.telemetry_ingest import worker as _tw
+
+    try:
+        _tw.start_worker()
+    except Exception as exc:
+        _log.warning("Telemetry worker thread non-fatal: %s", exc)
+
+
 def check_secrets() -> list[str]:
     """
     Validate required secrets at startup. Returns a list of warning strings

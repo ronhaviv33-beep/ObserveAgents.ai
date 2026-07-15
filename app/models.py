@@ -2,9 +2,9 @@ import logging
 import os
 import re
 import uuid as _uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from cryptography.fernet import Fernet
-from sqlalchemy import Integer, String, Float, Text, DateTime, Boolean, ForeignKey, UniqueConstraint, Index
+from sqlalchemy import Integer, String, Float, Text, Date, DateTime, Boolean, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -904,4 +904,171 @@ class AssetFinding(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class TelemetryEventRaw(Base):
+    """
+    Telemetry ingest queue + immutable raw payload archive.
+
+    One row per accepted event from POST /api/v1/telemetry/batch. The raw
+    submitted JSON is preserved verbatim for investigation; the row doubles
+    as a database-backed work queue drained by app/telemetry_ingest/worker.py.
+    status: pending -> processing -> processed | failed.
+    Dedup gate: unique (organization_id, event_id).
+    """
+    __tablename__ = "telemetry_events_raw"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "event_id", name="uq_telemetry_raw_org_event"),
+        Index("ix_telemetry_raw_status_id", "status", "id"),
+        Index("ix_telemetry_raw_org_received", "organization_id", "received_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    event_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    # No FK: keys can be deleted while their ingested evidence remains (same as OtelSpan).
+    api_key_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    raw_payload: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="pending", nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class TelemetryEvent(Base):
+    """
+    Normalized product telemetry event — the operational-evidence record that
+    feeds dashboards, the Agent Timeline, risk rules, metrics, and search.
+    Written only by the ingest worker (never directly by the API), so replays
+    are harmless: unique (organization_id, event_id) makes processing idempotent.
+    """
+    __tablename__ = "telemetry_events"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "event_id", name="uq_telemetry_events_org_event"),
+        Index("ix_telemetry_events_org_agent_ts", "organization_id", "agent_id", "timestamp"),
+        Index("ix_telemetry_events_org_asset_ts", "organization_id", "asset_key", "timestamp"),
+        Index("ix_telemetry_events_org_ts", "organization_id", "timestamp"),
+        Index("ix_telemetry_events_org_risk", "organization_id", "risk_score"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    event_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    raw_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # telemetry_events_raw.id, no FK
+    api_key_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    agent_id: Mapped[str] = mapped_column(String(256), nullable=False)  # caller-supplied stable identity
+    asset_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # links to AssetRegistry
+    agent_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    team: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    environment: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    owner: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False, default="llm_call")
+    # OTEL-compatible correlation ids (optional)
+    trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    span_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    parent_span_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    provider: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cost_estimated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="ok", nullable=False)  # ok|error|blocked
+    error_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    tool_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    action_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    risk_score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # 0-100
+    risk_reasons: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array of strings
+    policy_action: Mapped[str] = mapped_column(String(16), default="allow", nullable=False)  # allow|warn|block
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
+class AgentMetricsDaily(Base):
+    """
+    Precomputed per-agent daily rollup over telemetry_events.
+
+    One row per (org, agent_id, UTC day). Recomputed absolutely from
+    telemetry_events on every worker write — never incremented — so it stays
+    exactly correct under at-least-once queue reprocessing.
+    """
+    __tablename__ = "agent_metrics_daily"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "agent_id", "day", name="uq_agent_metrics_org_agent_day"),
+        Index("ix_agent_metrics_org_day", "organization_id", "day"),
+        Index("ix_agent_metrics_org_team_day", "organization_id", "team", "day"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    agent_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    asset_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    agent_name: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    team: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    environment: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    day: Mapped[date] = mapped_column(Date, nullable=False)  # UTC calendar day
+    events_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    blocked_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    policy_violations: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # policy_action != allow
+    high_risk_events: Mapped[int] = mapped_column(Integer, default=0, nullable=False)   # risk_score >= high_risk_score
+    total_input_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_output_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_cost_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    avg_latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    avg_risk_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_risk_score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    models_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # {model: {events, tokens, cost_usd}}
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc), nullable=False,
+    )
+
+
+class DetectionRule(Base):
+    """
+    Admin-managed detection rule (Rules & Alerts).
+
+    Two sources: "built_in" rows are per-org overrides of the fixed real-time
+    risk rules (enabled/severity/config only — identity comes from rule_key =
+    risk_processor.RULE_CATALOG rule_id); "custom" rows are created from
+    approved templates (app/detection_rule_templates.py) with validated
+    config_json. Never stores code — template_type maps to a known function.
+    """
+    __tablename__ = "detection_rules"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "rule_key", name="uq_detection_rules_org_key"),
+        Index("ix_detection_rules_org_enabled", "organization_id", "enabled"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    rule_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    category: Mapped[str] = mapped_column(String(32), default="security", nullable=False)
+    severity: Mapped[str] = mapped_column(String(16), default="medium", nullable=False)  # low|medium|high
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    source: Mapped[str] = mapped_column(String(16), default="custom", nullable=False)  # built_in|custom
+    template_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    config_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # validated template params
+    created_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc), nullable=False,
     )

@@ -287,7 +287,7 @@ function EvidenceChips({ evidence = {} }) {
     if (s.team_hint)         chunks.push(`team: ${s.team_hint}`);
     if (s.environment_hint)  chunks.push(`env: ${s.environment_hint}`);
   }
-  if (chunks.length === 0) return <span style={{ fontSize: 11, color: T.textMute, fontFamily: FONT_MONO }}>Gateway traffic</span>;
+  if (chunks.length === 0) return <span style={{ fontSize: 11, color: T.textMute, fontFamily: FONT_MONO }}>Runtime telemetry</span>;
   return (
     <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
       {chunks.slice(0, 4).map((c, i) => (
@@ -407,12 +407,12 @@ function TabBar({ active, tabs, onChange }) {
 }
 
 // ─── Table: Verified Agents ──────────────────────────────────────────────────
-function VerifiedTable({ agents, onClaim, onEdit }) {
+function VerifiedTable({ agents, onClaim, onEdit, onTimeline }) {
   const [sort, toggle] = useSort("monthly_cost_usd", "desc");
   const sorted = sortAgents(agents, sort.key, sort.dir);
   const bp = useBreakpoint();
   if (agents.length === 0) {
-    return <EmptyState message="No verified agents in this view." />;
+    return <EmptyState message="No verified agents in this view. Agents are discovered automatically from ingested telemetry — create a gk- API key and send events to POST /api/v1/telemetry/batch or the OTel endpoint." />;
   }
 
   if (bp.isMobile) {
@@ -444,8 +444,9 @@ function VerifiedTable({ agents, onClaim, onEdit }) {
               {a.owner && a.owner !== "Unassigned" && <span>Owner: {a.owner}</span>}
               {a.environment && a.environment !== "Unknown" && <span style={{ color: T.info }}>{a.environment}</span>}
             </div>
-            {(a.lifecycle_status === "unassigned" || onEdit) && (
+            {(a.lifecycle_status === "unassigned" || onEdit || onTimeline) && (
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {onTimeline && <ActionBtn label="Timeline" color={T.info} onClick={() => onTimeline(a)} />}
                 {a.lifecycle_status === "unassigned" && (
                   <ActionBtn label="Claim →" color={T.accent} onClick={() => onClaim(a)} />
                 )}
@@ -509,6 +510,7 @@ function VerifiedTable({ agents, onClaim, onEdit }) {
               <Td><span style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textDim }}>{relativeTime(a.last_seen)}</span></Td>
               <Td>
                 <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                  {onTimeline && <ActionBtn label="Timeline" color={T.info} onClick={() => onTimeline(a)} />}
                   {a.lifecycle_status === "unassigned" && (
                     <ActionBtn label="Claim →" color={T.accent} onClick={() => onClaim(a)} />
                   )}
@@ -613,7 +615,7 @@ function PotentialTable({ agents, onValidate, onReject, onEdit }) {
 }
 
 // ─── Table: Managed Agents ────────────────────────────────────────────────────
-function ManagedTable({ agents, onEdit }) {
+function ManagedTable({ agents, onEdit, onTimeline }) {
   const [sort, toggle] = useSort("monthly_cost_usd", "desc");
   const sorted = sortAgents(agents, sort.key, sort.dir);
   const bp = useBreakpoint();
@@ -663,7 +665,7 @@ function ManagedTable({ agents, onEdit }) {
           <Th label="Criticality"  sortKey="criticality"      {...sp} />
           <Th label="Monthly Cost" sortKey="monthly_cost_usd" {...sp} style={{ textAlign: "right" }} />
           <Th label="Last Seen"    sortKey="last_seen"        {...sp} />
-          {onEdit && <Th label="" />}
+          {(onEdit || onTimeline) && <Th label="" />}
         </tr></thead>
         <tbody>
           {sorted.map((a, i) => (
@@ -692,7 +694,14 @@ function ManagedTable({ agents, onEdit }) {
                 <span style={{ fontSize: 13, fontFamily: FONT_MONO, color: a.monthly_cost_usd > 0 ? T.text : T.textMute }}>{fmtCost(a.monthly_cost_usd)}</span>
               </Td>
               <Td><span style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textDim }}>{relativeTime(a.last_seen)}</span></Td>
-              {onEdit && <Td><ActionBtn label="Edit" color={T.info} onClick={() => onEdit(a)} /></Td>}
+              {(onEdit || onTimeline) && (
+                <Td>
+                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                    {onTimeline && <ActionBtn label="Timeline" color={T.info} onClick={() => onTimeline(a)} />}
+                    {onEdit && <ActionBtn label="Edit" color={T.info} onClick={() => onEdit(a)} />}
+                  </div>
+                </Td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -1141,7 +1150,7 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
           label="Verified Agents"
           value={verifiedSummary.total ?? verified.length}
           color={T.accent}
-          sub="confirmed from runtime traffic"
+          sub="confirmed from runtime telemetry"
         />
         <KpiCard
           label="Unassigned"
@@ -1189,9 +1198,9 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
         </div>
 
         {/* ── Tab content ─────────────────────────────────────────────────── */}
-        {tab === "verified"  && <VerifiedTable  agents={applySearch(verified)}  onClaim={setClaimTarget} onEdit={isAdmin ? setEditTarget : null} />}
+        {tab === "verified"  && <VerifiedTable  agents={applySearch(verified)}  onClaim={setClaimTarget} onEdit={isAdmin ? setEditTarget : null} onTimeline={onNavigate ? (a) => onNavigate("agent_timeline", { timelineAgent: a.id }) : null} />}
         {tab === "potential" && <PotentialTable agents={applySearch(potential)} onValidate={setValidateTarget} onReject={setRejectTarget} onEdit={isAdmin ? setEditTarget : null} />}
-        {tab === "managed"   && <ManagedTable   agents={applySearch(managed)}   onEdit={isAdmin ? setEditTarget : null} />}
+        {tab === "managed"   && <ManagedTable   agents={applySearch(managed)}   onEdit={isAdmin ? setEditTarget : null} onTimeline={onNavigate ? (a) => onNavigate("agent_timeline", { timelineAgent: a.id }) : null} />}
         {tab === "retired"   && <RetiredTable   agents={applySearch(retired)}   onEdit={isAdmin ? setEditTarget : null} />}
 
         {/* Footer */}
@@ -1200,7 +1209,7 @@ export default function AgentInventory({ isAdmin = false, onNavigate }) {
             {[verified, potential, retired].reduce((s, l) => s + l.length, 0) + managed.filter(a => !verified.includes(a)).length} total inventory records
           </span>
           <span style={{ fontSize: 10, fontFamily: FONT_MONO, color: T.textMute }}>
-            Verified agents from runtime traffic · Potential agents from platform scans
+            Verified agents from runtime telemetry · Potential agents from platform scans
           </span>
         </div>
       </div>

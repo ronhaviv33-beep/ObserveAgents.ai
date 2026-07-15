@@ -191,7 +191,7 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
           <StatusPill tone={C.accent}>observe-only</StatusPill>
         </PageHeader>
         <div style={{ fontSize: 11.5, fontFamily: FONT.mono, color: C.textDim, marginTop: 10 }}>
-          Observe-only findings. Control recommendations are reviewed in Gateway Control Center.
+          Observe-only, agent-level security posture. Event-level risk findings live in Rules &amp; Alerts; control recommendations are reviewed in Gateway Control Center.
         </div>
         <div style={{ fontSize: 11.5, color: C.textMute, marginTop: 6 }}>
           Security Intelligence explains the risk. Gateway Control Center recommends the control path.

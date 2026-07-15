@@ -11,463 +11,272 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.observeagents.ai/goal.html">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="/pico.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./solutions/solutions.css">
 
   <style>
-    body, button, input, select, textarea { font-family: 'Inter', -apple-system, 'Segoe UI', system-ui, sans-serif; }
-    h1, h2, h3, nav strong { font-family: 'Space Grotesk', 'Inter', sans-serif !important; letter-spacing: -0.02em; }
-  </style>
-  <style>
-    :root {
-      --background-color: #F4F7FC;
-      --color: #34456A;
-      --h1-color: #0C1B36;
-      --h2-color: #0C1B36;
-      --h3-color: #2C3D5F;
-      --primary: #0FA5D8;
-      --primary-hover: #0A7CA3;
-      --primary-focus: rgba(33, 181, 228, 0.22);
-      --primary-inverse: #ffffff;
-      --card-background-color: #ffffff;
-      --card-border-color: #DCE4F2;
-      --border-radius: 18px;
-    }
+    /* centered hero variant */
+    .role-hero .hero-center { text-align: center; max-width: 780px; margin: 0 auto; position: relative; z-index: 1; }
+    .hero-center h1 { font-size: clamp(36px, 5vw, 58px); font-weight: 700; line-height: 1.06; margin: 24px 0 0; color: #F4F6FE; letter-spacing: -0.025em; }
+    .hero-center h1 .grad { background: var(--aurora); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .hero-center .sub { margin: 22px auto 0; font-size: 17px; color: #A6B1CE; max-width: 660px; }
+    .hero-center .sub strong { color: #7FE3FF; font-weight: 600; }
 
-    html {
-      scroll-behavior: smooth;
+    /* definition cards */
+    .defs { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 980px; margin: 0 auto; }
+    .def-card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 20px;
+      padding: 28px 26px; box-shadow: 0 6px 22px rgba(12, 27, 54, 0.05); position: relative; overflow: hidden;
     }
-
-    body {
-      background:
-        radial-gradient(circle at 8vw 8vh, rgba(33, 181, 228, 0.16), transparent 420px),
-        radial-gradient(circle at 84vw 0, rgba(122, 90, 248, 0.16), transparent 390px),
-        radial-gradient(circle at 52vw 82vh, rgba(233, 162, 59, 0.12), transparent 420px),
-        linear-gradient(180deg, #F4F7FC, #ffffff, #EEF3FB);
-      overflow-x: hidden;
+    .def-card::before {
+      content: ""; position: absolute; top: 0; left: 22px; right: 22px; height: 2.5px;
+      background: linear-gradient(90deg, transparent, #21B5E4 30%, #A66BFF 70%, transparent); opacity: 0.7;
     }
-
-    nav.container-fluid {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      backdrop-filter: blur(18px);
-      background: rgba(255, 255, 255, 0.88);
-      border-bottom: 1px solid rgba(126, 151, 185, 0.2);
-      padding-left: clamp(1rem, 4vw, 3rem);
-      padding-right: clamp(1rem, 4vw, 3rem);
-      box-shadow: 0 10px 35px rgba(20, 42, 74, 0.05);
+    .def-card .pk {
+      display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em;
+      text-transform: uppercase; color: #0A7CA3; background: #EFFAFE; border: 1px solid rgba(33, 181, 228, 0.35);
+      border-radius: 999px; padding: 3px 11px; margin-bottom: 14px;
     }
+    .def-card:last-child .pk { color: #6C4FE0; background: #F1EDFE; border-color: rgba(122, 90, 248, 0.3); }
+    .def-card h3 { font-size: 19px; margin-bottom: 10px; }
+    .def-card p { margin: 0; font-size: 14px; line-height: 1.7; }
 
-    nav strong {
-      color: #0C1B36;
-      letter-spacing: -0.04em;
-      font-size: 1.05rem;
-    }
-
-    nav strong a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    nav a:not([role="button"]) {
-      color: #3D4E6E;
-    }
-
-    nav a:not([role="button"]):hover,
-    nav a.active {
-      color: #0FA5D8;
-    }
-
-    nav a[role="button"],
-    a[role="button"],
-    button {
-      background: linear-gradient(135deg, #0FA5D8, #7A5AF8);
-      border: 0;
-      color: #ffffff;
-      font-weight: 700;
-      box-shadow: 0 14px 34px rgba(33, 181, 228, 0.22);
-    }
-
-    nav a[role="button"]:hover,
-    a[role="button"]:hover,
-    button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 18px 44px rgba(33, 181, 228, 0.3);
-    }
-
-    .container {
-      max-width: 1180px;
-    }
-
-    main.container {
-      padding-top: clamp(3rem, 6vw, 5rem);
-      padding-bottom: 3rem;
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.55rem;
-      padding: 0.48rem 0.8rem;
-      border: 1px solid rgba(33, 181, 228, 0.18);
-      border-radius: 999px;
-      background: rgba(33, 181, 228, 0.08);
-      color: #0A7CA3;
-      font-size: 0.83rem;
-      font-weight: 700;
-      margin-bottom: 1.2rem;
-    }
-
-    .pulse {
-      width: 0.58rem;
-      height: 0.58rem;
-      border-radius: 999px;
-      background: #7A5AF8;
-      box-shadow: 0 0 0 7px rgba(122, 90, 248, 0.12);
-    }
-
-    .goal-hero {
-      max-width: 880px;
-      margin: 0 auto;
-      text-align: center;
-    }
-
-    .goal-hero h1 {
-      font-size: clamp(2.6rem, 6vw, 5rem);
-      letter-spacing: -0.055em;
-      margin-bottom: 1rem;
-      color: var(--h1-color);
-    }
-
-    .goal-hero p {
-      color: #53657e;
-      font-size: clamp(1.02rem, 1.6vw, 1.2rem);
-      line-height: 1.7;
-    }
-
-    .goal-hero p strong {
-      color: #0A7CA3;
-    }
-
-    section.block {
-      padding-top: clamp(3.5rem, 7vw, 6rem);
-      padding-bottom: 1rem;
-    }
-
-    .section-heading {
-      max-width: 780px;
-      margin-bottom: 2rem;
-    }
-
-    .section-heading h2 {
-      font-size: clamp(2rem, 4vw, 3.6rem);
-      letter-spacing: -0.055em;
-      margin-bottom: 0.75rem;
-    }
-
-    .section-heading p,
-    section p {
-      color: #53657e;
-    }
-
-    .definition-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
-    }
-
-    .definition-card {
-      border: 1px solid rgba(126, 151, 185, 0.18);
-      background: rgba(255, 255, 255, 0.92);
-      border-radius: 18px;
-      padding: clamp(1.2rem, 2.5vw, 1.8rem);
-      box-shadow: 0 18px 44px rgba(23, 55, 100, 0.08);
-    }
-
-    .definition-card h3 {
-      color: var(--h3-color);
-      letter-spacing: -0.03em;
-      margin-bottom: 0.6rem;
-    }
-
-    .definition-card p {
-      margin-bottom: 0;
-      line-height: 1.7;
-    }
-
-    .role-pill {
-      width: fit-content;
-      border: 1px solid rgba(33, 181, 228, 0.2);
-      color: #0A7CA3;
-      background: rgba(33, 181, 228, 0.08);
-      border-radius: 999px;
-      padding: 0.28rem 0.6rem;
-      font-size: 0.78rem;
-      font-weight: 800;
-      margin-bottom: 1rem;
-    }
-
-    /* Comparison table */
+    /* comparison table */
     .compare-wrap {
-      border: 1px solid var(--card-border-color);
-      border-radius: 22px;
-      background: #ffffff;
-      box-shadow: 0 24px 70px rgba(23, 55, 100, 0.1);
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
+      max-width: 980px; margin: 0 auto; border-radius: 20px; overflow: hidden;
+      border: 1px solid var(--line); background: var(--card);
+      box-shadow: 0 24px 60px rgba(12, 27, 54, 0.1);
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
     }
-
-    table.compare {
-      width: 100%;
-      min-width: 640px;
-      border-collapse: collapse;
-      margin-bottom: 0;
-    }
-
-    table.compare th,
-    table.compare td {
-      padding: 1.05rem 1.3rem;
-      text-align: left;
-      vertical-align: top;
-      background: transparent;
-      border: 0;
-    }
-
+    table.compare { width: 100%; min-width: 640px; border-collapse: collapse; }
+    table.compare th, table.compare td { padding: 15px 20px; text-align: left; vertical-align: top; }
     table.compare thead th {
-      background: linear-gradient(135deg, #0FA5D8, #0A7CA3);
-      color: #ffffff;
-      font-weight: 800;
-      letter-spacing: -0.01em;
-      font-size: 1rem;
-      white-space: nowrap;
+      background: var(--night); color: #EDF2FC;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 14.5px; white-space: nowrap;
     }
-
-    table.compare thead th:first-child {
-      border-top-left-radius: 21px;
-    }
-
-    table.compare thead th:last-child {
-      border-top-right-radius: 21px;
-    }
-
-    table.compare tbody td {
-      border-top: 1px solid rgba(126, 151, 185, 0.18);
-      color: #35465e;
-      line-height: 1.55;
-    }
-
+    table.compare thead th:last-child { color: #7FE3FF; }
     table.compare tbody th {
-      border-top: 1px solid rgba(126, 151, 185, 0.18);
-      color: var(--h3-color);
-      font-weight: 800;
-      white-space: nowrap;
+      border-top: 1px solid var(--line); color: var(--ink); white-space: nowrap;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 13.5px;
     }
-
-    table.compare td.ai {
-      background: rgba(33, 181, 228, 0.05);
-      color: #14335c;
-      font-weight: 600;
-    }
-
-    table.compare tbody tr:last-child th,
-    table.compare tbody tr:last-child td {
-      padding-bottom: 1.25rem;
-    }
-
-    /* Closing CTA band */
-    .demo-band {
-      margin-top: 4rem;
-      border: 1px solid rgba(33, 181, 228, 0.2);
-      border-radius: 34px;
-      padding: clamp(1.6rem, 5vw, 3rem);
-      background:
-        radial-gradient(circle at 15vw 20vh, rgba(33, 181, 228, 0.16), transparent 290px),
-        radial-gradient(circle at 80vw 0, rgba(122, 90, 248, 0.18), transparent 320px),
-        linear-gradient(135deg, #ffffff, #EEF3FB);
-      box-shadow: 0 28px 80px rgba(23, 55, 100, 0.13);
-    }
-
-    .demo-band h2 {
-      font-size: clamp(2rem, 4vw, 3.5rem);
-      letter-spacing: -0.055em;
-      margin-bottom: 0.7rem;
-    }
-
-    .cta-row {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-      flex-wrap: wrap;
-      margin-top: 1.4rem;
-    }
-
-    .cta-row a.secondary-link {
-      color: #0A7CA3;
-      font-weight: 800;
-    }
-
-    footer.container {
-      padding-top: 2rem;
-      padding-bottom: 3rem;
-      color: #64748b;
-    }
-
-    footer a {
-      color: #3D4E6E;
-    }
-
-    @media (max-width: 860px) {
-      .definition-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    /* Compact nav on small screens: tighter items, and the home-anchor links
-       drop out below 620px so brand + Our Goal + demo button always fit. */
-    @media (max-width: 760px) {
-      nav.container-fluid ul:last-child li {
-        padding: 0.25rem 0.35rem;
-      }
-      nav.container-fluid a:not([role="button"]) {
-        font-size: 0.88rem;
-      }
-    }
-
-    @media (max-width: 620px) {
-      nav .home-link {
-        display: none;
-      }
-    }
+    table.compare tbody td { border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 13.5px; line-height: 1.6; }
+    table.compare tbody td.ai { background: #F0FAFE; color: #14526B; font-weight: 500; }
   </style>
 </head>
 
 <body>
-  <nav class="container-fluid">
-    <ul>
-      <li><strong><a href="/">ObserveAgents</a></strong></li>
-    </ul>
-    <ul>
-      <li class="home-link"><a href="/#features">Features</a></li>
-      <li class="home-link"><a href="/solutions/security.html">Solutions</a></li>
-      <li><a href="/goal.html" class="active" aria-current="page">Our Goal</a></li>
-      <li><a href="https://demo.observeagents.ai" target="_blank" rel="noopener" role="button">Try our Demo</a></li>
-    </ul>
+  <nav class="site-nav">
+    <div class="nav-inner">
+      <a class="brand" href="/">
+        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+          <defs><linearGradient id="lg-nav" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#21B5E4"/><stop offset="55%" stop-color="#7B8CFF"/><stop offset="100%" stop-color="#A66BFF"/>
+          </linearGradient></defs>
+          <rect x="1" y="1" width="22" height="22" rx="7" fill="url(#lg-nav)"/>
+          <path d="M5 12.5 H8.4 L10.5 7.5 L13.5 16.5 L15.6 11 H19" stroke="#0B1730" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        ObserveAgents
+      </a>
+      <ul class="nav-links">
+        <li><a href="/#features">Platform</a></li>
+        <li class="nav-drop" id="navDrop">
+          <button aria-expanded="false" aria-haspopup="true">Solutions <span class="caret">▾</span></button>
+          <div class="drop-panel" role="menu">
+            <div class="drop-label">By role</div>
+            <a class="drop-item" role="menuitem" href="/solutions/security.html">
+              <span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 6v5c0 5-3.3 8.6-8 10-4.7-1.4-8-5-8-10V6z"/><path d="m9 11.5 2 2 4-4.5"/></svg></span>
+              <span><b>Security Teams</b><span>Investigate agent risk from runtime evidence.</span></span>
+            </a>
+            <a class="drop-item" role="menuitem" href="/solutions/platform.html">
+              <span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+              <span><b>Platform Engineers</b><span>Debug what agents actually executed.</span></span>
+            </a>
+          </div>
+        </li>
+        <li><a href="/integration.html">How to Connect</a></li>
+        <li><a href="/tour.html">Watch the Tour</a></li>
+        <li><a href="/goal.html" class="active" aria-current="page">Our Goal</a></li>
+      </ul>
+      <div class="nav-cta">
+        <a class="btn btn-outline" href="/#contact">Talk to us</a>
+        <a class="btn btn-primary" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try our Demo <span class="arrow">→</span></a>
+      </div>
+    </div>
   </nav>
 
-  <main class="container">
-    <div class="goal-hero">
-      <span class="eyebrow"><i class="pulse"></i> The ObserveAgents goal</span>
-      <h1>Closing the AI blind spot.</h1>
-      <p>
-        Enterprises deploying AI systems face a critical blind spot: traditional monitoring tools were
-        never built for the unpredictable, probabilistic nature of large language models (LLMs) and
-        generative AI. <strong>Generative AI observability closes this gap.</strong>
-      </p>
-    </div>
-
-    <section id="what-is" class="block">
-      <div class="section-heading">
-        <h2>What is generative AI observability?</h2>
-      </div>
-      <div class="definition-grid">
-        <article class="definition-card">
-          <div class="role-pill">AI observability</div>
-          <h3>Full visibility into AI in production</h3>
-          <p>
-            AI observability, more broadly, is the practice of gaining full visibility into how any AI or
-            machine learning system behaves in production — including its inputs, outputs, performance
-            metrics, and decision patterns — so teams can detect issues, explain model behavior, and
-            maintain reliability at scale.
-          </p>
-        </article>
-        <article class="definition-card">
-          <div class="role-pill">Generative AI observability</div>
-          <h3>Understand and improve AI-driven systems</h3>
-          <p>
-            Generative AI observability is an organization's capability to monitor, understand, and
-            proactively improve the internal behavior of AI-driven systems — from the prompts and tools
-            agents use to the models they call and the outcomes they produce.
-          </p>
-        </article>
-      </div>
-    </section>
-
-    <section id="comparison" class="block">
-      <div class="section-heading">
-        <h2>Traditional monitoring vs. AI observability.</h2>
-        <p>Traditional monitoring tells you a server is unhealthy. AI observability tells you why an agent misbehaved — and what to do about it.</p>
-      </div>
-
-      <div class="compare-wrap">
-        <table class="compare">
-          <thead>
-            <tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Traditional Monitoring</th>
-              <th scope="col">AI Observability</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th scope="row">Approach</th>
-              <td>Reactive – alerts after failure</td>
-              <td class="ai">Proactive – predicts before failure</td>
-            </tr>
-            <tr>
-              <th scope="row">Scope</th>
-              <td>Predefined metrics &amp; thresholds</td>
-              <td class="ai">Open-ended, unknown-unknown detection</td>
-            </tr>
-            <tr>
-              <th scope="row">Data types</th>
-              <td>Metrics &amp; logs</td>
-              <td class="ai">Metrics, logs, traces, metadata, lineage</td>
-            </tr>
-            <tr>
-              <th scope="row">AI/LLM support</th>
-              <td>Not designed for probabilistic models</td>
-              <td class="ai">Built for LLM outputs, hallucinations, token usage</td>
-            </tr>
-            <tr>
-              <th scope="row">Root cause</th>
-              <td>Identifies what broke</td>
-              <td class="ai">Identifies why it broke &amp; patterns</td>
-            </tr>
-            <tr>
-              <th scope="row">Adaptability</th>
-              <td>Static rules</td>
-              <td class="ai">Dynamic ML-driven pattern learning</td>
-            </tr>
-            <tr>
-              <th scope="row">Best for</th>
-              <td>Infrastructure health</td>
-              <td class="ai">Complex AI-driven distributed systems</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="demo-band" aria-label="Demo call to action">
-      <div>
-        <h2>See generative AI observability in action.</h2>
-        <p>
-          Try the ObserveAgents demo: runtime timelines, the AI asset inventory, security findings, and
-          the Gateway Control Center — all on realistic synthetic data, nothing to install.
+  <!-- ── Hero ──────────────────────────────────────────────────────────── -->
+  <header class="role-hero">
+    <div class="container">
+      <div class="hero-center">
+        <span class="kicker-pill"><span class="gem"></span> The ObserveAgents goal</span>
+        <h1>Closing the <span class="grad">AI blind spot.</span></h1>
+        <p class="sub">
+          Enterprises deploying AI systems face a critical blind spot: traditional monitoring tools were
+          never built for the unpredictable, probabilistic nature of large language models and
+          generative AI. <strong>Generative AI observability closes this gap.</strong>
         </p>
-        <div class="cta-row">
-          <a href="https://demo.observeagents.ai" target="_blank" rel="noopener" role="button">Try our Demo</a>
-          <a class="secondary-link" href="/">← Back to home</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── Definitions ─────────────────────────────────────────────────── -->
+    <section id="what-is" class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Definitions</div>
+          <h2>What is generative AI observability?</h2>
+        </div>
+        <div class="defs">
+          <article class="def-card">
+            <span class="pk">AI observability</span>
+            <h3>Full visibility into AI in production</h3>
+            <p>
+              AI observability, more broadly, is the practice of gaining full visibility into how any AI or
+              machine learning system behaves in production — including its inputs, outputs, performance
+              metrics, and decision patterns — so teams can detect issues, explain model behavior, and
+              maintain reliability at scale.
+            </p>
+          </article>
+          <article class="def-card">
+            <span class="pk">Generative AI observability</span>
+            <h3>Understand and improve AI-driven systems</h3>
+            <p>
+              Generative AI observability is an organization's capability to monitor, understand, and
+              proactively improve the internal behavior of AI-driven systems — from the prompts and tools
+              agents use to the models they call and the outcomes they produce.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Comparison ──────────────────────────────────────────────────── -->
+    <section id="comparison" class="block">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">The difference</div>
+          <h2>Traditional monitoring<br>vs. AI observability.</h2>
+          <p>Traditional monitoring tells you a server is unhealthy. AI observability tells you why an agent misbehaved — and what to do about it.</p>
+        </div>
+        <div class="compare-wrap">
+          <table class="compare">
+            <thead>
+              <tr>
+                <th scope="col">Feature</th>
+                <th scope="col">Traditional Monitoring</th>
+                <th scope="col">AI Observability</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Approach</th>
+                <td>Reactive – alerts after failure</td>
+                <td class="ai">Proactive – predicts before failure</td>
+              </tr>
+              <tr>
+                <th scope="row">Scope</th>
+                <td>Predefined metrics &amp; thresholds</td>
+                <td class="ai">Open-ended, unknown-unknown detection</td>
+              </tr>
+              <tr>
+                <th scope="row">Data types</th>
+                <td>Metrics &amp; logs</td>
+                <td class="ai">Metrics, logs, traces, metadata, lineage</td>
+              </tr>
+              <tr>
+                <th scope="row">AI/LLM support</th>
+                <td>Not designed for probabilistic models</td>
+                <td class="ai">Built for LLM outputs, hallucinations, token usage</td>
+              </tr>
+              <tr>
+                <th scope="row">Root cause</th>
+                <td>Identifies what broke</td>
+                <td class="ai">Identifies why it broke &amp; patterns</td>
+              </tr>
+              <tr>
+                <th scope="row">Adaptability</th>
+                <td>Static rules</td>
+                <td class="ai">Dynamic ML-driven pattern learning</td>
+              </tr>
+              <tr>
+                <th scope="row">Best for</th>
+                <td>Infrastructure health</td>
+                <td class="ai">Complex AI-driven distributed systems</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CTA ─────────────────────────────────────────────────────────── -->
+    <section class="block" style="padding-bottom: 40px;">
+      <div class="container">
+        <div class="demo-band">
+          <div>
+            <h2>See generative AI observability in action.</h2>
+            <p>Try the ObserveAgents demo: runtime timelines, the AI asset inventory, security findings, and the Gateway Control Center — all on realistic synthetic data, nothing to install.</p>
+            <a class="btn btn-light" href="https://demo.observeagents.ai" target="_blank" rel="noopener">Try our Demo →</a>
+          </div>
+          <img class="shot" src="/product-overview.png" alt="The ObserveAgents console" width="1512" height="920">
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="container">
-    <small><a href="/">ObserveAgents</a> • <a href="/#contact">Talk to the ObserveAgents team</a></small>
+  <footer>
+    <span class="foot-brand">
+      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="1" y="1" width="22" height="22" rx="7" fill="url(#lg-nav)"/>
+        <path d="M5 12.5 H8.4 L10.5 7.5 L13.5 16.5 L15.6 11 H19" stroke="#0B1730" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      ObserveAgents
+    </span>
+    <p class="motto">Observe first · Control only what matters</p>
+    <p><a href="/">Home</a> · <a href="/integration.html">How to Connect</a> · <a href="/tour.html">Watch the Tour</a> · <a href="/#contact">Talk to the team</a></p>
   </footer>
+
+  <script>
+    // Solutions dropdown: click toggle + Escape/outside close (hover handled in CSS).
+    (function () {
+      var drop = document.getElementById('navDrop');
+      if (!drop) return;
+      var btn = drop.querySelector('button');
+      btn.addEventListener('click', function () {
+        var open = drop.classList.toggle('open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function (e) {
+        if (!drop.contains(e.target)) { drop.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { drop.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+      });
+    })();
+
+    // Scroll reveals — same contract as the rest of the site.
+    (function () {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      document.querySelectorAll('.defs').forEach(function (grid) {
+        Array.prototype.forEach.call(grid.children, function (el, i) {
+          el.classList.add('reveal', 'd' + Math.min(i % 6, 5));
+        });
+      });
+      document.querySelectorAll('.section-head, .compare-wrap, .demo-band').forEach(function (el) { el.classList.add('reveal'); });
+      if (reduce || !('IntersectionObserver' in window)) {
+        document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('on'); });
+      } else {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); }
+          });
+        }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+        document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+      }
+    })();
+  </script>
 </body>
 </html>
