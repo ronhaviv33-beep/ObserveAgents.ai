@@ -91,11 +91,15 @@ def _process_row(db: Session, row: TelemetryEventRaw,
 
     org_id = row.organization_id
     if org_id not in risk_configs:
-        risk_configs[org_id] = risk_processor.load_risk_config(db, org_id)
+        risk_configs[org_id] = {
+            "config": risk_processor.load_risk_config(db, org_id),
+            "rules": risk_processor.load_detection_rules(db, org_id),
+        }
     risk = risk_processor.evaluate_event(
         db, org_id,
         {**normalized, "upstream_policy_action": upstream_action},
-        config=risk_configs[org_id],
+        config=risk_configs[org_id]["config"],
+        rules=risk_configs[org_id]["rules"],
     )
 
     event = TelemetryEvent(

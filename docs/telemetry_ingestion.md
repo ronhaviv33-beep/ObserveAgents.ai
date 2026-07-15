@@ -271,6 +271,33 @@ feed established here become the read surface for configurable rules: the
 rule builder will write rule definitions, the worker will evaluate them at
 ingestion, and matches will land in this same feed with their `rule_id`.
 
+### Admin-managed detection rules (v1)
+
+Admins can tune the real-time rules from the Rules & Alerts page; the
+`detection_rules` table (migration `c0d1e2f3a4b5`) stores per-org state:
+
+- **Built-in rules** exist implicitly with their defaults — no rows are
+  seeded. Editing one (enable/disable, severity, threshold) creates a
+  per-org override row keyed by the rule's `rule_key`. Built-ins can be
+  disabled but never deleted, so defaults are always restorable.
+- **Custom rules** are created only from approved templates
+  (`app/detection_rule_templates.py`): cost / latency / token-usage
+  thresholds, watched environments, watched providers/models, watched
+  tools. Each template validates typed, bounded parameters in
+  `config_json`. **Rules never carry code** — no DSL, no eval, no arbitrary
+  logic — so rule management can't become an execution vector, and the
+  product stays an evidence platform rather than a SIEM rule engine.
+- **Severity** (low/medium/high) maps to score weight (+10/+15/+25).
+- **Authorization is enforced in the backend**: `GET /detection-rules` and
+  `GET /detection-rules/templates` are readable by any authenticated user;
+  `POST`/`PATCH`/`DELETE` require the admin role (`require_admin`), with
+  org isolation on every query. The frontend hides controls for non-admins
+  ("Only admins can manage detection rules") but the API is the real gate.
+- **Rule changes affect future findings only.** The worker snapshots the
+  org's rules per processing batch; already-scored events are never
+  retroactively re-scored, so historical findings remain stable evidence.
+  Orgs that never touch rule management get exactly the default behavior.
+
 ## OpenTelemetry compatibility
 
 `trace_id` / `span_id` / `parent_span_id` and free-form `attributes` are
