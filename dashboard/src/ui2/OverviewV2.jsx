@@ -190,7 +190,7 @@ export default function OverviewV2({ onNavigate }) {
         <PageHeader
           eyebrow="Mission Control"
           title="Overview"
-          purpose={<span>Runtime evidence from your AI systems, turned into inventory, findings, and control recommendations. <span style={{ color: C.accentDark }}>Observe first. Control only what matters.</span></span>}>
+          purpose={<span>See what your AI agents are doing, detect risky behavior, understand cost and performance, and investigate with runtime evidence — telemetry turned into inventory, findings, and control recommendations. <span style={{ color: C.accentDark }}>Observe first. Control only what matters.</span></span>}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 10, fontFamily: FONT.mono, color: C.textMute }}>
             <PulseDot /> live · next refresh <span style={{ color: C.textDim, fontVariantNumeric: "tabular-nums", display: "inline-block", minWidth: 24 }}>{nextIn}s</span>
           </span>

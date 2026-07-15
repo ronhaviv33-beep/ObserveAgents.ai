@@ -332,7 +332,7 @@ const PAGES = [
   { id:"overview_hub",   label:"Overview" },
   { id:"surfaces_demo",  label:"Gateway vs OTEL" },
   { id:"welcome",        label:"Platform Guide" },
-  { id:"agent_inventory",label:"AI Agent Inventory" },
+  { id:"agent_inventory",label:"Agent Inventory" },
   { id:"discovery",      label:"Discovery Center" },
   { id:"governance",     label:"Governance Readiness" },
   { id:"cost",           label:"Cost Signals" },
