@@ -6,6 +6,21 @@ There is no proprietary schema and no required vendor SDK — ObserveAgents cons
 
 For what the platform does with your spans after ingestion — timeline assembly, asset intelligence, findings — see [runtime-flow.md](runtime-flow.md).
 
+**Choosing your path:**
+
+| You want to… | Use |
+|---|---|
+| Send your very first test events with a tiny local agent (simplest) | [create_first_agent_guide.md](create_first_agent_guide.md) — direct POST, no Collector, works from plain Python or a throwaway Docker container |
+| Point an OTel-instrumented app straight at ObserveAgents | [Direct SDK export](#instrumenting-with-the-opentelemetry-sdk) (this guide) |
+| Production routing, batching, retries, fan-out to other backends | [OpenTelemetry Collector](#deploying-with-an-opentelemetry-collector) (this guide) |
+| Event-level activity with cost/risk in Runtime → **Agent events** | The batch telemetry API — `POST /api/v1/telemetry/batch` (see [telemetry_ingestion.md](telemetry_ingestion.md)); OTel spans surface in Runtime → **Traces** |
+
+All commands below are shown for **bash**; where a command differs on
+**Windows PowerShell** a PS variant is provided. The recurring difference:
+bash continues lines with `\`, PowerShell with a **backtick** `` ` `` —
+pasting a `\`-continued command into PowerShell executes each line
+separately (you'll see errors like *"The term '-p' is not recognized"*).
+
 ---
 
 ## Before you start: three things to know
@@ -24,7 +39,10 @@ These correct the assumptions baked into generic OpenTelemetry guides. They are 
 
 ### curl smoke test
 
-The fastest way to confirm connectivity and your API key:
+The fastest way to confirm connectivity and your API key. (Windows: run this
+in **Git Bash/WSL**, or in PowerShell use `curl.exe` — not the bare `curl`
+alias — join the command onto one line, and keep the JSON in a file passed
+via `-d "@payload.json"` to avoid PowerShell quoting issues.)
 
 ```bash
 curl -X POST https://<your-observeagents-url>/otel/v1/traces \
@@ -258,12 +276,41 @@ service:
       exporters: [debug]
 ```
 
-Run it:
+Run it (bash):
 
 ```bash
 docker run --rm -p 4318:4318 \
   -v $(pwd)/otel-collector-config.yaml:/etc/otelcol/config.yaml \
   otel/opentelemetry-collector:latest --config=/etc/otelcol/config.yaml
+```
+
+Windows PowerShell (note the backtick continuation and `${PWD}`):
+
+```powershell
+docker run --rm -p 4318:4318 `
+  -v "${PWD}\otel-collector-config.yaml:/etc/otelcol/config.yaml" `
+  otel/opentelemetry-collector:latest --config=/etc/otelcol/config.yaml
+```
+
+> **Image names matter.** The core image is `otel/opentelemetry-collector`;
+> the extended one is `otel/opentelemetry-collector-contrib` (config path
+> `/etc/otelcol-contrib/config.yaml`). Shorthand names like
+> `otel/collector-contrib` **do not exist** on Docker Hub and fail with
+> "manifest not found". For everything in this guide the core image is enough.
+
+Prefer Docker Compose? Same collector as a `docker-compose.yaml` you can
+`docker compose up`:
+
+```yaml
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4318:4318"
+    restart: unless-stopped
 ```
 
 ### Phase 2 — A test agent that emits realistic spans
@@ -407,12 +454,29 @@ service:
 
 Restart the Collector and run `python lab_agent.py` again. A successful ingest returns **HTTP 202** to the Collector.
 
+> **Collector in Docker, ObserveAgents on the same machine?** Inside a
+> container, `localhost` is the container itself. If your ObserveAgents
+> backend runs on the host (or in another container without a shared
+> network), point the exporter at
+> `http://host.docker.internal:<port>/otel/v1/traces`
+> (on Linux add `--add-host=host.docker.internal:host-gateway` to
+> `docker run`, or `extra_hosts: ["host.docker.internal:host-gateway"]` in
+> Compose). With a real live domain (`https://…`) this doesn't apply. The
+> same rule affects `lab_agent.py` only if you run *it* in a container too —
+> its default `http://localhost:4318` works from the host because the
+> Collector's port is published.
+
 ### Phase 4 — Verify in the dashboard
 
-1. **Runtime** — the trace appears as **one collapsed session row**; expand it into a per-step execution waterfall.
-2. **Asset Intelligence / Inventory** — `customer-support-agent` now exists, with model/provider evidence.
-3. **Security Intelligence** — capabilities (provider, model, database, MCP) plus the runtime-security findings below.
-4. **Close the governance loop** — **Claim** the asset and assign an **owner** (admin action). The `agent_missing_owner` finding clears.
+1. **Runtime** — make sure the **Traces** view is selected (the page has a
+   *Traces | Agent events* toggle; OTel spans appear under **Traces** — the
+   *Agent events* view is fed by the separate batch telemetry API). The trace
+   appears as **one collapsed session row**; expand it into a per-step
+   execution waterfall.
+2. **Asset Intelligence / Agents (Inventory)** — `customer-support-agent` now exists, with model/provider evidence, team, and environment.
+3. **Security Intelligence** — capabilities (provider, model, database, MCP) plus the runtime-security findings below (asset-level posture).
+4. **Rules & Alerts** — the *batch rule matches* section fills after you click **Run rules** (batch detection rules evaluate on demand, never during ingestion). The *Recent findings* feed above it is event-level and comes from the batch telemetry API, not from OTel spans.
+5. **Close the governance loop** — **Claim** the asset and assign an **owner** (admin action). The `agent_missing_owner` finding clears.
 
 Findings the test agent raises:
 
@@ -677,6 +741,11 @@ Per-organization content capture opt-in is planned for a future release. Privacy
 | **415** `Content-Encoding` | Unsupported compression | Use `gzip` or no compression. |
 | Collector: `Exporting failed … HTTP Status Code 400` | Gzipped body the platform couldn't read | Update to a build with gzip support, or set `compression: none` on the exporter. |
 | No agent in Runtime | Spans exported to the wrong URL | Use `traces_endpoint: …/otel/v1/traces` (full path). |
+| No trace visible but ingest returned 202 | Looking at the wrong Runtime view | Switch the Runtime toggle to **Traces** — OTel spans don't appear in *Agent events* (that view is fed by the batch telemetry API). |
+| PowerShell: `The term '-p' is not recognized` | Bash `\` line-continuation pasted into PowerShell | Re-join the command onto one line or use backtick `` ` `` continuation (see the PS variants above). |
+| Docker: `manifest ... not found` | Wrong image name (e.g. `otel/collector-contrib`) | Use `otel/opentelemetry-collector` (or `otel/opentelemetry-collector-contrib`, config at `/etc/otelcol-contrib/config.yaml`). |
+| Collector can't reach a localhost backend | Container `localhost` ≠ host `localhost` | Use `http://host.docker.internal:<port>/otel/v1/traces` (Linux: add the `host-gateway` extra host). |
+| `bind: address already in use` on 4318 | Another collector/process owns the port | Stop it, or publish a different host port (`-p 14318:4318`) and point the SDK exporter at it. |
 | Service shows **unclassified** | No `service.name` / `gen_ai.agent.*` on the spans | Set the `service.name` resource attribute; the Telemetry Quality page lists the source under Unidentified. |
 | Model missing on **old** spans after adding a mapping | Mapping saved with `reprocess: false` | Click **Reclassify** on the Telemetry Quality page (admin), or re-save the mapping. |
 
