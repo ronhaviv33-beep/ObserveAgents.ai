@@ -420,6 +420,9 @@ app.include_router(telemetry_v1_routes.router)
 from app.routes import agent_timeline as agent_timeline_routes  # noqa: E402
 app.include_router(agent_timeline_routes.router)
 
+from app.routes import risk_findings as risk_findings_routes  # noqa: E402
+app.include_router(risk_findings_routes.router)
+
 # Always allow the canonical ObserveAgents public origins, the Render fallback,
 # and local dev — plus any explicit FRONTEND_ORIGIN entries. Deduped, order-stable.
 from app.config import PUBLIC_ORIGINS as _PUBLIC_ORIGINS, LOCAL_ORIGINS as _LOCAL_ORIGINS  # noqa: E402

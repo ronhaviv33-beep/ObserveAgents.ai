@@ -46,6 +46,40 @@ _ENV_ALIASES = {
 }
 
 
+# Read-side catalog of the real-time risk rules above. Each entry maps the
+# stable prefix/substring of a risk_reason string back to a rule identity so
+# findings can report WHICH rule fired without re-evaluating anything.
+# Order matters: first match wins. Purely descriptive — never used in scoring.
+RULE_CATALOG: list[dict] = [
+    {"rule_id": "upstream_block",      "rule_name": "Upstream policy block",              "match": "Upstream policy blocked",        "weight": 25, "category": "security"},
+    {"rule_id": "status_error",        "rule_name": "Event reported an error",            "match": "Event reported an error",        "weight": 25, "category": "operations"},
+    {"rule_id": "missing_owner",       "rule_name": "Agent has no owner",                 "match": "no registered owner",            "weight": 10, "category": "governance"},
+    {"rule_id": "missing_team",        "rule_name": "Agent has no team",                  "match": "no team assignment",             "weight": 10, "category": "governance"},
+    {"rule_id": "unknown_environment", "rule_name": "Unknown environment",                "match": "environment",                    "weight": 15, "category": "governance"},
+    {"rule_id": "unknown_provider",    "rule_name": "Unknown provider",                   "match": "provider",                       "weight": 10, "category": "security"},
+    {"rule_id": "unknown_model",       "rule_name": "Model not in pricing registry",      "match": "not in pricing registry",        "weight": 15, "category": "cost"},
+    {"rule_id": "cost_threshold",      "rule_name": "Cost exceeds threshold",             "match": "exceeds $",                      "weight": 20, "category": "cost"},
+    {"rule_id": "latency_threshold",   "rule_name": "Latency unusually high",             "match": "ms threshold",                   "weight": 15, "category": "operations"},
+    {"rule_id": "risky_tool",          "rule_name": "Risky tool usage",                   "match": "risky-tool list",                "weight": 25, "category": "security"},
+    {"rule_id": "non_approved_model",  "rule_name": "Non-approved model in production",   "match": "blocked for team",               "weight": 30, "category": "security"},
+    {"rule_id": "non_approved_model",  "rule_name": "Non-approved model in production",   "match": "not on the approved list",       "weight": 30, "category": "security"},
+    {"rule_id": "non_approved_model",  "rule_name": "Non-approved model in production",   "match": "not approved for production",    "weight": 30, "category": "security"},
+]
+
+
+def match_rule(reason: str | None) -> tuple[str | None, str | None]:
+    """Map one risk_reason string to (rule_id, rule_name). Substring-based on
+    the stable phrases each rule emits; returns (None, None) when a reason
+    can't be attributed safely (never guesses)."""
+    if not reason:
+        return None, None
+    lowered = reason.lower()
+    for entry in RULE_CATALOG:
+        if entry["match"].lower() in lowered:
+            return entry["rule_id"], entry["rule_name"]
+    return None, None
+
+
 @dataclass
 class RiskResult:
     score: int = 0
