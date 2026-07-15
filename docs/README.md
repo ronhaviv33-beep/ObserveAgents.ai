@@ -10,6 +10,7 @@ ObserveAgents is an AI agent visibility and runtime evidence platform: see what 
 | [customer-integration-guide.md](customer-integration-guide.md) | Customer-facing integration guide (stakeholder + technical rollout) |
 | [otel-deployment-guide.md](otel-deployment-guide.md) | Complete OpenTelemetry deployment guide |
 | [create_first_agent_guide.md](create_first_agent_guide.md) | Developer onboarding: build a local agent and send telemetry via OTLP or a gateway key |
+| [otel_unmapped_fields_walkthrough.md](otel_unmapped_fields_walkthrough.md) | Walkthrough: OTLP agent with custom (unmapped) fields — quality scoring, attribute mapping, reprocess |
 | [telemetry_ingestion.md](telemetry_ingestion.md) | Batch telemetry ingestion: queue/worker, dedup, risk scoring, metrics, Agent Timeline |
 | [telemetry_post_merge_validation.md](telemetry_post_merge_validation.md) | Post-merge validation checklist for the telemetry ingestion pipeline |
 | [sdk-guide.md](sdk-guide.md) | ObserveAgents Python SDK guide |
