@@ -227,9 +227,10 @@ The response contains the agent's registry record, a summary computed from the
 daily rollups (events, errors, cost, latency, high-risk count, model mix,
 last seen), and the event feed with per-event risk level and reasons.
 
-The UI lives at **Observe → Agent Timeline** (`dashboard/src/pages/
-AgentTimeline.jsx`) and is also reachable from any Agent Inventory row via its
-**Timeline** action.
+The UI lives in the **Runtime** page's **Agent events** view
+(`dashboard/src/pages/AgentTimeline.jsx`, embedded in RuntimeTimelineV2) and
+is also reachable from any Agent Inventory row via its **Timeline** action or
+from any risk finding in Rules & Alerts.
 
 ## Risk Findings v1
 

@@ -41,7 +41,6 @@ import RelationshipMap from "./pages/RelationshipMap.jsx";
 // ui2 (redesign step 6): V2 replaces pages/RuntimeTimeline.jsx, which stays
 // in the tree for rollback — see docs/ui_redesign_plan.md.
 import RuntimeTimelineV2 from "./pages/RuntimeTimelineV2.jsx";
-import AgentTimeline from "./pages/AgentTimeline.jsx";
 // ui2 (redesign step 4): V2 replaces pages/AssetIntelligence.jsx, which
 // stays in the tree for rollback — see docs/ui_redesign_plan.md.
 import AssetIntelligenceV2 from "./pages/AssetIntelligenceV2.jsx";
@@ -50,7 +49,6 @@ import AssetIntelligenceV2 from "./pages/AssetIntelligenceV2.jsx";
 import GatewayControlCenterV2 from "./pages/GatewayControlCenterV2.jsx";
 // ui2 shell (redesign, final visual layer): sidebar/topbar/app chrome.
 import AppShell from "./ui2/AppShell.jsx";
-import Guardrails from "./pages/Guardrails.jsx";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -341,11 +339,9 @@ const PAGES = [
   { id:"ecosystem",        label:"Ecosystem Discovery" },
   { id:"relationship_map", label:"Runtime Dependency Map" },
   { id:"runtime",          label:"Runtime" },
-  { id:"agent_timeline",   label:"Agent Timeline" },
   { id:"intelligence",     label:"Asset Intelligence" },
   { id:"telemetry_quality", label:"Telemetry Quality" },
   { id:"gateway_control_center", label:"Gateway Control Center" },
-  { id:"guardrails",       label:"Guardrails" },
   { id:"budgets",          label:"Budgets" },
   { id:"pricing",        label:"Pricing Registry" },
   { id:"security",       label:"Security" },
@@ -388,7 +384,6 @@ const NAV_GROUPS_COMBINED = [
     label: "OBSERVE",
     items: [
       { id: "runtime",          label: "Runtime" },
-      { id: "agent_timeline",   label: "Agent Timeline" },
       { id: "intelligence",     label: "Asset Intelligence" },
       { id: "telemetry_quality", label: "Telemetry Quality" },
       { id: "security_intel",   label: "Security Intelligence" },
@@ -407,7 +402,6 @@ const NAV_GROUPS_COMBINED = [
     label: "CONTROL",
     items: [
       { id: "gateway_control_center", label: "Gateway Control Center" },
-      { id: "guardrails",    label: "Guardrails" },
       { id: "budgets",       label: "Budgets" },
     ],
   },
@@ -442,12 +436,10 @@ const NAV_GROUPS_OBSERVABILITY = [
     label: "OBSERVE",
     items: [
       { id: "runtime",          label: "Runtime" },
-      { id: "agent_timeline",   label: "Agent Timeline" },
       { id: "intelligence",     label: "Asset Intelligence" },
       { id: "telemetry_quality", label: "Telemetry Quality" },
       { id: "security_intel",   label: "Security Intelligence" },
       { id: "rules_alerts",     label: "Rules & Alerts" },
-      { id: "guardrails",       label: "Guardrails" },
       { id: "relationship_map", label: "Dependency Map" },
     ],
   },
@@ -827,15 +819,14 @@ export default function App() {
       case "surfaces_demo":  return isDemoMode() ? <SurfacesDemo onNavigate={navigate} />
                                     : <OverviewV2 onNavigate={overviewNav} />;
       case "welcome":        return <PlatformGuideV2 onNavigate={navigate} />;
-      case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); if (opts.timelineAgent) setTimelineFocusAgent(opts.timelineAgent); navigate(pg); }} />;
+      case "agent_inventory":return <AgentInventory isAdmin={user?.role === "admin"} onNavigate={(pg, opts={}) => { if (opts.discoveryTab) setDiscoveryInitialTab(opts.discoveryTab); if (opts.timelineAgent) { setTimelineFocusAgent(opts.timelineAgent); navigate("runtime"); return; } navigate(pg); }} />;
       case "discovery":      return <DiscoveryCenter initialTab={discoveryInitialTab} />;
       case "governance":     return <GovernanceCenter />;
       case "security_intel": return <SecurityIntelligenceV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
-      case "rules_alerts":   return <RulesAlertsV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); if (opts.timelineAgent) setTimelineFocusAgent(opts.timelineAgent); navigate(pg); }} />;
+      case "rules_alerts":   return <RulesAlertsV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); if (opts.timelineAgent) { setTimelineFocusAgent(opts.timelineAgent); navigate("runtime"); return; } navigate(pg); }} />;
       case "ecosystem":        return <EcosystemDiscovery />;
       case "relationship_map": return <RelationshipMap />;
-      case "runtime":          return <RuntimeTimelineV2 onNavigate={navigate} focusService={rtFocusService} onFocusConsumed={() => setRtFocusService(null)} />;
-      case "agent_timeline":   return <AgentTimeline focusAgentId={timelineFocusAgent} onFocusConsumed={() => setTimelineFocusAgent(null)} />;
+      case "runtime":          return <RuntimeTimelineV2 onNavigate={navigate} focusService={rtFocusService} onFocusConsumed={() => setRtFocusService(null)} initialView={timelineFocusAgent ? "events" : "traces"} eventsAgent={timelineFocusAgent} onEventsAgentConsumed={() => setTimelineFocusAgent(null)} />;
       case "intelligence":     return <AssetIntelligenceV2 onNavigate={(pg, opts={}) => { if (opts.gccFocus !== undefined) setGccFocusKey(opts.gccFocus); navigate(pg); }} />;
       case "telemetry_quality":
         return <TelemetryQualityV2 isAdmin={user?.role === "admin" || user?.is_platform_admin}
@@ -844,7 +835,6 @@ export default function App() {
         return <GatewayControlCenterV2 isAdmin={user?.role === "admin" || user?.is_platform_admin}
                                        focusAssetKey={gccFocusKey} onClearFocus={() => setGccFocusKey(null)}
                                        onNavigate={navigate} />;
-      case "guardrails":       return <Guardrails />;
       // ── Existing pages (unchanged) ──────────────────────────────────────
       case "cost":      return <CostIntelligence />;
       case "pricing":   return <PricingRegistry />;
