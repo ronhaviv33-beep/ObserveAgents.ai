@@ -120,6 +120,12 @@ except Exception as _e:
     import logging as _logging
     _logging.getLogger("ai_asset_mgmt").warning("Pricing seed non-fatal: %s", _e)
 
+try:
+    _startup.start_telemetry_worker()
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("ai_asset_mgmt").warning("Telemetry worker non-fatal: %s", _e)
+
 
 _START_TIME = time.time()
 
@@ -407,6 +413,12 @@ app.include_router(runtime_routes.router)
 
 from app.routes import notifications as notifications_routes  # noqa: E402
 app.include_router(notifications_routes.router)
+
+from app.routes import telemetry_v1 as telemetry_v1_routes  # noqa: E402
+app.include_router(telemetry_v1_routes.router)
+
+from app.routes import agent_timeline as agent_timeline_routes  # noqa: E402
+app.include_router(agent_timeline_routes.router)
 
 # Always allow the canonical ObserveAgents public origins, the Render fallback,
 # and local dev — plus any explicit FRONTEND_ORIGIN entries. Deduped, order-stable.

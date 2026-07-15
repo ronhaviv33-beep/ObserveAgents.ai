@@ -435,6 +435,21 @@ export async function fetchAgentDetail(agentId, days = 90) {
   return r.json()
 }
 
+export async function fetchAgentTimeline(agentId, params = {}) {
+  const q = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}/timeline${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error(`Failed to fetch agent timeline: ${agentId}`)
+  return r.json()
+}
+
+export async function fetchTelemetryMetricsDaily(days = 7, groupBy = 'agent') {
+  const r = await authFetch(`${BASE}/telemetry/metrics/daily?days=${days}&group_by=${groupBy}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch telemetry metrics')
+  return r.json()
+}
+
 export async function updateInventoryAgent(agentId, data) {
   const r = await authFetch(`${BASE}/agents/${encodeURIComponent(agentId)}`, {
     method: 'PATCH',
