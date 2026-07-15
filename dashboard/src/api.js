@@ -444,6 +444,27 @@ export async function fetchAgentTimeline(agentId, params = {}) {
   return r.json()
 }
 
+export async function fetchRiskFindings(params = {}) {
+  const q = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  ).toString()
+  const r = await authFetch(`${BASE}/risk-findings${q ? `?${q}` : ''}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch risk findings')
+  return r.json()
+}
+
+export async function fetchRiskFindingsSummary(days = 7) {
+  const r = await authFetch(`${BASE}/risk-findings/summary?days=${days}`)
+  if (!r || !r.ok) throw new Error('Failed to fetch risk findings summary')
+  return r.json()
+}
+
+export async function fetchRiskRules() {
+  const r = await authFetch(`${BASE}/risk-findings/rules`)
+  if (!r || !r.ok) throw new Error('Failed to fetch risk rules')
+  return r.json()
+}
+
 export async function fetchTelemetryMetricsDaily(days = 7, groupBy = 'agent') {
   const r = await authFetch(`${BASE}/telemetry/metrics/daily?days=${days}&group_by=${groupBy}`)
   if (!r || !r.ok) throw new Error('Failed to fetch telemetry metrics')
