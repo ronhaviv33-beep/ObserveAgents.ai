@@ -299,6 +299,46 @@ Admins can tune the real-time rules from the Rules & Alerts page; the
   retroactively re-scored, so historical findings remain stable evidence.
   Orgs that never touch rule management get exactly the default behavior.
 
+## Risk Findings v1
+
+Risk Findings turn the per-event `risk_score` / `risk_reasons` / `policy_action`
+columns into a product experience: a filterable feed that answers *which
+AI-agent events require attention and why*. A finding is any normalized
+telemetry event the ingest-time risk processor flagged (`risk_score > 0` or
+reasons present) — no new tables, no re-scoring, pure read layer
+(`app/routes/risk_findings.py`):
+
+- `GET /risk-findings` — event-level findings, newest first, keyset-paginated.
+  Filters: `days`, `min_risk`, `risk_level`, `policy_action`, `agent_id`,
+  `team`, `environment`, `event_type`, `status`, `model`, `provider`.
+  Each finding carries the full event context, `risk_level`, `primary_reason`,
+  a safely derived `rule_id`/`rule_name` (mapped from the stable reason
+  phrasing via `risk_processor.RULE_CATALOG` — never guessed), and
+  `timeline_agent_id`/`timeline_url` linking straight to the Agent Timeline.
+- `GET /risk-findings/summary` — totals, high-risk/blocked/warning counts,
+  top risky agents, most common reasons, findings by team, findings by day.
+- `GET /risk-findings/rules` — the real-time rule catalog with each org's
+  effective thresholds.
+
+**Where it lives in the UI:** the **Rules & Alerts** page (deliberately — not
+a new page). The page now shows both rule populations and their matches:
+real-time risk rules (evaluated at ingestion by the worker) with the
+**Recent findings** feed they produce, and the batch detection-rule templates
+with their intelligence-run matches. Every finding explains which rule fired,
+for which agent, why, at what severity, and links to that agent's timeline.
+
+**Why this is not a SIEM:** findings are AI-agent-shaped operational evidence
+— model calls, tools, cost, ownership, policy — not a generic event/log
+correlation console. There is no query language, no raw log retention story,
+and nothing enforces from this view; it explains risk and routes the user to
+the timeline (investigate) or Gateway Control Center (control).
+
+**Path to the Detection Rule Zone:** today's rules are fixed functions with
+org-configurable thresholds (`risk_thresholds`). The rule catalog + findings
+feed established here become the read surface for configurable rules: the
+rule builder will write rule definitions, the worker will evaluate them at
+ingestion, and matches will land in this same feed with their `rule_id`.
+
 ## OpenTelemetry compatibility
 
 `trace_id` / `span_id` / `parent_span_id` and free-form `attributes` are
