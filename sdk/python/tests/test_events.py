@@ -44,3 +44,11 @@ def test_error_event():
 def test_metadata_is_scrubbed():
     e = _event(metadata={"prompt": "SECRET", "region": "us"})
     assert e["metadata_json"] == {"region": "us"}
+
+
+def test_provider_defaults_to_openai():
+    assert _event()["provider"] == "openai"
+
+
+def test_provider_override():
+    assert _event(provider="anthropic")["provider"] == "anthropic"

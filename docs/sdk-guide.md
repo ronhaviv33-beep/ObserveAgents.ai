@@ -31,10 +31,10 @@ The `observeagents` package is a thin evidence adapter with three defining prope
 
 **Not just OpenAI.** ObserveAgents observes agents built on **any AI provider with an
 API connection** — OpenAI, **Claude (Anthropic)**, Google, or your own model endpoints.
-The fastest path today is the drop-in `ObserveOpenAI` wrapper for OpenAI-based agents;
+`ObserveOpenAI` and `ObserveAnthropic` are drop-in wrappers for those two providers;
 every other provider connects through the same runtime-events API with a few lines of
-code (see [Beyond OpenAI](#beyond-openai-the-runtime-events-api)), or through standard
-OpenTelemetry (see [otel-deployment-guide.md](otel-deployment-guide.md)).
+code (see [Beyond OpenAI and Anthropic](#beyond-openai-and-anthropic-the-runtime-events-api)),
+or through standard OpenTelemetry (see [otel-deployment-guide.md](otel-deployment-guide.md)).
 
 **What you get in 5 minutes:** your agent appears in your ObserveAgents inventory with
 its model calls, latency, errors, and token usage — no OTel Collector, no span
@@ -91,6 +91,33 @@ runtime event (metadata only) flows to your ObserveAgents workspace.
 Useful extras: `session_id="chat-123"` groups related calls into one workflow;
 `debug=True` logs a warning when an event fails to deliver (otherwise silent).
 
+## Quick start — wrap your Anthropic client
+
+`ObserveAnthropic` is the same drop-in pattern for Claude — same call signature, same
+return value, same exceptions:
+
+```python
+from observeagents import ObserveAnthropic
+
+client = ObserveAnthropic(
+    anthropic_api_key="sk-ant-...",   # or ANTHROPIC_API_KEY
+    observeagents_api_key="gk-...",   # or OBSERVEAGENTS_API_KEY
+    agent_name="research-agent",
+    environment="production",
+)
+
+response = client.messages.create(
+    model="claude-sonnet-5",
+    max_tokens=512,
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(response.content[0].text)
+```
+
+Every `create()` call goes to Anthropic unchanged, and one `llm_call` runtime event
+(`provider="anthropic"`, metadata only) flows to your ObserveAgents workspace — same
+inventory, same findings, same engine as an OpenAI agent.
+
 ## Configuration
 
 Every setting is a constructor argument or an environment variable
@@ -98,7 +125,8 @@ Every setting is a constructor argument or an environment variable
 
 | Setting | Env var | Required? | Default |
 |---|---|---|---|
-| OpenAI API key | `OPENAI_API_KEY` | ✅ | — |
+| OpenAI API key (`ObserveOpenAI` only) | `OPENAI_API_KEY` | ✅ | — |
+| Anthropic API key (`ObserveAnthropic` only) | `ANTHROPIC_API_KEY` | ✅ | — |
 | ObserveAgents API key (`gk-…`) | `OBSERVEAGENTS_API_KEY` | ✅ | — |
 | Agent name | `OBSERVEAGENTS_AGENT_NAME` | ✅ | — |
 | ObserveAgents endpoint | `OBSERVEAGENTS_URL` | — | ObserveAgents Cloud |
@@ -107,14 +135,15 @@ Every setting is a constructor argument or an environment variable
 | Owner hint | `OBSERVEAGENTS_OWNER_HINT` | — | unset |
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+export OPENAI_API_KEY="sk-..."           # or ANTHROPIC_API_KEY="sk-ant-..."
 export OBSERVEAGENTS_API_KEY="gk-..."
 export OBSERVEAGENTS_AGENT_NAME="support-agent"
 export OBSERVEAGENTS_ENVIRONMENT="production"
 ```
 
 Constructor-only options (no env var): `session_id`, `trace_id`, `timeout_seconds`
-(delivery budget, default `2.0`), and `debug` (default `False`).
+(delivery budget, default `2.0`), and `debug` (default `False`) — identical on both
+wrappers.
 
 By default events go to **ObserveAgents Cloud** — you don't set a URL at all. Set
 `OBSERVEAGENTS_URL` only if your organization runs a self-hosted / customer-side
@@ -122,11 +151,11 @@ ObserveAgents collector; the wire format, auth, and privacy rules are identical.
 
 ## See it in your workspace
 
-1. **Run your agent.** The OpenAI call succeeds exactly as before — even if ObserveAgents
-   were unreachable (fail-open by design).
-2. **Runtime** — a trace for `support-agent` appears within seconds; each completion call
-   is one step with its duration and status.
-3. **Asset Intelligence** — `support-agent` appears as a discovered AI system with its
+1. **Run your agent.** The provider call succeeds exactly as before — even if
+   ObserveAgents were unreachable (fail-open by design).
+2. **Runtime** — a trace for your agent appears within seconds; each call is one step
+   with its duration and status.
+3. **Asset Intelligence** — the agent appears as a discovered AI system with its
    provider, model, environment, and token-usage evidence.
 4. **Security Intelligence / Findings** — derived automatically on the next intelligence
    run: ownership gaps, unknown providers, risky patterns. Recommendations only — nothing
@@ -135,13 +164,13 @@ ObserveAgents collector; the wire format, auth, and privacy rules are identical.
 See [runtime-flow.md](runtime-flow.md) for how an event becomes a trace, an inventory
 entry, and a finding.
 
-## Beyond OpenAI: the runtime-events API
+## Beyond OpenAI and Anthropic: the runtime-events API
 
-The `ObserveOpenAI` wrapper is the one-liner path for OpenAI-based agents, but the
-platform itself is **provider-agnostic**: every agent is observed through the same
-`POST /runtime-events` API, whatever model it calls. Until the native Anthropic/LiteLLM
-wrappers ship, connecting a **Claude** agent (or any other provider) takes a few lines
-around your existing call — same privacy rules, metadata only.
+`ObserveOpenAI` and `ObserveAnthropic` are the one-liner path for those two providers,
+but the platform itself is **provider-agnostic**: every agent is observed through the
+same `POST /runtime-events` API, whatever model it calls. Until a native wrapper ships
+for your provider, connecting a **Google**, **Mistral**, local-model, or internal-service
+agent takes a few lines around your existing call — same privacy rules, metadata only.
 
 ### The endpoint
 
@@ -191,7 +220,7 @@ curl -X POST "https://api.observeagents.ai/runtime-events" \
     "events": [{
       "source": "sdk", "event_type": "llm_call",
       "agent_name": "research-agent", "environment": "production",
-      "provider": "anthropic", "model": "claude-sonnet-5",
+      "provider": "google", "model": "gemini-2.5-pro",
       "duration_ms": 850.0, "status": "ok",
       "input_tokens": 12, "output_tokens": 96,
       "trace_id": "6f3a1c2e9b4d4f0a8c7e5d2b1a0f9e8d", "span_id": "8c7e5d2b1a0f9e8d"
@@ -199,11 +228,11 @@ curl -X POST "https://api.observeagents.ai/runtime-events" \
   }'
 ```
 
-### Python example — a Claude (Anthropic) agent
+### Python example — a Google (Gemini) agent
 
 ```python
 import json, time, urllib.request, uuid
-import anthropic
+from google import genai
 
 OBSERVEAGENTS_URL = "https://api.observeagents.ai"   # or your self-hosted collector
 OBSERVEAGENTS_API_KEY = "gk-..."
@@ -233,28 +262,28 @@ def send_runtime_event(provider, model, duration_ms, status,
     except Exception:
         pass
 
-client = anthropic.Anthropic()
+client = genai.Client()
 started = time.monotonic()
 try:
-    msg = client.messages.create(
-        model="claude-sonnet-5", max_tokens=512,
-        messages=[{"role": "user", "content": "Hello"}],
+    resp = client.models.generate_content(
+        model="gemini-2.5-pro", contents="Hello",
     )
-    send_runtime_event("anthropic", "claude-sonnet-5",
+    send_runtime_event("google", "gemini-2.5-pro",
                        (time.monotonic() - started) * 1000, "ok",
-                       input_tokens=msg.usage.input_tokens,
-                       output_tokens=msg.usage.output_tokens)
+                       input_tokens=resp.usage_metadata.prompt_token_count,
+                       output_tokens=resp.usage_metadata.candidates_token_count)
 except Exception as exc:
-    send_runtime_event("anthropic", "claude-sonnet-5",
+    send_runtime_event("google", "gemini-2.5-pro",
                        (time.monotonic() - started) * 1000, "error",
                        error_type=type(exc).__name__)
     raise
 ```
 
-The same pattern works for **Google, Mistral, local models, or any internal AI service**
-— set `provider` and `model` accordingly, and never put prompts, responses, or credentials
-in the event. Your Claude agent then appears in Runtime, Asset Intelligence, and Security
-Intelligence exactly like an OpenAI one — same inventory, same findings, same engine.
+The same pattern works for **Mistral, local models, or any internal AI service** — set
+`provider` and `model` accordingly, and never put prompts, responses, or credentials in
+the event. Your Gemini agent then appears in Runtime, Asset Intelligence, and Security
+Intelligence exactly like an OpenAI or Anthropic one — same inventory, same findings,
+same engine.
 
 Already emitting **OpenTelemetry**? Point your existing OTLP exporter at ObserveAgents
 instead — no SDK needed at all; the platform consumes standard GenAI trace conventions
@@ -305,11 +334,11 @@ forbidden fields are rejected (`422`), and free-form metadata is scrubbed server
 
 ## What's next
 
-`session_id` per conversation gives you workflow grouping today. Native
-**Anthropic (Claude)**, LiteLLM, and LangChain wrappers — the same one-liner experience as
-`ObserveOpenAI` — plus tool-call events, async, and batching are on the roadmap; the SDK
-stays a thin evidence adapter either way: it feeds the ObserveAgents intelligence engine
-and never creates a pipeline of its own.
+`session_id` per conversation gives you workflow grouping today. Native **LiteLLM** and
+**LangChain** wrappers — the same one-liner experience as `ObserveOpenAI` and
+`ObserveAnthropic` — plus tool-call events, async, and batching are on the roadmap; the
+SDK stays a thin evidence adapter either way: it feeds the ObserveAgents intelligence
+engine and never creates a pipeline of its own.
 
 To go deeper:
 

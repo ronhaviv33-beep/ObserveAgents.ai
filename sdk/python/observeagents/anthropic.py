@@ -1,10 +1,10 @@
-"""ObserveOpenAI — a drop-in wrapper around the OpenAI Python client.
+"""ObserveAnthropic — a drop-in wrapper around the Anthropic Python client.
 
-Passes every chat-completion call through to OpenAI unchanged and emits one safe
+Passes every messages.create call through to Anthropic unchanged and emits one safe
 `llm_call` runtime event (metadata only) to ObserveAgents afterwards. Messages, prompts,
-responses, system instructions, and tool arguments go to OpenAI only — they are never
-sent to ObserveAgents. The OpenAI API key is used only to construct the OpenAI client;
-the ObserveAgents API key is used only for POST {observeagents_url}/runtime-events.
+responses, system instructions, and tool arguments go to Anthropic only — they are never
+sent to ObserveAgents. The Anthropic API key is used only to construct the Anthropic
+client; the ObserveAgents API key is used only for POST {observeagents_url}/runtime-events.
 """
 from __future__ import annotations
 
@@ -28,29 +28,25 @@ def _resolve(explicit: str | None, env_var: str, default: str | None = None) -> 
     return default
 
 
-class _Completions:
-    def __init__(self, wrapper: "ObserveOpenAI"):
+class _Messages:
+    def __init__(self, wrapper: "ObserveAnthropic"):
         self._wrapper = wrapper
 
     def create(self, *args, **kwargs):
-        return self._wrapper._create_chat_completion(*args, **kwargs)
+        return self._wrapper._create_message(*args, **kwargs)
 
 
-class _Chat:
-    def __init__(self, wrapper: "ObserveOpenAI"):
-        self.completions = _Completions(wrapper)
+class ObserveAnthropic:
+    """Wraps an Anthropic client; `client.messages.create(...)` is a drop-in.
 
-
-class ObserveOpenAI:
-    """Wraps an OpenAI client; `client.chat.completions.create(...)` is a drop-in.
-
-    `openai_client` may be injected (tests, custom construction); otherwise the official
-    `openai` package is imported lazily and constructed with `openai_api_key` only.
+    `anthropic_client` may be injected (tests, custom construction); otherwise the
+    official `anthropic` package is imported lazily and constructed with
+    `anthropic_api_key` only.
     """
 
     def __init__(
         self,
-        openai_api_key: str | None = None,
+        anthropic_api_key: str | None = None,
         observeagents_api_key: str | None = None,
         observeagents_url: str | None = None,
         agent_name: str | None = None,
@@ -61,9 +57,9 @@ class ObserveOpenAI:
         trace_id: str | None = None,
         timeout_seconds: float = 2.0,
         debug: bool = False,
-        openai_client=None,
+        anthropic_client=None,
     ):
-        openai_api_key = _resolve(openai_api_key, "OPENAI_API_KEY")
+        anthropic_api_key = _resolve(anthropic_api_key, "ANTHROPIC_API_KEY")
         observeagents_api_key = _resolve(observeagents_api_key, "OBSERVEAGENTS_API_KEY")
         self._agent_name = _resolve(agent_name, "OBSERVEAGENTS_AGENT_NAME")
         url = _resolve(observeagents_url, "OBSERVEAGENTS_URL", _DEFAULT_OBSERVEAGENTS_URL)
@@ -73,19 +69,19 @@ class ObserveOpenAI:
         self._session_id = session_id
         self._trace_id = trace_id
 
-        if openai_client is None and not openai_api_key:
-            raise ValueError("openai_api_key is required (or set OPENAI_API_KEY)")
+        if anthropic_client is None and not anthropic_api_key:
+            raise ValueError("anthropic_api_key is required (or set ANTHROPIC_API_KEY)")
         if not observeagents_api_key:
             raise ValueError("observeagents_api_key is required (or set OBSERVEAGENTS_API_KEY)")
         if not self._agent_name:
             raise ValueError("agent_name is required (or set OBSERVEAGENTS_AGENT_NAME)")
 
-        if openai_client is not None:
-            self._openai = openai_client
+        if anthropic_client is not None:
+            self._anthropic = anthropic_client
         else:
-            from openai import OpenAI  # imported lazily; only needed without injection
+            from anthropic import Anthropic  # imported lazily; only needed without injection
 
-            self._openai = OpenAI(api_key=openai_api_key)
+            self._anthropic = Anthropic(api_key=anthropic_api_key)
 
         self._observe = ObserveAgentsClient(
             observeagents_url=url,
@@ -93,15 +89,15 @@ class ObserveOpenAI:
             timeout_seconds=timeout_seconds,
             debug=debug,
         )
-        self.chat = _Chat(self)
+        self.messages = _Messages(self)
 
     # ── internal ──────────────────────────────────────────────────────────────
 
-    def _create_chat_completion(self, *args, **kwargs):
+    def _create_message(self, *args, **kwargs):
         model = kwargs.get("model")
         started = time.monotonic()
         try:
-            response = self._openai.chat.completions.create(*args, **kwargs)
+            response = self._anthropic.messages.create(*args, **kwargs)
         except Exception as exc:
             self._emit(model=model, started=started, status="error",
                        error_type=error_type_only(exc), usage=None)
@@ -113,14 +109,14 @@ class ObserveOpenAI:
     def _emit(self, *, model, started, status, error_type, usage) -> None:
         try:
             duration_ms = (time.monotonic() - started) * 1000.0
-            input_tokens = getattr(usage, "prompt_tokens", None) if usage is not None else None
-            output_tokens = getattr(usage, "completion_tokens", None) if usage is not None else None
+            input_tokens = getattr(usage, "input_tokens", None) if usage is not None else None
+            output_tokens = getattr(usage, "output_tokens", None) if usage is not None else None
             event = build_llm_call_event(
                 agent_name=self._agent_name,
                 model=model,
                 duration_ms=round(duration_ms, 3),
                 status=status,
-                provider="openai",
+                provider="anthropic",
                 error_type=error_type,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
