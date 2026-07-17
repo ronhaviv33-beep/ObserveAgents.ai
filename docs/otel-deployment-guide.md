@@ -531,6 +531,35 @@ The Collector then becomes the **production-hardening step** — central routing
 
 If you'd rather use ObserveAgents' own SDK integration (attested agent identity rather than raw OTel export), see the [SDK guide](sdk-guide.md).
 
+### Auto-instrumentation with OpenLLMetry — example: AWS Bedrock
+
+You don't have to write spans by hand. [OpenLLMetry](https://github.com/traceloop/openllmetry) (the Traceloop SDK) auto-instruments OpenAI, Anthropic, **AWS Bedrock (boto3)**, LangChain, LlamaIndex, CrewAI, vector DBs and more — and emits **standard OpenTelemetry GenAI spans** that ObserveAgents consumes as-is. There is no Bedrock-specific code anywhere in the platform; Bedrock arrives as just another provider on the same semantic conventions.
+
+```bash
+pip install traceloop-sdk
+
+# Point the emitted OTLP at ObserveAgents (base endpoint — the SDK appends /v1/traces):
+export OTEL_EXPORTER_OTLP_ENDPOINT="https://<your-observeagents-url>/otel"
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer gk-<your-api-key>"
+export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"
+export OTEL_SERVICE_NAME="bedrock-support-agent"
+export OTEL_RESOURCE_ATTRIBUTES="deployment.environment=production"
+export TRACELOOP_TRACE_CONTENT="false"   # optional client-side hardening: don't emit prompt/response content at all
+```
+
+```python
+from traceloop.sdk import Traceloop
+Traceloop.init()          # wraps boto3's Bedrock client automatically
+
+import boto3
+bedrock = boto3.client("bedrock-runtime")
+# every invoke_model / converse call now emits a GenAI span — no business-logic changes
+```
+
+What arrives per call: `gen_ai.provider.name = aws.bedrock` (or the legacy `gen_ai.system`), `gen_ai.request.model` (e.g. `anthropic.claude-...` model IDs), token usage, latency, and status — metadata only. Even if content attributes were emitted, the [privacy scrub](#privacy-guarantee) replaces them with a hash before storage; `TRACELOOP_TRACE_CONTENT=false` simply stops them at the source as defense-in-depth.
+
+What discovery shows: the workload appears in Asset Intelligence as a **Runtime-discovered AI Workload** (identity from `service.name`), with the Bedrock provider and models as observed signals. Bedrock is a **known provider**, so no unknown-provider finding fires. To upgrade the badge to **Explicit Agent**, add `gen_ai.agent.name` as a resource attribute — optional, never required.
+
 ---
 
 ## GenAI semantic conventions reference

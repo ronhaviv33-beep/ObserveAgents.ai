@@ -11,6 +11,7 @@ import { surfaceAllowsPage } from "../productSurface.js";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import { runIntelligence } from "../api.js";
 import { getAssetSummary, getControlCandidates } from "../overviewApi.js";
+import { discoveryIdentity } from "../discoveryStatus.js";
 
 /**
  * AssetIntelligenceV2 — redesign step 4 (docs/ui_redesign_plan.md).
@@ -52,27 +53,6 @@ const evidenceLine = (ev) => {
 };
 const hasSecurityRisk = (a) => openFinds(a).some((f) => f.category === "security" && SEV_RANK[f.severity] >= 3);
 const traceDiscovered = (a) => (a.status || []).includes("runtime_observed");
-
-/**
- * Customer-facing discovery identity (A3/A4). Evidence language only —
- * never confidence scores, percentages, or high/medium/low labels.
- */
-const discoveryIdentity = (a) => {
-  const method = a.discovery_method
-    || (traceDiscovered(a) ? "runtime_telemetry" : "gateway_traffic");
-  if (method === "declared_identity") return {
-    label: "Explicit Agent", tone: C.accent,
-    sub: "Identified from explicit agent metadata.",
-  };
-  if (method === "runtime_telemetry") return {
-    label: "Runtime-discovered AI Workload", tone: C.teal,
-    sub: "Discovered from auto-instrumented runtime telemetry.",
-  };
-  return {
-    label: "Gateway-observed", tone: C.textDim,
-    sub: "Observed from gateway traffic.",
-  };
-};
 
 /** Observed runtime signals, derived only from summary data — never raw content. */
 const observedSignals = (a) => {

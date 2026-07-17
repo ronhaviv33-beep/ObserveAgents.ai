@@ -125,13 +125,8 @@ Full plan, discovery levels, identity/confidence model, and the code audit:
 | A2 | **Code audit for explicit-agent assumptions** — every gen_ai.agent.name / manual-span / owner-team dependency mapped with keep / change-now / change-later | ✅ shipped (inside the plan doc) |
 | A3 | **Internal identity scoring and customer-facing discovery evidence** — identity scoring stays backend-only (resolution, dedup, ranking, severity capping, Gateway candidates); Asset Intelligence surfaces discovery method, observed signals, and optional metadata — never confidence percentages or high/medium/low labels | ✅ shipped |
 | A4 | **"Runtime-discovered AI Workload" labeling** — first-class discovery badge alongside Explicit Agent (and Gateway-observed), with evidence subcopy | ✅ shipped |
-
-### Next
-
-| # | Milestone |
-|---|---|
-| A5 | **Observed signals + missing context** beyond Asset Intelligence — extend the same evidence pattern to Overview and Security Intelligence |
-| A6 | **UI copy update pass** — complete the de-emphasis of manual instrumentation beyond the initial fixes |
+| A5 | **Discovery evidence beyond Asset Intelligence** — shared `discoveryIdentity` helper; identity badges on Security Intelligence agent cards/detail, runtime-discovered count on the Overview asset metric | ✅ shipped |
+| A6 | **UI copy update pass** — manual-instrumentation de-emphasis completed and verified (no "must instrument / must register / required agent name" copy remains) | ✅ shipped |
 
 ### Later
 
@@ -139,6 +134,12 @@ Full plan, discovery levels, identity/confidence model, and the code audit:
 |---|---|
 | A7 | **Optional ObserveAgents SDK wrapper for higher accuracy** — explicit naming/session grouping as the accuracy ceiling (OpenAI wrapper shipped; keep expanding) |
 | A8 | **Configured AI vs Runtime AI** — reconcile declared/registered AI systems with what runtime evidence actually shows |
+
+### Deferred backend items (from the A2 audit — need product decisions)
+
+- `app/risk_processor.py` — make the default-on missing owner/team/environment risk penalties default-off (or governance-strictness opt-in)
+- `app/telemetry_ingest/` — tiered fallback identity for the batch-ingest path (currently hard-requires `agent_id`, hardcodes `identity_tier="declared"`)
+- `missing_owner_in_production` rule template — reframe as an informational governance nudge (`ai_workload_missing_owner`) rather than high-severity security
 
 ### Track principles
 
