@@ -12,7 +12,7 @@ ObserveAgents is the **runtime visibility and control layer for AI agents**: it 
 |---|---|---|
 | O1 | Ecosystem Discovery | GitHub / Jira / Slack / n8n / MCP evidence connectors; Active / Dormant / Runtime-only correlation with the runtime inventory |
 | O2 | Ingestion depth | OTLP **protobuf** support — ✅ shipped (direct OpenLLMetry-style onboarding, no Collector required); **Runtime Events ingestion seam** (`POST /runtime-events`, Collector R1/R2) — ✅ shipped; **Python SDK MVP** (Collector R3, `sdk/python/observeagents`) — ✅ shipped (PR #114); **next: Python SDK Quickstart → SDK demo agent** (see [Runtime evidence track](#runtime-evidence-track--status--next-milestones)); OTLP **metrics** ingestion (Claude Code / coding-agent token & cost accounting) still ahead; **auto-instrumentation-first discovery** (A1–A8) — see the [Auto-instrumentation-first discovery track](#auto-instrumentation-first-discovery-track-a1a8) |
-| O3 | Content-free security verdicts | In-flight scanning at ingestion (prompt injection, PII-in-prompt, toxicity) storing **verdicts only** — never content; Runtime "Security checks" filter |
+| O3 | Content-free security verdicts | In-flight scanning at ingestion (prompt injection, PII-in-prompt, toxicity) storing **verdicts only** — never content; Runtime "Security checks" filter. Reasoning verdicts join the same layer — see the [Reasoning observability track](#reasoning-observability-track-ro1ro5) |
 | O4 | Monitors & notifications | **AI Agent Detection Rules & Alerts** (see below); budget alerts via webhook (Slack / Teams) — canonical design: [ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md) |
 | O5 | Product surface deployments | Per-surface builds of the Observability and Gateway products (separation plan Phase 4); surface-scoped API keys |
 | O6 | Enterprise readiness | SSO (Okta / Google OAuth), per-tenant API key table, HA / fail-over story, documented self-host path |
@@ -148,6 +148,34 @@ Full plan, discovery levels, identity/confidence model, and the code audit:
 - Absence of a signal lowers internal scoring — it never blocks ingestion, discovery, or findings.
 - Missing context surfaces as an optional setup improvement, not an error or a security defect.
 - Detection rules key on `asset_key` / `service.name` / resource attributes — never on an agent name existing.
+
+---
+
+## Reasoning observability track (RO1–RO5)
+
+**Core line: Track how the agent thinks — never what it thinks.**
+
+The reasoning/planning stage is where an agent chooses paths and where deviation begins.
+ObserveAgents observes reasoning **rigorously in structure, never in content**: structural
+signals from evidence already stored (reasoning tokens, plan-step patterns), verdict-only
+scanning in the O3 layer, and — much later, behind an explicit customer decision —
+time-boxed forensic capture. Raw chain-of-thought is never stored by default.
+Full design: [reasoning_observability_plan.md](reasoning_observability_plan.md).
+
+| # | Milestone | Status |
+|---|---|---|
+| RO1 | **Reasoning observability design** — three-layer model, candidate findings, never-by-default boundaries | ✅ shipped |
+| RO2 | **Structural reasoning signals** — reasoning-token baselines/spikes, plan-loop detection, `reasoning_spike_before_sensitive_action` / `plan_loop_detected` / `reasoning_pattern_shift` findings | next |
+| RO3 | **Drift vs behavioral fingerprint** — per-agent step-sequence baseline, deviation finding | then |
+| RO4 | **Verdict-only reasoning scanning** — `goal_drift_detected`, `considered_unauthorized_access`, `injection_markers_in_reasoning`; ships with/after O3 as one scanning layer | with O3 |
+| RO5 | **Forensic time-boxed opt-in capture** — per-agent, TTL, encrypted, incident-only | later — explicit product + privacy decision |
+
+### Reasoning track principles
+
+- **Structure, not content.** Metrics, sequences, and verdicts — never stored reasoning text.
+- Evidence language in the UI ("Reasoning activity spiked 6× above baseline before a database call") — never "confused"/"uncertain"/confidence wording.
+- Absence of reasoning telemetry is never an error — hidden-CoT providers still get full platform value.
+- One engine: reasoning findings derive in the same batch intelligence run as everything else.
 
 ---
 
