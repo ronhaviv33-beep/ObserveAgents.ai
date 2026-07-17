@@ -16,7 +16,7 @@ Core line:
 
 **Manual annotations improve accuracy, but visibility starts without them.**
 
-Every discovery, classification, and intelligence surface must answer: "what do we show when this signal is absent?" The answer is never "nothing" and never "an error" — it is a lower-confidence result plus a concrete, optional suggestion for how to improve it.
+Every discovery, classification, and intelligence surface must answer: "what do we show when this signal is absent?" The answer is never "nothing" and never "an error" — it is a result scored lower internally, presented to the customer as the evidence that was observed plus a concrete, optional suggestion for how to enrich it.
 
 ## Discovery levels
 
@@ -75,15 +75,38 @@ Priority order:
 
 Implementation status: the OTel pipeline already implements this ladder. `app/otel_normalizer.py` resolves identity `declared → service → fallback` — declared reads `gen_ai.agent.id` → `gen_ai.agent.name` → `agent.name`/`ai.agent.name`; service reads `service.name`; fallback builds a stable `observed-ai-system:<hash>` from non-volatile resource attributes (pod names, instance ids, and SDK versions are excluded so replicas converge to one asset). Trace-level inheritance (`resolve_trace_identities`) lifts child spans to the trace's best identity, so a single declared root span upgrades a whole trace and its absence degrades gracefully rather than fragmenting assets. Priority 4 (process/job/container as a *named* tier rather than part of the fallback hash) is the one refinement to add later.
 
-## Confidence model
+## Confidence model (internal only)
 
-Conceptual confidence per discovered asset:
+> **Product rule: Confidence is internal. Evidence is customer-facing.**
+
+Customer-facing UI must look factual and evidence-based — never like the product is guessing. Confidence therefore exists **only as a backend signal**. It keeps powering identity resolution, deduplication, ranking, severity capping, Gateway candidate decisions, risk scoring, and telemetry-quality nudges — but no confidence percentage, no high/medium/low label, and no "low confidence" wording ever reaches a customer surface.
+
+Internal backend fields may include:
+- `identity_confidence_score`
+- `identity_tier`
+- `discovery_method`
+- `observed_signals`
+- `missing_context`
+
+Customer-facing UI should show:
+- "Runtime-discovered" / "Auto-discovered AI workload"
+- "Discovered from auto-instrumented telemetry"
+- observed LLM / provider / model / tool / API / DB signals
+- optional metadata suggestions (owner/team, explicit agent name, environment)
+
+Customer-facing UI should **not** show:
+- confidence percentages
+- high/medium/low confidence labels
+- "low-confidence asset"
+- "we are unsure" language
+
+Conceptual confidence per discovered asset (backend-only):
 
 - **high** — explicit agent name, or strong AI + tool evidence from standard SemConv keys
 - **medium** — service identity with GenAI spans and dependencies (or signals resolved through fallback/mapped attribute keys)
 - **low** — service with weak AI indicators, or unresolved identity (fallback hash)
 
-Implementation status: span-level confidence already exists in `app/telemetry_classification.py` (`CONF_HIGH`/`CONF_MEDIUM`/`CONF_LOW` with missing-signal codes), rolls up to a weighted per-asset `confidence_score` (full = 1.0, partial = 0.6, unclassified = 0.2), and registry rows carry 75 (attributed) vs 30 (fallback identity, flagged `needs_admin_review`). What's missing is **surfacing** this as a first-class identity-confidence label in the UI (roadmap A3), not computing it.
+Implementation status: span-level confidence already exists in `app/telemetry_classification.py` (`CONF_HIGH`/`CONF_MEDIUM`/`CONF_LOW` with missing-signal codes), rolls up to a weighted per-asset `confidence_score` (full = 1.0, partial = 0.6, unclassified = 0.2), and registry rows carry 75 (attributed) vs 30 (fallback identity, flagged `needs_admin_review`). This scoring stays where it is — backend-only. The frontend already follows the rule in its inventory surfaces (`dashboard/src/discoveryStatus.js` replaces raw confidence percentages with an explainable discovery-status lifecycle and keeps the score internal for sorting); roadmap A3 extends the same pattern to Asset Intelligence by surfacing **discovery evidence** — method, observed signals, missing metadata — never scores or labels.
 
 ## Evidence model
 
@@ -118,18 +141,19 @@ Asset Intelligence should show, per asset:
 
 - **Explicit Agent** or **Inferred AI Workload** (discovery-type badge)
 - discovery method (declared identity / service telemetry / inferred fallback)
-- identity confidence (high / medium / low)
 - observed signals (providers, models, tools, MCP, DBs, external APIs — what the evidence actually shows)
-- missing context (what would raise confidence: owner, explicit agent name, environment)
+- missing / optional metadata (owner/team, explicit agent name, environment)
 - optional setup improvements (link to attribute mapping / SemConv guidance)
+
+No confidence score, percentage, or high/medium/low label appears anywhere on the card — confidence stays backend-only (see the product rule above).
 
 Example card copy:
 
-> Discovered from auto-instrumented LLM calls.
-> Confidence: medium.
-> Missing context: owner, explicit agent name.
+> Discovered from auto-instrumented runtime telemetry.
+> Observed signals: LLM calls, provider/model, DB/API activity.
+> Optional metadata: owner/team, explicit agent name.
 
-Missing context is presented as an **optional improvement**, never as an error state or a security defect.
+Missing metadata is presented as an **optional improvement**, never as an error state, a security defect, or a statement of doubt.
 
 ## Detection rules implications
 
@@ -174,7 +198,7 @@ Keep as optional accuracy boosters:
 |---|---|---|
 | A1 | Auto-instrumentation discovery plan (this document) | ✅ this PR |
 | A2 | Code audit for explicit-agent assumptions (below) | ✅ this PR |
-| A3 | Asset identity confidence labels in the UI | next |
+| A3 | Internal identity scoring and customer-facing discovery evidence — scoring stays backend-only; UI shows discovery method, observed signals, and optional metadata | next |
 | A4 | "Inferred AI Workload" asset type alongside Explicit Agent | next |
 | A5 | Observed signals + missing context on asset detail | then |
 | A6 | UI copy update pass (beyond the small fixes in this PR) | then |

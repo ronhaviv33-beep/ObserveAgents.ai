@@ -95,7 +95,7 @@ OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production,team=my-team`} />
       </SetupStep>
 
       <SetupStep n={4} title="Recommended: follow the GenAI semantic conventions">
-        Discovery works from <code style={{ fontFamily: FONT_MONO, color: T.info, fontSize: 11 }}>service.name</code> alone — these attributes raise accuracy and confidence.
+        Discovery works from <code style={{ fontFamily: FONT_MONO, color: T.info, fontSize: 11 }}>service.name</code> alone — these attributes make discovery richer and attribution more precise.
         Standard attributes make discovery rich — <code style={{ fontFamily: FONT_MONO, color: T.info, fontSize: 11 }}>gen_ai.provider.name</code> (preferred; <code style={{ fontFamily: FONT_MONO, fontSize: 11 }}>gen_ai.system</code> still supported),{" "}
         <code style={{ fontFamily: FONT_MONO, color: T.info, fontSize: 11 }}>gen_ai.operation.name</code>,{" "}
         <code style={{ fontFamily: FONT_MONO, color: T.info, fontSize: 11 }}>gen_ai.request.model</code>, token usage, agent identity

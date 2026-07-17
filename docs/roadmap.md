@@ -128,7 +128,7 @@ Full plan, discovery levels, identity/confidence model, and the code audit:
 
 | # | Milestone |
 |---|---|
-| A3 | **Asset identity confidence labels** — surface the existing high/medium/low identity confidence in Asset Intelligence |
+| A3 | **Internal identity scoring and customer-facing discovery evidence** — identity scoring stays backend-only (resolution, dedup, ranking, severity capping, Gateway candidates); Asset Intelligence surfaces discovery method, observed signals, and optional metadata — never confidence percentages or high/medium/low labels |
 | A4 | **"Inferred AI Workload" asset type** — first-class alongside Explicit Agent |
 
 ### Then
@@ -148,7 +148,8 @@ Full plan, discovery levels, identity/confidence model, and the code audit:
 ### Track principles
 
 - **Manual annotations improve accuracy; visibility starts without them.**
-- Absence of a signal lowers confidence — it never blocks ingestion, discovery, or findings.
+- **Confidence is internal. Evidence is customer-facing.** Scoring drives backend decisions; the UI shows discovery method, observed signals, and optional metadata — never confidence percentages or high/medium/low labels.
+- Absence of a signal lowers internal scoring — it never blocks ingestion, discovery, or findings.
 - Missing context surfaces as an optional setup improvement, not an error or a security defect.
 - Detection rules key on `asset_key` / `service.name` / resource attributes — never on an agent name existing.
 
