@@ -21,6 +21,7 @@ ObserveAgents is an AI agent visibility and runtime evidence platform: see what 
 | Doc | What it covers |
 |---|---|
 | [auto_instrumentation_first_discovery_plan.md](auto_instrumentation_first_discovery_plan.md) | Auto-instrumentation-first discovery: levels, identity/confidence model, explicit-agent assumption audit |
+| [reasoning_observability_plan.md](reasoning_observability_plan.md) | Reasoning observability: structural signals, verdict-only scanning, forensic opt-in — structure, never content |
 | [asset_intelligence.md](asset_intelligence.md) | Capability/finding derivation, catalog, and API |
 | [ai_agent_runtime_security_intelligence.md](ai_agent_runtime_security_intelligence.md) | Runtime security finding types |
 | [ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md) | Detection Rules & Alerts design |
