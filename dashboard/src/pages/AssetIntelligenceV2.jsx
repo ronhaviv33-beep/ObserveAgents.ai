@@ -53,6 +53,56 @@ const evidenceLine = (ev) => {
 const hasSecurityRisk = (a) => openFinds(a).some((f) => f.category === "security" && SEV_RANK[f.severity] >= 3);
 const traceDiscovered = (a) => (a.status || []).includes("runtime_observed");
 
+/**
+ * Customer-facing discovery identity (A3/A4). Evidence language only —
+ * never confidence scores, percentages, or high/medium/low labels.
+ */
+const discoveryIdentity = (a) => {
+  const method = a.discovery_method
+    || (traceDiscovered(a) ? "runtime_telemetry" : "gateway_traffic");
+  if (method === "declared_identity") return {
+    label: "Explicit Agent", tone: C.accent,
+    sub: "Identified from explicit agent metadata.",
+  };
+  if (method === "runtime_telemetry") return {
+    label: "Runtime-discovered AI Workload", tone: C.teal,
+    sub: "Discovered from auto-instrumented runtime telemetry.",
+  };
+  return {
+    label: "Gateway-observed", tone: C.textDim,
+    sub: "Observed from gateway traffic.",
+  };
+};
+
+/** Observed runtime signals, derived only from summary data — never raw content. */
+const observedSignals = (a) => {
+  const caps = a.capabilities || [];
+  const hasCap = (t) => caps.some((c) => c.capability_type === t);
+  const usage = a.runtime_usage || {};
+  const signals = [];
+  if ((usage.llm_call_count || 0) > 0) signals.push("LLM calls");
+  if ((a.providers || []).length || (a.models || []).length) signals.push("Provider/model");
+  if ((usage.input_tokens || 0) + (usage.output_tokens || 0) > 0) signals.push("Token usage");
+  if ((a.tools || []).length || hasCap("tool")) signals.push("Tool activity");
+  if (hasCap("mcp")) signals.push("MCP activity");
+  if (hasCap("database")) signals.push("Database access");
+  if (hasCap("external_api") || (a.dependencies || []).length) signals.push("External API activity");
+  if ((a.status || []).includes("error_observed")) signals.push("Errors");
+  if (["production", "prod"].includes((a.environment || "").toLowerCase())) signals.push("Production environment");
+  if ((a.findings || []).some((f) => f.source === "detection_rules" && f.status === "open")) signals.push("Detection rule matches");
+  return signals;
+};
+
+/** Optional metadata that would make attribution richer — never framed as required. */
+const optionalMetadata = (a) => {
+  const out = [];
+  if (!a.owner) out.push("owner/team");
+  if ((a.discovery_method || (traceDiscovered(a) ? "runtime_telemetry" : "gateway_traffic")) !== "declared_identity") out.push("explicit agent name");
+  if (!a.environment) out.push("environment");
+  if (!a.service_name) out.push("service name");
+  return out;
+};
+
 const FILTERS = [
   { id: "all",        label: "All",                test: () => true },
   { id: "findings",   label: "With findings",      test: (a) => (a.open_findings_count || 0) > 0 },
@@ -90,7 +140,7 @@ function AssetRow({ a, isCandidate, onSelect }) {
         {isCandidate && <StatusPill tone={C.riskMedium}>gateway candidate</StatusPill>}
       </div>
       <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, lineHeight: 1.6 }}>
-        {a.environment || "unknown"} · {traceDiscovered(a) ? "trace discovered" : "gateway"} · {relTime(a.last_seen)}
+        {a.environment || "unknown"} · <span style={{ color: discoveryIdentity(a).tone }}>{discoveryIdentity(a).label}</span> · {relTime(a.last_seen)}
         <br />
         {a.open_findings_count || 0} findings · {a.capabilities_count || 0} capabilities · {(a.dependencies || []).length} dependencies
       </div>
@@ -249,9 +299,12 @@ export default function AssetIntelligenceV2({ onNavigate }) {
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingRight: 40 }}>
                   <span style={{ fontSize: 17, fontWeight: 700, color: C.text, fontFamily: FONT.mono }}>{selected.asset_name}</span>
+                  <StatusPill tone={discoveryIdentity(selected).tone}>{discoveryIdentity(selected).label}</StatusPill>
                   {selected.environment && <StatusPill tone={["production", "prod"].includes((selected.environment || "").toLowerCase()) ? C.riskMedium : C.riskLow}>{selected.environment}</StatusPill>}
-                  <StatusPill tone={C.textDim}>{traceDiscovered(selected) ? "trace discovered" : "gateway"}</StatusPill>
                   {cand && <StatusPill tone={C.riskMedium}>gateway recommended</StatusPill>}
+                </div>
+                <div style={{ fontSize: 11.5, color: C.textDim, marginTop: 6 }}>
+                  {discoveryIdentity(selected).sub}
                 </div>
                 <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, marginTop: 8, lineHeight: 1.7 }}>
                   key {selected.asset_key.slice(0, 20)}… · service {selected.service_name || "—"} ·
@@ -259,6 +312,14 @@ export default function AssetIntelligenceV2({ onNavigate }) {
                   first seen {firstSeen ? relTime(firstSeen) : "—"} · last seen {relTime(selected.last_seen)}
                 </div>
               </div>
+
+              {observedSignals(selected).length > 0 && (
+                <Section label="Observed signals">
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                    {observedSignals(selected).map((s) => <StatusPill key={s} tone={C.teal}>{s}</StatusPill>)}
+                  </div>
+                </Section>
+              )}
 
               <Section label="Runtime evidence">
                 <div style={{ fontSize: 12, fontFamily: FONT.mono, color: C.textDim, lineHeight: 1.8 }}>
@@ -353,6 +414,17 @@ export default function AssetIntelligenceV2({ onNavigate }) {
                   </span>
                 )}
               </Section>
+
+              {optionalMetadata(selected).length > 0 && (
+                <Section label="Optional metadata can improve attribution">
+                  <div style={{ fontSize: 11.5, color: C.textMute, lineHeight: 1.6, marginBottom: 8 }}>
+                    Visibility starts from runtime telemetry. Optional metadata can make attribution richer.
+                  </div>
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                    {optionalMetadata(selected).map((m) => <StatusPill key={m} tone={C.textMute}>{m}</StatusPill>)}
+                  </div>
+                </Section>
+              )}
             </div>
           )}
           </Modal>

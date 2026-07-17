@@ -123,19 +123,14 @@ Full plan, discovery levels, identity/confidence model, and the code audit:
 |---|---|---|
 | A1 | **Auto-instrumentation discovery plan** — discovery levels 0–3, identity priority, confidence + evidence model | ✅ shipped (this doc set) |
 | A2 | **Code audit for explicit-agent assumptions** — every gen_ai.agent.name / manual-span / owner-team dependency mapped with keep / change-now / change-later | ✅ shipped (inside the plan doc) |
+| A3 | **Internal identity scoring and customer-facing discovery evidence** — identity scoring stays backend-only (resolution, dedup, ranking, severity capping, Gateway candidates); Asset Intelligence surfaces discovery method, observed signals, and optional metadata — never confidence percentages or high/medium/low labels | ✅ shipped |
+| A4 | **"Runtime-discovered AI Workload" labeling** — first-class discovery badge alongside Explicit Agent (and Gateway-observed), with evidence subcopy | ✅ shipped |
 
 ### Next
 
 | # | Milestone |
 |---|---|
-| A3 | **Internal identity scoring and customer-facing discovery evidence** — identity scoring stays backend-only (resolution, dedup, ranking, severity capping, Gateway candidates); Asset Intelligence surfaces discovery method, observed signals, and optional metadata — never confidence percentages or high/medium/low labels |
-| A4 | **"Inferred AI Workload" asset type** — first-class alongside Explicit Agent |
-
-### Then
-
-| # | Milestone |
-|---|---|
-| A5 | **Observed signals + missing context** on asset detail — what the evidence shows, what would raise confidence |
+| A5 | **Observed signals + missing context** beyond Asset Intelligence — extend the same evidence pattern to Overview and Security Intelligence |
 | A6 | **UI copy update pass** — complete the de-emphasis of manual instrumentation beyond the initial fixes |
 
 ### Later
