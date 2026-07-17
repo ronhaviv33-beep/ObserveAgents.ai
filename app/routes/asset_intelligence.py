@@ -419,6 +419,11 @@ async def asset_summary(
             "ai_asset_id": oa.ai_asset_id,
             "asset_key": asset_key,
             "asset_name": asset_name,
+            # Customer-facing discovery evidence (A3/A4): how this asset was
+            # identified. "declared_identity" = explicit gen_ai.agent.* metadata
+            # was observed; "runtime_telemetry" = inferred from auto-instrumented
+            # telemetry (service.name + GenAI spans). Never a confidence value.
+            "discovery_method": "declared_identity" if oa.agent_name else "runtime_telemetry",
             "service_name": oa.service_name,
             "environment": oa.environment,
             "last_seen": oa.last_seen.isoformat(),
@@ -471,6 +476,7 @@ async def asset_summary(
             "ai_asset_id": reg.id,
             "asset_key": reg.asset_key,
             "asset_name": reg.agent_name or reg.agent_id_raw,
+            "discovery_method": "gateway_traffic",
             "service_name": None,
             "environment": reg.environment,
             "last_seen": last.isoformat() if last else None,

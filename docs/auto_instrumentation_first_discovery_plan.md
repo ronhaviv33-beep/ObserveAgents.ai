@@ -137,12 +137,12 @@ This matches the existing privacy pipeline (`app/otel_privacy.py:scrub_attribute
 
 ## UI implications
 
-Asset Intelligence should show, per asset:
+**Status: shipped (A3/A4).** Asset Intelligence shows, per asset:
 
-- **Explicit Agent** or **Inferred AI Workload** (discovery-type badge)
-- discovery method (declared identity / service telemetry / inferred fallback)
-- observed signals (providers, models, tools, MCP, DBs, external APIs — what the evidence actually shows)
-- missing / optional metadata (owner/team, explicit agent name, environment)
+- **Explicit Agent** or **Runtime-discovered AI Workload** (discovery badge, from the additive `discovery_method` field on `/intelligence/asset-summary`; gateway-era rows show **Gateway-observed**)
+- subcopy: "Identified from explicit agent metadata." / "Discovered from auto-instrumented runtime telemetry."
+- **Observed signals** section (LLM calls, provider/model, token usage, tool/MCP activity, database access, external API activity, errors, production environment, detection rule matches) — derived from existing summary data only, never raw content
+- **Optional metadata can improve attribution** section — "Visibility starts from runtime telemetry. Optional metadata can make attribution richer." — listing owner/team, explicit agent name, environment, service name when absent
 - optional setup improvements (link to attribute mapping / SemConv guidance)
 
 No confidence score, percentage, or high/medium/low label appears anywhere on the card — confidence stays backend-only (see the product rule above).
@@ -198,8 +198,8 @@ Keep as optional accuracy boosters:
 |---|---|---|
 | A1 | Auto-instrumentation discovery plan (this document) | ✅ this PR |
 | A2 | Code audit for explicit-agent assumptions (below) | ✅ this PR |
-| A3 | Internal identity scoring and customer-facing discovery evidence — scoring stays backend-only; UI shows discovery method, observed signals, and optional metadata | next |
-| A4 | "Inferred AI Workload" asset type alongside Explicit Agent | next |
+| A3 | Internal identity scoring and customer-facing discovery evidence — scoring stays backend-only; UI shows discovery method, observed signals, and optional metadata | ✅ shipped |
+| A4 | "Runtime-discovered AI Workload" labeling alongside Explicit Agent | ✅ shipped |
 | A5 | Observed signals + missing context on asset detail | then |
 | A6 | UI copy update pass (beyond the small fixes in this PR) | then |
 | A7 | Optional ObserveAgents SDK wrapper for higher accuracy (exists for OpenAI; keep expanding) | ongoing |
