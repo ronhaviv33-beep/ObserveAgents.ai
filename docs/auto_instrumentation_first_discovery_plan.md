@@ -200,8 +200,8 @@ Keep as optional accuracy boosters:
 | A2 | Code audit for explicit-agent assumptions (below) | ✅ this PR |
 | A3 | Internal identity scoring and customer-facing discovery evidence — scoring stays backend-only; UI shows discovery method, observed signals, and optional metadata | ✅ shipped |
 | A4 | "Runtime-discovered AI Workload" labeling alongside Explicit Agent | ✅ shipped |
-| A5 | Observed signals + missing context on asset detail | then |
-| A6 | UI copy update pass (beyond the small fixes in this PR) | then |
+| A5 | Discovery evidence beyond Asset Intelligence (Security Intelligence badges, Overview runtime-discovered count) | ✅ shipped |
+| A6 | UI copy update pass | ✅ shipped |
 | A7 | Optional ObserveAgents SDK wrapper for higher accuracy (exists for OpenAI; keep expanding) | ongoing |
 | A8 | Configured AI vs Runtime AI reconciliation | later |
 

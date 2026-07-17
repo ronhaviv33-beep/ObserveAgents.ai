@@ -85,6 +85,10 @@ export default function OverviewV2({ onNavigate }) {
 
   // ── Derived, evidence-backed numbers ──────────────────────────────────────
   const assetList = useMemo(() => assets?.data.assets || [], [assets]);
+  // Runtime-discovered = inferred from auto-instrumented telemetry (A5) —
+  // evidence framing only, never a confidence value.
+  const runtimeDiscovered = useMemo(
+    () => assetList.filter((a) => a.discovery_method === "runtime_telemetry").length, [assetList]);
   const openFindings = useMemo(() => (findings?.data || []).filter((f) => f.status === "open" || !f.status), [findings]);
   const agentsWithFindings = useMemo(
     () => assetList.filter((a) => (a.open_findings_count || 0) > 0).length, [assetList]);
@@ -206,7 +210,9 @@ export default function OverviewV2({ onNavigate }) {
       {/* ── Primary metrics ──────────────────────────────────────────────── */}
       <div className="oa-rise oa-rise-1" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <MetricCard label="AI assets discovered" value={assetList.length}
-          sub={`${att.systemsManaged ?? 0} managed`} tone={C.text}
+          sub={runtimeDiscovered > 0
+            ? `${runtimeDiscovered} runtime-discovered · ${att.systemsManaged ?? 0} managed`
+            : `${att.systemsManaged ?? 0} managed`} tone={C.text}
           trend={eventTrend} trendColor={C.accent}
           onClick={surfaceAllowsPage("intelligence") ? () => nav("intelligence") : undefined} />
         <MetricCard label="Open findings" value={openFindings.length}

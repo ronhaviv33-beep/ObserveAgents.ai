@@ -11,6 +11,7 @@ import { Donut, SegBar, BarRow, severitySegments } from "../ui2/viz.jsx";
 import { surfaceAllowsPage } from "../productSurface.js";
 import { useBreakpoint } from "../hooks/useBreakpoint.js";
 import { getAssetSummary, getOpenFindings, getControlCandidates } from "../overviewApi.js";
+import { discoveryIdentity } from "../discoveryStatus.js";
 
 /**
  * SecurityIntelligenceV2 — redesign step 3 (docs/ui_redesign_plan.md).
@@ -98,6 +99,7 @@ function AgentSecurityRow({ a, onSelect }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: C.text, fontFamily: FONT.mono }}>{a.name}</span>
         <RiskBadge level={a.worst} />
+        {a.identity && <StatusPill tone={a.identity.tone}>{a.identity.label}</StatusPill>}
         {a.isCandidate && <StatusPill tone={C.riskMedium}>gateway candidate</StatusPill>}
       </div>
       <div style={{ fontSize: 10.5, fontFamily: FONT.mono, color: C.textMute, lineHeight: 1.6 }}>
@@ -134,6 +136,13 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
     return m;
   }, [assets]);
 
+  // Customer-facing discovery identity per asset (A5) — evidence language only.
+  const identityByKey = useMemo(() => {
+    const m = {};
+    (assets?.data.assets || []).forEach((a) => { m[a.asset_key] = discoveryIdentity(a); });
+    return m;
+  }, [assets]);
+
   const openFindings = useMemo(() => (findings?.data || []).filter((f) => f.status === "open" || !f.status), [findings]);
   const securityFindings = useMemo(() => openFindings.filter((f) => f.category === "security"), [openFindings]);
 
@@ -155,6 +164,7 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
       if (!byKey.has(key)) {
         byKey.set(key, {
           key, name: nameByKey[key] || key, findings: [],
+          identity: identityByKey[key] || null,
           worst: f.severity, counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
           lastSeen: f.last_seen, isCandidate: candidateKeys.has(key),
         });
@@ -165,7 +175,7 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
       if (new Date(f.last_seen || 0) > new Date(a.lastSeen || 0)) a.lastSeen = f.last_seen;
     }
     return [...byKey.values()];
-  }, [listRows, nameByKey, candidateKeys]);
+  }, [listRows, nameByKey, identityByKey, candidateKeys]);
 
   // Detail opens as a popup only when an agent is clicked — nothing selected by default.
   const selectedAgent = agents.find((a) => a.key === selectedKey) || null;
@@ -257,6 +267,7 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingRight: 40 }}>
                 <span style={{ fontSize: 17, fontWeight: 700, color: C.text, fontFamily: FONT.mono }}>{selectedAgent.name}</span>
                 <RiskBadge level={selectedAgent.worst} />
+                {selectedAgent.identity && <StatusPill tone={selectedAgent.identity.tone}>{selectedAgent.identity.label}</StatusPill>}
                 {selectedAgent.isCandidate && <StatusPill tone={C.riskMedium}>gateway candidate</StatusPill>}
                 <button onClick={() => onNavigate?.("intelligence")}
                   style={{ marginLeft: "auto", background: "transparent", border: "none", color: C.accentDark,

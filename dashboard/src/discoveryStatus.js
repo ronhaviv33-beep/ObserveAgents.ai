@@ -17,6 +17,26 @@ export const STAGE_META = {
 
 const _STALE_DAYS = 30;
 
+// Customer-facing discovery identity (A3/A4) for /intelligence/asset-summary rows.
+// Evidence language only — never confidence scores, percentages, or
+// high/medium/low labels. Hex tones match ui2/tokens (accent/teal/textDim).
+export function discoveryIdentity(a) {
+  const method = a?.discovery_method
+    || ((a?.status || []).includes("runtime_observed") ? "runtime_telemetry" : "gateway_traffic");
+  if (method === "declared_identity") return {
+    method, label: "Explicit Agent", tone: "#3BC7F0",
+    sub: "Identified from explicit agent metadata.",
+  };
+  if (method === "runtime_telemetry") return {
+    method, label: "Runtime-discovered AI Workload", tone: "#2DD4BF",
+    sub: "Discovered from auto-instrumented runtime telemetry.",
+  };
+  return {
+    method, label: "Gateway-observed", tone: "#9AA9CB",
+    sub: "Observed from gateway traffic.",
+  };
+}
+
 // Client-side mirror of the backend deriver — used only as a fallback when the
 // backend has not yet populated `discovery_stage` (graceful during rollout).
 // Precedence: ARCHIVED > MANAGED > CLAIMED > NEEDS_REVIEW > STALE > ATTRIBUTED > DISCOVERED.
