@@ -27,7 +27,7 @@ export default function PlatformGuideV2({ onNavigate }) {
   const bp = useBreakpoint();
 
   const discoveredItems = [
-    { icon: "◈", color: C.accent,  label: "AI Agents",     detail: "Every agent making LLM calls — named, fingerprinted, attributed to a team" },
+    { icon: "◈", color: C.accent,  label: "AI Agents",     detail: "Every agent making LLM calls — fingerprinted from runtime telemetry; named and attributed to a team where available" },
     { icon: "🔗", color: C.teal,   label: "Dependencies",  detail: "MCP servers, tools, APIs, databases, and CRMs each agent touches at runtime" },
     { icon: "⊞", color: C.riskLow, label: "Models in use", detail: "Every model variant across OpenAI, Anthropic, and other providers" },
     { icon: "⚡", color: C.riskMedium, label: "Workflows",  detail: "n8n, Zapier, LangGraph, and orchestration chains discovered automatically" },

@@ -135,7 +135,7 @@ export default function AssetIntelligenceV2({ onNavigate }) {
   const list = useMemo(() => {
     const rows = (assets?.data.assets || []).filter((a) =>
       FILTERS.find((f) => f.id === filter)?.test(a, candidateKeys));
-    // Worst-first: candidates → high severity → missing owner → recent activity.
+    // Worst-first: candidates → high severity → recent activity.
     return rows.sort((a, b) =>
       (candidateKeys.has(b.asset_key) - candidateKeys.has(a.asset_key))
       || ((b.high_findings_count || 0) - (a.high_findings_count || 0))

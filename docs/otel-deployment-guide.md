@@ -243,7 +243,7 @@ The ingestion pipeline derives identity in priority order:
 3. `service.name` resource attribute → **inferred** identity
 4. Fallback: `observed-ai-system:<hash of the non-volatile resource attributes>` → **inferred**, flagged for admin review. When the span has no resource attributes at all, the fallback is scoped to the trace (`observed-ai-system:trace-<trace_id_prefix>`) — unidentified telemetry from the same source converges to one asset instead of fragmenting per span, pod, or restart.
 
-Declared agents receive higher confidence scores; fallback identities are marked `needs_admin_review` and surface in the discovery review queue. `gen_ai.agent.description` and `gen_ai.agent.version` are recorded as asset evidence.
+Declared agents carry the strongest identity attribution; fallback identities are marked `needs_admin_review` and surface in the discovery review queue. `gen_ai.agent.description` and `gen_ai.agent.version` are recorded as asset evidence.
 
 ---
 
@@ -476,7 +476,7 @@ Restart the Collector and run `python lab_agent.py` again. A successful ingest r
 2. **Asset Intelligence / Agents (Inventory)** — `customer-support-agent` now exists, with model/provider evidence, team, and environment.
 3. **Security Intelligence** — capabilities (provider, model, database, MCP) plus the runtime-security findings below (asset-level posture).
 4. **Rules & Alerts** — the *batch rule matches* section fills after you click **Run rules** (batch detection rules evaluate on demand, never during ingestion). The *Recent findings* feed above it is event-level and comes from the batch telemetry API, not from OTel spans.
-5. **Close the governance loop** — **Claim** the asset and assign an **owner** (admin action). The `agent_missing_owner` finding clears.
+5. **Optional governance** — **Claim** the asset and assign an **owner** (admin action). Ownership is optional attribution metadata: it raises identity confidence and helps routing, but nothing requires it and no finding fires without it.
 
 Findings the test agent raises:
 
@@ -484,7 +484,6 @@ Findings the test agent raises:
 |---|---|---|
 | `agent_has_database_access` | **high** | A DB span is present (`db.system=postgresql`); high because `deployment.environment=production`. |
 | `agent_uses_mcp_tool_in_production` | **high** | An MCP call is present (`mcp.method.name=tools/call`) in a production environment (production-only finding). |
-| `agent_missing_owner` | **high** | No owner/team assigned yet — clears after you Claim the asset. |
 | `human_review_recommended` | **high** | High-risk combination: a production agent with both DB access and MCP use (2 reasons → high). |
 
 > `anthropic` / `claude-sonnet-5` is a **known** provider, so the test agent deliberately raises **no** unknown-provider finding. Swap the provider to something like `"acme-llm"` to see `agent_uses_unknown_model_provider`.

@@ -11,7 +11,7 @@ ObserveAgents is the **runtime visibility and control layer for AI agents**: it 
 | Phase | Theme | Summary |
 |---|---|---|
 | O1 | Ecosystem Discovery | GitHub / Jira / Slack / n8n / MCP evidence connectors; Active / Dormant / Runtime-only correlation with the runtime inventory |
-| O2 | Ingestion depth | OTLP **protobuf** support — ✅ shipped (direct OpenLLMetry-style onboarding, no Collector required); **Runtime Events ingestion seam** (`POST /runtime-events`, Collector R1/R2) — ✅ shipped; **Python SDK MVP** (Collector R3, `sdk/python/observeagents`) — ✅ shipped (PR #114); **next: Python SDK Quickstart → SDK demo agent** (see [Runtime evidence track](#runtime-evidence-track--status--next-milestones)); OTLP **metrics** ingestion (Claude Code / coding-agent token & cost accounting) still ahead |
+| O2 | Ingestion depth | OTLP **protobuf** support — ✅ shipped (direct OpenLLMetry-style onboarding, no Collector required); **Runtime Events ingestion seam** (`POST /runtime-events`, Collector R1/R2) — ✅ shipped; **Python SDK MVP** (Collector R3, `sdk/python/observeagents`) — ✅ shipped (PR #114); **next: Python SDK Quickstart → SDK demo agent** (see [Runtime evidence track](#runtime-evidence-track--status--next-milestones)); OTLP **metrics** ingestion (Claude Code / coding-agent token & cost accounting) still ahead; **auto-instrumentation-first discovery** (A1–A8) — see the [Auto-instrumentation-first discovery track](#auto-instrumentation-first-discovery-track-a1a8) |
 | O3 | Content-free security verdicts | In-flight scanning at ingestion (prompt injection, PII-in-prompt, toxicity) storing **verdicts only** — never content; Runtime "Security checks" filter |
 | O4 | Monitors & notifications | **AI Agent Detection Rules & Alerts** (see below); budget alerts via webhook (Slack / Teams) — canonical design: [ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md) |
 | O5 | Product surface deployments | Per-surface builds of the Observability and Gateway products (separation plan Phase 4); surface-scoped API keys |
@@ -19,7 +19,7 @@ ObserveAgents is the **runtime visibility and control layer for AI agents**: it 
 | O7 | Observe MCP server | Read-only MCP tools (`list_ai_systems`, `get_findings`, `get_trace`, `get_cost_signals`) so customers' agents can query their AI inventory |
 | O8 | **Observe Advisor MVP** | From *what happened* to *what this agent needs to learn next* — see below |
 | O9 | **Gateway Control Center / Observe-to-Control** | A one-click workspace that turns observed runtime risk into Gateway control recommendations for specific AI agents. One production app: Observe workspace (runtime evidence into understanding) + Gateway Control Center (action workspace) — no env-var switch, no redeploy, no enforcement without explicit approval. *Observe first. Control only what matters.* Design: [gateway_control_center_architecture.md](gateway_control_center_architecture.md) |
-| Future | **Agentic Payments / x402 Observability** *(exploratory)* | Future support for observing payment-enabled AI-agent behavior — HTTP 402 challenges, paid external resources, payment failures, payment spikes, and payment-related detection rules — as runtime evidence, risk findings, and control recommendations. ObserveAgents observes; it does not process or verify payments. Design: [agentic_payments_x402_observability_plan.md](agentic_payments_x402_observability_plan.md) |
+| Future | **Agentic Payments / x402 Observability** *(exploratory)* | Future support for observing payment-enabled AI-agent behavior — HTTP 402 challenges, paid external resources, payment failures, payment spikes, and payment-related detection rules — as runtime evidence, risk findings, and control recommendations. ObserveAgents observes; it does not process or verify payments. Design doc `agentic_payments_x402_observability_plan.md` (retired from docs/; in git history) |
 
 **Shipped:** **AI Agent Runtime Security Intelligence MVP** — agent-specific, environment-aware security findings derived from runtime evidence (database/API reach, MCP in production, broad tool surface, unknown providers, missing ownership, repeated tool errors, human-review combinations). Observe-only, derivation-only, no new ingestion. See [ai_agent_runtime_security_intelligence.md](ai_agent_runtime_security_intelligence.md). O3's in-flight content verdicts (prompt injection / PII / toxicity) remain ahead as the next security layer.
 
@@ -106,6 +106,55 @@ MCP server / tool / method usage as runtime events, lighting up the existing MCP
 
 ---
 
+## Auto-instrumentation-first discovery track (A1–A8)
+
+**Core line: Install the SDK once. We discover AI workloads from runtime behavior.**
+
+The product must deliver a full inventory, timeline, and findings from auto-instrumented
+telemetry alone (service.name, GenAI spans, provider/model, token usage, HTTP/DB spans,
+external APIs, errors, environment). Manual spans, explicit `gen_ai.agent.name`, tagged
+tools, and owner/team metadata are **optional accuracy boosters, never requirements**.
+Full plan, discovery levels, identity/confidence model, and the code audit:
+[auto_instrumentation_first_discovery_plan.md](auto_instrumentation_first_discovery_plan.md).
+
+### Completed
+
+| # | Milestone | Status |
+|---|---|---|
+| A1 | **Auto-instrumentation discovery plan** — discovery levels 0–3, identity priority, confidence + evidence model | ✅ shipped (this doc set) |
+| A2 | **Code audit for explicit-agent assumptions** — every gen_ai.agent.name / manual-span / owner-team dependency mapped with keep / change-now / change-later | ✅ shipped (inside the plan doc) |
+
+### Next
+
+| # | Milestone |
+|---|---|
+| A3 | **Internal identity scoring and customer-facing discovery evidence** — identity scoring stays backend-only (resolution, dedup, ranking, severity capping, Gateway candidates); Asset Intelligence surfaces discovery method, observed signals, and optional metadata — never confidence percentages or high/medium/low labels |
+| A4 | **"Inferred AI Workload" asset type** — first-class alongside Explicit Agent |
+
+### Then
+
+| # | Milestone |
+|---|---|
+| A5 | **Observed signals + missing context** on asset detail — what the evidence shows, what would raise confidence |
+| A6 | **UI copy update pass** — complete the de-emphasis of manual instrumentation beyond the initial fixes |
+
+### Later
+
+| # | Milestone |
+|---|---|
+| A7 | **Optional ObserveAgents SDK wrapper for higher accuracy** — explicit naming/session grouping as the accuracy ceiling (OpenAI wrapper shipped; keep expanding) |
+| A8 | **Configured AI vs Runtime AI** — reconcile declared/registered AI systems with what runtime evidence actually shows |
+
+### Track principles
+
+- **Manual annotations improve accuracy; visibility starts without them.**
+- **Confidence is internal. Evidence is customer-facing.** Scoring drives backend decisions; the UI shows discovery method, observed signals, and optional metadata — never confidence percentages or high/medium/low labels.
+- Absence of a signal lowers internal scoring — it never blocks ingestion, discovery, or findings.
+- Missing context surfaces as an optional setup improvement, not an error or a security defect.
+- Detection rules key on `asset_key` / `service.name` / resource attributes — never on an agent name existing.
+
+---
+
 ## O4 — AI Agent Detection Rules & Alerts
 
 **Definition:** configurable runtime rules that evaluate AI-agent behavior and create alerts when behavior crosses thresholds or matches risky patterns.
@@ -137,7 +186,7 @@ As AI agents begin to pay for resources, APIs, datasets, and MCP tools programma
 
 **ObserveAgents observes; it does not process or verify payments** and does not replace Cloudflare, Stripe, wallets, gateways, or billing systems. Enforcement (spend limits, vendor allowlists) would happen only if traffic is explicitly routed through Gateway and controls are explicitly configured.
 
-Full plan — telemetry model, findings, detection rules, product surfaces, privacy boundaries, non-goals, and the P0–P8 sequence: [agentic_payments_x402_observability_plan.md](agentic_payments_x402_observability_plan.md).
+Full plan — telemetry model, findings, detection rules, product surfaces, privacy boundaries, non-goals, and the P0–P8 sequence: `agentic_payments_x402_observability_plan.md` (retired from docs/; available in git history).
 
 ---
 
