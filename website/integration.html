@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>How to Connect | ObserveAgents Integration Guide</title>
-  <meta name="description" content="Connect your AI systems to ObserveAgents through OpenTelemetry or the ObserveAgents SDK — what you configure, what flows through the pipeline, and exactly what you see on the other side.">
+  <meta name="description" content="How ObserveAgents connects: install OpenTelemetry-compatible instrumentation, export traces via OTLP, and get automatic agent discovery, runtime intelligence, risk detection, and control recommendations.">
   <link rel="canonical" href="https://www.observeagents.ai/integration.html">
   <meta property="og:title" content="How to Connect — ObserveAgents Integration Guide">
-  <meta property="og:description" content="OpenTelemetry collects what happened. ObserveAgents explains what it means. Two connection paths, one intelligence pipeline, results step by step.">
+  <meta property="og:description" content="OpenTelemetry collects what happened. ObserveAgents explains what it means. Six steps from instrumentation to control recommendations.">
   <meta property="og:type" content="website">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,147 +27,19 @@
     }
     .keyline-quote .bar { width: 3px; align-self: stretch; border-radius: 2px; background: var(--aurora); flex-shrink: 0; }
 
-    /* two connection paths */
-    .paths { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-    .path-card {
-      background: var(--card); border: 1px solid var(--line); border-radius: 20px;
-      padding: 28px 26px; box-shadow: 0 6px 22px rgba(12, 27, 54, 0.05); position: relative; overflow: hidden;
+    /* six-step connection flow */
+    .connect-steps { display: flex; flex-direction: column; max-width: 760px; margin: 0 auto; }
+    .connect-step { display: flex; gap: 22px; padding: 26px 0; position: relative; }
+    .connect-step:not(:last-child)::after {
+      content: ""; position: absolute; left: 19px; top: 60px; bottom: -8px; width: 1.5px; background: var(--line);
     }
-    .path-card.rec { border-color: rgba(33, 181, 228, 0.45); }
-    .path-card.rec::before {
-      content: ""; position: absolute; top: 0; left: 22px; right: 22px; height: 2.5px;
-      background: linear-gradient(90deg, transparent, #21B5E4 30%, #A66BFF 70%, transparent);
-    }
-    .path-card .pk { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--signal); }
-    .path-card h3 { font-size: 20px; margin: 8px 0 4px; }
-    .path-card .who { font-size: 13px; color: var(--ink-mute); margin: 0 0 12px; }
-    .path-card p { margin: 0 0 14px; font-size: 14px; line-height: 1.65; }
-    .path-flow {
-      font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--ink-soft);
-      background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px;
-      overflow-x: auto; white-space: nowrap;
-    }
-    .path-flow b { color: #0A7CA3; font-weight: 600; }
-    .rec-chip {
-      position: absolute; top: 18px; right: 18px;
-      font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
-      color: #0A7CA3; background: #EFFAFE; border: 1px solid rgba(33, 181, 228, 0.4); border-radius: 999px; padding: 3px 10px;
-    }
-
-    /* dark code blocks */
-    .code-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
-    .code-card {
-      background: linear-gradient(160deg, #12224A 0%, #0B1730 75%);
-      border-radius: 18px; overflow: hidden; position: relative;
-      box-shadow: 0 20px 50px rgba(12, 27, 54, 0.3);
-    }
-    .code-card::before {
-      content: ""; position: absolute; top: 0; left: 24px; right: 24px; height: 2px;
-      background: linear-gradient(90deg, transparent, #21B5E4 30%, #A66BFF 70%, transparent); opacity: 0.8;
-    }
-    .code-head {
-      display: flex; align-items: center; gap: 8px; padding: 13px 18px;
-      border-bottom: 1px solid rgba(120, 130, 180, 0.18);
-      font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #6FD6F7;
-    }
-    .code-head i { width: 9px; height: 9px; border-radius: 50%; }
-    .code-card pre {
-      margin: 0; padding: 18px 20px; overflow-x: auto;
-      font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.8; color: #C4D0E8;
-    }
-    .code-card pre .k { color: #6FD6F7; }
-    .code-card pre .v { color: #C9B8FF; }
-    .code-card pre .c { color: #66739B; }
-    .code-note { padding: 0 20px 16px; font-size: 12px; color: #9AA9CB; line-height: 1.6; }
-    .code-note b { color: #EDF2FC; }
-
-    /* intelligence layers */
-    .layers { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
-    .layer {
-      background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 15px 17px;
-      display: flex; gap: 12px; align-items: flex-start;
-      box-shadow: 0 4px 14px rgba(12, 27, 54, 0.04);
-    }
-    .layer i {
-      width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex-shrink: 0;
-      background: var(--signal);
-    }
-    .layer b { display: block; font-family: 'Space Grotesk', sans-serif; font-size: 14px; color: var(--ink); }
-    .layer span { font-size: 12px; color: var(--ink-soft); line-height: 1.55; }
-
-    /* results steps */
-    .steps { display: flex; flex-direction: column; gap: 34px; max-width: 980px; margin: 0 auto; }
-    .step-block .frame {
-      border-radius: 16px; overflow: hidden;
-      border: 1px solid var(--line); background: var(--card);
-      box-shadow: 0 24px 60px rgba(12, 27, 54, 0.13);
-    }
-    .step-block .chrome {
-      display: flex; align-items: center; gap: 8px; padding: 10px 14px;
-      border-bottom: 1px solid var(--line); background: #EDF1F9;
-    }
-    .step-block .chrome i { width: 10px; height: 10px; border-radius: 50%; }
-    .step-block .chrome .r1 { background: #ff5f57; } .step-block .chrome .r2 { background: #febc2e; } .step-block .chrome .r3 { background: #28c840; }
-    .step-block .chrome .addr {
-      margin-left: 6px; flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-soft);
-      background: #FFFFFF; border: 1px solid var(--line); border-radius: 7px; padding: 3px 11px;
-    }
-    .step-block img { display: block; width: 100%; height: auto; }
-    .step-cap { display: flex; gap: 14px; align-items: flex-start; margin-top: 14px; padding: 0 6px; }
-    .step-cap .n {
-      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
-      background: var(--night); color: #7FE3FF; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px;
+    .connect-step .n {
+      width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; z-index: 1;
+      background: var(--night); color: #7FE3FF; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px;
       display: flex; align-items: center; justify-content: center;
     }
-    .step-cap b { font-family: 'Space Grotesk', sans-serif; font-size: 15.5px; color: var(--ink); display: block; }
-    .step-cap p { margin: 3px 0 0; font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; }
-
-    /* privacy columns */
-    .privacy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 900px; margin: 0 auto; }
-    .privacy-col { border-radius: 20px; padding: 26px 26px; }
-    .privacy-col.sent { background: #E8F8EF; border: 1px solid rgba(23, 184, 119, 0.35); }
-    .privacy-col.notsent { background: #FDECEF; border: 1px solid rgba(225, 77, 104, 0.3); }
-    .privacy-col h3 { font-size: 16px; margin-bottom: 14px; }
-    .privacy-col.sent h3 { color: #0B5A38; }
-    .privacy-col.notsent h3 { color: #7C1F33; }
-    .privacy-col ul { list-style: none; margin: 0; padding: 0; }
-    .privacy-col li { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; font-size: 14px; }
-    .privacy-col.sent li { color: #14532D; }
-    .privacy-col.notsent li { color: #7C1F33; }
-    .privacy-col li::before { font-family: 'JetBrains Mono', monospace; font-weight: 600; flex-shrink: 0; }
-    .privacy-col.sent li::before { content: "✓"; color: #17B877; }
-    .privacy-col.notsent li::before { content: "✗"; color: #E14D68; }
-
-    /* rollout phases + done card */
-    .rollout { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 18px; }
-    .phase {
-      background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px;
-      box-shadow: 0 6px 22px rgba(12, 27, 54, 0.05);
-    }
-    .phase .pk { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--signal); }
-    .phase h3 { font-size: 17px; margin: 6px 0 12px; }
-    .phase ol { margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); }
-    .done-card {
-      max-width: 900px; margin: 26px auto 0;
-      background: linear-gradient(160deg, #12224A 0%, #0B1730 75%);
-      border-radius: 20px; padding: 28px 30px; position: relative; overflow: hidden;
-      box-shadow: 0 24px 60px rgba(12, 27, 54, 0.3);
-    }
-    .done-card::before {
-      content: ""; position: absolute; top: 0; left: 28px; right: 28px; height: 2px;
-      background: linear-gradient(90deg, transparent, #21B5E4 30%, #A66BFF 70%, transparent);
-    }
-    .done-card h3 { color: #EDF2FC; font-size: 18px; margin-bottom: 14px; }
-    .done-card ul { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 7px 24px; }
-    .done-card li { display: flex; gap: 9px; align-items: baseline; font-size: 13.5px; color: #C4D0E8; }
-    .done-card li::before { content: "✓"; color: #3DDC97; font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
-    .done-card .metric { font-size: 13px; color: #9AA9CB; border-top: 1px solid rgba(120, 130, 180, 0.2); padding-top: 14px; line-height: 1.65; }
-    .done-card .metric b { color: #6FD6F7; }
-
-    @media (max-width: 800px) {
-      .paths, .code-grid, .privacy-grid { grid-template-columns: 1fr; }
-      .done-card ul { grid-template-columns: 1fr; }
-    }
+    .connect-step h3 { font-family: 'Space Grotesk', sans-serif; font-size: 17.5px; margin: 6px 0 6px; color: var(--ink); }
+    .connect-step p { margin: 0; font-size: 14.5px; line-height: 1.65; color: var(--ink-soft); }
   </style>
 </head>
 
@@ -268,270 +140,56 @@
   </header>
 
   <main>
-    <!-- ── Two connection paths ────────────────────────────────────────── -->
+    <!-- ── How to connect: six steps ───────────────────────────────────── -->
     <section class="block">
       <div class="container">
         <div class="section-head">
-          <div class="kicker">Getting connected</div>
-          <h2>Two connection paths.<br>One intelligence pipeline.</h2>
-          <p>Pick the path that matches your stack. After ingestion, the intelligence layers don't depend on the data source — one engine for everything.</p>
+          <div class="kicker">How to connect</div>
+          <h2>From instrumentation<br>to runtime intelligence.</h2>
         </div>
-        <div class="paths">
-          <article class="path-card rec">
-            <span class="rec-chip">Recommended for production</span>
-            <div class="pk">Path A</div>
-            <h3>OpenTelemetry / OTLP</h3>
-            <p class="who">For organizations already on OTel, or that want an open standard.</p>
-            <p>Your agent sends traces to a Collector, and the Collector forwards them to ObserveAgents. One shared Collector serves many agents — per cluster, environment, or region. We don't replace Datadog, Grafana, or Splunk — add ObserveAgents as an additional destination.</p>
-            <div class="path-flow">Agent → OTel SDK → <b>Collector</b> → POST /otel/v1/traces</div>
-          </article>
-          <article class="path-card">
-            <div class="pk">Path B</div>
-            <h3>ObserveAgents SDK</h3>
-            <p class="who">For applications that want to send runtime events directly.</p>
-            <p>The SDK wraps your client and sends normalized runtime events straight to the Runtime API. Connected in minutes — no Collector, no OTel required. Great for a first agent or a quick pilot.</p>
-            <div class="path-flow">Agent → <b>ObserveAgents SDK</b> → POST /runtime-events</div>
-          </article>
-        </div>
-        <div class="banner">Both paths land in the same runtime pipeline. No source gets its own findings engine.</div>
-      </div>
-    </section>
-
-    <!-- ── What you configure ──────────────────────────────────────────── -->
-    <section class="block">
-      <div class="container">
-        <div class="section-head">
-          <div class="kicker">The OTel path in practice</div>
-          <h2>Four variables in the agent.<br>One YAML on the Collector.</h2>
-          <p>Environment variables tell the SDK where to send; the instrumentation is what generates the telemetry. ObserveAgents provides the endpoint, the API key, a Collector template, and the privacy policy.</p>
-        </div>
-        <div class="code-grid">
-          <div class="code-card">
-            <div class="code-head"><i style="background:#21B5E4"></i> each agent · environment variables</div>
-            <pre><span class="k">OTEL_SERVICE_NAME</span>=<span class="v">customer-support-agent</span>
-<span class="k">OTEL_EXPORTER_OTLP_ENDPOINT</span>=<span class="v">http://otel-collector.internal:4318</span>
-<span class="k">OTEL_EXPORTER_OTLP_PROTOCOL</span>=<span class="v">http/protobuf</span>
-<span class="k">OTEL_RESOURCE_ATTRIBUTES</span>=<span class="v">deployment.environment=production,team=support-ai</span></pre>
-            <div class="code-note"><b>service name</b> is how the agent appears in the inventory · <b>resource attributes</b> carry environment, team, version, and region.</div>
-          </div>
-          <div class="code-card">
-            <div class="code-head"><i style="background:#A66BFF"></i> the collector · exporter snippet</div>
-            <pre><span class="k">exporters:</span>
-  <span class="k">otlp_http/observeagents:</span>
-    <span class="k">traces_endpoint:</span> <span class="v">https://app.observeagents.ai/otel/v1/traces</span>
-    <span class="k">headers:</span>
-      <span class="k">authorization:</span> <span class="v">"Bearer gk-YOUR_API_KEY"</span>
-<span class="c"># receivers + batch processor per our template</span></pre>
-            <div class="code-note">The YAML lives <b>only on the Collector</b> — it is not installed inside each agent.</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Automatic vs code ───────────────────────────────────────────── -->
-    <section class="block">
-      <div class="container">
-        <div class="section-head">
-          <div class="kicker">Instrumentation effort</div>
-          <h2>What's automatic,<br>and what needs code.</h2>
-        </div>
-        <div class="options" style="max-width:none; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));">
-          <article class="option-card">
-            <div class="num" style="color:#0A7CA3">Low</div>
-            <h3>Auto-instrumentation</h3>
-            <p>HTTP, database calls, latency, errors, and trace/span IDs — with no code changes.</p>
-          </article>
-          <article class="option-card">
-            <div class="num" style="color:#0A7CA3">Low–medium</div>
-            <h3>GenAI instrumentation</h3>
-            <p>Model, provider, token usage, tool calls, and agent runs via the GenAI semantic conventions.</p>
-          </article>
-          <article class="option-card">
-            <div class="num" style="color:#B7791F">Medium</div>
-            <h3>Manual spans</h3>
-            <p>Business workflows, custom tools, and custom capabilities — only where your logic is unique.</p>
-          </article>
-          <article class="option-card">
-            <div class="num" style="color:#6C4FE0">One-time</div>
-            <h3>Shared wrapper</h3>
-            <p>An organizational wrapper for consistent naming and centralized privacy — a focused, one-time investment.</p>
-          </article>
-        </div>
-        <div class="banner">The recommended mix: auto-instrumentation for infrastructure, GenAI instrumentation for models and tools, manual spans only for unique business operations.</div>
-      </div>
-    </section>
-
-    <!-- ── What happens inside ─────────────────────────────────────────── -->
-    <section class="block">
-      <div class="container">
-        <div class="section-head">
-          <div class="kicker">Inside the pipeline</div>
-          <h2>Ingestion parses.<br>Intelligence explains.</h2>
-          <p>Ingestion authenticates, validates, and answers 202 Accepted — it never stores content or produces findings. Runtime processing identifies service, session, model, tools, and timing. Then the intelligence layers take over:</p>
-        </div>
-        <div class="layers">
-          <div class="layer"><i></i><span><b>Discovery</b><span> — a new agent, or an AI service nobody knew about</span></span></div>
-          <div class="layer"><i></i><span><b>Runtime</b><span> — what ran in each session, and in what order</span></span></div>
-          <div class="layer"><i></i><span><b>Dependency</b><span> — Claude, PostgreSQL, Jira, Salesforce, MCP</span></span></div>
-          <div class="layer"><i></i><span><b>Capability</b><span> — database access, CRM read, ticket creation</span></span></div>
-          <div class="layer"><i style="background:#E9A23B"></i><span><b>Performance</b><span> — latency, bottlenecks, slow tools</span></span></div>
-          <div class="layer"><i style="background:#E9A23B"></i><span><b>Operational</b><span> — provider failures, repeated tool errors</span></span></div>
-          <div class="layer"><i style="background:#E14D68"></i><span><b>Security</b><span> — MCP in production, unknown provider, sensitive access</span></span></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── The results, step by step ───────────────────────────────────── -->
-    <section class="block">
-      <div class="container">
-        <div class="section-head">
-          <div class="kicker">The results</div>
-          <h2>What you see —<br>step by step.</h2>
-          <p>Every screenshot below is the real product, running on synthetic demo data.</p>
-        </div>
-        <div class="steps">
-          <div class="step-block">
-            <div class="frame">
-              <div class="chrome"><i class="r1"></i><i class="r2"></i><i class="r3"></i><span class="addr">app.observeagents.ai</span></div>
-              <img src="/guide/step-1.png" alt="ObserveAgents sign-in screen" loading="lazy" width="1512" height="920">
+        <div class="connect-steps">
+          <article class="connect-step">
+            <span class="n">1</span>
+            <div>
+              <h3>Install AI runtime instrumentation</h3>
+              <p>Add OpenTelemetry-compatible instrumentation such as OpenLLMetry, OpenLit, OpenInference, or manual OTel spans.</p>
             </div>
-            <div class="step-cap"><span class="n">1</span><span><b>Sign in</b><p>Every user sees only their own organization — full tenant isolation.</p></span></div>
-          </div>
-          <div class="step-block">
-            <div class="frame">
-              <div class="chrome"><i class="r1"></i><i class="r2"></i><i class="r3"></i><span class="addr">app.observeagents.ai/#apikeys</span></div>
-              <img src="/guide/step-2.png" alt="Creating an API key" loading="lazy" width="1512" height="920">
-            </div>
-            <div class="step-cap"><span class="n">2</span><span><b>Create an API key</b><p>The key (gk-…) authenticates the Collector or SDK. One key per team or agent keeps attribution clean.</p></span></div>
-          </div>
-          <div class="step-block">
-            <div class="frame">
-              <div class="chrome"><i class="r1"></i><i class="r2"></i><i class="r3"></i><span class="addr">app.observeagents.ai/#runtime</span></div>
-              <img src="/guide/step-3.png" alt="Runtime — traces grouped by agent and session" loading="lazy" width="1512" height="920">
-            </div>
-            <div class="step-cap"><span class="n">3</span><span><b>Runtime</b><p>As soon as telemetry flows, every run appears: traces grouped by agent and session, with steps, durations, and errors.</p></span></div>
-          </div>
-          <div class="step-block">
-            <div class="frame">
-              <div class="chrome"><i class="r1"></i><i class="r2"></i><i class="r3"></i><span class="addr">app.observeagents.ai/#runtime</span></div>
-              <img src="/guide/step-4.png" alt="Execution waterfall for one trace" loading="lazy" width="1512" height="920">
-            </div>
-            <div class="step-cap"><span class="n">4</span><span><b>Execution waterfall</b><p>Clicking a trace opens the full order of operations — LLM planning, knowledge search, CRM call, Slack, and the response — each step positioned by start time and duration.</p></span></div>
-          </div>
-          <div class="step-block">
-            <div class="frame">
-              <div class="chrome"><i class="r1"></i><i class="r2"></i><i class="r3"></i><span class="addr">app.observeagents.ai/#intelligence</span></div>
-              <img src="/guide/step-5.png" alt="Asset Intelligence inventory" loading="lazy" width="1512" height="920">
-            </div>
-            <div class="step-cap"><span class="n">5</span><span><b>Asset Intelligence</b><p>The inventory built from evidence: every agent with its environment, findings, capabilities, and dependencies — including who is recommended for Gateway control.</p></span></div>
-          </div>
-          <div class="step-block">
-            <div class="frame">
-              <div class="chrome"><i class="r1"></i><i class="r2"></i><i class="r3"></i><span class="addr">app.observeagents.ai/#security_intel</span></div>
-              <img src="/guide/step-6.png" alt="Security Intelligence findings" loading="lazy" width="1512" height="920">
-            </div>
-            <div class="step-cap"><span class="n">6</span><span><b>Security Intelligence</b><p>Risky behavior becomes focused findings: database access in production, MCP usage, unknown providers, missing ownership — sorted worst-first.</p></span></div>
-          </div>
-          <div class="step-block">
-            <div class="frame">
-              <div class="chrome"><i class="r1"></i><i class="r2"></i><i class="r3"></i><span class="addr">app.observeagents.ai/#rules_alerts</span></div>
-              <img src="/guide/step-7.png" alt="Rules and Alerts" loading="lazy" width="1512" height="920">
-            </div>
-            <div class="step-cap"><span class="n">7</span><span><b>Rules &amp; Alerts</b><p>Detection rules run over accumulated evidence — patterns like excessive MCP calls or repeated errors — and never block the agent at ingestion.</p></span></div>
-          </div>
-          <div class="step-block">
-            <div class="frame">
-              <div class="chrome"><i class="r1"></i><i class="r2"></i><i class="r3"></i><span class="addr">app.observeagents.ai/#gateway_control_center</span></div>
-              <img src="/guide/step-8.png" alt="Gateway Control Center" loading="lazy" width="1512" height="920">
-            </div>
-            <div class="step-cap"><span class="n">8</span><span><b>Gateway Control Center</b><p>Visibility and enforcement are separate: a work queue of agents recommended for control, with the evidence and suggestions. Inline control is enabled only by explicit choice.</p></span></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Privacy ─────────────────────────────────────────────────────── -->
-    <section class="block">
-      <div class="container">
-        <div class="section-head">
-          <div class="kicker">Privacy</div>
-          <h2>Metadata first.<br>Content only by explicit policy.</h2>
-        </div>
-        <div class="privacy-grid">
-          <div class="privacy-col sent">
-            <h3>Sent in the MVP</h3>
-            <ul>
-              <li>service name, environment, team</li>
-              <li>model, provider, token counts</li>
-              <li>tool name, dependency name</li>
-              <li>latency, errors, status</li>
-            </ul>
-          </div>
-          <div class="privacy-col notsent">
-            <h3>Not sent by default</h3>
-            <ul>
-              <li>full prompts and responses</li>
-              <li>raw tool arguments or results</li>
-              <li>file contents</li>
-              <li>secrets or credentials</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ── Rollout & pilot ─────────────────────────────────────────────── -->
-    <section class="block">
-      <div class="container">
-        <div class="section-head">
-          <div class="kicker">Rollout</div>
-          <h2>Start with three agents.<br>Expand when it proves itself.</h2>
-        </div>
-        <div class="rollout">
-          <article class="phase">
-            <div class="pk">Phase 1 · Choose</div>
-            <h3>Scope the MVP</h3>
-            <ol>
-              <li>Pick 1–3 agents</li>
-              <li>Check their languages and frameworks</li>
-              <li>Check for existing OTel / Collector</li>
-              <li>Choose auto, GenAI, or SDK instrumentation</li>
-            </ol>
           </article>
-          <article class="phase">
-            <div class="pk">Phase 2 · Connect</div>
-            <h3>Wire the pipeline</h3>
-            <ol>
-              <li>Set service.name, environment, team</li>
-              <li>Stand up a Collector — or reuse one</li>
-              <li>Run first with a debug exporter</li>
-              <li>Confirm well-formed spans</li>
-            </ol>
+          <article class="connect-step">
+            <span class="n">2</span>
+            <div>
+              <h3>Export traces through OTLP</h3>
+              <p>Send traces to ObserveAgents using the standard OTLP endpoint.</p>
+            </div>
           </article>
-          <article class="phase">
-            <div class="pk">Phase 3 · Verify &amp; expand</div>
-            <h3>See it land</h3>
-            <ol>
-              <li>Add the ObserveAgents exporter</li>
-              <li>Confirm 202 Accepted → trace in Runtime</li>
-              <li>Check Inventory, Dependencies, Findings</li>
-              <li>Expand gradually to more agents</li>
-            </ol>
+          <article class="connect-step">
+            <span class="n">3</span>
+            <div>
+              <h3>Discover agents automatically</h3>
+              <p>ObserveAgents identifies running agents from service.name, gen_ai attributes, tool calls, MCP calls, providers, models, and runtime behavior.</p>
+            </div>
           </article>
-        </div>
-        <div class="done-card">
-          <h3>Pilot — definition of done</h3>
-          <ul>
-            <li>2–3 agents identified</li>
-            <li>Runtime traces and sessions displayed</li>
-            <li>Models and providers identified</li>
-            <li>Tools and dependencies mapped</li>
-            <li>Capabilities derived</li>
-            <li>Latency and errors visible</li>
-            <li>First findings created</li>
-            <li>No sensitive content stored by default</li>
-          </ul>
-          <div class="metric"><b>The business success metric:</b> you see real AI activity you previously had no organized way to explain.</div>
+          <article class="connect-step">
+            <span class="n">4</span>
+            <div>
+              <h3>Build runtime intelligence</h3>
+              <p>The platform maps each agent's tools, MCP usage, APIs, databases, providers, errors, owners, and environments.</p>
+            </div>
+          </article>
+          <article class="connect-step">
+            <span class="n">5</span>
+            <div>
+              <h3>Detect risky behavior</h3>
+              <p>Detection Rules identify patterns such as high MCP usage, repeated tool errors, unknown providers in production, DB/API access, and missing ownership.</p>
+            </div>
+          </article>
+          <article class="connect-step">
+            <span class="n">6</span>
+            <div>
+              <h3>Recommend control</h3>
+              <p>High-risk agents are surfaced in Gateway Control Center for review and optional control planning.</p>
+            </div>
+          </article>
         </div>
       </div>
     </section>
@@ -584,14 +242,14 @@
     // Scroll reveals — same contract as the homepage.
     (function () {
       var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      ['.paths', '.options', '.layers', '.privacy-grid', '.rollout', '.code-grid'].forEach(function (sel) {
+      ['.connect-steps'].forEach(function (sel) {
         document.querySelectorAll(sel).forEach(function (grid) {
           Array.prototype.forEach.call(grid.children, function (el, i) {
             el.classList.add('reveal', 'd' + Math.min(i % 6, 5));
           });
         });
       });
-      document.querySelectorAll('.section-head, .banner, .demo-band, .step-block, .done-card').forEach(function (el) { el.classList.add('reveal'); });
+      document.querySelectorAll('.section-head, .banner, .demo-band').forEach(function (el) { el.classList.add('reveal'); });
       if (reduce || !('IntersectionObserver' in window)) {
         document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('on'); });
       } else {
