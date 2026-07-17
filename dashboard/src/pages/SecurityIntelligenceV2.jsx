@@ -186,7 +186,7 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
         <PageHeader
           eyebrow="Observe · Risk Investigation"
           title="AI Agent Runtime Security Intelligence"
-          purpose="Investigate AI-agent security findings derived from runtime evidence — tools, MCP, providers, databases, APIs, ownership, and human-review signals.">
+          purpose="Investigate AI-agent security findings derived from runtime evidence — tools, MCP, providers, databases, APIs, and human-review signals.">
           {anySample && <StatusPill tone={C.textMute}>sample data</StatusPill>}
           <StatusPill tone={C.accent}>observe-only</StatusPill>
         </PageHeader>
@@ -237,7 +237,7 @@ export default function SecurityIntelligenceV2({ onNavigate }) {
           <EmptyState icon="⛨"
             text={<span><strong style={{ color: C.text }}>No runtime security findings yet.</strong>{" "}
               When AI-agent runtime evidence shows risky tool usage, unknown providers, sensitive dependencies,
-              missing ownership, or human-review signals, findings will appear here.</span>}
+              or human-review signals, findings will appear here.</span>}
             actionLabel={surfaceAllowsPage("runtime") ? "Open Runtime" : undefined}
             onAction={() => onNavigate?.("runtime")} />
         ) : (

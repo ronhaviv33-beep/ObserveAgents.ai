@@ -54,6 +54,10 @@ AGENT_ENVIRONMENT=development
 AGENT_OWNER=you@yourcompany.com
 ```
 
+> `AGENT_NAME`, `AGENT_TEAM`, and `AGENT_OWNER` are **optional attribution metadata** —
+> the platform backfills them from the Asset Registry when omitted. This demo sets them
+> for a richer first result, not because discovery requires them.
+
 Rules for this file: no quotes around values, and never commit it to git.
 
 **File 2: `agent.py`** — the fake agent. Paste as-is, no edits needed:
