@@ -56,7 +56,10 @@ AGENT_OWNER=you@yourcompany.com
 
 > `AGENT_NAME`, `AGENT_TEAM`, and `AGENT_OWNER` are **optional attribution metadata** —
 > the platform backfills them from the Asset Registry when omitted. This demo sets them
-> for a richer first result, not because discovery requires them.
+> for a richer first result, not because discovery requires them. `AGENT_ID` is
+> **recommended but also optional**: without it, identity resolves through
+> agent_name → service attribute → a stable runtime fingerprint, and the event
+> is still ingested (an explicit id simply gives the strongest attribution).
 
 Rules for this file: no quotes around values, and never commit it to git.
 

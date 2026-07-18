@@ -67,7 +67,7 @@ timeline, risk rules, and metrics only ever read normalized data.
 | Field | Type | Notes |
 |---|---|---|
 | `event_id` | string ≤64 | **required** — client-generated idempotency key |
-| `agent_id` | string ≤256 | **required** — stable agent identity |
+| `agent_id` | string ≤256 | optional — **recommended**: the stable agent identity. When omitted, identity resolves through the tiered ladder below at an honestly-lower internal tier; the event is never rejected |
 | `timestamp` | ISO8601 | defaults to server receive time |
 | `event_type` | string | `llm_call` (default), `tool_call`, `agent_step`, `retrieval`, … |
 | `agent_name`, `team`, `environment`, `owner` | string | governance metadata; backfilled from the Asset Registry when omitted |
@@ -83,9 +83,25 @@ timeline, risk rules, and metrics only ever read normalized data.
 | `risk_score`, `risk_reasons`, `policy_action` | — | **server-computed**, never client-supplied |
 
 Agents seen by this endpoint are upserted into the existing **Asset Registry**
-using the same `asset_key = sha256(org_id:agent_id)` convention as OTel
+using the same `asset_key = sha256(org_id:identity)` convention as OTel
 ingestion, so batch-ingested agents appear in the Agent Inventory alongside
 OTel-discovered ones — one inventory, two evidence sources.
+
+**Identity resolution** mirrors the OTel path's tiers — partial evidence lowers
+the internal tier, it never blocks ingestion:
+
+1. `agent_id` → **declared** (today's behavior, byte-identical asset key)
+2. else `agent_name` → **declared** (the caller explicitly named the agent)
+3. else a `service.name`/`service` extra field (top-level or inside `attributes`) → **service**
+4. else a **stable runtime fingerprint** (`observed-ai-system:<hash>`) built only
+   from safe scalar metadata (governance fields + non-content extras) → **fallback** —
+   the asset is flagged `needs_admin_review` at low internal scoring, exactly like
+   an unattributed OTel identity
+
+Privacy rule for the fingerprint inputs: only small scalar metadata is hashed.
+Keys that look like prompts, responses, messages, tool arguments/results, bodies,
+headers, credentials, or URLs — and any URL-like values — are excluded, so
+content can never influence (or leak into) an identity.
 
 ## Batch endpoint
 

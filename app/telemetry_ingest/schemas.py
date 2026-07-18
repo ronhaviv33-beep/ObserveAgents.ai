@@ -20,7 +20,9 @@ class TelemetryEventIn(BaseModel):
     model_config = ConfigDict(extra="allow", protected_namespaces=())
 
     event_id: str = Field(min_length=1, max_length=64)
-    agent_id: str = Field(min_length=1, max_length=256)
+    # Optional but recommended: when omitted, the normalizer resolves identity
+    # agent_name → service attr → stable runtime fingerprint (never rejects).
+    agent_id: str | None = Field(default=None, max_length=256)
     timestamp: datetime | None = None  # ISO8601; defaults to server receive time
     event_type: str = Field(default="llm_call", min_length=1, max_length=64)
 

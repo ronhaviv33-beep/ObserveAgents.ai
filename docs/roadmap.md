@@ -138,7 +138,7 @@ Full plan, discovery levels, identity/confidence model, and the code audit:
 ### Deferred backend items (from the A2 audit — need product decisions)
 
 - ~~`app/risk_processor.py` — make the default-on missing owner/team/environment risk penalties default-off~~ — ✅ done: `missing_owner` / `missing_team` / `unknown_environment` ship disabled by default. **Missing owner/team/environment are attribution gaps, not default runtime-risk penalties.** Future governance strictness can make them enforceable for teams that opt in (per-org DetectionRule overrides already re-enable them today).
-- `app/telemetry_ingest/` — tiered fallback identity for the batch-ingest path (currently hard-requires `agent_id`, hardcodes `identity_tier="declared"`)
+- ~~`app/telemetry_ingest/` — tiered fallback identity for the batch-ingest path~~ — ✅ done: `agent_id` is optional; identity resolves agent_id → agent_name → service attr → stable privacy-safe runtime fingerprint, with the honest tier fed to the shared registry upsert (fallback ⇒ `needs_admin_review`, low internal scoring). Events are never rejected for missing identity
 - ~~`missing_owner_in_production` rule template — reframe as an informational governance nudge~~ — ✅ done: renamed `ai_workload_missing_owner`, severity info, governance category, never a Gateway candidate on its own
 
 ### Track principles
