@@ -174,7 +174,7 @@ Auto-instrumentation-friendly rules (future set):
 | `new_external_domain_seen` | new |
 | `high_token_usage` | exists (asset-intelligence finding, ≥100k tokens) |
 | `unknown_provider_in_production` | exists (`rule_unknown_provider_in_production`) |
-| `ai_workload_missing_owner` | future — **informational governance nudge only**, never a high-severity security finding (see audit: the old `agent_missing_owner` finding was deliberately removed) |
+| `ai_workload_missing_owner` | ✅ reframed — planned template renamed from `missing_owner_in_production`, category governance, severity **info**, never a Gateway candidate on its own (the old `agent_missing_owner` finding was deliberately removed) |
 
 Note: `rule_repeated_tool_errors` and `rule_mcp_tool_access_threshold` already run on auto-emittable evidence. Production-gated rules silently skip when `deployment.environment` is absent — acceptable, but the telemetry-quality surface should keep nudging for the environment attribute since it unlocks them.
 
@@ -227,7 +227,7 @@ Audit of main @ `7fd192a`. Impact legend: **BLOCKS** = contradicts auto-first by
 |---|---|---|---|
 | `app/risk_processor.py` ~207–217 | `missing_owner` +10, `missing_team` +10, `unknown_environment` +10–15 risk score, **default-on** — an auto-instrumented event with no governance metadata accrues ~30–45 baseline risk and trends toward `warn` | BLOCKS intent | **Change later** — make absence-of-governance rules default-off or zero-weight (per-rule `DetectionRule` overrides already exist); needs product decision + tests, not a copy fix |
 | `app/telemetry_ingest/normalizer.py` ~73–75, ~92–96 | Batch-ingest API hard-requires `agent_id` (raises `ValueError`) and hardcodes `identity_tier="declared"` — no service/fallback tiers on this path | Scoped (explicit-ingest API, not the OTel surface) | **Change later** — add tiered fallback if auto-instrumentation ever feeds this path; keep the requirement for now, it's defensible for an explicit API |
-| `dashboard/pages/RulesAlertsV2.jsx` ~63–67 | `missing_owner_in_production` planned-rule template: severity "high in production", action "Assign owner/team before expanding use" (`implemented: false`) | Frames optional metadata as high security risk | **Change later** — product decision: reframe as informational governance nudge (`ai_workload_missing_owner`) or gate behind a governance-strictness opt-in |
+| `dashboard/pages/RulesAlertsV2.jsx` ~63–67 | `missing_owner_in_production` planned-rule template: severity "high in production" (`implemented: false`) | Framed optional metadata as high security risk | **✅ Resolved** — renamed `ai_workload_missing_owner`, category governance, severity info, copy "Optional owner/team metadata improves attribution and routing", never a Gateway candidate on its own |
 | `docs/otel-deployment-guide.md` ~479, ~487 | Documents `agent_missing_owner` as a **high** finding that "clears after you Claim" | **Stale** — the code no longer emits this finding | **Change now** (copy — fixed in this PR) |
 | `dashboard/pages/SecurityIntelligenceV2.jsx` ~189, ~238–240 | Copy lists "ownership" / "missing ownership" as canonical security-finding triggers | Copy-only | **Change now** (fixed in this PR) |
 | `dashboard/pages/PlatformGuideV2.jsx` ~30 | "Every agent making LLM calls — named, fingerprinted, attributed to a team" | Implies name/team always present | **Change now** (fixed in this PR: "…where available") |
