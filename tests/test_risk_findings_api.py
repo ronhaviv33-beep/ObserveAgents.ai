@@ -62,7 +62,7 @@ def _get(token, path):
 
 
 def _seed(token):
-    """3 risky events + 1 clean event for one org."""
+    """3 risky events + 2 no-finding events (clean, metadata-only orphan)."""
     ts = _NOW.isoformat()
     _ingest(token, [
         # clean: full metadata, known model, ok
@@ -78,10 +78,16 @@ def _seed(token):
         {"event_id": "rf-risky-2", "agent_id": "risky-agent", "team": "alpha",
          "owner": "o@x.io", "environment": "production", "provider": "openai",
          "model": "gpt-4o", "status": "blocked", "timestamp": ts},
-        # missing owner/team -> low score 20 (owner/team omitted AND not in registry yet)
+        # cost over threshold -> low score 20 (owner/team omitted too, which
+        # adds nothing by default — attribution gap, not runtime risk)
         {"event_id": "rf-risky-3", "agent_id": "orphan-agent", "environment": "production",
-         "provider": "openai", "model": "gpt-4o", "cost_usd": 0.01, "latency_ms": 100,
+         "provider": "openai", "model": "gpt-4o", "cost_usd": 1.50, "latency_ms": 100,
          "timestamp": (_NOW - timedelta(days=1)).isoformat()},
+        # metadata-only orphan: clean runtime data, no owner/team/environment.
+        # Must produce NO finding — missing metadata alone is not risk.
+        {"event_id": "rf-orphan-clean", "agent_id": "orphan-clean-agent",
+         "provider": "openai", "model": "gpt-4o", "cost_usd": 0.01,
+         "latency_ms": 100, "timestamp": ts},
     ])
 
 
@@ -94,7 +100,19 @@ def test_findings_derived_from_telemetry_events():
     assert r.status_code == 200, r.text
     d = r.json()
     ids = {f["event_id"] for f in d["findings"]}
-    assert ids == {"rf-risky-1", "rf-risky-2", "rf-risky-3"}   # clean event excluded
+    # clean event AND the metadata-only orphan excluded — missing owner/team/env
+    # alone never becomes a finding.
+    assert ids == {"rf-risky-1", "rf-risky-2", "rf-risky-3"}
+    db.close()
+
+
+def test_missing_metadata_alone_produces_no_finding():
+    db = SessionLocal()
+    _org, _u, token = _make_org_and_token(db)
+    _seed(token)
+
+    d = _get(token, "/risk-findings?days=7&agent_id=orphan-clean-agent").json()
+    assert d["findings"] == []
     db.close()
 
 

@@ -36,7 +36,7 @@ It is deliberately **not**:
 | `agent_uses_mcp_tool_in_production` | MCP tool/method usage **in production** | high | mcp_methods, tool_names, resource_hosts, span_count |
 | `agent_has_broad_tool_surface` | ≥ 5 distinct tools | medium · **high if prod ∧ ≥ 8** | tool_count, tool_names, threshold |
 | `agent_uses_unknown_model_provider` | Provider missing or outside the known provider catalog | low · **med/high in production** | providers, models |
-| `agent_missing_owner` | AssetRegistry has no owner/team | medium · high prod | asset_key, service_name, missing_fields |
+| `agent_missing_owner` *(retired)* | No longer emitted — owner/team is optional attribution metadata, never a security finding; legacy rows are cleaned at startup | — | — |
 | `repeated_tool_errors` | ≥ 3 tool/MCP spans with an error type | medium · high prod | tool_names, error_types, error_count |
 | `human_review_recommended` | High-risk combination (prod + MCP / broad surface / DB / unknown provider; or repeated errors on a high-risk dependency) | medium · high if ≥ 2 reasons | reasons, related_finding_types |
 
@@ -66,7 +66,7 @@ Several coarse asset-intelligence findings already exist (`source="otel_trace"`)
 | `agent_uses_mcp_tool_in_production` | `mcp_tool_access` |
 | `agent_has_broad_tool_surface` | `broad_tool_access` |
 | `agent_uses_unknown_model_provider` | `unknown_model` |
-| `agent_missing_owner` | `unmanaged_runtime` |
+| `agent_missing_owner` *(both retired)* | `unmanaged_runtime` |
 | `repeated_tool_errors` | `tool_error` / `mcp_error` |
 
 ## Connection to Guardrails and Observe Advisor
