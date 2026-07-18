@@ -139,7 +139,7 @@ Full plan, discovery levels, identity/confidence model, and the code audit:
 
 - `app/risk_processor.py` — make the default-on missing owner/team/environment risk penalties default-off (or governance-strictness opt-in)
 - `app/telemetry_ingest/` — tiered fallback identity for the batch-ingest path (currently hard-requires `agent_id`, hardcodes `identity_tier="declared"`)
-- `missing_owner_in_production` rule template — reframe as an informational governance nudge (`ai_workload_missing_owner`) rather than high-severity security
+- ~~`missing_owner_in_production` rule template — reframe as an informational governance nudge~~ — ✅ done: renamed `ai_workload_missing_owner`, severity info, governance category, never a Gateway candidate on its own
 
 ### Track principles
 

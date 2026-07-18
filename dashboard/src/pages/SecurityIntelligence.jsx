@@ -235,7 +235,6 @@ export default function SecurityIntelligence({ onNavigate }) {
           { key: "mcptool", label: "MCP / tool risk",                 color: T.warn,   agents: agentsFor(["agent_uses_mcp_tool_in_production", "agent_has_broad_tool_surface"]) },
           { key: "dbapi",   label: "Database / API access",           color: T.info,   agents: agentsFor(["agent_has_database_access", "agent_uses_unmanaged_external_api"]) },
           { key: "provider",label: "Unknown providers / models",      color: T.purple, agents: agentsFor(["agent_uses_unknown_model_provider"]) },
-          { key: "owner",   label: "Missing ownership",               color: T.yellow, agents: agentsFor(["agent_missing_owner"]) },
           { key: "review",  label: "Human review recommended",        color: T.crit,   agents: agentsFor(["human_review_recommended"]) },
         ];
 

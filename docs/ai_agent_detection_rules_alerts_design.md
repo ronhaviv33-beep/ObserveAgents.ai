@@ -177,15 +177,15 @@ All templates read evidence that already exists in the normalized store (`otel_s
 - **Recommended action:** Reduce tool scope or add a tool-routing policy.
 - **Gateway candidate:** yes — if production and high count.
 
-### 7. `missing_owner_in_production`
+### 7. `ai_workload_missing_owner` *(governance/attribution nudge — renamed from `missing_owner_in_production`)*
 
-- **Description:** A production agent has no owner/team metadata in the registry.
-- **Evidence source:** `asset_registry.owner`/`team` joined with `otel_assets.environment`; asset key; service name; the missing fields.
+- **Description:** An AI workload has no owner/team metadata yet. Under auto-instrumentation-first discovery, owner/team is **optional attribution metadata** — its absence is a nudge, never a security defect.
+- **Evidence source:** `asset_registry.owner`/`team`; asset key; service name; the absent fields.
 - **Default threshold/window:** presence-based, per evaluation run.
-- **Severity:** high in production, medium elsewhere.
-- **Alert text:** `production agent research-agent has no assigned owner.`
-- **Recommended action:** Assign owner/team before expanding use.
-- **Gateway candidate:** maybe — ownership gaps strengthen other candidates more than they stand alone.
+- **Severity:** **info** by default (low at most). Missing owner may raise the *priority of other findings* only when combined with risky runtime evidence on the same asset — unknown provider in production, high MCP/tool usage, repeated errors, DB + external API in the same trace, a flagged dependency, or (future) payment activity — never on its own.
+- **Alert text:** `research-agent has no owner/team metadata yet — optional owner/team metadata improves attribution and routing.`
+- **Recommended action:** Optional owner/team metadata improves attribution and routing.
+- **Gateway candidate:** **no — never on its own.** Ownership gaps may add context to candidates created by risky runtime evidence, but absence of optional metadata never creates one.
 
 ### 8. `high_token_usage_threshold`
 
@@ -472,7 +472,7 @@ Potential mapping when a match materializes as a finding:
 - `source` = `detection_rules`
 - `finding_type` = `rule_<rule_type>`, or an existing finding type where one already expresses the same fact
 
-**Do not duplicate existing findings unnecessarily.** Where a rule template overlaps an existing derived finding (`broad_tool_surface` ↔ `agent_has_broad_tool_surface`, `repeated_tool_errors` ↔ the existing type, `unknown_provider_in_production` ↔ `agent_uses_unknown_model_provider`, `missing_owner_in_production` ↔ `agent_missing_owner`), the rule adds the customer's threshold/window/notification on top — it should update the existing finding's occurrence/severity rather than mint a parallel type.
+**Do not duplicate existing findings unnecessarily.** Where a rule template overlaps an existing derived finding (`broad_tool_surface` ↔ `agent_has_broad_tool_surface`, `repeated_tool_errors` ↔ the existing type, `unknown_provider_in_production` ↔ `agent_uses_unknown_model_provider`, `ai_workload_missing_owner` ↔ the retired `agent_missing_owner`), the rule adds the customer's threshold/window/notification on top — it should update the existing finding's occurrence/severity rather than mint a parallel type.
 
 ---
 
