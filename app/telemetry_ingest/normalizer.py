@@ -22,9 +22,93 @@ from sqlalchemy.orm import Session
 
 from app import pricing_registry
 from app.models import AssetRegistry
-from app.otel_normalizer import _make_asset_key, _upsert_asset
+from app.otel_normalizer import _make_asset_key, _stable_fallback_identity, _upsert_asset
 
 _log = logging.getLogger("ai_asset_mgmt.telemetry_normalizer")
+
+# Schema/product fields that must never feed the fallback-identity hash:
+# they are either volatile per event (ids, metrics, status) or already handled
+# explicitly (governance fields).
+_NON_IDENTITY_FIELDS = frozenset({
+    "event_id", "agent_id", "timestamp", "event_type", "agent_name",
+    "team", "environment", "owner",
+    "trace_id", "span_id", "parent_span_id",
+    "provider", "model", "input_tokens", "output_tokens", "total_tokens",
+    "cost_usd", "latency_ms", "status", "error_message",
+    "tool_name", "action_name", "attributes", "policy_action",
+})
+
+# Privacy rule for fallback-identity inputs: keys whose (lowercased) name
+# contains any of these never enter the hash — no prompts, responses,
+# messages, tool arguments/results, bodies, headers, credentials, or URLs.
+_IDENTITY_FORBIDDEN_KEY_SUBSTRINGS = (
+    "prompt", "response", "message", "argument", "result", "content", "body",
+    "authorization", "api_key", "apikey", "secret", "token", "password",
+    "credential", "header", "cookie", "url",
+)
+
+
+def _safe_identity_attrs(raw: dict) -> dict:
+    """Safe scalar metadata for the stable fallback fingerprint.
+
+    Includes the governance fields (team/environment/owner) plus caller extras,
+    but only small str/int/float/bool scalars whose key passes the privacy
+    denylist and whose value is not URL-like ("://"). Everything else — content,
+    credentials, per-event metrics — is excluded so the fingerprint is both
+    privacy-safe and stable across events from the same source.
+    """
+    out: dict = {}
+
+    def add(key, value) -> None:
+        kl = str(key).lower()
+        if any(tok in kl for tok in _IDENTITY_FORBIDDEN_KEY_SUBSTRINGS):
+            return
+        if isinstance(value, bool) or isinstance(value, (int, float)):
+            out[str(key)[:64]] = value
+        elif isinstance(value, str):
+            s = value.strip()
+            if s and "://" not in s:
+                out[str(key)[:64]] = s[:128]
+
+    for k in ("team", "environment", "owner"):
+        if raw.get(k):
+            add(k, raw.get(k))
+    for k, v in raw.items():
+        if k not in _NON_IDENTITY_FIELDS:
+            add(k, v)
+    attributes = raw.get("attributes")
+    if isinstance(attributes, dict):
+        for k, v in attributes.items():
+            add(k, v)
+    return out
+
+
+def _resolve_batch_identity(raw: dict) -> tuple[str, str]:
+    """Batch-event identity ladder, mirroring the OTel path's tiers:
+
+    1. agent_id            -> "declared"  (explicit identity — today's behavior)
+    2. agent_name          -> "declared"  (the caller explicitly named the agent)
+    3. service.name/service (top-level extra or inside `attributes`) -> "service"
+    4. stable runtime fingerprint (observed-ai-system:<hash>) -> "fallback"
+
+    Never raises: partial evidence lowers the internal tier, it never blocks
+    ingestion. Fallback-tier assets get needs_admin_review + low internal
+    scoring via the shared _upsert_asset, exactly like the OTel path.
+    """
+    agent_id = _str_or_none(raw.get("agent_id"), 256)
+    if agent_id:
+        return agent_id, "declared"
+    agent_name = _str_or_none(raw.get("agent_name"), 256)
+    if agent_name:
+        return agent_name, "declared"
+    attributes = raw.get("attributes") if isinstance(raw.get("attributes"), dict) else {}
+    service = _str_or_none(
+        raw.get("service.name") or raw.get("service") or attributes.get("service.name"), 256)
+    if service:
+        return service, "service"
+    fingerprint = _stable_fallback_identity(
+        _safe_identity_attrs(raw), _str_or_none(raw.get("trace_id"), 64) or "batch")
+    return fingerprint, "fallback"
 
 
 def _parse_timestamp(value, fallback: datetime) -> datetime:
@@ -66,13 +150,12 @@ def _float_or_none(value) -> float | None:
 
 def normalize(db: Session, org_id: int, raw: dict, received_at: datetime | None = None) -> dict:
     """Return TelemetryEvent constructor kwargs (minus org/event ids, which the
-    worker supplies from the raw queue row). Raises on unusable payloads —
-    the worker converts that into a failed queue row."""
+    worker supplies from the raw queue row). Missing identity never blocks:
+    events without agent_id resolve through the tiered ladder
+    (_resolve_batch_identity) at an honestly-lower internal tier."""
     received_at = received_at or datetime.now(timezone.utc)
 
-    agent_id = _str_or_none(raw.get("agent_id"), 256)
-    if not agent_id:
-        raise ValueError("agent_id is required")
+    agent_id, identity_tier = _resolve_batch_identity(raw)
 
     team = _str_or_none(raw.get("team"), 128)
     owner = _str_or_none(raw.get("owner"), 256)
@@ -92,7 +175,7 @@ def normalize(db: Session, org_id: int, raw: dict, received_at: datetime | None 
     asset_id = _upsert_asset(
         db, org_id, agent_id, resource_attrs,
         display_name=agent_name,
-        identity_tier="declared",
+        identity_tier=identity_tier,
     )
     asset_key = _make_asset_key(org_id, agent_id)
 
