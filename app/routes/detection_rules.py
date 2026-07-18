@@ -75,7 +75,7 @@ def _builtin_defaults() -> list[dict]:
             "id": None, "rule_key": entry["rule_id"], "name": entry["rule_name"],
             "description": None, "category": entry["category"],
             "severity": _WEIGHT_SEVERITY.get(entry["weight"], "medium"),
-            "enabled": True, "source": "built_in",
+            "enabled": entry.get("default_enabled", True), "source": "built_in",
             "template_type": _BUILTIN_TEMPLATE.get(entry["rule_id"], ""),
             "config": {}, "created_by": None, "updated_by": None,
             "created_at": None, "updated_at": None,

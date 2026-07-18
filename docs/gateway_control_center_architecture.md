@@ -117,8 +117,9 @@ Candidate triggers may include (all already derivable from existing findings and
 | Broad tool surface | `agent_has_broad_tool_surface` |
 | Repeated tool errors | `repeated_tool_errors` |
 | High token/cost signal | `high_token_usage_threshold` rule / cost signals |
-| Missing owner in production | `agent_missing_owner` (prod) |
 | Human review recommended | `human_review_recommended` |
+
+*(Removed from this table: `agent_missing_owner` — the finding was retired; owner/team is optional attribution metadata and missing ownership is never a control trigger on its own.)*
 
 Being a candidate is **not** an accusation and **not** an action — it is a review queue entry with evidence attached.
 

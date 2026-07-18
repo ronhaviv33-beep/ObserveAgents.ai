@@ -75,22 +75,51 @@ def test_upstream_block_forces_block_action_and_floor():
     assert r2.policy_action == "block" and r2.score >= 80
 
 
-def test_missing_owner_and_team():
-    assert _eval(owner=None).score == 10
-    assert _eval(team=None).score == 10
+def _enabled_override(*rule_keys, severity="medium"):
+    """A managed-rules dict that explicitly enables the given built-ins."""
+    return {"builtin": {k: {"rule_key": k, "name": k, "enabled": True,
+                            "severity": severity, "config": {}, "template_type": ""}
+                        for k in rule_keys},
+            "custom": []}
+
+
+def test_missing_owner_and_team_add_no_default_risk():
+    # Attribution gaps, not runtime risk: default-off under
+    # auto-instrumentation-first (see _DEFAULT_OFF_RULES).
+    assert _eval(owner=None).score == 0
+    assert _eval(team=None).score == 0
     r = _eval(owner="", team="  ")
-    assert r.score == 20 and len(r.reasons) == 2
+    assert r.score == 0 and r.reasons == [] and r.policy_action == "allow"
 
 
-def test_unknown_environment():
-    r = _eval(environment="weird-env")
-    assert r.score == 15
-    assert "weird-env" in r.reasons[0]
-    # Missing entirely is a milder signal
-    assert _eval(environment=None).score == 10
-    # Aliases are accepted
+def test_unknown_environment_adds_no_default_risk():
+    assert _eval(environment="weird-env").score == 0
+    assert _eval(environment=None).score == 0
+    # Aliases still canonicalize cleanly
     assert _eval(environment="prod").score == 0
     assert _eval(environment="dev").score == 0
+
+
+def test_metadata_free_clean_event_stays_allow():
+    # The auto-instrumentation-first contract: a clean event carrying only
+    # runtime data (model/tokens/status) with no governance metadata at all
+    # must remain no-risk / allow.
+    r = _eval(owner=None, team=None, environment=None)
+    assert r.score == 0 and r.reasons == [] and r.policy_action == "allow"
+
+
+def test_governance_rules_revive_via_override():
+    # Orgs that WANT metadata discipline can enable the rules explicitly;
+    # the DetectionRule override path still works.
+    rules = _enabled_override("missing_owner", "missing_team", "unknown_environment")
+    r = rp.evaluate_event(_db, ORG, _clean_event(owner=None, team=None, environment="weird-env"),
+                          rules=rules)
+    # medium severity => +15 each for owner/team, +15 for unknown env
+    assert r.score == 45 and len(r.reasons) == 3
+    # Absent (vs unrecognized) environment keeps its milder fixed +10
+    r2 = rp.evaluate_event(_db, ORG, _clean_event(environment=None),
+                           rules=_enabled_override("unknown_environment"))
+    assert r2.score == 10
 
 
 def test_unknown_provider():

@@ -281,6 +281,15 @@ Admins can tune the real-time rules from the Rules & Alerts page; the
   seeded. Editing one (enable/disable, severity, threshold) creates a
   per-org override row keyed by the rule's `rule_key`. Built-ins can be
   disabled but never deleted, so defaults are always restorable.
+- **Governance/attribution rules ship disabled by default.** Under
+  auto-instrumentation-first discovery, missing owner/team/environment is
+  an attribution-quality gap, not runtime risk — `missing_owner`,
+  `missing_team`, and `unknown_environment` add no score out of the box
+  and never make a clean event `warn` on their own. Orgs that want
+  metadata discipline enforced can enable any of them explicitly from
+  Rules & Alerts (a per-org override row); missing metadata still
+  surfaces as telemetry-quality nudges and optional-metadata suggestions
+  either way.
 - **Custom rules** are created only from approved templates
   (`app/detection_rule_templates.py`): cost / latency / token-usage
   thresholds, watched environments, watched providers/models, watched

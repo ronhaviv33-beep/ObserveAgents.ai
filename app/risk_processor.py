@@ -46,16 +46,24 @@ _ENV_ALIASES = {
 }
 
 
+# Governance/attribution rules that ship DISABLED by default: under
+# auto-instrumentation-first discovery, missing owner/team/environment is an
+# attribution-quality gap, not runtime risk. The rules stay in the catalog and
+# an org can enable any of them via a DetectionRule override (enable/severity),
+# but they add no score out of the box.
+_DEFAULT_OFF_RULES = frozenset({"missing_owner", "missing_team", "unknown_environment"})
+
 # Read-side catalog of the real-time risk rules above. Each entry maps the
 # stable prefix/substring of a risk_reason string back to a rule identity so
 # findings can report WHICH rule fired without re-evaluating anything.
 # Order matters: first match wins. Purely descriptive — never used in scoring.
+# default_enabled: False marks rules in _DEFAULT_OFF_RULES for read surfaces.
 RULE_CATALOG: list[dict] = [
     {"rule_id": "upstream_block",      "rule_name": "Upstream policy block",              "match": "Upstream policy blocked",        "weight": 25, "category": "security"},
     {"rule_id": "status_error",        "rule_name": "Event reported an error",            "match": "Event reported an error",        "weight": 25, "category": "operations"},
-    {"rule_id": "missing_owner",       "rule_name": "Agent has no owner",                 "match": "no registered owner",            "weight": 10, "category": "governance"},
-    {"rule_id": "missing_team",        "rule_name": "Agent has no team",                  "match": "no team assignment",             "weight": 10, "category": "governance"},
-    {"rule_id": "unknown_environment", "rule_name": "Unknown environment",                "match": "environment",                    "weight": 15, "category": "governance"},
+    {"rule_id": "missing_owner",       "rule_name": "Agent has no owner",                 "match": "no registered owner",            "weight": 10, "category": "governance", "default_enabled": False},
+    {"rule_id": "missing_team",        "rule_name": "Agent has no team",                  "match": "no team assignment",             "weight": 10, "category": "governance", "default_enabled": False},
+    {"rule_id": "unknown_environment", "rule_name": "Unknown environment",                "match": "environment",                    "weight": 15, "category": "governance", "default_enabled": False},
     {"rule_id": "unknown_provider",    "rule_name": "Unknown provider",                   "match": "provider",                       "weight": 10, "category": "security"},
     {"rule_id": "unknown_model",       "rule_name": "Model not in pricing registry",      "match": "not in pricing registry",        "weight": 15, "category": "cost"},
     {"rule_id": "cost_threshold",      "rule_name": "Cost exceeds threshold",             "match": "exceeds $",                      "weight": 20, "category": "cost"},
@@ -161,7 +169,9 @@ def evaluate_event(db: Session, org_id: int, event: dict, config: dict | None = 
 
     def _on(rule_key: str) -> bool:
         ov = overrides.get(rule_key)
-        return True if ov is None else ov["enabled"]
+        if ov is None:
+            return rule_key not in _DEFAULT_OFF_RULES
+        return ov["enabled"]
 
     def _w(rule_key: str, default: int) -> int:
         ov = overrides.get(rule_key)
@@ -203,13 +213,15 @@ def evaluate_event(db: Session, org_id: int, event: dict, config: dict | None = 
         hit(25, "Upstream policy blocked this action")
         blocked = True
 
-    # 3-4. Missing ownership metadata.
+    # 3-4. Missing ownership metadata — attribution gap, not runtime risk.
+    # Disabled by default (_DEFAULT_OFF_RULES); scores only when an org
+    # explicitly enables the rule via a DetectionRule override.
     if not (event.get("owner") or "").strip() and _on("missing_owner"):
         hit(_w("missing_owner", 10), "Agent has no registered owner")
     if not (team or "").strip() and _on("missing_team"):
         hit(_w("missing_team", 10), "Agent has no team assignment")
 
-    # 5. Unknown environment.
+    # 5. Unknown environment — same posture: default-off attribution nudge.
     if _on("unknown_environment"):
         if environment and canonical_env is None:
             hit(_w("unknown_environment", 15), f"Unknown environment '{environment}'")

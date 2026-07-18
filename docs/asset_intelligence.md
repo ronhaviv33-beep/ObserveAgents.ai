@@ -110,7 +110,7 @@ Agent-specific, environment-aware security findings derived from runtime evidenc
 | `agent_uses_mcp_tool_in_production` | MCP tool/method usage in production | high |
 | `agent_has_broad_tool_surface` | ≥ 5 distinct tools | medium · high if prod ∧ ≥ 8 |
 | `agent_uses_unknown_model_provider` | Provider missing or outside the known catalog | low · high prod |
-| `agent_missing_owner` | AssetRegistry has no owner/team | medium · high prod |
+| `agent_missing_owner` *(retired)* | No longer emitted — owner/team is optional attribution metadata, not a finding; legacy rows are cleaned at startup | — |
 | `repeated_tool_errors` | ≥ 3 tool/MCP error spans | medium · high prod |
 | `human_review_recommended` | High-risk runtime combination | medium · high if ≥ 2 reasons |
 
