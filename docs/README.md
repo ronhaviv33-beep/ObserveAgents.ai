@@ -13,16 +13,16 @@ ObserveAgents is an AI agent visibility and runtime evidence platform: see what 
 | [genai-semantic-conventions.md](genai-semantic-conventions.md) | Supported GenAI attributes, examples, attribute mapping, Telemetry Quality |
 | [privacy.md](privacy.md) | What is stored, what is redacted, privacy guarantees |
 | [troubleshooting.md](troubleshooting.md) | Common errors, Collector issues, FAQ |
-| [create_first_agent_guide.md](create_first_agent_guide.md) | Developer onboarding: build a local agent and send telemetry via OTLP or a gateway key |
+| [create_first_agent_guide.md](create_first_agent_guide.md) | Developer onboarding: build a local agent and send your first OTel trace via OTLP |
 | [otel_unmapped_fields_walkthrough.md](otel_unmapped_fields_walkthrough.md) | Walkthrough: OTLP agent with custom (unmapped) fields — quality scoring, attribute mapping, reprocess |
-| [telemetry_ingestion.md](telemetry_ingestion.md) | Batch telemetry ingestion: queue/worker, dedup, risk scoring, metrics, Agent Timeline |
-| [telemetry_post_merge_validation.md](telemetry_post_merge_validation.md) | Post-merge validation checklist for the telemetry ingestion pipeline |
 | [runtime-flow.md](runtime-flow.md) | Runtime processing and intelligence flow |
 
 ## Specialized specs (internal)
 
 | Doc | What it covers |
 |---|---|
+| [telemetry_ingestion.md](telemetry_ingestion.md) | Batch telemetry endpoint internals: queue/worker, dedup, risk scoring, metrics, Agent Timeline |
+| [telemetry_post_merge_validation.md](telemetry_post_merge_validation.md) | Post-merge validation checklist for the telemetry ingestion pipeline |
 | [auto_instrumentation_first_discovery_plan.md](auto_instrumentation_first_discovery_plan.md) | Auto-instrumentation-first discovery: levels, identity/confidence model, explicit-agent assumption audit |
 | [reasoning_observability_plan.md](reasoning_observability_plan.md) | Reasoning observability: structural signals, verdict-only scanning, forensic opt-in — structure, never content |
 | [asset_intelligence.md](asset_intelligence.md) | Capability/finding derivation, catalog, and API |
