@@ -208,7 +208,7 @@ Now look again:
 |---|---|
 | Connect a **real** agent that uses OpenTelemetry | [otel-deployment-guide.md](otel-deployment-guide.md) — from a first curl to a production Collector |
 | Understand everything the telemetry API can do (all fields, dedup, metrics) | [telemetry_ingestion.md](telemetry_ingestion.md) |
-| Use the Python SDK instead of raw HTTP | [sdk-guide.md](sdk-guide.md) |
+| The legacy runtime-events API reference | [sdk-guide.md](sdk-guide.md) |
 | Let GitHub Copilot write the agent for you | [Copilot prompts below](#bonus-let-github-copilot-write-it) |
 
 **Good to know:**

@@ -12,7 +12,7 @@ The single entry point for rolling out ObserveAgents in your organization — fr
 |---|---|
 | A business stakeholder, product leader, security leader, or manager | [Part 1 — Overview for stakeholders](#part-1--overview-for-stakeholders-non-technical) — what Observe does, what rollout involves, and what you need from your team. No technical knowledge needed. |
 | A platform engineer, security engineer, or engineering lead implementing Observe | [Part 2 — Technical rollout](#part-2--technical-rollout) — org setup, evidence paths, deployment, and verification. |
-| Looking for deep dives | [Further reading](#further-reading) — architecture, runtime flow, OTel deployment, and the SDK guide. |
+| Looking for deep dives | [Further reading](#further-reading) — architecture, runtime flow, and OTel deployment. |
 
 ---
 
@@ -287,7 +287,7 @@ Works with the OpenAI SDK, Anthropic SDK, LangChain, CrewAI, LiteLLM, MCP client
 
 The gateway runs in **advisory mode by default** — it observes, attributes, and estimates cost; it never blocks unless a team is explicitly moved to enforce mode later.
 
-Prefer connecting from application code with a lightweight wrapper instead of a base-URL change? See the [SDK guide](sdk-guide.md).
+Prefer connecting from application code instead of a base-URL change? Use standard OpenTelemetry instrumentation — see the [OTel deployment guide](otel-deployment-guide.md).
 
 ### Verify (both paths)
 
@@ -482,4 +482,4 @@ As systems connect, **Discovery Center** shows newly observed systems awaiting r
 | [architecture.md](architecture.md) | How the system is built — evidence sources, ingestion, derivation, and the product surfaces |
 | [runtime-flow.md](runtime-flow.md) | What happens to a trace end to end, from ingestion to timeline and findings |
 | [otel-deployment-guide.md](otel-deployment-guide.md) | OTel deployment in depth — endpoints, Collector patterns, and the full span attribute reference (MCP, workflows, agent identity) |
-| [sdk-guide.md](sdk-guide.md) | Connecting agents from application code with the lightweight SDK wrapper |
+| [sdk-guide.md](sdk-guide.md) | Runtime Events API reference (legacy — OTLP is the only recommended path) |

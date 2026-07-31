@@ -2,7 +2,7 @@
 
 ObserveAgents.ai accepts OpenTelemetry traces via OTLP/HTTP — **JSON and protobuf**. This guide takes a platform or DevOps engineer from a first curl smoke test to a production Collector deployment: agents that emit OTel spans are automatically catalogued, their model/tool/API dependencies are mapped, and provenance events are recorded for audit.
 
-There is no proprietary schema and no required vendor SDK — ObserveAgents consumes standard [OpenTelemetry GenAI Semantic Conventions](https://github.com/open-telemetry/semantic-conventions-genai) telemetry as-is. (If you prefer an SDK-attested integration instead of raw OTel export, see the [SDK guide](sdk-guide.md).)
+There is no proprietary schema and no vendor SDK — ObserveAgents consumes standard [OpenTelemetry GenAI Semantic Conventions](https://github.com/open-telemetry/semantic-conventions-genai) telemetry as-is. OpenTelemetry/OTLP is the only recommended integration path.
 
 For what the platform does with your spans after ingestion — timeline assembly, asset intelligence, findings — see [runtime-flow.md](runtime-flow.md).
 
@@ -528,8 +528,6 @@ trace.set_tracer_provider(provider)
 > When posting **directly from the SDK**, give the **full** path `…/otel/v1/traces`. The `/v1/traces` suffix is only auto-appended by the **Collector's** `otlphttp` exporter, not by the raw SDK exporter.
 
 The Collector then becomes the **production-hardening step** — central routing, filtering, and fan-out to other backends alongside ObserveAgents.
-
-If you'd rather use ObserveAgents' own SDK integration (attested agent identity rather than raw OTel export), see the [SDK guide](sdk-guide.md).
 
 ### Auto-instrumentation with OpenLLMetry — example: AWS Bedrock
 
