@@ -87,4 +87,4 @@ The three Layer-1 candidate rules follow the A-track principles: keyed on `asset
 
 - **O3 — content-free security verdicts**: Layer 2 is the same pattern applied to reasoning; they should ship as one scanning layer.
 - **Auto-instrumentation-first discovery track (A1–A8)**: the evidence-not-confidence rule governs all reasoning copy; the behavioral fingerprint that A-track discovery builds is the natural baseline for RO3's drift detection.
-- **Privacy guarantee** ([otel-deployment-guide.md](otel-deployment-guide.md#privacy-guarantee)): reasoning-bearing attributes fall under the same scrub-before-storage boundary as prompts and responses.
+- **Privacy guarantee** ([privacy.md](privacy.md)): reasoning-bearing attributes fall under the same scrub-before-storage boundary as prompts and responses.

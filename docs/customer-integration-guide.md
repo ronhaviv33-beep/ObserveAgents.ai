@@ -255,7 +255,7 @@ const exporter = new OTLPTraceExporter({
 
 **Python and other languages whose OTLP/HTTP exporters send protobuf:** point them directly at Observe (`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`), or route through the Collector above for production routing and processing.
 
-For the full OTel deployment reference — endpoints, attribute conventions, and Collector patterns — see [otel-deployment-guide.md](otel-deployment-guide.md).
+For the deployment walkthrough see [otel-deployment-guide.md](otel-deployment-guide.md); the endpoint contract is in [otlp-api-reference.md](otlp-api-reference.md) and the attribute conventions in [genai-semantic-conventions.md](genai-semantic-conventions.md).
 
 ### Path B — No OTel, but you call OpenAI/Anthropic-compatible APIs
 
@@ -391,7 +391,7 @@ with tracer.start_as_current_span("handle_customer_request"):
         update_crm(...)
 ```
 
-Full attribute reference (MCP, workflows, agent identity): [otel-deployment-guide.md](otel-deployment-guide.md).
+Full attribute reference (MCP, workflows, agent identity): [genai-semantic-conventions.md](genai-semantic-conventions.md).
 
 **Privacy note — you don't need to be careful about prompts:** even if instrumentation libraries attach `gen_ai.input.messages` / `gen_ai.output.messages` / `tool.arguments`, Observe scrubs them at ingestion and stores only a hash and byte size. Raw prompt/response content is never persisted.
 
@@ -481,4 +481,6 @@ As systems connect, **Discovery Center** shows newly observed systems awaiting r
 |---|---|
 | [architecture.md](architecture.md) | How the system is built — evidence sources, ingestion, derivation, and the product surfaces |
 | [runtime-flow.md](runtime-flow.md) | What happens to a trace end to end, from ingestion to timeline and findings |
-| [otel-deployment-guide.md](otel-deployment-guide.md) | OTel deployment in depth — endpoints, Collector patterns, and the full span attribute reference (MCP, workflows, agent identity) |
+| [otel-deployment-guide.md](otel-deployment-guide.md) | OTel deployment — quick start, direct SDK, Collector, verify |
+| [otlp-api-reference.md](otlp-api-reference.md) | The OTLP endpoint contract — request/response, auth, status codes, limits |
+| [genai-semantic-conventions.md](genai-semantic-conventions.md) | The full span attribute reference (GenAI, MCP, workflows, agent identity) |

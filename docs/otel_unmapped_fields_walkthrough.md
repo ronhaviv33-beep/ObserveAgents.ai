@@ -155,8 +155,8 @@ history → tell you the one thing only the source can fix.**
 - [ ] Reprocess counters returned (spans rescored / relationships created)
 - [ ] `deployment.environment` added at the source → agent reaches full classification
 
-Related: [otel-deployment-guide.md](otel-deployment-guide.md) (full OTLP
-reference, Collector, semantic conventions) ·
+Related: [otel-deployment-guide.md](otel-deployment-guide.md) (deployment) ·
+[otlp-api-reference.md](otlp-api-reference.md) (OTLP contract) ·
 [create_first_agent_guide.md](create_first_agent_guide.md) (first steps) ·
-Telemetry Quality concepts in the deployment guide's
-[Telemetry Quality](otel-deployment-guide.md#telemetry-quality) section.
+Telemetry Quality concepts in
+[genai-semantic-conventions.md](genai-semantic-conventions.md#telemetry-quality).

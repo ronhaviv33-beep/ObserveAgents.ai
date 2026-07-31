@@ -103,7 +103,7 @@ Runtime evidence is **structural metadata only**:
 - URLs are stored as scheme + host + path only — query strings, fragments, and credentials never persist.
 - Findings, security intelligence, and control recommendations carry **identifiers and counts only**: agent/tool/provider/model names, MCP methods, span counts, durations, error types.
 
-Full details: [docs/otel-deployment-guide.md](docs/otel-deployment-guide.md#privacy-guarantee) and [docs/ai_agent_runtime_security_intelligence.md](docs/ai_agent_runtime_security_intelligence.md).
+Full details: [docs/privacy.md](docs/privacy.md) and [docs/ai_agent_runtime_security_intelligence.md](docs/ai_agent_runtime_security_intelligence.md).
 
 ---
 
@@ -399,7 +399,11 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Overall platform architecture, startup chain, deployment |
 | [docs/customer-integration-guide.md](docs/customer-integration-guide.md) | Customer-facing integration guide (stakeholder + technical rollout) |
-| [docs/otel-deployment-guide.md](docs/otel-deployment-guide.md) | Complete OpenTelemetry deployment guide — OTLP format, GenAI attributes, privacy guarantee, Collector guidance |
+| [docs/otel-deployment-guide.md](docs/otel-deployment-guide.md) | OpenTelemetry deployment guide — quick start, direct SDK, Collector, verify |
+| [docs/otlp-api-reference.md](docs/otlp-api-reference.md) | OTLP API reference — endpoint, request/response, auth, status codes, limits |
+| [docs/genai-semantic-conventions.md](docs/genai-semantic-conventions.md) | Supported GenAI attributes, examples, attribute mapping, Telemetry Quality |
+| [docs/privacy.md](docs/privacy.md) | What is stored, what is redacted, privacy guarantees |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Common errors, Collector issues, FAQ |
 | [docs/runtime-flow.md](docs/runtime-flow.md) | Runtime processing and intelligence flow |
 
 **Specialized specs**

@@ -8,7 +8,11 @@ ObserveAgents is an AI agent visibility and runtime evidence platform: see what 
 |---|---|
 | [architecture.md](architecture.md) | Overall platform architecture |
 | [customer-integration-guide.md](customer-integration-guide.md) | Customer-facing integration guide (stakeholder + technical rollout) |
-| [otel-deployment-guide.md](otel-deployment-guide.md) | Complete OpenTelemetry deployment guide |
+| [otel-deployment-guide.md](otel-deployment-guide.md) | OpenTelemetry deployment guide — quick start, direct SDK, Collector, verify |
+| [otlp-api-reference.md](otlp-api-reference.md) | OTLP API reference — endpoint, request/response, auth, status codes, limits |
+| [genai-semantic-conventions.md](genai-semantic-conventions.md) | Supported GenAI attributes, examples, attribute mapping, Telemetry Quality |
+| [privacy.md](privacy.md) | What is stored, what is redacted, privacy guarantees |
+| [troubleshooting.md](troubleshooting.md) | Common errors, Collector issues, FAQ |
 | [create_first_agent_guide.md](create_first_agent_guide.md) | Developer onboarding: build a local agent and send telemetry via OTLP or a gateway key |
 | [otel_unmapped_fields_walkthrough.md](otel_unmapped_fields_walkthrough.md) | Walkthrough: OTLP agent with custom (unmapped) fields — quality scoring, attribute mapping, reprocess |
 | [telemetry_ingestion.md](telemetry_ingestion.md) | Batch telemetry ingestion: queue/worker, dedup, risk scoring, metrics, Agent Timeline |
