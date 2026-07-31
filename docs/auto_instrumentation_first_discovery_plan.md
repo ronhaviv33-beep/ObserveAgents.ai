@@ -133,7 +133,7 @@ Forbidden (never stored, scrubbed at ingestion):
 - credentials
 - full URLs with query strings
 
-This matches the existing privacy pipeline (`app/otel_privacy.py:scrub_attributes` replaces content-bearing keys with `{redacted, sha256, size_bytes}` before storage; the runtime-events schema rejects unknown fields with `422`). No change needed — the evidence model is already auto-instrumentation-safe.
+This matches the existing privacy pipeline (`app/otel_privacy.py:scrub_attributes` replaces content-bearing keys with `{redacted, sha256, size_bytes}` before storage). No change needed — the evidence model is already auto-instrumentation-safe.
 
 ## UI implications
 

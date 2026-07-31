@@ -3,8 +3,8 @@
 The telemetry ingestion layer turns AI-agent activity into **operational
 evidence**: every event an agent emits becomes something a user can search,
 measure, investigate, and control. This document covers the MVP ingestion
-pipeline shipped alongside the existing OTLP (`POST /otel/v1/traces`) and legacy
-runtime-events (`POST /runtime-events`) routes — both of which are unchanged.
+pipeline shipped alongside the existing OTLP (`POST /otel/v1/traces`) route,
+which is unchanged.
 
 ## Architecture
 

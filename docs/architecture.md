@@ -5,7 +5,6 @@
 This document describes the system as implemented today. Companion docs:
 - [runtime-flow.md](runtime-flow.md) — runtime processing and intelligence flow
 - [otel-deployment-guide.md](otel-deployment-guide.md) — complete OpenTelemetry deployment guide
-- [sdk-guide.md](sdk-guide.md) — Runtime Events API reference (legacy)
 - [customer-integration-guide.md](customer-integration-guide.md) — customer-facing integration guide
 - [product_discovery_model.md](product_discovery_model.md) — the Runtime + Ecosystem discovery product model
 - [asset_intelligence.md](asset_intelligence.md) — capability/finding derivation and API
@@ -129,7 +128,7 @@ Startup order: `Base.metadata.create_all` → `run_alembic_migrations()` (fresh 
 
 ### 2.3 Ingestion pipelines
 
-Integration-specific parsing lives in the **ingestion layer** (`app/ingestion/`): each evidence source is one module exposing `parse(payload) -> list[RuntimeSpan]`, where `RuntimeSpan` (a `TypedDict` in `app/ingestion/__init__.py`) is the flat span shape `normalize_spans()` accepts. OTel (`app/ingestion/otel.py`, wrapping `app/otel_parser.py`) and runtime events (`app/ingestion/sdk.py`, wrapping `app/runtime_events.py:to_span_dict` — legacy, under review for removal) both return it; the Runtime pipeline downstream is source-agnostic. Adding an integration (LangGraph, MCP, …) means adding one module with one `parse` function plus a route that authenticates, parses, and calls `normalize_spans`.
+Integration-specific parsing lives in the **ingestion layer** (`app/ingestion/`): each evidence source is one module exposing `parse(payload) -> list[RuntimeSpan]`, where `RuntimeSpan` (a `TypedDict` in `app/ingestion/__init__.py`) is the flat span shape `normalize_spans()` accepts. OTel (`app/ingestion/otel.py`, wrapping `app/otel_parser.py`) returns it; the Runtime pipeline downstream is source-agnostic. Adding an integration (LangGraph, MCP, …) means adding one module with one `parse` function plus a route that authenticates, parses, and calls `normalize_spans`.
 
 **OTel path** (primary): `POST /otel/v1/traces` → `app/ingestion/otel.py:parse_otlp` → per span: scrub → identity → registry upsert → genai/tool/db/api/workflow detection → relationship upsert → `OtelSpan` insert (skip duplicates) → `ProvenanceEvent` → per batch: `otel_assets` upsert (models/providers/tools/dependencies arrays, trace/span counts, first/last seen). Returns 202 with a creation summary.
 

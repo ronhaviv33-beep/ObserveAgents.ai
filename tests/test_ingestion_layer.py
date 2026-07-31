@@ -31,9 +31,7 @@ from app.database import SessionLocal
 from app.models import Organization, User, OtelSpan
 from app.auth import hash_password, create_token
 from app.ingestion import otel as otel_ingestion
-from app.ingestion import sdk as sdk_ingestion
 from app.otel_parser import parse_otlp_json, parse_otlp_protobuf
-from app.runtime_events import RuntimeEvent, to_span_dict
 
 _client = TestClient(app, raise_server_exceptions=True)
 _client.get("/health")
@@ -113,30 +111,13 @@ def test_otel_parse_protobuf_equals_legacy_parser():
     assert legacy_count == 1 and len(legacy_spans) == 1
 
 
-def test_sdk_parse_equals_legacy_adapter():
-    event = RuntimeEvent.model_validate({
-        "source": "sdk",
-        "agent_name": "web-research-agent",
-        "trace_id": uuid.uuid4().hex,
-        "span_id": uuid.uuid4().hex[:16],
-        "event_type": "llm_call",
-        "provider": "openai",
-        "model": "gpt-4o",
-        "environment": "production",
-        "timestamp": "2026-07-10T14:22:07Z",
-        "duration_ms": 1200,
-    })
-    assert sdk_ingestion.parse([event]) == [to_span_dict(event)]
-    assert sdk_ingestion.parse([]) == []
-
-
 def test_empty_otlp_envelope_yields_no_spans_but_counts_envelope():
     body = {"resourceSpans": [{"resource": {"attributes": []}, "scopeSpans": []}]}
     spans, count = otel_ingestion.parse_otlp(body)
     assert spans == [] and count == 1
 
 
-# ── End-to-end: both endpoints still ingest through the layer ─────────────────
+# ── End-to-end: the OTLP endpoint ingests through the layer ───────────────────
 
 def test_otlp_json_post_ingests_span():
     db = SessionLocal()
@@ -175,23 +156,3 @@ def test_otlp_protobuf_post_ingests_span():
         db.close()
 
 
-def test_runtime_events_post_ingests_span():
-    db = SessionLocal()
-    try:
-        org, token = _org(db, "sdk")
-        r = _client.post("/runtime-events",
-                         json={"events": [{
-                             "source": "sdk",
-                             "agent_name": "web-research-agent",
-                             "trace_id": uuid.uuid4().hex,
-                             "span_id": uuid.uuid4().hex[:16],
-                             "event_type": "llm_call",
-                             "provider": "openai",
-                             "model": "gpt-4o",
-                         }]},
-                         headers={"Authorization": f"Bearer {token}"})
-        assert r.status_code == 202, r.text
-        assert r.json()["events"] == 1 and r.json()["spans"] == 1
-        assert db.query(OtelSpan).filter(OtelSpan.organization_id == org.id).count() == 1
-    finally:
-        db.close()

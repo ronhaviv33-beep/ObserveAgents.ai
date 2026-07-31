@@ -27,6 +27,4 @@ test:
 			echo "-- $$base (pytest)"; python -m pytest $$f -q --no-header -p no:cacheprovider >/dev/null; \
 		fi; \
 	done
-	@echo "=== Running SDK tests ==="
-	python -m pytest sdk/python/tests -q --no-header -p no:cacheprovider
 	@echo "=== Full test sweep passed ==="

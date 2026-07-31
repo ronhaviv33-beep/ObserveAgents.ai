@@ -11,14 +11,11 @@ integration-specific parsing.
 
 Current integrations:
   - app/ingestion/otel.py  — OpenTelemetry OTLP/HTTP (JSON + protobuf)
-  - app/ingestion/sdk.py   — ObserveAgents SDK runtime events
 
 To add an integration: create app/ingestion/<name>.py with
 parse(payload) -> list[RuntimeSpan], then wire a route that authenticates,
-parses, and calls normalize_spans — exactly like app/routes/otel.py and
-app/routes/runtime_events.py do. (The pydantic RuntimeEvent in
-app/runtime_events.py is the SDK's HTTP wire schema; RuntimeSpan is the
-internal structure every integration converges on.)
+parses, and calls normalize_spans — exactly like app/routes/otel.py does.
+(RuntimeSpan is the internal structure every integration converges on.)
 """
 from __future__ import annotations
 

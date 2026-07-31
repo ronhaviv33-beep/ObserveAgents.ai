@@ -482,4 +482,3 @@ As systems connect, **Discovery Center** shows newly observed systems awaiting r
 | [architecture.md](architecture.md) | How the system is built — evidence sources, ingestion, derivation, and the product surfaces |
 | [runtime-flow.md](runtime-flow.md) | What happens to a trace end to end, from ingestion to timeline and findings |
 | [otel-deployment-guide.md](otel-deployment-guide.md) | OTel deployment in depth — endpoints, Collector patterns, and the full span attribute reference (MCP, workflows, agent identity) |
-| [sdk-guide.md](sdk-guide.md) | Runtime Events API reference (legacy — OTLP is the only recommended path) |

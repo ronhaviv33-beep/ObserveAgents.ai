@@ -24,8 +24,9 @@ end-to-end. Companion design doc: [telemetry_ingestion.md](telemetry_ingestion.m
 | Agent Timeline UI | `dashboard/src/pages/AgentTimeline.jsx` | Observe → Agent Timeline nav entry; also reachable from Agent Inventory row "Timeline" actions; shows timestamp, event type, model/provider, tool/action, latency, cost, status, risk badge, and a one-line explanation |
 | Role visibility backfill | `app/roles.py`, `dashboard/src/auth.jsx` | `agent_timeline` added to all seeded role page lists; the role seeder backfills existing orgs on boot (bug found during pre-merge validation, fixed in `4e775b5`) |
 
-Existing `/otel/v1/traces` and `/runtime-events` ingestion routes are
-**unchanged** (their suites pass unchanged — see §4).
+The existing `/otel/v1/traces` ingestion route is **unchanged** (its suite
+passes unchanged — see §4). (`/runtime-events` was later removed under the
+OTLP-native decision.)
 
 ## 2. Deployment checklist
 
@@ -34,7 +35,7 @@ Existing `/otel/v1/traces` and `/runtime-events` ingestion routes are
 - [x] **Worker runs in-process** — a daemon thread inside the web process, started from `app/startup.py:start_telemetry_worker()` during boot.
 - [x] **Kill switch** — `TELEMETRY_WORKER_ENABLED=false` prevents the worker thread from starting (queue rows accumulate as `pending` until re-enabled).
 - [x] **Test/debug mode** — `TELEMETRY_WORKER_MODE=inline` skips the thread and drains the queue synchronously inside the API request; used by the test suite, not for production.
-- [x] **Existing `gk-` API keys work** — the batch endpoint authenticates exactly like `/otel/v1/traces` and `/runtime-events`; no new credential type.
+- [x] **Existing `gk-` API keys work** — the batch endpoint authenticates exactly like `/otel/v1/traces`; no new credential type.
 - [x] **No new frontend env vars** — the dashboard needs only its normal `npm run build`.
 
 ## 3. Migration checklist
@@ -61,7 +62,6 @@ python -m pytest tests/test_agent_timeline_api.py -q          # 6 passed
 python -m pytest tests/test_telemetry_batch_load.py -q        # 1 passed (1,000-event batch)
 
 # Existing ingestion routes (regression guard)
-python -m pytest tests/test_runtime_events.py -q              # 9 passed
 python -m pytest tests/test_otel_ingestion.py -q              # 17 passed
 
 # Isolation/structural harnesses
