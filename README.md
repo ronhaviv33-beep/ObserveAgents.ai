@@ -38,7 +38,7 @@ OTel / OTLP  →  Runtime  →  Asset Intelligence  →  Security Intelligence
 
 ## The product experience
 
-One production app, two connected workspaces, built on the **ui2 design system** (evidence-first, risk-first, dark console — see [docs/ui_redesign_plan.md](docs/ui_redesign_plan.md)):
+One production app, two connected workspaces, built on the **ui2 design system** (evidence-first, risk-first):
 
 ### Observe workspace — runtime evidence into understanding
 
@@ -64,7 +64,7 @@ The design principles behind every screen: **evidence-first** (a number without 
 
 ---
 
-## 🚀 Observability Quick Start
+## 🚀 Quick Start
 
 **Your starting point:** create an API key in the dashboard (**API Keys** → New — it starts with `gk-`), then pick the fastest path. Every path ends the same way: **open Runtime and watch your first trace appear.**
 
@@ -93,44 +93,6 @@ OTEL_SERVICE_NAME=my-agent
 OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production
 ```
 
-### Path C — Richest auto-instrumentation (open-source, no proprietary SDK)
-
-[OpenLLMetry](https://github.com/traceloop/openllmetry) auto-instruments OpenAI, Anthropic, Bedrock, LangChain, LlamaIndex, CrewAI, vector DBs and more — and emits **standard OpenTelemetry** that Observe consumes:
-
-```python
-pip install traceloop-sdk
-
-from traceloop.sdk import Traceloop
-Traceloop.init()   # OTLP/HTTP protobuf → straight to Observe
-```
-
-Point its exporter directly at Observe (`OTEL_EXPORTER_OTLP_ENDPOINT=https://<observe>/otel` + your `gk-` key — [details](docs/otel-deployment-guide.md#direct-otlp-protobuf-quick-start)), or through your Collector for production routing. Two lines of code, full GenAI traces — with the open standard, not a vendor SDK.
-
----
-
-## 🔌 Gateway Quick Start
-
-For organizations that do not want — or cannot — instrument every application. One `base_url` change puts AI traffic behind a controlled endpoint:
-
-**1. Point your existing client at the gateway endpoint** (one line):
-
-```python
-# Before
-client = openai.OpenAI(api_key="sk-...")
-
-# After — one line change
-client = openai.OpenAI(
-    base_url="https://gateway.observeagents.ai/v1",
-    api_key="YOUR_GATEWAY_KEY",
-)
-```
-
-**No proprietary SDK required.** Works with OpenAI SDK, LangChain, CrewAI, LiteLLM, OpenAI Agents SDK, MCP Clients, Agno, PydanticAI, Vercel AI SDK, and any OpenAI-compatible client (Anthropic SDKs via `/v1/messages`).
-
-**2. Configure provider credentials** — add your provider keys (BYOK) on the **Providers** page; stored encrypted per organization.
-
-**3. Set budgets, policies, and rate limits** — per team or agent. Everything starts advisory: **observe → alert → enforce**, and nothing blocks until a team is explicitly set to enforce.
-
 ---
 
 ## Privacy guarantee
@@ -148,39 +110,44 @@ Full details: [docs/otel-deployment-guide.md](docs/otel-deployment-guide.md#priv
 ## Architecture
 
 ```
-   Observability (OTLP)          Gateway (/v1 proxy)
-┌────────────────────────┐   ┌──────────────────────────┐
-│ OTel exporter /        │   │ OpenAI / Anthropic SDKs  │
-│ Collector / OpenLLMetry│   │ (base_url change only)   │
-│          │             │   │           │              │
-│          ▼             │   │           ▼              │
-│ POST /otel/v1/traces   │   │ POST /v1/chat/completions│
-│ (JSON + protobuf)      │   │ POST /v1/messages        │
-│          │             │   │           │              │
-│   privacy scrub        │   │      guard modes         │
-│   (prompts never       │   │  (observe/alert/enforce) │
-│    stored)             │   │                          │
-└──────────┬─────────────┘   └───────────┬──────────────┘
-           ▼                             ▼
-   otel_spans · otel_assets · telemetry · provenance_events
-           │
-           ▼
+        Customer runtime
+              │
+              ▼
+   OpenTelemetry instrumentation
+   (standard OTel SDKs · auto-instrumentation)
+              │
+              ▼
+   OTLP — direct or via OpenTelemetry Collector
+              │
+              ▼
+   POST /otel/v1/traces   (OTLP/HTTP JSON + protobuf)
+              │
+        privacy scrub   (prompts never stored)
+              │
+              ▼
+   otel_spans · otel_assets · provenance_events
+              │
+              ▼
    asset_registry   (agent inventory, ownership, lifecycle, and context)
-           │
-           ▼
+              │
+              ▼
    derive_asset_intelligence()
    asset_capabilities · asset_findings
    ├─ runtime security intelligence  (source=runtime_security)
    ├─ detection rules                (source=detection_rules)
    │     └─ webhook notifications  (post-commit, cooldown-throttled)
    └─ gateway control candidates     (category=control)
-           │
-           ▼
+              │
+              ▼
         ui2 dashboard — one app, two workspaces
    Observe:  Overview · Runtime · Asset Intelligence ·
              Security Intelligence · Rules & Alerts · Platform Guide
    Gateway Control:  Control Center · Providers · Budgets · Pricing
 ```
+
+**One ingestion standard.** OpenTelemetry owns telemetry collection; ObserveAgents owns the intelligence on top of it — no proprietary wrapper, no competing telemetry path ([decision record](docs/otlp_native_audit.md)).
+
+**Optional control path (not an ingestion alternative):** for agents that need enforcement, the Gateway proxies AI traffic via a provider-SDK `base_url` change (`POST /v1/chat/completions` · `POST /v1/messages`) through guard modes (observe / alert / enforce), recording proxied-call `telemetry` (tokens, cost, latency). Nothing is enforced until a team is explicitly set to enforce.
 
 One backend, one database. The intelligence layer is **derivation-only and idempotent** — running it twice never duplicates a finding; recurring evidence lands as an `occurrence_count` on one row, never as row spam.
 
@@ -284,7 +251,7 @@ CREDENTIAL_ENCRYPTION_KEY=                # Fernet key for BYOK credential stora
 python scripts/seed_demo_data.py
 ```
 
-Seeds the **Acme AI Operations** demo org with five realistic AI systems through the real OTel ingestion pipeline — traces, timelines, capabilities, and findings. Idempotent; all data synthetic. Log in with `demo@observeagents.ai` / `Demo123!`, then open **Runtime** and **Asset Intelligence**. See [docs/demo_seed_data.md](docs/demo_seed_data.md).
+Seeds the **Acme AI Operations** demo org with five realistic AI systems through the real OTel ingestion pipeline — traces, timelines, capabilities, and findings. Idempotent; all data synthetic. Log in with `demo@observeagents.ai` / `Demo123!`, then open **Runtime** and **Asset Intelligence**.
 
 ---
 
@@ -317,7 +284,7 @@ POST /budgets · GET /budgets/status       # Budget rules + live spend
 GET  /pricing-registry                    # Versioned pricing (org overrides merged)
 ```
 
-Full interactive docs at `http://localhost:8000/docs`. For a complete UI-facing contract with real response samples, see [docs/ui_contract.md](docs/ui_contract.md).
+Full interactive docs at `http://localhost:8000/docs`.
 
 ### Gateway proxy usage
 
@@ -434,7 +401,7 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 | ✅ | Asset Intelligence — capabilities + findings per AI system, idempotent derivation with occurrence dedup |
 | ✅ | AI Agent Runtime Security Intelligence — agent-specific, environment-aware security findings ([docs](docs/ai_agent_runtime_security_intelligence.md)) |
 | ✅ | Gateway Control Center (GCR2–GCR4) — Observe-to-Control candidates, evidence-backed suggested controls, one-click navigation ([docs](docs/gateway_control_center_architecture.md)) |
-| ✅ | **ui2 redesign** — new design system, six migrated pages, workspace shell ([plan](docs/ui_redesign_plan.md), [UI contract](docs/ui_contract.md)) |
+| ✅ | **ui2 redesign** — new design system, migrated pages, workspace shell |
 | ✅ | Advisory Guardrails — observe-only guardrail catalog + per-team guard modes |
 | ✅ | OpenAI-compatible + Anthropic-compatible proxies with real streaming |
 | ✅ | BYOK, budgets, model policies, audit log, JWT auth + RBAC |
@@ -477,8 +444,7 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 | [docs/ai_agent_runtime_security_intelligence.md](docs/ai_agent_runtime_security_intelligence.md) | Runtime security finding types and evidence rules |
 | [docs/gateway_control_center_architecture.md](docs/gateway_control_center_architecture.md) | Observe-to-Control architecture and candidate model |
 | [docs/ai_agent_detection_rules_alerts_design.md](docs/ai_agent_detection_rules_alerts_design.md) | Detection Rules & Alerts design — rule templates, evaluation model, webhook notifications, R0–R8 sequence |
-| [docs/ui_redesign_plan.md](docs/ui_redesign_plan.md) | ui2 design system and page migration plan |
-| [docs/ui_contract.md](docs/ui_contract.md) | The UI ↔ API contract with real response samples |
+| [docs/otlp_native_audit.md](docs/otlp_native_audit.md) | The OTLP-native decision record — why the proprietary SDK and runtime-events API were removed |
 | [docs/roadmap.md](docs/roadmap.md) | Phased forward roadmap (O-phases, Observe Advisor) |
 
 ---
