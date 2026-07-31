@@ -166,15 +166,6 @@ One backend, one database. The intelligence layer is **derivation-only and idemp
 - **Advisory Guardrails** — observe-only: detect, explain, recommend; nothing is blocked
 - **Ownership** — claim assets, assign owner/team; `agent_missing_owner` findings drive the "Agent needs owner" attention card
 
-### Gateway
-
-- **OpenAI-compatible** (`/v1/chat/completions`) and **Anthropic-compatible** (`/v1/messages`) proxies with real SSE streaming and full body passthrough
-- **Pipeline on every proxied call** (advisory by default): policy check → budget check → provider call → telemetry (tokens, cost, latency) → relationship capture. Blocking only for teams explicitly set to **enforce**
-- **BYOK** — per-org provider credentials, Fernet-encrypted; provider routing by model prefix (`claude-*` → Anthropic, `gemini-*` → Google, `llama-*` → local)
-- **Budgets & policies** — daily/monthly thresholds and model allow/blocklists per team or agent
-- **Runtime Dependency Map** — header-based relationship capture (`X-Agent-Name`, `X-MCP-Server`, `X-MCP-Tool`, …) into a filterable graph
-- **Cost Intelligence** — three layers: runtime estimate (tokens × versioned pricing), provider billed (invoice import), reconciliation variance
-
 ### Shared spine
 
 - **AI Agent Inventory** — two-tier discovery (verified / potential), stable `asset_key` identity, CMDB lifecycle (`unassigned → managed → retired`)
