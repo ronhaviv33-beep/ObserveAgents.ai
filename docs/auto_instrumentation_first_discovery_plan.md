@@ -202,7 +202,7 @@ Keep as optional accuracy boosters:
 | A4 | "Runtime-discovered AI Workload" labeling alongside Explicit Agent | ✅ shipped |
 | A5 | Discovery evidence beyond Asset Intelligence (Security Intelligence badges, Overview runtime-discovered count) | ✅ shipped |
 | A6 | UI copy update pass | ✅ shipped |
-| A7 | Optional ObserveAgents SDK wrapper for higher accuracy (exists for OpenAI; keep expanding) | ongoing |
+| A7 | Explicit naming/session grouping via standard OTel attributes (the proprietary wrapper was removed — OTLP-native decision) | reframed |
 | A8 | Configured AI vs Runtime AI reconciliation | later |
 
 ## Current explicit-agent assumptions
@@ -234,7 +234,7 @@ Audit of main @ `7fd192a`. Impact legend: **BLOCKS** = contradicts auto-first by
 | `dashboard/pages/Setup.jsx` ~97–103 | "Follow the GenAI semantic conventions" step lacks the "Optional:" prefix its sibling steps have | Reads as required | **Change now** (fixed in this PR: "Recommended:") |
 | `dashboard/pages/AssetIntelligenceV2.jsx` ~138–142 | Stale sort comment mentions a "missing owner" ranking signal that isn't in the code | Comment-only | **Change now** (fixed in this PR) |
 | `docs/create_first_agent_guide.md` ~52–54, ~77–79 | Demo sends `team`/`owner` unconditionally with no "optional" note | Minor framing | **Change now** (fixed in this PR: one-line note) |
-| `docs/sdk-guide.md` ~99–107 | The ObserveAgents SDK wrapper requires an explicit `agent_name` | Intrinsic to the manual SDK path; the OTel path needs none | **Keep** — the SDK *is* the optional explicit path; guide already points at OTel as the no-name alternative |
+| `docs/sdk-guide.md` (former wrapper section) | The ObserveAgents SDK wrapper required an explicit `agent_name` | Superseded | **Resolved** — the wrapper was removed (OTLP-native decision); explicit naming now happens via standard OTel resource attributes |
 | `app/runtime_security_intelligence.py` ~308, ~341, ~402 / `app/detection_rules.py` ~122 | Production-gated findings/rules are silent without `deployment.environment`; severity escalation drops | QUALITY | **Keep** — by design; telemetry-quality surface already nudges for the environment attribute |
 | `app/gateway_control.py` (interaction with severity capping) | Fallback-identity assets rarely reach the high-severity trigger, so they seldom become Gateway control candidates | QUALITY | **Keep** — intended safety trade-off (don't recommend controls on unverified identities); document |
 | `app/asset_intelligence.py` `unknown_model` (~469), `telemetry_quality_incomplete` (~482) | Low/info-severity findings fire specifically for sparse auto-telemetry | QUALITY | **Keep** — they are the "optional setup improvements" channel; keep severity at low/info |

@@ -5,19 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "observeagents"
 version = "0.1.0"
-description = "ObserveAgents Python SDK — wrap your OpenAI client and send safe, content-free runtime events to the ObserveAgents platform."
+description = "ObserveAgents Python SDK — low-level helpers for sending safe, content-free runtime events to the ObserveAgents platform. OpenTelemetry/OTLP is the recommended integration path."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Proprietary" }
 authors = [{ name = "ObserveAgents" }]
-keywords = ["ai", "agents", "observability", "openai", "runtime"]
+keywords = ["ai", "agents", "observability", "runtime"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
 # Zero runtime dependencies by design: transport uses the standard library.
-# The `openai` package is only needed by apps that call OpenAI (which is the point),
-# and is imported lazily — so it is deliberately not a hard dependency.
 dependencies = []
 
 [project.urls]

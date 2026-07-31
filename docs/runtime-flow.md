@@ -136,5 +136,5 @@ Security is one layer among eight: a `shell_enabled` finding and a `slow_tool_ca
 - [ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md) — detection rules design and rollout phases
 - [product_discovery_model.md](product_discovery_model.md) — the Runtime + Ecosystem discovery product model, intelligence layers, execution-timeline concepts
 - [otel-deployment-guide.md](otel-deployment-guide.md) — deploying OTel export into this pipeline
-- [sdk-guide.md](sdk-guide.md) — the ObserveAgents SDK ingestion path
+- [sdk-guide.md](sdk-guide.md) — Runtime Events API reference (legacy)
 - [customer-integration-guide.md](customer-integration-guide.md) — end-to-end customer onboarding

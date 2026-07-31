@@ -1,13 +1,16 @@
 """
-ObserveAgents Python SDK — the first low-friction adapter over POST /runtime-events.
+ObserveAgents Python SDK — low-level helpers for POST /runtime-events.
 
-Wrap your OpenAI client with `ObserveOpenAI` and every chat-completion call emits one
-safe `llm_call` runtime event (metadata only, never content) to ObserveAgents, where the
-existing intelligence engine derives assets, findings, detection rules, and control
-candidates. See docs/sdk-guide.md.
+The recommended way to send runtime evidence to ObserveAgents is OpenTelemetry:
+instrument your runtime with standard OTel libraries and export OTLP (directly or
+through an OpenTelemetry Collector) to ObserveAgents ingestion. See
+docs/otel-deployment-guide.md.
+
+This package keeps only the content-free runtime-events building blocks
+(`observeagents.events`, `observeagents.client`, `observeagents.privacy`,
+`observeagents.ids`); it contains no provider-specific wrapper.
 """
-from observeagents.openai import ObserveOpenAI
 
 __version__ = "0.1.0"
 
-__all__ = ["ObserveOpenAI", "__version__"]
+__all__ = ["__version__"]

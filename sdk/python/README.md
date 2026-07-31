@@ -1,12 +1,30 @@
 # observeagents — Python SDK
 
-**See what your AI agents are actually doing.** Wrap your OpenAI client with one class and
-every chat-completion call sends one safe, **content-free** runtime event to your
-[ObserveAgents](https://www.observeagents.ai) workspace — where your agents are discovered
-automatically, with their model calls, latency, errors, token usage, and derived security
-findings.
+**See what your AI agents are actually doing.** ObserveAgents discovers your agents
+automatically from runtime evidence — model calls, latency, errors, token usage, and
+derived security findings — in your [ObserveAgents](https://www.observeagents.ai)
+workspace.
 
 > **Observe first. Control only what matters.**
+
+## Recommended integration: OpenTelemetry
+
+The recommended way to send runtime evidence to ObserveAgents is **standard
+OpenTelemetry instrumentation** exporting **OTLP** — directly or through an
+OpenTelemetry Collector. No proprietary wrapper, no changes to your provider clients,
+and it works with any AI provider (OpenAI, Anthropic, Google, local models, internal
+services).
+
+```
+Your runtime → OpenTelemetry instrumentation → OTLP / OTel Collector → ObserveAgents
+```
+
+## What this package contains
+
+Low-level, content-free building blocks for the `POST /runtime-events` API
+(`observeagents.events`, `observeagents.client`, `observeagents.privacy`,
+`observeagents.ids`). It contains **no provider-specific wrapper**. This package is
+under architectural review — see `docs/otlp_native_audit.md` in the repository.
 
 ## Install
 
@@ -16,46 +34,14 @@ pip install observeagents
 
 Zero runtime dependencies (standard library only).
 
-## Use
-
-```python
-from observeagents import ObserveOpenAI
-
-client = ObserveOpenAI(
-    openai_api_key="sk-...",
-    observeagents_api_key="gk-...",     # from your ObserveAgents workspace → API Keys
-    agent_name="support-agent",
-    environment="production",
-)
-
-response = client.chat.completions.create(
-    model="gpt-4.1-mini",
-    messages=[{"role": "user", "content": "Hello"}],
-)
-```
-
-`ObserveOpenAI` is a drop-in replacement for the OpenAI client: same call signature, same
-return value, same exceptions. All settings are also available as environment variables
-(`OBSERVEAGENTS_API_KEY`, `OBSERVEAGENTS_AGENT_NAME`, `OBSERVEAGENTS_URL`,
-`OBSERVEAGENTS_ENVIRONMENT`, `OBSERVEAGENTS_TEAM_HINT`, `OBSERVEAGENTS_OWNER_HINT`).
-
 ## Privacy — hard guarantees
 
 The SDK **never** sends prompts, messages, responses, system instructions, tool
 arguments/results, headers, or credentials to ObserveAgents. Events carry metadata only:
 agent name, provider, model, duration, status, error **class name**, token counts, and
-trace/span/session ids. Your OpenAI API key is used only to construct the OpenAI client
-and never appears in any event.
+trace/span/session ids.
 
 ## Fail-open
 
-If ObserveAgents is unreachable, your LLM calls are unaffected — event delivery is
-best-effort with a ~2s budget and never raises into your call path. If the OpenAI call
-fails, your original exception is re-raised unchanged.
-
-## Not just OpenAI
-
-The platform observes agents on **any AI provider with an API** — Claude (Anthropic),
-Google, local models, internal services. `ObserveOpenAI` is the first drop-in wrapper;
-other providers connect today with a few lines against the same runtime-events API
-(see the Python SDK Quickstart), and native Anthropic/LiteLLM wrappers are on the roadmap.
+Event delivery is best-effort with a ~2s budget and never raises into your call path —
+if ObserveAgents is unreachable, your application is unaffected.
