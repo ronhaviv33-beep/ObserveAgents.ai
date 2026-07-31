@@ -286,31 +286,6 @@ GET  /pricing-registry                    # Versioned pricing (org overrides mer
 
 Full interactive docs at `http://localhost:8000/docs`.
 
-### Gateway proxy usage
-
-```python
-import openai
-
-client = openai.OpenAI(
-    base_url="http://localhost:8000/v1",
-    api_key="<jwt from POST /auth/login>",
-)
-
-response = client.chat.completions.create(
-    model="gpt-4o-mini",
-    messages=[{"role": "user", "content": "Hello"}],
-    extra_headers={
-        "X-Guard-Team":     "SOC",           # policy + budget attribution
-        "X-Guard-Agent":    "my-agent",      # agent identity in telemetry
-        "X-MCP-Server":     "hubspot-mcp",   # optional: dependency mapping
-        "X-MCP-Tool":       "create_lead",
-        "X-Agent-Relation": "uses_tool",
-    },
-)
-```
-
-Anthropic SDKs work the same way against `/v1/messages` (`base_url="http://localhost:8000"`). Other relationship headers: `X-Agent-Name`, `X-Agent-Workflow`, `X-Agent-Target`, `X-Workflow-Provider`, `X-Workflow-Name`.
-
 ---
 
 ## Data model
