@@ -11,7 +11,7 @@ ObserveAgents is the **runtime visibility and control layer for AI agents**: it 
 | Phase | Theme | Summary |
 |---|---|---|
 | O1 | Ecosystem Discovery | GitHub / Jira / Slack / n8n / MCP evidence connectors; Active / Dormant / Runtime-only correlation with the runtime inventory |
-| O2 | Ingestion depth | OTLP **protobuf** support — ✅ shipped (direct OpenLLMetry-style onboarding, no Collector required); **OTLP-native decision** — OpenTelemetry/OTLP is the only recommended integration path; the proprietary `ObserveOpenAI` wrapper was removed and `POST /runtime-events` + `sdk/python` are under review for removal ([audit](otlp_native_audit.md)); OTLP **metrics** ingestion (Claude Code / coding-agent token & cost accounting) still ahead; **auto-instrumentation-first discovery** (A1–A8) — see the [Auto-instrumentation-first discovery track](#auto-instrumentation-first-discovery-track-a1a8) |
+| O2 | Ingestion depth | OTLP **protobuf** support — ✅ shipped (direct OpenLLMetry-style onboarding, no Collector required); **OTLP-native decision** — OpenTelemetry/OTLP is the only recommended integration path; the proprietary `ObserveOpenAI` wrapper, `POST /runtime-events`, and `sdk/python` were all removed ([audit](otlp_native_audit.md)); OTLP **metrics** ingestion (Claude Code / coding-agent token & cost accounting) still ahead; **auto-instrumentation-first discovery** (A1–A8) — see the [Auto-instrumentation-first discovery track](#auto-instrumentation-first-discovery-track-a1a8) |
 | O3 | Content-free security verdicts | In-flight scanning at ingestion (prompt injection, PII-in-prompt, toxicity) storing **verdicts only** — never content; Runtime "Security checks" filter. Reasoning verdicts join the same layer — see the [Reasoning observability track](#reasoning-observability-track-ro1ro5) |
 | O4 | Monitors & notifications | **AI Agent Detection Rules & Alerts** (see below); budget alerts via webhook (Slack / Teams) — canonical design: [ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md) |
 | O5 | Product surface deployments | Per-surface builds of the Observability and Gateway products (separation plan Phase 4); surface-scoped API keys |
@@ -23,9 +23,9 @@ ObserveAgents is the **runtime visibility and control layer for AI agents**: it 
 
 **Shipped:** **AI Agent Runtime Security Intelligence MVP** — agent-specific, environment-aware security findings derived from runtime evidence (database/API reach, MCP in production, broad tool surface, unknown providers, missing ownership, repeated tool errors, human-review combinations). Observe-only, derivation-only, no new ingestion. See [ai_agent_runtime_security_intelligence.md](ai_agent_runtime_security_intelligence.md). O3's in-flight content verdicts (prompt injection / PII / toxicity) remain ahead as the next security layer.
 
-**Shipped:** **Runtime Events ingestion seam (Collector R1/R2)** — `POST /runtime-events` accepts normalized GenAI runtime events from any source, validates them against an allow-list schema, privacy-scrubs at the boundary (no prompts/responses/tool args/credentials/full URLs), and converts them into the existing span pipeline (`normalize_spans`) — OTLP and runtime events converge on the same intelligence engine; no source gets its own findings pipeline. Evidence-ingestion only: no inline detection rules, no control candidates, no enforcement.
+**Removed:** **Runtime Events ingestion seam (Collector R1/R2)** — `POST /runtime-events` shipped in PR #110 and was removed under the OTLP-native decision: the audit found no real consumers (no dashboard, demo, script, or customer usage — only its own tests and docs). All evidence enters through OTLP; one ingestion standard, one intelligence engine. See [otlp_native_audit.md](otlp_native_audit.md).
 
-**Superseded:** **Python SDK MVP (Collector R3, PR #114)** — the `ObserveOpenAI` wrapper has been **removed** under the OTLP-native decision: ObserveAgents consumes OpenTelemetry, it does not compete with it. No provider-specific wrappers, no generic wrapper abstraction. Customers instrument once with standard OpenTelemetry and send OTLP (directly or through a Collector). The remaining `sdk/python` package and `POST /runtime-events` are under review for removal — evidence in [otlp_native_audit.md](otlp_native_audit.md).
+**Superseded:** **Python SDK MVP (Collector R3, PR #114)** — the `ObserveOpenAI` wrapper has been **removed** under the OTLP-native decision: ObserveAgents consumes OpenTelemetry, it does not compete with it. No provider-specific wrappers, no generic wrapper abstraction. Customers instrument once with standard OpenTelemetry and send OTLP (directly or through a Collector). The `sdk/python` package and `POST /runtime-events` were removed in the follow-up PR — evidence in [otlp_native_audit.md](otlp_native_audit.md).
 
 **Shipped:** **Gateway Control Center GCR2–GCR4 (O9 first slice)** — control-candidate derivation from high-risk runtime evidence (`category=control` findings), the Control Center action workspace in the same production app on both surfaces, and one-click Observe→Control navigation. No enforcement, no rerouting; GCR5+ (policy drafts, approval, enforcement for routed agents) remain ahead. See [gateway_control_center_architecture.md](gateway_control_center_architecture.md).
 
@@ -41,20 +41,19 @@ separately and are deliberately not part of this product track.
 
 | # | Milestone | Status |
 |---|---|---|
-| 1 | **Runtime Events ingestion** — `POST /runtime-events`: validated, privacy-scrubbed normalized GenAI runtime events from any source | ✅ shipped (PR #110) |
-| 2 | **Reuse of the existing intelligence engine** — span-like adapter → `normalize_spans` → assets → findings → detection rules → gateway control candidates; no new pipeline | ✅ shipped (PR #110) |
+| 1 | **Runtime Events ingestion** — `POST /runtime-events` | ❌ removed — OTLP-native decision; no consumers found ([audit](otlp_native_audit.md)) |
+| 2 | **Reuse of the existing intelligence engine** — one `normalize_spans` pipeline → assets → findings → detection rules → gateway control candidates; no new pipeline | ✅ shipped (PR #110); the principle stands for every source |
 | 3 | **Python SDK MVP** — proprietary `ObserveOpenAI` wrapper | ❌ removed — OTLP-native decision; no provider wrappers ([audit](otlp_native_audit.md)) |
 
 ### Next
 
-**4. OTLP-native consolidation**
+**4. OTLP-native consolidation** — ✅ done
 
 > **Goal: exactly one recommended integration path — standard OpenTelemetry → OTLP /
 > Collector → ObserveAgents ingestion → intelligence.**
 
-- The proprietary wrapper is removed (this milestone's first slice — done).
-- `sdk/python` and `POST /runtime-events` audited for remaining product value; if the
-  audits hold, a follow-up PR removes them completely ([otlp_native_audit.md](otlp_native_audit.md)).
+- The proprietary wrapper, `sdk/python`, and `POST /runtime-events` are all removed
+  ([otlp_native_audit.md](otlp_native_audit.md)).
 - Transport belongs to OpenTelemetry; ObserveAgents focuses entirely on intelligence.
 
 ### Then
@@ -86,18 +85,18 @@ Verify and document that the community OTel instrumentations for popular framewo
 (OpenLLMetry / OpenInference style) land cleanly in ObserveAgents ingestion; fix semconv
 gaps on our side rather than shipping per-framework code.
 
-**8. MCP Runtime Events**
+**8. MCP visibility via OTel spans**
 
 > **Goal: visibility into MCP tools, servers, and tool-call behavior.**
 
-MCP server / tool / method usage as runtime events, lighting up the existing MCP findings
-(broad tool surface, flagged MCP server, repeated tool errors) without full instrumentation.
+MCP server / tool / method usage arriving as standard OTel spans (`mcp.*` attributes,
+already understood at ingestion), lighting up the existing MCP findings (broad tool
+surface, flagged MCP server, repeated tool errors) without proprietary instrumentation.
 
 ### Track principles (hold for every milestone above)
 
-- **No new intelligence pipeline.** Every adapter emits normalized runtime events or
-  span-like evidence into the existing engine — one place derives assets, findings, rules,
-  and control candidates, forever.
+- **No new intelligence pipeline.** All evidence enters as OTLP spans into the existing
+  engine — one place derives assets, findings, rules, and control candidates, forever.
 - **Observe first. Control only what matters.**
 - **Gateway enforcement remains optional and explicit.** Nothing is enforced unless traffic
   is explicitly routed through Gateway and controls are explicitly configured.

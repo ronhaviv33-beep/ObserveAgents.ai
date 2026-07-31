@@ -13,7 +13,6 @@ ObserveAgents is an AI agent visibility and runtime evidence platform: see what 
 | [otel_unmapped_fields_walkthrough.md](otel_unmapped_fields_walkthrough.md) | Walkthrough: OTLP agent with custom (unmapped) fields — quality scoring, attribute mapping, reprocess |
 | [telemetry_ingestion.md](telemetry_ingestion.md) | Batch telemetry ingestion: queue/worker, dedup, risk scoring, metrics, Agent Timeline |
 | [telemetry_post_merge_validation.md](telemetry_post_merge_validation.md) | Post-merge validation checklist for the telemetry ingestion pipeline |
-| [sdk-guide.md](sdk-guide.md) | Runtime Events API reference (legacy — OTLP is the only recommended path) |
 | [runtime-flow.md](runtime-flow.md) | Runtime processing and intelligence flow |
 
 ## Specialized specs (internal)

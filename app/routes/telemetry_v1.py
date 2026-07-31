@@ -10,9 +10,9 @@ stays fast and never does heavy processing inline.
 Partial acceptance: one bad event never fails the batch. The response reports
 accepted / duplicated / failed counts plus per-event errors.
 
-Auth: Bearer JWT or gk-{key} API key — identical to /otel/v1/traces and
-/runtime-events. org_id is always resolved server-side from the credential;
-it is never read from the body.
+Auth: Bearer JWT or gk-{key} API key — identical to /otel/v1/traces.
+org_id is always resolved server-side from the credential; it is never
+read from the body.
 """
 from __future__ import annotations
 

@@ -9,11 +9,9 @@
 The pipeline has exactly one seam. **Ingestion** answers "what happened?": each evidence integration is one module in `app/ingestion/` exposing `parse(payload) -> list[RuntimeSpan]` (`RuntimeSpan` is a `TypedDict` in `app/ingestion/__init__.py` — the flat span shape with `trace_id`, `span_id`, `attributes`, `resource_attributes`, timing, status; attribute keys use OTel GenAI SemConv). **Runtime** answers "what does it mean?": `app/otel_normalizer.py:normalize_spans(db, org_id, spans, api_key_id)` is the single entry point, and nothing downstream of it contains integration-specific parsing. Runtime never knows the source.
 
 ```
-POST /otel/v1/traces ──▶ app/ingestion/otel.py:parse_otlp ──┐
-(app/routes/otel.py)     (OTLP JSON + protobuf, gzip)       │
-                                                            ├─▶ RuntimeSpan[]
-POST /runtime-events ──▶ app/ingestion/sdk.py:parse ────────┘        │
-(app/routes/runtime_events.py)                                       ▼
+POST /otel/v1/traces ──▶ app/ingestion/otel.py:parse_otlp ──▶ RuntimeSpan[]
+(app/routes/otel.py)     (OTLP JSON + protobuf, gzip)                │
+                                                                     ▼
                                         STAGE 1  app/otel_normalizer.py:normalize_spans
                                                  otel_spans · provenance_events ·
                                                  agent_relationships · asset_registry ·
@@ -136,5 +134,4 @@ Security is one layer among eight: a `shell_enabled` finding and a `slow_tool_ca
 - [ai_agent_detection_rules_alerts_design.md](ai_agent_detection_rules_alerts_design.md) — detection rules design and rollout phases
 - [product_discovery_model.md](product_discovery_model.md) — the Runtime + Ecosystem discovery product model, intelligence layers, execution-timeline concepts
 - [otel-deployment-guide.md](otel-deployment-guide.md) — deploying OTel export into this pipeline
-- [sdk-guide.md](sdk-guide.md) — Runtime Events API reference (legacy)
 - [customer-integration-guide.md](customer-integration-guide.md) — end-to-end customer onboarding

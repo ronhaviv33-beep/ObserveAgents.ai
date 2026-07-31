@@ -1,5 +1,9 @@
 # OTLP-Native Audit — sdk/python and POST /runtime-events
 
+> **Status: EXECUTED.** Both audits concluded "no remaining product value", and the
+> follow-up PR removed `sdk/python` and `POST /runtime-events` completely, per the
+> removal manifest at the end of this document. This file remains as the decision record.
+
 **Decision context.** ObserveAgents is OTLP-native: exactly one recommended integration
 path — Customer runtime → OpenTelemetry instrumentation → OpenTelemetry Collector →
 ObserveAgents OTLP ingestion → Runtime → Intelligence. Transport belongs to
