@@ -48,7 +48,7 @@ import AssetIntelligenceV2 from "./pages/AssetIntelligenceV2.jsx";
 // stays in the tree for rollback — see docs/ui_redesign_plan.md.
 import GatewayControlCenterV2 from "./pages/GatewayControlCenterV2.jsx";
 // ui2 shell (redesign, final visual layer): sidebar/topbar/app chrome.
-import AppShell from "./ui2/AppShell.jsx";
+import AppShell, { BrandMark } from "./ui2/AppShell.jsx";
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -570,6 +570,11 @@ export default function App() {
   // ── Real JWT auth ──
   const [user,         setUser]         = useState(null);
   const [authChecked,  setAuthChecked]  = useState(false);
+  // Cold-start gate: 'waiting' while the backend has never answered /config
+  // (e.g. Render spin-up on the public demo) — shows the waking screen instead
+  // of the login form; 'ready' once the server answered (login or auto-demo);
+  // 'timeout' when recovery gave up, falling back to the login form.
+  const [wakePhase, setWakePhase] = useState(() => (isConfigOk() ? 'ready' : 'waiting'));
   // rolesMap: null until server roles are fetched — gates rendering so the
   // init window never falls back to stale hardcoded permissions.
   const [rolesMap,     setRolesMap]     = useState(null);
@@ -658,10 +663,10 @@ export default function App() {
     const recoverDemoSession = async () => {
       for (let attempt = 0; attempt < 20 && !recoveryCancelled; attempt++) {
         await new Promise(r => setTimeout(r, 3000));
-        if (recoveryCancelled || getToken()) return;
+        if (recoveryCancelled || getToken()) { setWakePhase('ready'); return; }
         if (!isConfigOk()) await loadConfig();
         if (recoveryCancelled) return;
-        if (isConfigOk() && !isDemoMode()) return;  // real env: normal login page
+        if (isConfigOk() && !isDemoMode()) { setWakePhase('ready'); return; }  // real env: login form
         if (isDemoMode()) {
           const t = await demoLogin();
           if (recoveryCancelled || !t) continue;    // backend still waking — retry
@@ -674,12 +679,15 @@ export default function App() {
           setRolesMap(serverRoles?.length
             ? Object.fromEntries(serverRoles.map(r => [r.name, r]))
             : Object.fromEntries(Object.entries(ROLES).map(([k,v]) => [k, {name:k, ...v, pages: v.pages ?? [], can: v.can ?? []}])));
+          setWakePhase('ready');
           setUser(me);
           return;
         }
       }
+      if (!recoveryCancelled) setWakePhase('timeout');  // give up → show the login form
     };
-    if (!getToken() && !(isConfigOk() && !isDemoMode())) recoverDemoSession();
+    if (!(isConfigOk() && !isDemoMode())) recoverDemoSession();
+    else setWakePhase('ready');
 
     const onExpired = () => { setToken(null); setUser(null); };
     window.addEventListener('auth:expired', onExpired);
@@ -902,6 +910,39 @@ export default function App() {
   }
 
   if (!user) {
+    // While the backend has never answered /config (cold start on the public
+    // demo), show the waking screen instead of a login form nobody can use —
+    // the recovery loop signs the visitor in the moment the server is up.
+    if (wakePhase === 'waiting') {
+      return (
+        <div style={{ minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+          <style>{`
+            @keyframes oa-wake-pulse { 0%,100% { opacity:.35; transform:scale(.94); } 50% { opacity:1; transform:scale(1); } }
+            @keyframes oa-wake-bar { 0% { transform:translateX(-100%); } 100% { transform:translateX(260%); } }
+            @media (prefers-reduced-motion: reduce) { .oa-wake-anim { animation: none !important; } }
+          `}</style>
+          <div style={{ background:T.panel, border:`1px solid ${T.border}`, borderRadius:14, padding:"42px 46px", maxWidth:420, width:"100%", textAlign:"center", position:"relative", overflow:"hidden" }}>
+            <div aria-hidden="true" style={{ position:"absolute", top:0, left:24, right:24, height:2,
+              background:"linear-gradient(90deg, transparent, #3BC7F0 30%, #7B8CFF 60%, #B07BFF 85%, transparent)", opacity:.85 }} />
+            <div className="oa-wake-anim" style={{ display:"inline-flex", marginBottom:18, animation:"oa-wake-pulse 1.8s ease-in-out infinite" }}>
+              <BrandMark size={44} />
+            </div>
+            <div style={{ fontSize:19, fontWeight:700, color:T.text, marginBottom:8 }}>Waking up the demo…</div>
+            <div style={{ fontSize:13.5, color:T.textDim, lineHeight:1.7, marginBottom:22 }}>
+              The environment is starting — this can take up to a minute on the first visit.
+              You'll be signed in automatically.
+            </div>
+            <div style={{ height:4, borderRadius:2, background:"rgba(255,255,255,0.06)", overflow:"hidden" }} aria-hidden="true">
+              <div className="oa-wake-anim" style={{ width:"38%", height:"100%", borderRadius:2,
+                background:"linear-gradient(90deg,#3BC7F0,#7B8CFF,#B07BFF)", animation:"oa-wake-bar 1.6s ease-in-out infinite" }} />
+            </div>
+            <div style={{ marginTop:18, fontFamily:FONT_MONO, fontSize:10.5, letterSpacing:"0.14em", color:T.textMute, textTransform:"uppercase" }}>
+              Observe first. Control only what matters.
+            </div>
+          </div>
+        </div>
+      );
+    }
     return <LoginPage onLogin={handleLogin} />;
   }
 
