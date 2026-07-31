@@ -70,11 +70,12 @@ activity, token usage, errors, and derived findings.
 
 **6. Gateway Telemetry Adapter**
 
-> **Goal: Gateway traffic should also feed the same runtime evidence engine.**
+> **Goal: teams that adopt the gateway control path shouldn't lose evidence depth.**
 
-The base_url-swap path today produces cost + inventory only; this adapter makes proxied
-traffic produce the same evidence as OTLP traces — assets, findings, detection
-rules — with no change to enforcement behavior.
+The gateway is a control choice, not an integration path — but traffic already routed
+through it today produces cost + inventory only. This adapter makes that proxied traffic
+produce the same evidence quality as OTLP traces — assets, findings, detection rules —
+with no change to enforcement behavior and no new customer integration step.
 
 **7. Framework coverage via standard OTel instrumentation**
 
@@ -100,14 +101,14 @@ surface, flagged MCP server, repeated tool errors) without proprietary instrumen
 - **Observe first. Control only what matters.**
 - **Gateway enforcement remains optional and explicit.** Nothing is enforced unless traffic
   is explicitly routed through Gateway and controls are explicitly configured.
-- **No automatic enforcement from detection or SDK events.** Detection rules and SDK
-  evidence produce findings and recommendations for humans — never actions against traffic.
+- **No automatic enforcement from detection.** Detection rules and runtime evidence
+  produce findings and recommendations for humans — never actions against traffic.
 
 ---
 
 ## Auto-instrumentation-first discovery track (A1–A8)
 
-**Core line: Install the SDK once. We discover AI workloads from runtime behavior.**
+**Core line: Instrument once with standard OpenTelemetry. We discover AI workloads from runtime behavior.**
 
 The product must deliver a full inventory, timeline, and findings from auto-instrumented
 telemetry alone (service.name, GenAI spans, provider/model, token usage, HTTP/DB spans,

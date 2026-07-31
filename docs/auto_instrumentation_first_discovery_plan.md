@@ -2,15 +2,15 @@
 
 ## Executive summary
 
-ObserveAgents should work after SDK installation alone.
+ObserveAgents should work after OTel instrumentation alone.
 
-The customer installs an auto-instrumentation SDK (OpenLLMetry-style OTel instrumentation, or the ObserveAgents SDK) once. From that moment, ObserveAgents automatically discovers AI workloads from the runtime telemetry those libraries already emit — GenAI spans, provider/model attributes, token usage, HTTP/DB spans, external API calls, errors, and resource attributes like `service.name` and `deployment.environment`.
+The customer sets up standard OpenTelemetry auto-instrumentation (OpenLLMetry-style OTel instrumentation libraries) once. From that moment, ObserveAgents automatically discovers AI workloads from the runtime telemetry those libraries already emit — GenAI spans, provider/model attributes, token usage, HTTP/DB spans, external API calls, errors, and resource attributes like `service.name` and `deployment.environment`.
 
 Manual spans are optional. Explicit `gen_ai.agent.name`, hand-written workflow spans, tagged tool spans, and owner/team metadata all **improve accuracy and confidence** — but the product must never require them to produce an inventory, a timeline, findings, or detection-rule matches.
 
 Core line:
 
-> **Install the SDK once. We discover AI workloads from runtime behavior.**
+> **Instrument once with standard OpenTelemetry. We discover AI workloads from runtime behavior.**
 
 ## Product principle
 

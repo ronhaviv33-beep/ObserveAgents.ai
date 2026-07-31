@@ -49,16 +49,17 @@ This document describes the system as implemented today. Companion docs:
 ```
                          EVIDENCE SOURCES
  ┌─────────────────────────────────────┐   ┌─────────────────────────────┐
- │        Runtime Discovery (today)    │   │ Ecosystem Discovery (roadmap)│
+ │   Runtime Discovery (today)         │   │ Ecosystem Discovery (roadmap)│
  │                                     │   │  GitHub · Jira · Slack ·     │
- │  OTel exporter        AI app / SDK  │   │  ServiceNow · n8n · MCP      │
- │       │                    │        │   └──────────────┬───────────────┘
- │       ▼                    ▼        │                  ▼
- │ POST /otel/v1/traces  POST /v1/*    │        future evidence tables
- │ (OTLP/HTTP JSON)      (gateway)     │        (github_assets, …)
- └───────┬────────────────────┬────────┘
-         ▼                    ▼
-   INGESTION LAYER      GATEWAY PIPELINE
+ │  OTel instrumentation / Collector   │   │  ServiceNow · n8n · MCP      │
+ │       │                             │   └──────────────┬───────────────┘
+ │       ▼                             │                  ▼
+ │ POST /otel/v1/traces                │        future evidence tables
+ │ (OTLP/HTTP JSON + protobuf)         │        (github_assets, …)
+ │ — the one ingestion standard        │
+ └───────┬─────────────────────────────┘
+         ▼                    Optional CONTROL path (not ingestion):
+   INGESTION LAYER      GATEWAY PIPELINE  (provider SDK base_url → POST /v1/*)
    otel_parser          proxy routes: auth → guard mode →
    otel_privacy         policy/budget (advisory by default) →
    otel_normalizer      upstream call → telemetry + relationships
@@ -111,7 +112,7 @@ Startup order: `Base.metadata.create_all` → `run_alembic_migrations()` (fresh 
 | Module | Responsibility |
 |---|---|
 | `app/routes/otel.py` | `POST /otel/v1/traces` — OTLP/HTTP JSON ingestion (auth: `get_proxy_caller`, JWT or `gk-` API key) |
-| `app/ingestion/` | Ingestion layer — one module per integration, each exposing `parse(payload) -> list[RuntimeSpan]` (`otel.py`, `sdk.py`); isolates integration-specific parsing from Runtime |
+| `app/ingestion/` | Ingestion layer — one module per integration, each exposing `parse(payload) -> list[RuntimeSpan]` (`otel.py`); isolates integration-specific parsing from Runtime |
 | `app/otel_parser.py` | OTLP envelope → flat span dicts (`resourceSpans → scopeSpans → spans`) |
 | `app/otel_privacy.py` | `scrub_attributes()` — the redaction layer (invariant #2) |
 | `app/otel_normalizer.py` | Per-span: identity extraction (`agent.name` → declared, `service.name` → inferred), AssetRegistry upsert (`discovery_status="potential"`, `discovery_source="otel_trace"`), relationship + provenance detection, `OtelSpan` persist (dedup on org+trace+span). Per-batch: `otel_assets` evidence upsert |
@@ -188,7 +189,8 @@ Notable design decisions:
 
 | Group | Endpoints |
 |---|---|
-| **Ingestion** | `POST /otel/v1/traces` · gateway `POST /v1/chat/completions`, `POST /v1/messages`, `POST /ask`, `POST /chat` |
+| **Ingestion** | `POST /otel/v1/traces` (the one evidence door — OTLP/HTTP JSON + protobuf) |
+| **Gateway (control path)** | `POST /v1/chat/completions` · `POST /v1/messages` · `POST /ask` · `POST /chat` |
 | **Runtime** | `GET /runtime/traces` · `GET /runtime/traces/{trace_id}` |
 | **Intelligence** | `GET /intelligence/asset-summary` · `/assets` · `/capabilities` · `/findings` · `POST /intelligence/run` · `POST /intelligence/findings/{id}/dismiss|resolve` |
 | **Inventory** | `GET/PATCH /agents…` + claim/validate/reject/approve-suggestions/ignore · `GET /assets…` + claim/registry |

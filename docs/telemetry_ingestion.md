@@ -9,7 +9,7 @@ which is unchanged.
 ## Architecture
 
 ```
-Client / SDK / OTEL input
+Client / OTel input
         │
         ▼
 POST /api/v1/telemetry/batch        ── validate, dedup, preserve raw, 202 fast

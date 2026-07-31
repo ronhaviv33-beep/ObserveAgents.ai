@@ -293,6 +293,6 @@ asset_findings
 - **Control recommendations** — suggested mitigations per finding type
 - **Governance workflows** — owner assignment, review deadlines, policy-driven status transitions
 - **Provenance UI** — timeline of what each AI system did, linked to findings
-- **sdk_assets** — SDK-attested identity (agents that self-report via the ObserveAgents SDK)
+- **attested_assets** — attested identity (agents that declare themselves via verified telemetry attributes)
 - **observed_assets** — passive network observation (traffic-based discovery)
 - **Content capture opt-in** — per-organization opt-in to store prompt/response content for audit (currently always redacted)

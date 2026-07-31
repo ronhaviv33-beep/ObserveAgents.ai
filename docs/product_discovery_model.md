@@ -15,7 +15,7 @@ Observe is explicitly **not**:
 - **Not security-only.** Security is one intelligence layer among several. Framing Observe as a security tool understates the product and misleads buyers who need discovery, dependency, and operational intelligence first.
 - **Not governance-only.** Governance workflows (reviews, approvals, ownership) build on the inventory, but the inventory and intelligence come first.
 - **Not cost-only.** Cost intelligence exists in the platform but is not the core narrative.
-- **Not gateway-only.** The proxy gateway is one runtime evidence source. Observe ingests evidence from OpenTelemetry, SDKs, and (in the future) ecosystem sources — no gateway required.
+- **Not gateway-only.** The proxy gateway is the optional control path, not an evidence path. Observe ingests evidence from standard OpenTelemetry (and, in the future, ecosystem sources) — no gateway required.
 
 The intelligence layers Observe provides:
 
@@ -42,7 +42,7 @@ Runtime Discovery observes AI systems as they execute — real traffic, real spa
 
 | | |
 |---|---|
-| **Sources** | OpenTelemetry (implemented), SDK, Gateway, runtime signals, CLI wrappers |
+| **Sources** | OpenTelemetry / OTLP (implemented — the one integration standard); ecosystem sources later |
 | **Evidence** | `service.name`, environment, models, providers, tools, dependencies, runtime activity, `last_seen`, execution timing |
 | **Status** | Implemented (OTel path) |
 
@@ -90,7 +90,7 @@ Runtime Discovery alone misses AI systems that exist but haven't executed recent
 
 | Evidence table | Discovery mode | Source |
 |---|---|---|
-| `sdk_assets` | Runtime | SDK-attested identity (self-reporting agents) |
+| `attested_assets` | Runtime | Attested identity (agents declaring themselves via verified telemetry attributes) |
 | `observed_assets` | Runtime | Passive network observation |
 | `ecosystem_assets` | Ecosystem | Generic ecosystem connectors |
 | `github_assets` | Ecosystem | GitHub repositories, workflows, agent definitions |
@@ -102,7 +102,7 @@ Runtime Discovery alone misses AI systems that exist but haven't executed recent
  Runtime evidence   │                  │   Ecosystem evidence
  ┌──────────────┐   │  asset_registry  │   ┌────────────────┐
  │ otel_assets  ├──▶│   (canonical AI  │◀──┤ github_assets  │  (future)
- │ sdk_assets*  ├──▶│    inventory)    │◀──┤ n8n_assets     │  (future)
+ │attested_asts*├──▶│    inventory)    │◀──┤ n8n_assets     │  (future)
  │ observed_*   ├──▶│                  │◀──┤ copilot_assets │  (future)
  └──────────────┘   └──────────────────┘   └────────────────┘
                           * = future

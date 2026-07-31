@@ -68,21 +68,13 @@ Once one system is visible and understood, connecting the next ones is repetitio
 
 ## 1.4 How data gets into Observe
 
-There are two ways data flows in. Your technical team picks whichever fits — the choice does not change what you see.
-
-### OpenTelemetry
-
-If your organization already uses observability tools (many engineering teams do), your technical team can send AI activity to Observe through OpenTelemetry — an industry standard they will recognize.
+Data flows in one way: **OpenTelemetry** — the industry standard your engineering team already recognizes. Your technical team instruments the AI systems once with standard OpenTelemetry and exports the telemetry to Observe (directly or through an OpenTelemetry Collector). There is no proprietary SDK and no vendor-specific integration to maintain.
 
 This lets Observe show runtime traces, execution timelines, slow steps, errors, and the models, tools, and dependencies each system uses.
 
-### Gateway
+> **What about the gateway?** The Observe gateway is not how data gets in — it is the **optional control path** for later, when a specific team decides it wants enforcement (see [1.8 When to use enforcement](#18-when-to-use-enforcement)). You can run Observe fully without it.
 
-If your AI systems call common AI providers (like OpenAI or Anthropic), your team can route those calls through the Observe gateway — a small configuration change on their side.
-
-This helps Observe see which AI systems are making requests, which providers and models they use, token and usage signals, cost signals, and advisory guardrail signals.
-
-**Either way, Part 2 of this guide covers the exact steps.** From your perspective as a stakeholder, the outcome is the same: your AI systems start appearing in Observe.
+**Part 2 of this guide covers the exact steps.** From your perspective as a stakeholder, the outcome is simple: your AI systems start appearing in Observe.
 
 ## 1.5 What you will see after the first connection
 
@@ -156,7 +148,7 @@ Detect and recommend. Nothing is blocked. This is where everyone starts.
 Notify the right people when something needs attention. Still nothing is blocked.
 
 ### Enforce
-Block or require action — only when the organization intentionally enables it, for a specific team, after reviewing what enforcement *would have* blocked.
+Block or require action — via the optional gateway control path, only when the organization intentionally enables it, for a specific team, after reviewing what enforcement *would have* blocked.
 
 > **Do not start with enforcement. Start by understanding what is happening.**
 
@@ -212,15 +204,15 @@ Start small: one admin, a few analysts for the teams connecting first.
 
 Recommended convention: **one key per team or per major service**, named accordingly (`payments-team`, `support-agent-prod`). This keeps attribution clean and lets you revoke a single team's key without touching others.
 
-### 0.4 (Gateway users only) Configure provider credentials
+### 0.4 (Optional — gateway control path only) Configure provider credentials
 
-If you'll route AI traffic through the gateway (Path B below), add your OpenAI/Anthropic/Google keys under **Settings → Organization AI Providers** (BYOK — stored encrypted, write-only, never displayed again). Skip this if you're only sending OpenTelemetry traces.
+Only needed if a team later adopts the **gateway control path** for enforcement (Phase 4, step 6): add your OpenAI/Anthropic/Google keys under **Settings → Organization AI Providers** (BYOK — stored encrypted, write-only, never displayed again). Skip this for the rollout — sending OpenTelemetry traces needs no provider credentials.
 
 ## Phase 1 — Connect your first AI system
 
-Pick **one** AI service to start with. Two paths — use whichever matches your stack. (Neither? See Phase 2.)
+Pick **one** AI service to start with. The integration path is standard OpenTelemetry. (Not instrumented yet? See Phase 2.)
 
-### Path A — You already use OpenTelemetry
+### You already use OpenTelemetry
 
 If your AI service already emits OTel traces, you point your existing pipeline at Observe. **The endpoint accepts both OTLP/HTTP JSON and OTLP/HTTP protobuf**, so most SDKs can post directly; the Collector remains the recommended production path. What that means per stack:
 
@@ -257,39 +249,7 @@ const exporter = new OTLPTraceExporter({
 
 For the deployment walkthrough see [otel-deployment-guide.md](otel-deployment-guide.md); the endpoint contract is in [otlp-api-reference.md](otlp-api-reference.md) and the attribute conventions in [genai-semantic-conventions.md](genai-semantic-conventions.md).
 
-### Path B — No OTel, but you call OpenAI/Anthropic-compatible APIs
-
-Route traffic through the Observe gateway using **your existing provider SDK** — there is no proprietary Observe SDK to install. One config change:
-
-```python
-# Python — OpenAI SDK
-client = openai.OpenAI(
-    base_url="https://gateway.observeagents.ai/v1",
-    api_key="gk-<your-api-key>",        # your Observe key, not your provider key
-)
-```
-
-```python
-# Python — Anthropic SDK
-client = anthropic.Anthropic(
-    base_url="https://gateway.observeagents.ai",
-    api_key="gk-<your-api-key>",
-)
-```
-
-```bash
-# Env-var only — no code change at all (any OpenAI-compatible client)
-export OPENAI_API_KEY=gk-<your-api-key>
-export OPENAI_BASE_URL=https://gateway.observeagents.ai/v1
-```
-
-Works with the OpenAI SDK, Anthropic SDK, LangChain, CrewAI, LiteLLM, MCP clients, Vercel AI SDK, and anything OpenAI-compatible. Your provider keys stay server-side in Observe (Phase 0.4); application code never sees them.
-
-The gateway runs in **advisory mode by default** — it observes, attributes, and estimates cost; it never blocks unless a team is explicitly moved to enforce mode later.
-
-Prefer connecting from application code instead of a base-URL change? Use standard OpenTelemetry instrumentation — see the [OTel deployment guide](otel-deployment-guide.md).
-
-### Verify (both paths)
+### Verify
 
 1. Trigger one request through your AI service.
 2. **Runtime** — the trace appears within seconds; click it to see the execution timeline.
@@ -297,11 +257,11 @@ Prefer connecting from application code instead of a base-URL change? Use standa
 
 If nothing appears, see [Troubleshooting](#troubleshooting) at the end.
 
-## Phase 2 — Starting from zero: no OTel, no compatible SDK path
+## Phase 2 — Starting from zero: no OTel yet
 
-This phase is for organizations where neither path fits yet — e.g. custom AI code without observability, or AI calls that don't go through OpenAI/Anthropic-style APIs. You have two options; most organizations do **Option 1** because it's ~20 lines and pays off across all observability tooling, not just Observe.
+This phase is for organizations without observability on their AI code yet. It's ~20 lines and pays off across all observability tooling, not just Observe.
 
-### Option 1 — Add OpenTelemetry instrumentation from scratch
+### Add OpenTelemetry instrumentation from scratch
 
 OTel is the vendor-neutral standard; instrumenting once serves Observe and anything else you adopt later.
 
@@ -397,27 +357,13 @@ Full attribute reference (MCP, workflows, agent identity): [genai-semantic-conve
 
 **Shortcut — auto-instrumentation:** if your service uses common libraries (requests/httpx, FastAPI, etc.), `pip install opentelemetry-distro && opentelemetry-instrument python app.py` with `OTEL_SERVICE_NAME` and `OTEL_EXPORTER_OTLP_ENDPOINT` env vars generates spans without code changes. You'll still want the manual `gen_ai.*` / `tool.*` attributes on your AI-specific steps for the richest intelligence, but auto-instrumentation gets timelines flowing on day one.
 
-### Option 2 — Route through the gateway without touching application code
-
-If you can't add instrumentation at all, you can still get Runtime Discovery for any HTTP-callable AI usage by pointing it at the gateway:
-
-```bash
-curl https://gateway.observeagents.ai/v1/chat/completions \
-  -H "Authorization: Bearer gk-<your-api-key>" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"demo request"}]}'
-```
-
-Anything that can change a base URL — cron jobs, low-code platforms, internal scripts — can adopt this. You get discovery, attribution, token usage, and cost signals; you won't get per-step execution timelines (those need spans), which is why Option 1 is the recommended end-state.
-
 ### Choosing
 
 | Your situation | Do this |
 |---|---|
-| Existing OTel pipeline | Phase 1 Path A (add the Collector exporter) |
-| OpenAI/Anthropic-style SDK calls, no observability | Phase 1 Path B today; add Option 1 spans when you want timelines |
-| Custom AI code, no observability | Option 1 (Collector + ~20 lines of spans) |
-| Can't change code at all | Option 2 (gateway URL swap wherever config allows) |
+| Existing OTel pipeline | Phase 1 (add the Collector exporter, or point your exporter directly) |
+| Custom AI code, no observability | Phase 2 (Collector + ~20 lines of spans) |
+| Can't touch application code | The auto-instrumentation shortcut above (`opentelemetry-instrument` + env vars) — spans without code changes |
 
 ## Phase 3 — Roll out across the organization
 
@@ -456,7 +402,6 @@ As systems connect, **Discovery Center** shows newly observed systems awaiting r
 | `415 Unsupported Content-Type` | Content-Type is neither JSON nor protobuf — check the exporter's protocol setting |
 | Traces arrive but system is named `observed-ai-system:…` | No `service.name` resource attribute — set it |
 | Runtime shows traces but Asset Intelligence is empty | Click **▶ Run Intelligence** (derivation is on-demand) |
-| Gateway returns `424 provider_not_configured` | Add the provider key under Settings → Organization AI Providers (Phase 0.4) |
 | Waterfall shows one flat span | Add child spans around each step (LLM / tool / DB) — the timeline mirrors your span hierarchy |
 | Viewer can't create budgets | Expected — budgets are readable by all roles, managed by admins |
 
@@ -464,8 +409,7 @@ As systems connect, **Discovery Center** shows newly observed systems awaiting r
 
 - [ ] Admin logged in; users invited with roles
 - [ ] API key created per team/service
-- [ ] (Gateway) provider credentials configured
-- [ ] First AI system connected (OTel Collector `encoding: json`, Node direct, gateway base_url swap, or Phase 2 from-scratch instrumentation)
+- [ ] First AI system connected (OTel Collector exporter, direct SDK export, or Phase 2 from-scratch instrumentation)
 - [ ] `service.name` + `deployment.environment` set on every connected service
 - [ ] Trace visible in Runtime; waterfall renders
 - [ ] Run Intelligence executed; system appears in Asset Intelligence with capabilities and findings
