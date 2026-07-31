@@ -53,8 +53,8 @@ export default function PlatformGuideV2({ onNavigate }) {
       n: "1", color: C.accent,
       title: "How data gets in",
       desc: isObservability
-        ? "Send OpenTelemetry traces to the OTLP endpoint, or send agent events to the batch telemetry API (POST /api/v1/telemetry/batch with a gk- API key). Both work with your existing stack and the GenAI semantic conventions. Ecosystem sources like GitHub, Jira, Slack, n8n, and MCP are coming later."
-        : "Send OpenTelemetry traces to the OTLP endpoint, send agent events to the batch telemetry API (POST /api/v1/telemetry/batch), or route AI traffic through the gateway. All work with your existing stack — no proprietary SDK required. Ecosystem sources like GitHub, Jira, Slack, n8n, and MCP are coming later.",
+        ? "Instrument once with standard OpenTelemetry and export OTLP traces — directly or through an OpenTelemetry Collector — to the OTLP endpoint with a gk- API key. Works with your existing stack and the GenAI semantic conventions; no proprietary SDK. Ecosystem sources like GitHub, Jira, Slack, n8n, and MCP are coming later."
+        : "Instrument once with standard OpenTelemetry and export OTLP traces — directly or through an OpenTelemetry Collector — to the OTLP endpoint. Works with your existing stack; no proprietary SDK. The gateway is the optional control path for routing AI traffic when you want enforcement. Ecosystem sources like GitHub, Jira, Slack, n8n, and MCP are coming later.",
       note: null,
       sdks: isObservability
         ? ["OpenTelemetry", "OTel Collector", "GenAI SemConv", "MCP telemetry", "Claude Code telemetry"]
@@ -128,8 +128,8 @@ export default function PlatformGuideV2({ onNavigate }) {
       <Section label="How ObserveAgents works">
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: "22px 26px" }}>
           <div style={{ fontSize: 13, color: C.textDim, lineHeight: 1.75, maxWidth: 720, marginBottom: 16 }}>
-            ObserveAgents starts with runtime evidence. AI systems send OpenTelemetry traces or batch
-            telemetry events, where spans and signals reveal what agents actually do. That evidence powers the Agent
+            ObserveAgents starts with runtime evidence. AI systems send standard OpenTelemetry
+            traces, where spans and signals reveal what agents actually do. That evidence powers the Agent
             Inventory and Timeline, Asset Intelligence, Security Intelligence, and Detection Rules. When an agent shows risk, cost,
             reliability, or governance signals, it can be reviewed in the Gateway Control Center with
             recommended controls — observe-only until explicitly configured.

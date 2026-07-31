@@ -195,7 +195,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
         ] : isGateway ? [
           { page: "agent_inventory", title: "Traffic",            desc: "AI systems observed sending requests through the gateway" },
           { page: "providers",       title: "Providers",          desc: "Connect the AI providers your traffic routes to" },
-          { page: "integrations",    title: "SDK Setup",          desc: "Existing provider SDKs with the Gateway base_url" },
+          { page: "integrations",    title: "Gateway Setup",      desc: "Existing provider SDKs with the Gateway base_url" },
           { page: "budgets",         title: "Budgets",            desc: "Set spend limits per team or agent" },
           { page: "cost",            title: "Cost",                desc: "Token and cost accounting from gateway traffic" },
           { page: "settings",        title: "Guard Modes",         desc: "Observe → alert → enforce, one team at a time" },
