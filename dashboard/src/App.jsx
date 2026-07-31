@@ -498,7 +498,7 @@ const NAV_GROUPS_GATEWAY = [
       { id: "security",      label: "Security" },
       { id: "users",         label: "Users" },
       { id: "apikeys",       label: "API Keys" },
-      { id: "integrations",  label: "SDK Setup" },
+      { id: "integrations",  label: "Gateway Setup" },
       { id: "settings",      label: "Settings" },
       { id: "organizations", label: "Organizations", platformAdminOnly: true },
     ],

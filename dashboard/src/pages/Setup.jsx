@@ -68,8 +68,8 @@ function ObservabilitySetup() {
 
       <SetupStep n={1} title="Create an API key">
         Go to <strong style={{ color: T.text }}>API Keys</strong> and create a key (it starts with <code style={{ fontFamily: FONT_MONO, color: T.accent, fontSize: 11 }}>gk-</code>).
-        The key authenticates telemetry ingestion — OTLP traces and the batch telemetry API (POST /api/v1/telemetry/batch)
-        use the same key. Copy it immediately — it is shown once.
+        The key authenticates OTLP telemetry ingestion as the Bearer token.
+        Copy it immediately — it is shown once.
       </SetupStep>
 
       <SetupStep n={2} title="Point your OpenTelemetry exporter at Observe">
@@ -126,7 +126,7 @@ function GatewaySetup({ onNavigate, demoMode = false }) {
     <div style={{ maxWidth: 900, margin: "0 auto", padding: bp.isMobile ? "16px" : "32px 24px", fontFamily: FONT_UI }}>
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 11, fontFamily: FONT_MONO, color: T.textMute, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>ObserveAgents Gateway · Setup</div>
-        <div style={{ fontSize: 24, fontWeight: 700, color: T.text, lineHeight: 1.2 }}>SDK Setup</div>
+        <div style={{ fontSize: 24, fontWeight: 700, color: T.text, lineHeight: 1.2 }}>Gateway Setup</div>
         <div style={{ fontSize: 13, color: T.textDim, marginTop: 6, lineHeight: 1.5 }}>
           Control AI traffic without instrumenting every app. Keep using your{" "}
           <strong style={{ color: T.text }}>existing provider SDK</strong> or any OpenAI-compatible client —

@@ -93,7 +93,6 @@ export function relationshipEvidenceLabel(rel = {}) {
   if (n) why.push(`seen in ${n.toLocaleString?.() || n} request${n === 1 ? "" : "s"}`);
   const src = rel.evidence_source;
   if (src === "mcp_headers" || src === "headers") why.push("declared via headers");
-  else if (src === "sdk") why.push("reported by SDK");
   else if (src === "gateway") why.push("observed at gateway");
   else if (src === "workflow_headers") why.push("workflow invocation");
 
