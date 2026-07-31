@@ -17,11 +17,14 @@ let _config = {
   public_marketing_url: "",
 };
 let _loaded = false;
+let _ok = false;      // true only when /config actually answered — distinguishes
+                      // "server said demo_mode:false" from "server unreachable
+                      // (e.g. cold start), defaults in effect".
 
 export async function loadConfig() {
   try {
     const r = await fetch(`${BASE}/config`, { headers: { "Content-Type": "application/json" } });
-    if (r.ok) _config = await r.json();
+    if (r.ok) { _config = await r.json(); _ok = true; }
   } catch {
     /* keep safe production defaults */
   }
@@ -33,6 +36,7 @@ export function getConfig() { return _config; }
 export function isDemoMode() { return !!_config.demo_mode; }
 export function isDevelopment() { return _config.app_env === "development"; }
 export function isConfigLoaded() { return _loaded; }
+export function isConfigOk() { return _ok; }
 
 // ── Public URLs (build-time, overridable via Vite env vars) ───────────────────
 const _clean = (v, fallback) => {

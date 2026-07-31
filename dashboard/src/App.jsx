@@ -17,7 +17,7 @@ class PageErrorBoundary extends Component {
   }
 }
 import { login as apiLogin, fetchMe, fetchUsers, createUser, updateUser, deleteUser, getToken, setToken, authFetch, fetchKeyStatuses, updateKey, BASE, fetchApiKeys, createApiKey, revokeApiKey, deleteApiKey, fetchGuardModes, setGuardMode, fetchHealth, fetchProviderCredentials, upsertProviderCredential, deleteProviderCredential, fetchRoles, createRole, updateRole, deleteRole, fetchTeams, fetchAssets, fetchAssetsSummary, fetchAssetTelemetry, fetchUnassignedAssets, claimAsset, updateAssetRegistry, fetchOrgConfig, updateOrgConfig, getDemoMode, setDemoMode, fetchOrganizations, createOrganization, setViewOrg, getViewOrg, fetchAgentsSummary, fetchRelationships, populateOrganization, clearOrganizationDemoData, demoLogin } from "./api.js";
-import { isDemoMode, isDevelopment } from "./config.js";
+import { isDemoMode, isDevelopment, isConfigOk, loadConfig } from "./config.js";
 import AgentInventory from "./pages/AgentInventory.jsx";
 import CostIntelligence from "./pages/CostIntelligence.jsx";
 import PricingRegistry from "./pages/PricingRegistry.jsx";
@@ -649,9 +649,43 @@ export default function App() {
     };
     check();
 
+    // Cold-start recovery for the public demo service. On the very first visit
+    // the backend may still be waking (Render spin-up), so the boot-time /config
+    // fetch fails, demo_mode stays at its safe default (false), and the login
+    // page renders. Keep retrying in the background; the moment the backend
+    // answers with demo_mode, mint the demo token and sign in — no manual
+    // refresh needed. Stops immediately on a real (non-demo) environment answer,
+    // on any token appearing, or on unmount.
+    let recoveryCancelled = false;
+    const recoverDemoSession = async () => {
+      for (let attempt = 0; attempt < 20 && !recoveryCancelled; attempt++) {
+        await new Promise(r => setTimeout(r, 3000));
+        if (recoveryCancelled || getToken()) return;
+        if (!isConfigOk()) await loadConfig();
+        if (recoveryCancelled) return;
+        if (isConfigOk() && !isDemoMode()) return;  // real env: normal login page
+        if (isDemoMode()) {
+          const t = await demoLogin();
+          if (recoveryCancelled || !t) continue;    // backend still waking — retry
+          setToken(t);
+          const me = await fetchMe().catch(() => null);
+          if (recoveryCancelled) return;
+          if (!me) { setToken(null); continue; }
+          const serverRoles = await fetchRoles().catch(() => null);
+          if (recoveryCancelled) return;
+          setRolesMap(serverRoles?.length
+            ? Object.fromEntries(serverRoles.map(r => [r.name, r]))
+            : Object.fromEntries(Object.entries(ROLES).map(([k,v]) => [k, {name:k, ...v, pages: v.pages ?? [], can: v.can ?? []}])));
+          setUser(me);
+          return;
+        }
+      }
+    };
+    if (!getToken() && !(isConfigOk() && !isDemoMode())) recoverDemoSession();
+
     const onExpired = () => { setToken(null); setUser(null); };
     window.addEventListener('auth:expired', onExpired);
-    return () => window.removeEventListener('auth:expired', onExpired);
+    return () => { recoveryCancelled = true; window.removeEventListener('auth:expired', onExpired); };
   }, []);
 
   const handleLogin = async (u) => {
