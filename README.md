@@ -162,7 +162,7 @@ One backend, one database. The intelligence layer is **derivation-only and idemp
 - **Asset Intelligence** — derived capabilities (provider, model, mcp, database, shell, …) and findings across security / performance / operations / dependency / inventory; finding lifecycle open → dismissed/resolved → reopen; full catalog in [docs/asset_intelligence.md](docs/asset_intelligence.md)
 - **AI Agent Runtime Security Intelligence** — agent-specific, environment-aware security findings (`source=runtime_security`): database/API reach, MCP in production, broad tool surface, unknown providers, missing ownership, repeated tool errors, human-review combinations ([docs](docs/ai_agent_runtime_security_intelligence.md))
 - **Detection Rules & Alerts** — built-in threshold rules over the same evidence (`source=detection_rules`): MCP tool-access threshold, repeated tool errors, unknown provider in production; evaluated during the intelligence run (never at ingestion), surfaced in Security Intelligence and the **Rules & Alerts** page, with a **webhook notification** path (admin-managed channels, Fernet-encrypted URLs, 60-minute per-finding cooldown, fail-safe delivery) — observe-only, nothing is enforced ([design](docs/ai_agent_detection_rules_alerts_design.md))
-- **Gateway Control Center** — control candidates derived on every intelligence run from open high-severity evidence or human-review recommendations; evidence-backed suggested controls; admin-only actions with sticky dismissal ([architecture](docs/gateway_control_center_architecture.md))
+- **Gateway Control Center** — control candidates derived on every intelligence run from open high-severity evidence or human-review recommendations; evidence-backed suggested controls; admin-only actions with sticky dismissal
 - **Advisory Guardrails** — observe-only: detect, explain, recommend; nothing is blocked
 - **Ownership** — claim assets, assign owner/team; `agent_missing_owner` findings drive the "Agent needs owner" attention card
 
@@ -375,7 +375,7 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 | ✅ | Runtime Execution Timeline — session grouping, waterfall API and UI |
 | ✅ | Asset Intelligence — capabilities + findings per AI system, idempotent derivation with occurrence dedup |
 | ✅ | AI Agent Runtime Security Intelligence — agent-specific, environment-aware security findings ([docs](docs/ai_agent_runtime_security_intelligence.md)) |
-| ✅ | Gateway Control Center (GCR2–GCR4) — Observe-to-Control candidates, evidence-backed suggested controls, one-click navigation ([docs](docs/gateway_control_center_architecture.md)) |
+| ✅ | Gateway Control Center (GCR2–GCR4) — Observe-to-Control candidates, evidence-backed suggested controls, one-click navigation |
 | ✅ | **ui2 redesign** — new design system, migrated pages, workspace shell |
 | ✅ | Advisory Guardrails — observe-only guardrail catalog + per-team guard modes |
 | ✅ | OpenAI-compatible + Anthropic-compatible proxies with real streaming |
@@ -417,7 +417,6 @@ The phased forward roadmap — including Detection Rules, Gateway Control GCR5+,
 |---|---|
 | [docs/asset_intelligence.md](docs/asset_intelligence.md) | Full capability + finding catalog |
 | [docs/ai_agent_runtime_security_intelligence.md](docs/ai_agent_runtime_security_intelligence.md) | Runtime security finding types and evidence rules |
-| [docs/gateway_control_center_architecture.md](docs/gateway_control_center_architecture.md) | Observe-to-Control architecture and candidate model |
 | [docs/ai_agent_detection_rules_alerts_design.md](docs/ai_agent_detection_rules_alerts_design.md) | Detection Rules & Alerts design — rule templates, evaluation model, webhook notifications, R0–R8 sequence |
 | [docs/otlp_native_audit.md](docs/otlp_native_audit.md) | The OTLP-native decision record — why the proprietary SDK and runtime-events API were removed |
 | [docs/roadmap.md](docs/roadmap.md) | Phased forward roadmap (O-phases, Observe Advisor) |
