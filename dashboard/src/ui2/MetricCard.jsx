@@ -7,6 +7,11 @@ import { Sparkline } from "./viz.jsx";
  * set in the display face — the number IS the design.
  */
 export default function MetricCard({ label, value, sub, tone = C.text, onClick, trend, trendColor, delta, deltaTone }) {
+  // Long text values (service/request names) scale down and wrap instead of
+  // overflowing the tile; short numerals keep the full display size.
+  const text = value == null ? "—" : String(value);
+  const valueSize = text.length > 26 ? 16.5 : text.length > 18 ? 19 : text.length > 12 ? 24 : 32;
+  const isLongText = text.length > 12;
   return (
     <div onClick={onClick} className={onClick ? "oa-lift" : undefined}
       style={{
@@ -24,7 +29,7 @@ export default function MetricCard({ label, value, sub, tone = C.text, onClick, 
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 32, fontWeight: 700, color: tone, letterSpacing: "-0.03em", lineHeight: 1, fontFamily: FONT.display, fontVariantNumeric: "tabular-nums" }}>
+          <div style={{ fontSize: valueSize, fontWeight: 700, color: tone, letterSpacing: "-0.03em", lineHeight: isLongText ? 1.25 : 1, fontFamily: FONT.display, fontVariantNumeric: "tabular-nums", overflowWrap: "break-word" }}>
             {value ?? "—"}
           </div>
           {sub && <div style={{ fontSize: 10.5, color: C.textMute, fontFamily: FONT.mono, marginTop: 9, lineHeight: 1.5 }}>{sub}</div>}
